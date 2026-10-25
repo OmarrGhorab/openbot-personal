@@ -12,7 +12,7 @@ import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
   GLOBAL_VOICE_ISLAND,
-  GLOBAL_VOICE_ISLAND_SPRING,
+  GLOBAL_VOICE_ISLAND_MORPH_MS,
   globalVoicePickerSize,
   globalVoiceTextDirection,
   type IslandSize,
@@ -94,6 +94,8 @@ export function GlobalVoiceSurface() {
   let generation = 0;
   /** A hold ended while the microphone was still opening. */
   let stopWhenReady = false;
+  /** True while the island shrinks into the notch. A press then opens it again, as if it were hidden. */
+  let closing = false;
   let timers: Array<ReturnType<typeof setTimeout>> = [];
   let searchBox: HTMLDivElement | undefined;
   let reviewBox: HTMLDivElement | undefined;
@@ -140,7 +142,9 @@ export function GlobalVoiceSurface() {
   function paintIsland(size: IslandSize, fromNotch: boolean): void {
     const element = shell;
     if (!element) return;
-    const from = fromNotch ? GLOBAL_VOICE_ISLAND.notch : shellSize;
+    // An interrupted morph starts from the size on screen, not the old target, so Escape or a second
+    // press mid-animation bends the shape instead of jumping it.
+    const from = fromNotch ? GLOBAL_VOICE_ISLAND.notch : drawnSize(element);
     shellSize = size;
     element.style.width = `${size.width}px`;
     element.style.height = `${size.height}px`;
@@ -153,7 +157,7 @@ export function GlobalVoiceSurface() {
       return;
     }
     shellAnimation = element.animate(islandMorphKeyframes(from, size, reducedMotion()), {
-      duration: reducedMotion() ? 120 : GLOBAL_VOICE_ISLAND_SPRING.response * 1000,
+      duration: reducedMotion() ? 120 : GLOBAL_VOICE_ISLAND_MORPH_MS,
       easing: "linear",
       fill: "both",
     });
@@ -161,10 +165,17 @@ export function GlobalVoiceSurface() {
     shellAnimation.addEventListener("cancel", reveal);
   }
 
+  function drawnSize(element: HTMLElement): IslandSize {
+    if (shellAnimation?.playState !== "running") return shellSize;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? { width: rect.width, height: rect.height } : shellSize;
+  }
+
   function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
     // Solid 2 holds writes until a flush. Without it the size and the keyboard below were read from
     // the phase before: the review grew to the picker size and then jumped, and "sending" took focus.
     flush();
+    closing = false;
     if (shell) delete shell.dataset.collapsing;
     const fromNotch = state.view === "hidden";
     const size = islandSize(view);
@@ -188,7 +199,9 @@ export function GlobalVoiceSurface() {
   createEffect(
     () => (state.view === "hidden" ? null : islandSize(state.view)),
     (size) => {
-      if (!size || (size.width === shellSize.width && size.height === shellSize.height)) return;
+      // A closing island keeps shrinking. This effect runs after the flush, and repainting the old view
+      // here cancelled the collapse, so a double press left an empty pill on screen.
+      if (!size || closing || (size.width === shellSize.width && size.height === shellSize.height)) return;
       paintIsland(size, false);
     },
   );
@@ -207,9 +220,13 @@ export function GlobalVoiceSurface() {
     });
     // The content fades out first, so nothing is squeezed while the shape shrinks into the notch.
     if (shell) shell.dataset.collapsing = "true";
+    closing = true;
     paintIsland(GLOBAL_VOICE_ISLAND.notch, false);
     const animation = shellAnimation;
-    const finish = () => setView("hidden", false);
+    const finish = () => {
+      closing = false;
+      setView("hidden", false);
+    };
     if (animation) animation.onfinish = finish;
     else finish();
   }
@@ -422,6 +439,25 @@ export function GlobalVoiceSurface() {
   }
 
   function applyCommand(command: GlobalVoiceCommand): void {
+    if (closing) {
+      // The window is still on screen while it collapses, so main sends the press here. Act as a
+      // fresh opening: the picker shortcut used to move a highlight nobody could see.
+      if (command.type === "choose") {
+        set(
+          "highlight",
+          Math.max(
+            0,
+            state.agents.findIndex((agent) => agent.agentId === state.targetId),
+          ),
+        );
+        set("query", "");
+        showIsland("picker", false);
+        searchBox?.querySelector("input")?.focus();
+      } else if (command.type === "agent") {
+        startFor(command.agentId, state.holdToTalk);
+      }
+      return;
+    }
     if (command.type === "cancel") {
       cancel();
       return;
@@ -460,6 +496,9 @@ export function GlobalVoiceSurface() {
       startFor(command.agentId, state.holdToTalk);
     } else if (state.phase === "idle") {
       startFor(command.agentId, state.holdToTalk);
+    } else if (state.phase === "preparing" && !state.sessionHold && state.targetId === command.agentId) {
+      // A double press before the microphone is ready closes the island, as a second tap would.
+      cancel();
     } else if (state.phase === "listening" && state.targetId === command.agentId && !state.sessionHold) {
       void stopAndDeliver();
     } else if (state.phase === "listening" && state.sessionHold) {

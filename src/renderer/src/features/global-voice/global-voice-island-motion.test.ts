@@ -27,6 +27,13 @@ describe("global voice island motion", () => {
     );
   });
 
+  it("settles before the last frame, so the spring never snaps at the end", () => {
+    const to = GLOBAL_VOICE_ISLAND.review;
+    const frames = islandMorphKeyframes(GLOBAL_VOICE_ISLAND.pill, to, false);
+    const beforeLast = px(frames.at(-2)?.height);
+    expect(Math.abs(beforeLast - to.height)).toBeLessThan(1);
+  });
+
   it("keeps the notch round and the top corners square", () => {
     expect(islandRadius(GLOBAL_VOICE_ISLAND.notch)).toBe(16);
     const first = islandMorphKeyframes(GLOBAL_VOICE_ISLAND.notch, GLOBAL_VOICE_ISLAND.pill, false)[0];

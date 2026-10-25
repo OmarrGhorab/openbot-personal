@@ -1,7 +1,10 @@
-import { springKeyframes } from "@openbot/ui/spring-motion";
+import { springProgress } from "@openbot/ui/spring-motion";
 
 /** A spring of about 300 ms with a small overshoot, like the Dynamic Island. */
-export const GLOBAL_VOICE_ISLAND_SPRING = { response: 0.32, dampingFraction: 0.74 } as const;
+/** One spring for width, height and corner radius: about 0.8 damping, settled in about 450 ms. */
+export const GLOBAL_VOICE_ISLAND_SPRING = { response: 0.4, dampingFraction: 0.8 } as const;
+/** How long the morph runs. The spring is within half a percent of rest by then. */
+export const GLOBAL_VOICE_ISLAND_MORPH_MS = 450;
 
 export const GLOBAL_VOICE_ISLAND = {
   notch: { width: 180, height: 32 },
@@ -50,7 +53,7 @@ export function islandMorphKeyframes(from: IslandSize, to: IslandSize, reducedMo
   }
   const fromRadius = islandRadius(from);
   const toRadius = islandRadius(to);
-  return springKeyframes(GLOBAL_VOICE_ISLAND_SPRING, (progress) => ({
+  return islandSpringKeyframes((progress) => ({
     opacity: Math.min(1, 0.4 + progress * 2),
     width: `${Math.max(0, from.width + (to.width - from.width) * progress)}px`,
     height: `${Math.max(0, from.height + (to.height - from.height) * progress)}px`,
@@ -68,4 +71,17 @@ export function globalVoiceTextDirection(value: string): "rtl" | "ltr" {
   const arabic = value.match(/\p{Script=Arabic}/gu)?.length ?? 0;
   const latin = value.match(/\p{Script=Latin}/gu)?.length ?? 0;
   return arabic > latin ? "rtl" : "ltr";
+}
+
+/**
+ * Samples the spring over the whole morph, overshoot included. The shared helper stops at the
+ * response time and stretches the curve to reach 1 there, which cut the spring short.
+ */
+function islandSpringKeyframes(frame: (progress: number) => Keyframe, sampleCount = 45): Keyframe[] {
+  const seconds = GLOBAL_VOICE_ISLAND_MORPH_MS / 1000;
+  return Array.from({ length: sampleCount + 1 }, (_, index) => {
+    const offset = index / sampleCount;
+    const progress = index === sampleCount ? 1 : springProgress(offset * seconds, GLOBAL_VOICE_ISLAND_SPRING);
+    return { ...frame(progress), offset };
+  });
 }

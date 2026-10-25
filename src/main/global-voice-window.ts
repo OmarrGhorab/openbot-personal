@@ -72,8 +72,6 @@ export interface GlobalVoiceControllerOptions {
   promptAccessibility: () => Promise<void>;
   promptMicrophone: () => Promise<void>;
   readMicrophone: () => GlobalVoiceState["microphone"];
-  /** Brings the app forward so the island can take the keyboard. */
-  activateApp: () => void;
   /** Shows the main window on the agent's chat. */
   openAgentChat: (agentId: string) => void;
   /** Called as the island shows and hides, so the idle Dynamic Island can give the notch to it. */
@@ -196,8 +194,8 @@ export class GlobalVoiceController {
     window.setIgnoreMouseEvents(!input.interactive, { forward: true });
     window.setFocusable(input.keyboard);
     if (!input.keyboard) return;
-    this.#options.activateApp();
-    window.show();
+    // The window is a panel: it becomes the key window without activating OpenBot, so the app the
+    // user works in stays in front and gets the keyboard back when the island hides.
     window.focus();
   }
 
@@ -410,13 +408,12 @@ export class GlobalVoiceController {
     this.#options.onVisibleChange?.(true);
     this.#options.placeWindow(window, state.view);
     // The pill never takes the keyboard, so the app the user works in keeps it. The picker does,
-    // for its search field, and takes it without activating OpenBot.
+    // for its search field. A panel takes it without activating OpenBot, so nothing comes to the front.
     const picker = state.view === "picker";
     // Clicks pass through until the window reports the pointer over the drawn island. The window is
     // 520 by 520 at the top of the screen, and a blank part of it must not block the apps below.
     window.setIgnoreMouseEvents(true, { forward: true });
     window.setFocusable(picker);
-    if (picker) this.#options.activateApp();
     // showInactive does nothing on macOS while the app is in the background. A hidden window is the
     // failure Omar saw: the shortcut logged a press and the island never appeared.
     window.showInactive();

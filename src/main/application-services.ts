@@ -930,9 +930,6 @@ export async function createApplicationServices({
     promptAccessibility: promptGlobalVoiceAccessibility,
     promptMicrophone: promptGlobalVoiceMicrophone,
     readMicrophone: readGlobalVoiceMicrophone,
-    activateApp: () => {
-      if (process.platform === "darwin") app.focus({ steal: true });
-    },
     openAgentChat: (agentId) => {
       void windows.ensureMainWindow().then((window) => {
         showMainWindow(window);
