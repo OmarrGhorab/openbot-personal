@@ -234,7 +234,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
               const pcm = audio.slice(WAV_HEADER_BYTES);
               const audioSeconds = (pcm.byteLength / BYTES_PER_SECOND).toFixed(1);
               return yield* Effect.gen({ self: this }, function* () {
-                const text = yield* this.#request(pcm, modelId, settings.language);
+                const text = yield* this.#request(pcm, modelId, settings.language, settings.fallbackLanguage);
                 if (text.length > INPUT_LIMITS.messageText)
                   return yield* new VoiceOperationError({ cause: new Error("The voice transcript is too long.") });
                 logger.info(`Voice transcription of ${audioSeconds}s completed in ${Date.now() - startedAt}ms.`);
@@ -383,6 +383,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
     pcm: Uint8Array,
     modelId: LocalVoiceModelId,
     language: VoiceSettings["language"],
+    fallbackLanguage: VoiceSettings["fallbackLanguage"],
   ): Effect.Effect<string, VoiceOperationError> {
     return Effect.callback<string, VoiceOperationError>((resume) => {
       this.#cancelIdleStop();
@@ -405,6 +406,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
         modelDirectory: this.#models[modelId].directory,
         engine,
         language: engine === "whisper" && language !== AUTOMATIC_VOICE_LANGUAGE ? language : "",
+        fallbackLanguage: engine === "whisper" ? (fallbackLanguage ?? "") : "",
         leadingSilenceSamples: LEADING_SILENCE_SAMPLES[modelId],
         pcm,
       });

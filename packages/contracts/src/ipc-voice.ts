@@ -114,11 +114,21 @@ export interface VoiceSettings {
   modelId: VoiceModelId;
   /** Used only by a model that `supportsLanguage`. */
   language: VoiceLanguage;
+  /**
+   * The language hint for automatic detection: a phrase detected as a language outside
+   * `WHISPER_LANGUAGES` is transcribed in this one. Choosing a fixed language also sets it.
+   */
+  fallbackLanguage?: WhisperLanguage;
 }
 
+/**
+ * Automatic by default: a fixed language turns speech in the other language into nonsense, and
+ * Arabic speakers often mix in English words.
+ */
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   modelId: DEFAULT_VOICE_MODEL_ID,
-  language: "ar",
+  language: AUTOMATIC_VOICE_LANGUAGE,
+  fallbackLanguage: "ar",
 };
 
 export type VoiceModelPhase = "missing" | "downloading" | "ready" | "error";
