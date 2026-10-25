@@ -1,12 +1,17 @@
 # Personal OpenBot tasks
 
 ## 1. Languages: English and Arabic (Egyptian) only, with RTL
-- [ ] Add `ar` (Egyptian Arabic, `ar-EG`, Egyptian flag) to `APP_LANGUAGES` and `TRANSLATED_LOCALES`
-- [ ] Add `packages/i18n/src/messages/ar/` catalogs and translate keys
-- [ ] Add Arabic CLDR plural rule to `plural.ts` and label to `languages.ts`
-- [ ] Add RTL: set `dir="rtl"` on `<html>` for Arabic in desktop, web and mobile; fix layout spots
-- [ ] Remove de, es, fr, it, ja, ko, pl, pt, ru, tr, zh catalogs and all references
-- [ ] Map saved removed-language preferences to `system` safely
+- [x] Add `ar` (Egyptian Arabic, `ar-EG`, Egyptian flag) to `APP_LANGUAGES` and `TRANSLATED_LOCALES`
+- [x] Add `packages/i18n/src/messages/ar/` catalogs and translate keys (all 9447 keys)
+- [x] Add Arabic CLDR plural rule to `plural.ts` and label to `languages.ts`
+- [x] Add RTL: set `dir="rtl"` on `<html>` for Arabic in desktop, web and mobile; fix layout spots
+- [x] Remove de, es, fr, it, ja, ko, pl, pt, ru, tr, zh catalogs and all references
+- [x] Map saved removed-language preferences to `system` safely
+- [ ] Device check: mobile RTL needs a launch on an Arabic phone (not confirmed)
+- [ ] Decide: dictation languages (`SPEECH_LANGUAGES`, `language.name.*`) stay; confirm
+- [ ] Review Arabic copy by a native speaker (machine draft, Egyptian colloquial)
+- [ ] Old `whats-new-releases.json` entries still name removed languages (history); decide
+- [ ] Run `bun run i18n:check` in CI and `bun scripts/i18n-fit-e2e.ts --locales=ar` for layout fit
 
 ## 2. Voice shortcut
 - [ ] Find the mic / dictation code in the composer
