@@ -1,6 +1,7 @@
 import {
   type CreateHostedServerInput,
   type DeleteHostedServerInput,
+  HOSTED_SERVER_PURCHASES_ENABLED,
   HOSTING_DEVELOPER_KEY_HEADER,
   type HostedServerCatalog,
   type HostedServerCheckout,
@@ -118,7 +119,9 @@ export class HostedServerDesktopService {
         this.#lastRunningAt.set(server.serverId, this.now());
         this.onRunning(server.serverId);
       }
-      return list;
+      // The one switch of the purchase UI: with it off, the plus button, the settings add button and
+      // the hosted server upsell all read `available: false`. Existing servers still show.
+      return HOSTED_SERVER_PURCHASES_ENABLED ? list : { ...list, available: false };
     }).pipe(Effect.provide(this.#platform));
   }
 

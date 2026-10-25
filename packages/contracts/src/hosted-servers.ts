@@ -89,6 +89,16 @@ export const HOSTED_SERVER_CONTACT_URL = `mailto:hello@openbot.run?subject=${enc
   HOSTED_SERVER_CONTACT_SUBJECT,
 )}&body=${encodeURIComponent(HOSTED_SERVER_CONTACT_BODY)}`;
 /**
+ * The purchase switch of this build. `false`: the desktop app reports no hosted server purchase, so it
+ * shows no plan, Stripe Checkout or upgrade prompt, and the plus button opens the join dialog. A
+ * self-hosted server (`scripts/install-server.sh`) needs no plan. The account service checks no plan
+ * when a host that the account owns registers, gets a ticket or starts a session. The member limit of
+ * the server plan still applies to invited members, and the owner always fits in it. Set `true` to
+ * offer hosted servers again.
+ */
+export const HOSTED_SERVER_PURCHASES_ENABLED = false;
+
+/**
  * A development build sends the shared developer key in this header. A Worker with the same
  * `HOSTED_SERVERS_DEVELOPER_KEY` lets the account create servers, as the allow list does.
  */
@@ -122,7 +132,10 @@ export interface HostedServerStatus {
 
 export interface HostedServerList {
   lifecycleAvailable?: boolean;
-  /** False when this account cannot create hosted servers, or when the account server has no billing. */
+  /**
+   * False when this account cannot create hosted servers, when the account server has no billing, or
+   * when this build has `HOSTED_SERVER_PURCHASES_ENABLED` off (the desktop app sets it).
+   */
   available: boolean;
   servers: HostedServerSummary[];
   /**

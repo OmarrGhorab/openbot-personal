@@ -7,6 +7,33 @@ and control it from a terminal.
 
 To run it in a container, see [Docker](docker.md).
 
+## VPS setup
+
+Use this for your own VPS. A self-hosted server needs no paid plan in this build: the desktop app
+shows no hosted server plan, checkout or upgrade prompt. The steps:
+
+1. Create an Ubuntu 24.04 or 26.04 VPS (x86_64 or arm64) with systemd. Sign in over SSH.
+2. Install and sign in (the details are in [Install](#install)):
+
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
+   sudo openbot login
+   ```
+
+   To use your own account service, add its URL after the `--`:
+   `... | sudo bash -s -- --auth-api-url https://api.example.com`. Then `sudo openbot login`.
+3. Check the server: `openbot status` and `openbot logs -f`.
+4. Connect the desktop app. Sign in with the same account. The server then shows in the server list.
+   With your own account service, start the app with the same two variables as in
+   [self-hosting.md, step 4](self-hosting.md#4-start-the-app): `OPENBOT_AUTH_API_URL` and
+   `OPENBOT_REMOTE_SIGNAL_URL`. The app does not need the IP address of the VPS.
+
+**Ports and TLS.** The server publishes no port, so it needs no inbound port and no certificate of
+its own. Open only SSH, for administration. The server connects out: HTTPS to the account service,
+and a secure WebSocket (`wss:`) to Signal. The default services already have their certificates.
+A self-hosted Signal gets its certificates from ACME (see
+[self-hosting.md, step 3](self-hosting.md#3-start-signal-and-turn)).
+
 ## Install
 
 On Ubuntu 24.04 or 26.04 (x86_64 or arm64) with systemd:
