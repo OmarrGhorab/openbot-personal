@@ -89,6 +89,8 @@ export class GlobalVoiceController {
   #openings = 0;
   #destroyed = false;
   #keyRelease: GlobalVoiceKeyRelease = "ready";
+  /** True while Settings is recording a shortcut, so the keys are not also global shortcuts. */
+  #capturingShortcut = false;
 
   constructor(options: GlobalVoiceControllerOptions) {
     this.#options = options;
@@ -118,6 +120,21 @@ export class GlobalVoiceController {
       keyRelease: this.#keyRelease,
       microphone: this.#options.readMicrophone(),
     };
+  }
+
+  /**
+   * Pauses every global voice shortcut while a field records a new one, then registers them again.
+   * Without the pause, Option+V is eaten by the live shortcut and the field only sees V.
+   */
+  setCapturingShortcut(capturing: boolean): GlobalVoiceState {
+    this.#capturingShortcut = capturing;
+    logger.info(
+      capturing
+        ? "Global voice shortcuts are paused while a shortcut is recorded."
+        : "Global voice shortcuts are registered again.",
+    );
+    this.#registerShortcuts();
+    return this.getState();
   }
 
   /** Saves the preference and registers its shortcuts again. Writes run in the order of the calls. */
@@ -209,7 +226,7 @@ export class GlobalVoiceController {
       })),
     ];
     this.#shortcuts = entries.map(({ target, accelerator }) => {
-      if (!preference.enabled) return { target, accelerator, status: "disabled" };
+      if (!preference.enabled || this.#capturingShortcut) return { target, accelerator, status: "disabled" };
       return {
         target,
         accelerator,
@@ -228,13 +245,27 @@ export class GlobalVoiceController {
       .map((shortcut) => shortcut.accelerator);
     this.#options.keyRelease.setAccelerators(accelerators, process.platform);
     const access = this.#options.readAccessibility();
-    const hold = this.#preference.enabled && this.#preference.captureMode === "hold";
+    const hold = this.#preference.enabled && this.#preference.captureMode === "hold" && !this.#capturingShortcut;
     if (!hold || access === "denied") {
       this.#options.keyRelease.stop();
       this.#keyRelease = access === "denied" ? "needs-accessibility" : "ready";
+      if (this.#preference.captureMode === "hold" && access === "denied") {
+        logger.warn("Hold-to-talk needs Accessibility. The shortcut uses a tap until it is allowed.", {
+          arch: process.arch,
+          platform: process.platform,
+        });
+      }
       return;
     }
     this.#keyRelease = this.#options.keyRelease.start();
+    if (this.#keyRelease === "ready") {
+      logger.info("The key-release hook is running.", { arch: process.arch, platform: process.platform });
+    } else {
+      logger.warn("The key-release hook did not start. The shortcut uses a tap.", {
+        arch: process.arch,
+        platform: process.platform,
+      });
+    }
   }
 
   /** A key-up of a shortcut that is held. The window decides whether that ends the recording. */
@@ -316,8 +347,27 @@ export class GlobalVoiceController {
       holdToTalk: this.#preference.captureMode === "hold" && this.#keyRelease === "ready",
       keyRelease: this.#keyRelease,
     };
-    this.#applyView({ view: request.type === "choose" ? "picker" : "pill", listening: false });
-    if (!window.webContents.isLoading()) sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
+    const view = request.type === "choose" ? "picker" : "pill";
+    this.#applyView({ view, listening: false });
+    this.#deliverSnapshot(window);
+  }
+
+  /** Sends the opening to the window. A load that has not finished gets it again from did-finish-load. */
+  #deliverSnapshot(window: BrowserWindow): void {
+    if (this.#destroyed || this.#window !== window || window.isDestroyed() || !this.#snapshot) return;
+    const sent = sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
+    if (sent) {
+      logger.info("The global voice window received its opening.", {
+        id: this.#snapshot.id,
+        view: this.#view.view,
+        visible: window.isVisible(),
+      });
+      return;
+    }
+    logger.warn("The global voice window is not ready for its opening yet.", {
+      loading: window.webContents.isLoading(),
+      visible: window.isVisible(),
+    });
   }
 
   /** Shows the window in a view, and registers Tab and Escape only while the dictation listens. */
@@ -337,13 +387,24 @@ export class GlobalVoiceController {
     const picker = state.view === "picker";
     window.setIgnoreMouseEvents(!picker, { forward: true });
     window.setFocusable(picker);
-    if (picker) {
-      this.#options.activateApp();
+    if (picker) this.#options.activateApp();
+    // showInactive does nothing on macOS while the app is in the background. A hidden window is the
+    // failure Omar saw: the shortcut logged a press and the island never appeared.
+    window.showInactive();
+    if (!window.isVisible()) {
+      logger.warn("showInactive left the global voice window hidden. Showing it.");
       window.show();
-      window.focus();
-    } else {
-      window.showInactive();
     }
+    if (picker) window.focus();
+    const bounds = window.getBounds();
+    logger.info("The global voice window is on screen.", {
+      view: state.view,
+      visible: window.isVisible(),
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    });
   }
 
   #ensureWindow(): BrowserWindow {
@@ -351,8 +412,11 @@ export class GlobalVoiceController {
     const window = this.#options.createWindow();
     this.#window = window;
     window.webContents.on("did-finish-load", () => {
-      if (this.#window !== window || window.isDestroyed() || !window.isVisible() || !this.#snapshot) return;
-      sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
+      logger.info("The global voice window finished loading.");
+      this.#deliverSnapshot(window);
+    });
+    window.webContents.on("did-fail-load", (_event, code, description) => {
+      logger.error("The global voice window failed to load.", { code, description });
     });
     window.on("closed", () => {
       if (this.#window === window) this.#window = null;

@@ -1083,6 +1083,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         globalVoicePreference = clone(preference);
         return globalVoiceState();
       },
+      setCapturingShortcut: async () => globalVoiceState(),
       getPickerSnapshot: async () => null,
       setView: async () => undefined,
       onPickerOpened: () => () => undefined,

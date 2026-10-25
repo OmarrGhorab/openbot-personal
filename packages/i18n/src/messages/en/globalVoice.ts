@@ -63,7 +63,8 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.settings.record": "Press the new keys…",
   "globalVoice.settings.recordLabel": "Change the shortcut for {name}",
   "globalVoice.settings.recordHint":
-    "Press a key, or a modifier (Option, Control, Shift or Cmd) with a key. F1 to F12 work alone. Escape cancels.",
+    "Press Option, Control, Shift or Command with a key. A key alone is not a shortcut. Escape cancels.",
+  "globalVoice.settings.modifierRequired": "Hold Option, Control, Shift or Command, then press the key.",
   "globalVoice.settings.change": "Change",
   "globalVoice.settings.cancel": "Cancel",
   "globalVoice.settings.bareKeyWarning":

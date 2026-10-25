@@ -19,6 +19,8 @@ body {
 
 .global-voice-island {
   box-sizing: border-box;
+  min-width: 180px;
+  min-height: 32px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

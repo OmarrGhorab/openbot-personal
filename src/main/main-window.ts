@@ -756,6 +756,9 @@ export function createGlobalVoiceWindow(): BrowserWindow {
     skipTaskbar: true,
     hiddenInMissionControl: true,
     hasShadow: false,
+    // macOS Sonoma clips a transparent window to its rounded corners and can leave it blank.
+    roundedCorners: false,
+    enableLargerThanScreen: true,
     type: "panel",
     backgroundColor: "#00000000",
     webPreferences: {

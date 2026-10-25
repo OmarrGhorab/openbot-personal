@@ -296,6 +296,15 @@ export function createSettingsVoiceStore(active: () => boolean) {
     setReadReplies,
     setGlobalVoiceEnabled: (enabled: boolean) => void saveGlobalVoice({ enabled }),
     setGlobalVoiceAccelerator: (accelerator: string) => void saveGlobalVoice({ accelerator }),
+    setGlobalVoiceCapturing: (capturing: boolean) =>
+      void voicePort()
+        .globalVoice.setCapturingShortcut(capturing)
+        .then((next) => {
+          setState((draft) => {
+            draft.globalVoice = next;
+          });
+        })
+        .catch((error: unknown) => fail(error, "globalVoice.settings.saveFailed")),
     setGlobalVoicePickerAccelerator: (pickerAccelerator: string) => void saveGlobalVoice({ pickerAccelerator }),
     setGlobalVoiceSendAfterSpeaking: (sendAfterSpeaking: boolean) => void saveGlobalVoice({ sendAfterSpeaking }),
     setGlobalVoiceCaptureMode: (captureMode: GlobalVoicePreference["captureMode"]) =>

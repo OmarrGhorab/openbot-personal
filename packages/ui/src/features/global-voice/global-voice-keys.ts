@@ -1,7 +1,10 @@
 /** A key press turned into an accelerator, or the reason it cannot be one. */
-export type GlobalVoiceKeyResult = { accelerator: string } | { error: "keyNotAllowed" };
+export type GlobalVoiceKeyResult = { accelerator: string } | { error: "keyNotAllowed" | "modifierRequired" };
 
-type KeyboardKeys = Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">;
+type KeyboardKeys = Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey"> & {
+  /** Present on a real event. A test can omit it. Option on a Mac can set this when `altKey` is false. */
+  getModifierState?: ((key: string) => boolean) | undefined;
+};
 
 /** Keys that name themselves in an accelerator, by their `KeyboardEvent.code`. */
 const NAMED_KEYS: Record<string, string> = {
@@ -23,19 +26,26 @@ const NAMED_KEYS: Record<string, string> = {
 
 /**
  * The accelerator of a key press, read from its physical key (`code`), so a Mac's Option layer
- * does not change the letter. Returns null while only modifiers are held. Keys that cannot start a
- * shortcut return an error. A key with no modifier is allowed; see `isBareTypingKey`.
+ * does not change the letter. Returns null while only modifiers are held. A key with no modifier
+ * is refused: it would swallow that key in every other app. Option is read from `altKey` and from
+ * `getModifierState`, because a Mac can report Option in only one of them.
  */
 export function globalVoiceAcceleratorFromKeyboard(keys: KeyboardKeys, isMac: boolean): GlobalVoiceKeyResult | null {
   const key = keyFromCode(keys.code);
   if (key === null) return null;
   if (key === undefined) return { error: "keyNotAllowed" };
   const modifiers: string[] = [];
-  if (keys.metaKey) modifiers.push(isMac ? "Command" : "Super");
-  if (keys.ctrlKey) modifiers.push("Control");
-  if (keys.altKey) modifiers.push("Alt");
-  if (keys.shiftKey) modifiers.push("Shift");
+  if (modifierDown(keys, "Meta", keys.metaKey)) modifiers.push(isMac ? "Command" : "Super");
+  if (modifierDown(keys, "Control", keys.ctrlKey)) modifiers.push("Control");
+  if (modifierDown(keys, "Alt", keys.altKey)) modifiers.push("Alt");
+  if (modifierDown(keys, "Shift", keys.shiftKey)) modifiers.push("Shift");
+  if (modifiers.length === 0) return { error: "modifierRequired" };
   return { accelerator: [...modifiers, key].join("+") };
+}
+
+function modifierDown(keys: KeyboardKeys, name: "Alt" | "Control" | "Meta" | "Shift", flag: boolean): boolean {
+  if (flag) return true;
+  return keys.getModifierState?.(name) ?? false;
 }
 
 /** True for a letter, digit or Space with no modifier: a global shortcut on it stops that key in every app. */

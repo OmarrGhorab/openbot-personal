@@ -20,10 +20,11 @@ describe("global voice picker sender", () => {
 });
 
 describe("global voice inputs", () => {
-  it("accepts a key alone, and refuses a key or modifier it does not know", () => {
+  it("refuses a key with no modifier, and a key or modifier it does not know", () => {
     const base = { enabled: true, pickerAccelerator: "Alt+Shift+Space", sendAfterSpeaking: true, agentShortcuts: [] };
-    expect(toGlobalVoicePreference({ ...base, accelerator: "V" })).not.toBeNull();
-    expect(toGlobalVoicePreference({ ...base, accelerator: "F8" })).not.toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "V" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "F8" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "Alt+V" })).not.toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Control+Space" })).not.toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Hyper+V" })).toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Alt+Alt+V" })).toBeNull();

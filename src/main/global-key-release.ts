@@ -221,7 +221,11 @@ export function createGlobalKeyRelease(): GlobalKeyRelease {
         }
         return "ready";
       } catch (error) {
-        logger.warn("The key-release hook did not start.", { error: toLogValue(error) });
+        logger.warn("The key-release hook did not start.", {
+          arch: process.arch,
+          platform: process.platform,
+          error: toLogValue(error),
+        });
         return "unavailable";
       }
     },

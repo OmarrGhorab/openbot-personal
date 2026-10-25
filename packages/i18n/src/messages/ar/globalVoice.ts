@@ -60,7 +60,8 @@ export const messages = {
   "globalVoice.settings.record": "اضغط الزراير الجديدة…",
   "globalVoice.settings.recordLabel": "غيّر الاختصار بتاع {name}",
   "globalVoice.settings.recordHint":
-    "دوس زرار، أو زرار تعديل (Option أو Control أو Shift أو Cmd) مع زرار. F1 لحد F12 بيشتغلوا لوحدهم. Escape بيلغي.",
+    "دوس Option أو Control أو Shift أو Command مع زرار. الزرار لوحده مش اختصار. Escape بيلغي.",
+  "globalVoice.settings.modifierRequired": "امسك Option أو Control أو Shift أو Command، وبعدين دوس الزرار.",
   "globalVoice.settings.change": "غيّر",
   "globalVoice.settings.cancel": "إلغاء",
   "globalVoice.settings.bareKeyWarning":

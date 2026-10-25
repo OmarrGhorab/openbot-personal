@@ -13,6 +13,11 @@ import {
 } from "@openbot/contracts/ipc";
 import { isObject, requireString } from "./validation";
 
+export function parseGlobalVoiceCapturing(input: unknown): boolean {
+  if (typeof input !== "boolean") throw new Error("Global voice capture state is invalid.");
+  return input;
+}
+
 export function parseGlobalVoicePreference(input: unknown): GlobalVoicePreference {
   const preference = toGlobalVoicePreference(input);
   if (!preference) throw new Error("Global voice preference is invalid.");

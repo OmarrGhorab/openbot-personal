@@ -130,12 +130,22 @@ export function GlobalVoiceSurface() {
     element.style.width = `${size.width}px`;
     element.style.height = `${size.height}px`;
     shellAnimation?.cancel();
+    const reveal = () => {
+      element.style.opacity = "1";
+      element.style.removeProperty("transform");
+    };
+    if (typeof element.animate !== "function") {
+      reveal();
+      return;
+    }
     const frames = islandScaleKeyframes(from, size, reducedMotion());
     shellAnimation = element.animate(frames, {
       duration: reducedMotion() ? 120 : 400,
       easing: "linear",
       fill: "both",
     });
+    shellAnimation.addEventListener("finish", reveal);
+    shellAnimation.addEventListener("cancel", reveal);
   }
 
   function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
@@ -144,7 +154,7 @@ export function GlobalVoiceSurface() {
     const same =
       !fromNotch && state.view === view && shellSize.width === size.width && shellSize.height === size.height;
     // Paint the collapsed scale before the window appears, so the first frame is the notch.
-    if (fromNotch && shell) {
+    if (fromNotch && shell && typeof shell.animate === "function") {
       const notch = GLOBAL_VOICE_ISLAND.notch;
       shell.style.width = `${size.width}px`;
       shell.style.height = `${size.height}px`;
@@ -629,10 +639,10 @@ export function GlobalVoiceSurface() {
               {state.transcript}
             </span>
           </Show>
-          <Show when={state.keyRelease === "needs-accessibility" && state.phase === "listening"}>
+          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
             <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
           </Show>
-          <Show when={state.keyRelease === "unavailable" && state.phase === "listening"}>
+          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
             <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
           </Show>
         </div>
@@ -646,7 +656,7 @@ export function GlobalVoiceSurface() {
             {t("globalVoice.picker.allowMicrophone")}
           </Button>
         </Show>
-        <Show when={state.keyRelease === "needs-accessibility" && state.phase === "listening"}>
+        <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
           <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void allowAccessibility()}>
             {t("globalVoice.picker.allowAccessibility")}
           </Button>

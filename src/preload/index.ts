@@ -664,6 +664,7 @@ const openbotApi: OpenBotDesktopApi = {
   globalVoice: bridgeGroup(IPC_ENDPOINTS.globalVoice, {
     getState: decodeGlobalVoiceState,
     setPreference: decodeGlobalVoiceState,
+    setCapturingShortcut: decodeGlobalVoiceState,
     getPickerSnapshot: decodeNullableGlobalVoicePickerSnapshot,
     pickerOpened: decodeGlobalVoicePickerSnapshot,
     pickerShortcut: decodeGlobalVoiceCommand,

@@ -8,6 +8,7 @@ import { type GlobalVoiceController, requireGlobalVoicePickerSender } from "../g
 import { authorizedHandler, eventHandler, handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import {
   parseGlobalVoiceAgentFocus,
+  parseGlobalVoiceCapturing,
   parseGlobalVoiceInteractiveInput,
   parseGlobalVoicePreference,
   parseGlobalVoiceSendInput,
@@ -29,6 +30,9 @@ export function globalVoiceIpcHandlers({
       getState: handler((): GlobalVoiceState => globalVoice.getState()),
       setPreference: payloadHandler(parseGlobalVoicePreference, (preference) =>
         runCauseEffect(globalVoice.setPreference(preference)),
+      ),
+      setCapturingShortcut: payloadHandler(parseGlobalVoiceCapturing, (capturing) =>
+        globalVoice.setCapturingShortcut(capturing),
       ),
       getPickerSnapshot: eventHandler((event) => {
         fromPicker(event);

@@ -806,6 +806,11 @@ export const IPC_ENDPOINTS = {
   globalVoice: {
     getState: request<undefined, GlobalVoiceState>()("global-voice:get-state"),
     setPreference: request<GlobalVoicePreference, GlobalVoiceState>()("global-voice:set-preference"),
+    /**
+     * Pauses the global shortcuts while Settings records a new one, so the keys reach the field
+     * instead of starting dictation. `true` pauses. `false` registers them again.
+     */
+    setCapturingShortcut: request<boolean, GlobalVoiceState>()("global-voice:set-capturing-shortcut"),
     getPickerSnapshot: request<undefined, GlobalVoicePickerSnapshot | null>()("global-voice:get-picker-snapshot"),
     pickerOpened: event<GlobalVoicePickerSnapshot>()("global-voice:picker-opened"),
     /** A shortcut pressed while the picker is open. The picker decides what it does. */

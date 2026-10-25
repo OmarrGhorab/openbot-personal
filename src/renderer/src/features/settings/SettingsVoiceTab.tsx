@@ -456,6 +456,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                 status={shortcutStatus("dictation")}
                 defaultAccelerator={DEFAULT_GLOBAL_VOICE_PREFERENCE.accelerator}
                 disabled={!globalVoice()?.preference.enabled}
+                onCaptureChange={(capturing) => props.store.setGlobalVoiceCapturing(capturing)}
                 onChange={(accelerator) => {
                   if (accelerator) props.store.setGlobalVoiceAccelerator(accelerator);
                 }}
@@ -474,6 +475,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
                 status={shortcutStatus("picker")}
                 defaultAccelerator={DEFAULT_GLOBAL_VOICE_PREFERENCE.pickerAccelerator}
                 disabled={!globalVoice()?.preference.enabled}
+                onCaptureChange={(capturing) => props.store.setGlobalVoiceCapturing(capturing)}
                 onChange={(accelerator) => {
                   if (accelerator) props.store.setGlobalVoicePickerAccelerator(accelerator);
                 }}
