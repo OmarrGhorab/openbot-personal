@@ -1,4 +1,42 @@
 import type { PartialTranslation } from "../../message";
 import type { messages as source } from "../en/computerUse";
 
-export const messages = {} as const satisfies PartialTranslation<typeof source>;
+export const messages = {
+  "computerUse.permission.screenRecording.title": "تسجيل الشاشة",
+  "computerUse.permission.screenRecording.description": "بيخلّي OpenBot يشوف نوافذ التطبيقات.",
+  "computerUse.permission.screenRecording.pane": "Screen & System Audio Recording",
+  "computerUse.permission.accessibility.title": "تسهيلات الاستخدام",
+  "computerUse.permission.accessibility.description": "بيخلّي OpenBot يضغط ويكتب.",
+  "computerUse.permission.accessibility.pane": "Accessibility",
+  "computerUse.error.check": "OpenBot معرفش يفحص استخدام الكمبيوتر.",
+  "computerUse.error.openSettings": "OpenBot معرفش يفتح System Settings.",
+  "computerUse.error.startDriver": "OpenBot معرفش يشغّل درايفر استخدام الكمبيوتر.",
+  "computerUse.checkAgain": "افحص تاني",
+  "computerUse.checking": "بنفحص استخدام الكمبيوتر",
+  "computerUse.unavailable.title": "استخدام الكمبيوتر مش متاح لسه",
+  "computerUse.permissions.title": "أذونات النظام",
+  "computerUse.permissions.description": "الأذونات بيديرها macOS.",
+  "computerUse.ready.title": "استخدام الكمبيوتر جاهز",
+  "computerUse.ready.description":
+    "OpenBot يقدر يشوف التطبيقات على الكمبيوتر ده ويتعامل معاها. النظام ده مش بيطلب أي إذن إضافي.",
+  "computerUse.openSettingsFailed.title": "معرفناش نفتح System Settings",
+  "computerUse.compact.title": "شغّل استخدام الكمبيوتر",
+  "computerUse.compact.description": "خلّي OpenBot يشوف التطبيقات على الكمبيوتر ده ويتعامل معاها.",
+  "computerUse.granted": "ممنوح",
+  "computerUse.opening": "بنفتح…",
+  "computerUse.manage": "إدارة",
+  "computerUse.grant": "منح",
+  "computerUse.manageLabel": "إدارة {permission}",
+  "computerUse.grantLabel": "منح {permission}",
+  "computerUse.help.title": "شغّل {permission}",
+  "computerUse.help.paneOpen": "System Settings مفتوحة على {pane}.",
+  "computerUse.help.dragLabel": "اسحب {name} جوّه System Settings، أو اضغط علشان تظهره في Finder",
+  "computerUse.help.dragToAdd": "اسحب علشان تضيف",
+  "computerUse.help.findInList": "دوّر على {name} في القائمة.",
+  "computerUse.help.dragIntoList": "اسحب {name}.app جوّه القائمة.",
+  "computerUse.help.turnOn": "شغّل المفتاح.",
+  "computerUse.help.showInFinder": "إظهار في Finder",
+  "computerUse.help.revealFailed": "معرفناش نظهر التطبيق في Finder.",
+  "computerUse.help.dragFailed": "معرفناش نسحب التطبيق.",
+  "computerUse.highlight.working": "OpenBot شغّال في {title}",
+} as const satisfies PartialTranslation<typeof source>;

@@ -1,4 +1,71 @@
 import type { PartialTranslation } from "../../message";
 import type { messages as source } from "../en/skill";
 
-export const messages = {} as const satisfies PartialTranslation<typeof source>;
+export const messages = {
+  "skill.title": "المهارات",
+  "skill.close": "إغلاق المهارات",
+  "skill.detailsDescription": "تفاصيل {name}",
+  "skill.assignedDescription": "المهارات المعيّنة لـ {name}",
+  "skill.addFromMarketplace": "إضافة من السوق",
+  "skill.limitReached": "الإيجنت ده وصل للحد الأقصى وهو {limit} مهارة. احذف مهارة قبل ما تضيف واحدة تانية.",
+  "skill.managedOnHost": "مهارات الإيجنت ده بتتدار من الجهاز المضيف.",
+  "skill.loading": "بنحمّل المهارات…",
+  "skill.loadingDetails": "بنحمّل التفاصيل…",
+  "skill.emptyEnabled": "الإيجنت ده مفيش عنده مهارات مفعّلة.",
+  "skill.emptyAssigned": "الإيجنت ده لسه مفيش عنده مهارات معيّنة.",
+  "skill.folderSkill": "OpenBot مثبّتش المهارة دي. عدّلها أو احذفها من {location}.",
+  "skill.moreFor": "المزيد لـ {name}",
+  "skill.update": "تحديث",
+  "skill.updateName": "تحديث {name}",
+  "skill.enableName": "تفعيل {name}",
+  "skill.repair": "إصلاح",
+  "skill.uninstall": "إلغاء التثبيت",
+  "skill.version": "v{version}",
+  "skill.versionUpdate": "v{installed} · v{available} متاح",
+
+  "skill.loadFailed": "معرفناش نحمّل المهارات.",
+  "skill.loadDetailsFailed": "معرفناش نحمّل تفاصيل المهارة.",
+  "skill.enableFailed": "معرفناش نفعّل المهارة.",
+  "skill.disableFailed": "معرفناش نوقف المهارة.",
+  "skill.removeFailed": "معرفناش نحذف المهارة.",
+  "skill.updateFailed": "معرفناش نحدّث المهارة.",
+
+  "skill.confirm.replaceTitle": "تستبدل التغييرات المحلية؟",
+  "skill.confirm.removeTitle": "تحذف المهارة دي؟",
+  "skill.confirm.replaceBody":
+    "تحديث المهارة دي هيستبدل الملفات المحلية بآخر حزمة للمهارة. تعديلاتك في فولدر المهارة دي هتضيع.",
+  "skill.confirm.removeModifiedBody":
+    "المهارة دي فيها تغييرات محلية في مساحة عمل الإيجنت. الحذف هيمسح الملفات دي. رسائل الشات الأصلية هتفضل موجودة.",
+  "skill.confirm.removeBody": "OpenBot هيشيل المهارة دي من الإيجنت. سجل الشات هيفضل موجود.",
+  "skill.confirm.replace": "استبدال المهارة",
+  "skill.confirm.remove": "حذف المهارة",
+
+  "skill.unavailable.readOnly": "المهارات عن بُعد للقراءة بس.",
+  "skill.unavailable.add": "ضيف المهارة دي علشان تجرّبها.",
+  "skill.unavailable.repair": "أصلح المهارة دي علشان تجرّبها.",
+  "skill.unavailable.updateVersion": "حدّث المهارة دي علشان تجرّب الإصدار ده.",
+  "skill.unavailable.updateRevision": "حدّث المهارة دي علشان تجرّب النسخة دي.",
+  "skill.unavailable.saving": "استنى المهارة دي تخلّص حفظ، وبعدين جرّبها.",
+  "skill.unavailable.composer": "خانة الكتابة بتاعة الإيجنت مش متاحة.",
+
+  "skill.toolbar.source": "مصدر المهارة",
+  "skill.toolbar.all": "الكل",
+  "skill.toolbar.local": "محلية",
+  "skill.toolbar.enabled": "مفعّلة",
+  "skill.toolbar.create": "إنشاء مهارة",
+
+  "skill.local.loadFailed": "معرفناش نحمّل المهارات المحلية.",
+  "skill.local.toggleFailed": "معرفناش نغيّر حالة المهارة.",
+  "skill.local.addFailed": "معرفناش نضيف المهارة المحلية.",
+  "skill.local.back": "رجوع للمهارات المحلية",
+  "skill.local.added": "اتضافت",
+  "skill.local.add": "إضافة مهارة",
+  "skill.local.loading": "بنحمّل المهارات المحلية…",
+  "skill.local.empty": "لسه مفيش مهارات محلية.",
+
+  "skill.preview.label": "معاينة {name}",
+  "skill.preview.creator": "بواسطة {name}",
+  "skill.preview.examplePrompt": "ساعدني أستخدم المهارة دي.",
+  "skill.preview.try": "جرّب المهارة",
+  "skill.preview.linkFailed": "معرفناش نفتح الرابط.",
+} as const satisfies PartialTranslation<typeof source>;
