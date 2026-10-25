@@ -820,6 +820,8 @@ export const IPC_ENDPOINTS = {
     setView: request<GlobalVoiceViewState, void>()("global-voice:set-view"),
     sendTranscript: request<GlobalVoiceSendInput, void>()("global-voice:send-transcript"),
     closePicker: request<undefined, void>()("global-voice:close-picker"),
+    /** The agent chosen in the picker. The next dictation shortcut goes to it in this session. */
+    selectAgent: request<GlobalVoiceAgentFocus, void>()("global-voice:select-agent"),
     /** Asks macOS for Accessibility, then opens the pane when the grant is still missing. */
     openAccessibilitySettings: request<undefined, GlobalVoiceState>()("global-voice:open-accessibility-settings"),
     /** Asks for the microphone, then opens the pane when the grant is still missing. */

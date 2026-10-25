@@ -86,6 +86,8 @@ export class GlobalVoiceController {
   #listeningKeysRegistered = false;
   /** The agent that the last message went to. Dictation goes there unless the user chooses another. */
   #lastAgentId: string | null = null;
+  /** The agent last chosen in the picker in this session, sent or not. It wins over the default. */
+  #pickedAgentId: string | null = null;
   #openings = 0;
   #destroyed = false;
   #keyRelease: GlobalVoiceKeyRelease = "ready";
@@ -168,6 +170,15 @@ export class GlobalVoiceController {
       yield* this.#options.sendTranscript(input.agentId, input.text);
       this.#lastAgentId = input.agentId;
     });
+  }
+
+  /**
+   * The window reports an agent chosen in the picker. The next dictation shortcut goes to it, also
+   * when the picker closes with no message sent. An agent that is not on this computer is ignored.
+   */
+  selectAgent(agentId: string): void {
+    if (this.#destroyed || !this.#options.listAgents().some((agent) => agent.id === agentId)) return;
+    this.#pickedAgentId = agentId;
   }
 
   closePicker(): void {
@@ -431,16 +442,12 @@ export class GlobalVoiceController {
     return window;
   }
 
-  /**
-   * The default agent when one is saved and still on this computer, then the last agent that got a
-   * message, then the most recent.
-   */
   #currentAgentId(): string | null {
-    const agents = this.#pickerAgents();
-    const preferred = this.#preference.defaultAgentId;
-    if (preferred && agents.some((agent) => agent.agentId === preferred)) return preferred;
-    if (this.#lastAgentId && agents.some((agent) => agent.agentId === this.#lastAgentId)) return this.#lastAgentId;
-    return agents[0]?.agentId ?? null;
+    return globalVoiceTargetAgentId(this.#pickerAgents(), {
+      picked: this.#pickedAgentId,
+      preferred: this.#preference.defaultAgentId,
+      last: this.#lastAgentId,
+    });
   }
 
   /** Agents on this computer that the user has not hidden, most recent first. */
@@ -451,6 +458,24 @@ export class GlobalVoiceController {
       .sort((left, right) => activityTime(right) - activityTime(left))
       .map((agent) => ({ agentId: agent.id, name: agent.name, title: agent.title, updatedAt: agent.updatedAt }));
   }
+}
+
+/**
+ * The agent that the dictation shortcut targets. The first that is still in `agents` wins:
+ * 1. the agent last chosen in the picker in this session (the user's most recent explicit choice),
+ * 2. the saved default agent,
+ * 3. the agent that got the last message,
+ * 4. the most recent agent (the first in `agents`).
+ * The picker choice lives in memory only, so the saved default applies again after a restart.
+ */
+export function globalVoiceTargetAgentId(
+  agents: readonly Pick<GlobalVoicePickerAgent, "agentId">[],
+  choices: { picked: string | null; preferred: string | null; last: string | null },
+): string | null {
+  for (const candidate of [choices.picked, choices.preferred, choices.last]) {
+    if (candidate && agents.some((agent) => agent.agentId === candidate)) return candidate;
+  }
+  return agents[0]?.agentId ?? null;
 }
 
 function activityTime(agent: Pick<AgentSummary, "updatedAt">): number {

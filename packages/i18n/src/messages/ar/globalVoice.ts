@@ -45,7 +45,7 @@ export const messages = {
   "globalVoice.settings.mode.toggle": "ضغطتين",
   "globalVoice.settings.defaultAgent.title": "الـ agent الافتراضي",
   "globalVoice.settings.defaultAgent.description":
-    "الـ agent اللي الاختصار بيستخدمه. آخر واحد بيستخدم الـ agent اللي استلم الرسالة اللي فاتت.",
+    "الـ agent اللي الاختصار بيستخدمه. الـ agent اللي تختاره من القائمة بيتقدم عليه لحد ما تقفل OpenBot. آخر واحد بيستخدم الـ agent اللي استلم الرسالة اللي فاتت.",
   "globalVoice.settings.defaultAgent.lastUsed": "آخر واحد",
   "globalVoice.settings.accessibility.title": "Accessibility",
   "globalVoice.settings.accessibility.description": "macOS محتاج Accessibility عشان OpenBot يعرف امتى تسيب الزرار.",

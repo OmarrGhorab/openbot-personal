@@ -7,7 +7,7 @@ vi.mock("electron", () => ({
   app: {},
 }));
 
-const { requireGlobalVoicePickerSender } = await import("./global-voice-window");
+const { globalVoiceTargetAgentId, requireGlobalVoicePickerSender } = await import("./global-voice-window");
 const { parseGlobalVoiceSendInput, parseGlobalVoiceViewState } = await import("./ipc/global-voice-inputs");
 
 describe("global voice picker sender", () => {
@@ -63,5 +63,22 @@ describe("global voice inputs", () => {
     expect(() => parseGlobalVoiceSendInput({ agentId: "agent-1", text: "   " })).toThrow();
     expect(() => parseGlobalVoiceViewState({ view: "everywhere", listening: false })).toThrow();
     expect(parseGlobalVoiceViewState({ view: "pill", listening: true })).toEqual({ view: "pill", listening: true });
+  });
+});
+
+describe("global voice target agent", () => {
+  const agents = [{ agentId: "recent" }, { agentId: "default" }, { agentId: "last" }, { agentId: "picked" }];
+
+  it("targets the agent chosen in the picker before the default, the last sent and the most recent", () => {
+    expect(globalVoiceTargetAgentId(agents, { picked: "picked", preferred: "default", last: "last" })).toBe("picked");
+    expect(globalVoiceTargetAgentId(agents, { picked: null, preferred: "default", last: "last" })).toBe("default");
+    expect(globalVoiceTargetAgentId(agents, { picked: null, preferred: null, last: "last" })).toBe("last");
+    expect(globalVoiceTargetAgentId(agents, { picked: null, preferred: null, last: null })).toBe("recent");
+  });
+
+  it("skips a choice whose agent is no longer on this computer", () => {
+    expect(globalVoiceTargetAgentId(agents, { picked: "gone", preferred: "default", last: "last" })).toBe("default");
+    expect(globalVoiceTargetAgentId(agents, { picked: "gone", preferred: "gone", last: "gone" })).toBe("recent");
+    expect(globalVoiceTargetAgentId([], { picked: "picked", preferred: null, last: null })).toBeNull();
   });
 });

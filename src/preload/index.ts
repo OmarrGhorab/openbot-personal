@@ -671,6 +671,7 @@ const openbotApi: OpenBotDesktopApi = {
     setView: decodeVoid,
     sendTranscript: decodeVoid,
     closePicker: decodeVoid,
+    selectAgent: decodeVoid,
     openAccessibilitySettings: decodeGlobalVoiceState,
     openMicrophoneSettings: decodeGlobalVoiceState,
     setInteractive: decodeVoid,

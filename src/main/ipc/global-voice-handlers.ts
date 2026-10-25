@@ -48,6 +48,9 @@ export function globalVoiceIpcHandlers({
         fromPicker(event);
         globalVoice.closePicker();
       }),
+      selectAgent: authorizedHandler(fromPicker, parseGlobalVoiceAgentFocus, (_event, input) => {
+        globalVoice.selectAgent(input.agentId);
+      }),
       openAccessibilitySettings: handler(() => runCauseEffect(globalVoice.promptAccessibility())),
       openMicrophoneSettings: handler(() => runCauseEffect(globalVoice.promptMicrophone())),
       setInteractive: authorizedHandler(fromPicker, parseGlobalVoiceInteractiveInput, (_event, input) => {

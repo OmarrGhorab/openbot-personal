@@ -326,18 +326,30 @@ export function GlobalVoiceSurface() {
     hide();
   }
 
+  /**
+   * Targets an agent chosen in the picker, and tells main, so the next dictation shortcut goes to it
+   * even when the picker closes before a message is sent.
+   */
+  function pick(agentId: string): void {
+    set("targetId", agentId);
+    void window.openbot.globalVoice.selectAgent({ agentId }).catch(() => undefined);
+  }
+
   /** Chooses an agent from the picker: a new dictation starts, or the target changes while one listens. */
   function choose(agent: GlobalVoicePickerAgent): void {
     if (state.phase === "listening") {
-      set("targetId", agent.agentId);
+      pick(agent.agentId);
       showIsland("pill", true);
       return;
     }
     if (state.phase === "review") {
-      set("targetId", agent.agentId);
+      pick(agent.agentId);
       return;
     }
-    if (state.phase === "idle") startFor(agent.agentId, false);
+    if (state.phase === "idle") {
+      void window.openbot.globalVoice.selectAgent({ agentId: agent.agentId }).catch(() => undefined);
+      startFor(agent.agentId, false);
+    }
   }
 
   function applySnapshot(snapshot: GlobalVoicePickerSnapshot): void {
@@ -385,12 +397,12 @@ export function GlobalVoiceSurface() {
       if (command.source === "picker") {
         const agent = highlightedAgent();
         if (state.phase === "idle" && agent) choose(agent);
-        else if (state.phase === "listening" && agent) set("targetId", agent.agentId);
+        else if (state.phase === "listening" && agent) pick(agent.agentId);
         return;
       }
       if (!state.sessionHold) return;
       const agent = highlightedAgent();
-      if (state.view === "picker" && agent) set("targetId", agent.agentId);
+      if (state.view === "picker" && agent) pick(agent.agentId);
       if (state.phase === "preparing") stopWhenReady = true;
       else void stopAndDeliver();
       return;
