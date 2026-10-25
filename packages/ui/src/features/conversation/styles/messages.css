@@ -1423,3 +1423,45 @@ button.chat-action-target:active,
   content: "·";
   margin-inline-end: var(--openbot-space-1);
 }
+
+/* One agent's chat: the user's bubbles and the send button wear the agent's face colour. The
+   conversation root sets `--agent-accent` and the text tone it passed the contrast check with. */
+[data-agent-accent] {
+  --agent-accent-text: var(--openbot-agent-accent-text-light);
+  --agent-accent-hover: color-mix(in srgb, var(--agent-accent) 86%, var(--agent-accent-text));
+}
+
+[data-agent-accent="dark"] {
+  --agent-accent-text: var(--openbot-agent-accent-text-dark);
+}
+
+[data-agent-accent] .ui-bubble[data-author="user"] {
+  color: var(--agent-accent-text);
+  --file-reference-color: var(--agent-accent-text);
+  --file-reference-soft: color-mix(in srgb, var(--agent-accent-text) 16%, transparent);
+}
+
+[data-agent-accent] .ui-bubble[data-author="user"] > .ui-bubble-content {
+  background: var(--agent-accent);
+}
+
+[data-agent-accent] .ui-bubble[data-author="user"] .message-reply-context {
+  border-inline-start-color: color-mix(in srgb, var(--agent-accent-text) 60%, transparent);
+  color: var(--agent-accent-text);
+}
+
+[data-agent-accent] .composer .voice-button,
+[data-agent-accent] .composer .voice-button-active {
+  background: var(--agent-accent);
+  color: var(--agent-accent-text);
+}
+
+[data-agent-accent] .composer .voice-button:hover:not(:disabled),
+[data-agent-accent] .composer .voice-button.ui-button:hover:not(:disabled) {
+  background: var(--agent-accent-hover);
+  color: var(--agent-accent-text);
+}
+
+[data-agent-accent] .composer .voice-button:disabled {
+  background: color-mix(in srgb, var(--agent-accent) 45%, transparent);
+}

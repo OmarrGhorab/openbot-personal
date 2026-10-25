@@ -1,3 +1,4 @@
+import { agentAccent, agentAccentStyle } from "@openbot/ui/features/conversation/agent-accent";
 import { MessageSelectionActions } from "@openbot/ui/features/conversation/SelectionActions";
 import { useText } from "@openbot/ui/text";
 import { createEffect, Show } from "solid-js";
@@ -38,6 +39,8 @@ export function ConversationView(props: ConversationProps) {
     submitting,
   } = scope;
   const { t } = useText();
+  // One agent's chat wears that agent's face colour; a channel keeps the neutral look.
+  const accent = () => (props.channel ? undefined : agentAccent(props.agent));
   createEffect(
     () => props.globalOverlayOpen,
     (open) => {
@@ -67,7 +70,8 @@ export function ConversationView(props: ConversationProps) {
             "side-panel-maximized": sidePanelOpen() && sidePanel().maximized,
           },
         ]}
-        style={`--settings-panel-width: ${settingsPanelWidth()}px; --browser-panel-width: ${browserPanelWidth()}px; --side-panel-width: ${settingsOpen() ? settingsPanelWidth() : browserPanelWidth()}px`}
+        data-agent-accent={accent()?.tone}
+        style={`${agentAccentStyle(accent())}--settings-panel-width: ${settingsPanelWidth()}px; --browser-panel-width: ${browserPanelWidth()}px; --side-panel-width: ${settingsOpen() ? settingsPanelWidth() : browserPanelWidth()}px`}
         onDragEnter={(event) => {
           if (!props.globalOverlayOpen && event.dataTransfer?.types.includes("Files")) setDropActive(true);
         }}

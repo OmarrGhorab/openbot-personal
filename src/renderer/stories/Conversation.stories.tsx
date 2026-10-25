@@ -2363,3 +2363,12 @@ export const RoutineRunGroupInChat: Story = {
     ],
   },
 };
+
+/** One agent's chat takes the agent's face colour for the user's bubbles and the send button. */
+export const PurpleAgentAccent: Story = {
+  args: { agent: { ...contextStoryAgent, name: "Worker Engineer", avatarHue: 245 } },
+};
+
+export const RedAgentAccent: Story = {
+  args: { agent: { ...contextStoryAgent, name: "Software Engineer", avatarHue: 0 } },
+};

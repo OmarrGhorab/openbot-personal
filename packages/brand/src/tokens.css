@@ -138,6 +138,9 @@
   --openbot-download-card-focus: rgba(242, 242, 242, 0.86);
   --openbot-text-placeholder: #bfbfbf;
   --openbot-text-on-accent: #ffffff;
+  /* Text on an agent's own accent colour; the conversation picks one by a contrast check. */
+  --openbot-agent-accent-text-light: #ffffff;
+  --openbot-agent-accent-text-dark: #141414;
   --openbot-text-on-status: #07130c;
   /* Hue 210, sampled from the reference UIs rather than picked: their status dot is
      #007cf7 and their link and section headings are #42a0ff, both hue 210. The palette
