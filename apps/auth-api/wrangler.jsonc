@@ -336,7 +336,7 @@
         {
           "binding": "DB",
           "database_name": "openbot-auth-omar",
-          "database_id": "00000000-0000-4000-8000-000000000000",
+          "database_id": "d03fb7f2-1f84-4ec3-8a6c-d0b2153c5267",
           "migrations_dir": "migrations"
         }
       ],
