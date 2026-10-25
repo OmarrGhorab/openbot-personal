@@ -142,6 +142,20 @@ export function createMockAuth(options: MockAuthOptions, { emit }: MockRuntime) 
     revokeAccountSession: async (sessionId) => {
       accountSessions = accountSessions.filter((session) => session.sessionId !== sessionId);
     },
+    continueWithoutAccount: async () => {
+      // The same account as `DEVELOPMENT_SKIP_ACCOUNT` in src/main/development-account-skip.ts.
+      authState = {
+        status: "signed_in",
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          email: "local-dev@openbot.invalid",
+          name: "Local development",
+          avatarUrl: null,
+        },
+      };
+      emitAuthState(authState);
+      return clone(authState);
+    },
     logout: async () => {
       authState = { status: "signed_out" };
       emitAuthState(authState);

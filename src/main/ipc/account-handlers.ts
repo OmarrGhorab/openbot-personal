@@ -45,6 +45,7 @@ export function accountIpcHandlers({ centralAuth, host }: AccountIpcDependencies
       revokeMobileConnectedDevice: payloadHandler(stringPayload("sessionId", INPUT_LIMITS.identifier), (sessionId) =>
         runCauseEffect(centralAuth.revokeMobileConnectedDevice(sessionId)),
       ),
+      continueWithoutAccount: handler(() => runCauseEffect(centralAuth.continueWithoutAccount())),
       logout: handler(() => runCauseEffect(centralAuth.logout())),
     },
   };

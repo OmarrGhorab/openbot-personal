@@ -90,6 +90,8 @@ export const messages = defineMessages("account", {
   "account.login.resend": "Resend code",
   "account.login.resendIn": "Resend in {time}",
   "account.login.loadFailed": "OpenBot could not load the account service.",
+  "account.login.continueWithoutAccount": "Continue without account (dev)",
+  "account.login.continueWithoutAccountFailed": "OpenBot could not continue without an account.",
   "account.otp.incorrect": "That code is incorrect. Try again.",
   "account.otp.verifying": "Verifying…",
   "account.otp.entry": "One-time code entry",

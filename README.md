@@ -257,6 +257,17 @@ deletes nothing while a dev app has one of them open. It does not change the pro
 the worktree profiles that `bun run dev` opens (`OpenBot Dev wt-<hash>`), agent workspaces,
 `~/.codex`, or `~/.claude`.
 
+To open the desktop app when the account service is not running, set `OPENBOT_DEV_SKIP_ACCOUNT=1`.
+The app uses a local account and does not call the account service at startup. See
+[The desktop stays on "Connecting to OpenBot"](docs/TROUBLESHOOTING.md#the-desktop-stays-on-connecting-to-openbot).
+`bun run dev` signs in to the local account API, so also set `OPENBOT_DEV_REMOTE_ROLE=none` when you
+want the skip with that command. A packaged Mac app does not receive the variable from `open`. Start
+the program inside the bundle:
+
+```bash
+OPENBOT_DEV_SKIP_ACCOUNT=1 dist/mac/OpenBot.app/Contents/MacOS/OpenBot
+```
+
 `bun run dev` seeds a development profile it creates, so a first start already shows this data.
 `bun run dev:seed` replaces the shared `OpenBot Dev` profile. To use it, quit the dev app, then run:
 

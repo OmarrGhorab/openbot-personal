@@ -745,6 +745,7 @@ const openbotApi: OpenBotDesktopApi = {
     listAccountSessions: decodeAccountSessions,
     revokeAccountSession: decodeVoid,
     revokeMobileConnectedDevice: decodeVoid,
+    continueWithoutAccount: decodeCentralAuthState,
     logout: decodeCentralAuthState,
     event: decodeCentralAuthState,
   }),

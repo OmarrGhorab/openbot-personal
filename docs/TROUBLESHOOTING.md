@@ -1,5 +1,45 @@
 # Troubleshooting OpenBot
 
+## The desktop stays on "Connecting to OpenBot"
+
+The sign-in screen stays on **Connecting to OpenBot** while the desktop app waits for the account
+service. A build with no account service, such as `https://account.openbot.invalid`, cannot leave
+that screen.
+
+You can start without the account service. Set `OPENBOT_DEV_SKIP_ACCOUNT` to `1` before you start
+OpenBot. The app then uses a local account on this computer and opens the normal local flow: first-run
+setup when this computer has not finished it, then the workspace. Local agents, settings, and global
+voice work. A feature that needs the account service fails with an error. It does not close the app.
+
+The variable is off unless you set it to exactly `1`. A Finder or Dock start does not set it. On a
+Mac, `open` does not pass shell variables into the app. Start the program inside the app:
+
+```bash
+OPENBOT_DEV_SKIP_ACCOUNT=1 dist/mac/OpenBot.app/Contents/MacOS/OpenBot
+```
+
+On macOS 15 or newer you can also use `open --env`:
+
+```bash
+open --env OPENBOT_DEV_SKIP_ACCOUNT=1 dist/mac/OpenBot.app
+```
+
+Quit OpenBot first if it is already running. A second start only wakes the running instance, and
+that instance keeps the environment it started with.
+
+`bun run dev` sets `OPENBOT_DEV_REMOTE_ROLE` to `host` or `client`. That path signs in to the local
+account API, so the skip does not apply. To use the skip with the dev app, set the role to `none`:
+
+```bash
+OPENBOT_DEV_SKIP_ACCOUNT=1 OPENBOT_DEV_REMOTE_ROLE=none bun run dev
+```
+
+A development or preview build also shows **Continue without account (dev)** on the sign-in screen.
+A production build does not. The main process refuses that action for a production variant.
+
+The skip does not delete a saved account session. The next start without the variable uses that
+session again. Sign-out from the local account also leaves the saved session on disk.
+
 ## OpenBot says agent CLI setup is required
 
 Open Terminal and verify the CLI:

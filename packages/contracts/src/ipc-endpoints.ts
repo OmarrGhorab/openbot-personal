@@ -1202,6 +1202,7 @@ export const IPC_ENDPOINTS = {
     listAccountSessions: request<undefined, AccountSession[]>()("auth:list-account-sessions"),
     revokeAccountSession: request<string, void>()("auth:revoke-account-session"),
     revokeMobileConnectedDevice: request<string, void>()("auth:revoke-mobile-connected-device"),
+    continueWithoutAccount: request<undefined, CentralAuthState>()("auth:continue-without-account"),
     logout: request<undefined, CentralAuthState>()("auth:logout"),
     event: event<CentralAuthState>()("auth:event"),
   },

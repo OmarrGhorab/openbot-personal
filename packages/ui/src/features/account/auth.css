@@ -90,6 +90,10 @@
   margin-top: 18px;
 }
 
+.account-login-skip {
+  margin-top: 18px;
+}
+
 .account-login-loader {
   min-height: 88px;
   display: flex;
