@@ -1,9 +1,13 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   GLOBAL_VOICE_LIMITS,
+  type GlobalVoiceAgentFocus,
+  type GlobalVoiceInteractiveInput,
   type GlobalVoicePreference,
   type GlobalVoiceSendInput,
   type GlobalVoiceViewState,
+  isGlobalVoiceAgentFocus,
+  isGlobalVoiceInteractiveInput,
   isGlobalVoiceViewState,
   toGlobalVoicePreference,
 } from "@openbot/contracts/ipc";
@@ -25,5 +29,15 @@ export function parseGlobalVoiceSendInput(input: unknown): GlobalVoiceSendInput 
 
 export function parseGlobalVoiceViewState(input: unknown): GlobalVoiceViewState {
   if (!isGlobalVoiceViewState(input)) throw new Error("Global voice view is invalid.");
+  return input;
+}
+
+export function parseGlobalVoiceInteractiveInput(input: unknown): GlobalVoiceInteractiveInput {
+  if (!isGlobalVoiceInteractiveInput(input)) throw new Error("Global voice pointer state is invalid.");
+  return input;
+}
+
+export function parseGlobalVoiceAgentFocus(input: unknown): GlobalVoiceAgentFocus {
+  if (!isGlobalVoiceAgentFocus(input)) throw new Error("Global voice agent is invalid.");
   return input;
 }

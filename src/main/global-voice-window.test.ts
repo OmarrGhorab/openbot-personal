@@ -41,6 +41,23 @@ describe("global voice inputs", () => {
     expect(toGlobalVoicePreference({ ...base, agentShortcuts: [shortcut, shortcut] })).toBeNull();
   });
 
+  it("keeps a saved preference that has no hold mode or default agent", () => {
+    const saved = {
+      enabled: true,
+      accelerator: "Alt+V",
+      pickerAccelerator: "Alt+K",
+      sendAfterSpeaking: true,
+      agentShortcuts: [],
+    };
+    expect(toGlobalVoicePreference(saved)).toMatchObject({ captureMode: "hold", defaultAgentId: null });
+    expect(toGlobalVoicePreference({ ...saved, captureMode: "toggle", defaultAgentId: "agent-1" })).toMatchObject({
+      captureMode: "toggle",
+      defaultAgentId: "agent-1",
+    });
+    expect(toGlobalVoicePreference({ ...saved, captureMode: "push" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...saved, defaultAgentId: "" })).toBeNull();
+  });
+
   it("refuses an empty transcript and an unknown view", () => {
     expect(() => parseGlobalVoiceSendInput({ agentId: "agent-1", text: "   " })).toThrow();
     expect(() => parseGlobalVoiceViewState({ view: "everywhere", listening: false })).toThrow();

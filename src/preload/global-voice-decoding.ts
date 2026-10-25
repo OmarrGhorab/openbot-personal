@@ -3,9 +3,11 @@
 // the renderer reads it.
 
 import {
+  type GlobalVoiceAgentFocus,
   type GlobalVoiceCommand,
   type GlobalVoicePickerSnapshot,
   type GlobalVoiceState,
+  isGlobalVoiceAgentFocus,
   isGlobalVoiceCommand,
   isGlobalVoicePickerSnapshot,
   isGlobalVoiceState,
@@ -28,5 +30,10 @@ export function decodeNullableGlobalVoicePickerSnapshot(value: unknown): GlobalV
 
 export function decodeGlobalVoiceCommand(value: unknown): GlobalVoiceCommand {
   if (!isGlobalVoiceCommand(value)) throw new Error("Invalid global voice command.");
+  return value;
+}
+
+export function decodeGlobalVoiceAgentFocus(value: unknown): GlobalVoiceAgentFocus {
+  if (!isGlobalVoiceAgentFocus(value)) throw new Error("Invalid global voice agent.");
   return value;
 }

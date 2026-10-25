@@ -39,7 +39,7 @@ import {
 } from "@openbot/ui";
 import { GlobalVoiceShortcutField } from "@openbot/ui/features/global-voice/GlobalVoiceShortcutField";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createStore, For, Show } from "solid-js";
+import { createMemo, createSignal, createStore, For, onSettled, Show } from "solid-js";
 import type { SettingsVoiceStore } from "./settings-voice-store";
 
 const MODEL_DESCRIPTION = {
@@ -129,6 +129,15 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
   };
 
   const globalVoice = () => props.store.state.globalVoice;
+  const [voiceAgents, setVoiceAgents] = createSignal<Array<{ id: string; name: string }>>([]);
+  onSettled(() => {
+    void window.openbot.agent
+      .listAgents()
+      .then((agents) => {
+        setVoiceAgents(agents.filter((agent) => !agent.hiddenAt).map((agent) => ({ id: agent.id, name: agent.name })));
+      })
+      .catch(() => undefined);
+  });
   const shortcutStatus = (kind: "dictation" | "picker") =>
     globalVoice()?.shortcuts.find((shortcut) => shortcut.target.type === kind)?.status;
 
@@ -471,6 +480,108 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
               />
             </ItemActions>
           </Item>
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{t("globalVoice.settings.mode.title")}</ItemTitle>
+              <ItemDescription>{t("globalVoice.settings.mode.description")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Select<"hold" | "toggle">
+                class="settings-modal-select"
+                options={["hold", "toggle"]}
+                value={globalVoice()?.preference.captureMode ?? "hold"}
+                onChange={(next) => next && props.store.setGlobalVoiceCaptureMode(next)}
+                disabled={!globalVoice()?.preference.enabled}
+                placement="bottom-end"
+                itemComponent={(selectProps) => (
+                  <SelectItem item={selectProps.item}>
+                    {selectProps.item.rawValue === "hold"
+                      ? t("globalVoice.settings.mode.hold")
+                      : t("globalVoice.settings.mode.toggle")}
+                  </SelectItem>
+                )}
+              >
+                <SelectTrigger size="sm" aria-label={t("globalVoice.settings.mode.title")}>
+                  <SelectValue<"hold" | "toggle">>
+                    {(state) =>
+                      state.selectedOption() === "toggle"
+                        ? t("globalVoice.settings.mode.toggle")
+                        : t("globalVoice.settings.mode.hold")
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent mount={props.selectMount} />
+              </Select>
+            </ItemActions>
+          </Item>
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{t("globalVoice.settings.defaultAgent.title")}</ItemTitle>
+              <ItemDescription>{t("globalVoice.settings.defaultAgent.description")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Select<string>
+                class="settings-modal-select"
+                options={["", ...voiceAgents().map((agent) => agent.id)]}
+                value={globalVoice()?.preference.defaultAgentId ?? ""}
+                onChange={(next) => props.store.setGlobalVoiceDefaultAgent(next ? next : null)}
+                disabled={!globalVoice()?.preference.enabled}
+                placement="bottom-end"
+                itemComponent={(selectProps) => (
+                  <SelectItem item={selectProps.item}>
+                    {selectProps.item.rawValue
+                      ? (voiceAgents().find((agent) => agent.id === selectProps.item.rawValue)?.name ??
+                        selectProps.item.rawValue)
+                      : t("globalVoice.settings.defaultAgent.lastUsed")}
+                  </SelectItem>
+                )}
+              >
+                <SelectTrigger size="sm" aria-label={t("globalVoice.settings.defaultAgent.title")}>
+                  <SelectValue<string>>
+                    {(state) => {
+                      const id = state.selectedOption();
+                      if (!id) return t("globalVoice.settings.defaultAgent.lastUsed");
+                      return voiceAgents().find((agent) => agent.id === id)?.name ?? id;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent mount={props.selectMount} />
+              </Select>
+            </ItemActions>
+          </Item>
+          <Show when={globalVoice()?.keyRelease === "needs-accessibility"}>
+            <Item class="settings-modal-row">
+              <ItemContent>
+                <ItemTitle>{t("globalVoice.settings.accessibility.title")}</ItemTitle>
+                <ItemDescription>{t("globalVoice.settings.accessibility.description")}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button type="button" size="sm" onClick={() => props.store.allowGlobalVoiceAccessibility()}>
+                  {t("globalVoice.settings.accessibility.allow")}
+                </Button>
+              </ItemActions>
+            </Item>
+          </Show>
+          <Show when={globalVoice()?.keyRelease === "unavailable"}>
+            <Item class="settings-modal-row">
+              <ItemContent>
+                <ItemDescription>{t("globalVoice.settings.keyReleaseUnavailable")}</ItemDescription>
+              </ItemContent>
+            </Item>
+          </Show>
+          <Show when={globalVoice()?.microphone === "denied"}>
+            <Item class="settings-modal-row">
+              <ItemContent>
+                <ItemTitle>{t("globalVoice.settings.microphone.title")}</ItemTitle>
+                <ItemDescription>{t("globalVoice.settings.microphone.description")}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button type="button" size="sm" onClick={() => props.store.allowGlobalVoiceMicrophone()}>
+                  {t("globalVoice.settings.microphone.allow")}
+                </Button>
+              </ItemActions>
+            </Item>
+          </Show>
           <SwitchField
             data-settings-row="globalVoice.settings.sendAfterSpeaking.title"
             checked={globalVoice()?.preference.sendAfterSpeaking ?? false}

@@ -8,6 +8,8 @@ import {
   type AgentSummary,
   DEFAULT_GLOBAL_VOICE_PREFERENCE,
   type GlobalVoiceCommand,
+  type GlobalVoiceInteractiveInput,
+  type GlobalVoiceKeyRelease,
   type GlobalVoicePickerAgent,
   type GlobalVoicePickerRequest,
   type GlobalVoicePickerSnapshot,
@@ -25,6 +27,7 @@ import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import type { BrowserWindow } from "electron";
 import { causeHelpers } from "../backend/effect-boundary";
+import type { GlobalKeyRelease } from "./global-key-release";
 import { readGlobalVoicePreference, writeGlobalVoicePreference } from "./global-voice-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
 
@@ -59,6 +62,18 @@ export interface GlobalVoiceControllerOptions {
   listAgents: () => AgentSummary[];
   /** Sends a dictated message to an agent on this computer, as the Dynamic Island does. */
   sendTranscript: (agentId: string, text: string) => Effect.Effect<void, GlobalVoiceFailed>;
+  /** Reports key-up for hold-to-talk. The controller starts it only while hold mode is on. */
+  keyRelease: GlobalKeyRelease;
+  /** `denied` only on macOS when Accessibility is off. Other systems return `unsupported`. */
+  readAccessibility: () => "granted" | "denied" | "unsupported";
+  /** Shows the system prompt and, when it is still missing, the settings pane. */
+  promptAccessibility: () => Promise<void>;
+  promptMicrophone: () => Promise<void>;
+  readMicrophone: () => GlobalVoiceState["microphone"];
+  /** Brings the app forward so the island can take the keyboard. */
+  activateApp: () => void;
+  /** Shows the main window on the agent's chat. */
+  openAgentChat: (agentId: string) => void;
 }
 
 export class GlobalVoiceController {
@@ -73,9 +88,11 @@ export class GlobalVoiceController {
   #lastAgentId: string | null = null;
   #openings = 0;
   #destroyed = false;
+  #keyRelease: GlobalVoiceKeyRelease = "ready";
 
   constructor(options: GlobalVoiceControllerOptions) {
     this.#options = options;
+    options.keyRelease.onRelease((accelerator) => this.#release(accelerator));
   }
 
   /** Reads the saved preference and registers its shortcuts. Call after the app is ready. */
@@ -95,7 +112,12 @@ export class GlobalVoiceController {
   }
 
   getState(): GlobalVoiceState {
-    return { preference: structuredClone(this.#preference), shortcuts: structuredClone(this.#shortcuts) };
+    return {
+      preference: structuredClone(this.#preference),
+      shortcuts: structuredClone(this.#shortcuts),
+      keyRelease: this.#keyRelease,
+      microphone: this.#options.readMicrophone(),
+    };
   }
 
   /** Saves the preference and registers its shortcuts again. Writes run in the order of the calls. */
@@ -135,8 +157,38 @@ export class GlobalVoiceController {
     this.#applyView({ view: "hidden", listening: false });
   }
 
+  /** The island takes clicks only while the pointer is over it, and the keyboard only for the picker. */
+  setInteractive(input: GlobalVoiceInteractiveInput): void {
+    const window = this.window;
+    if (!window) return;
+    window.setIgnoreMouseEvents(!input.interactive, { forward: true });
+    window.setFocusable(input.keyboard);
+    if (!input.keyboard) return;
+    this.#options.activateApp();
+    window.show();
+    window.focus();
+  }
+
+  /** Shows the agent's chat in the main window. The island calls this from its confirmation. */
+  openChat(agentId: string): void {
+    if (!this.#options.listAgents().some((agent) => agent.id === agentId)) return;
+    this.#options.openAgentChat(agentId);
+  }
+
+  readonly promptAccessibility = Effect.fn("GlobalVoice.promptAccessibility")(function* (this: GlobalVoiceController) {
+    yield* Effect.promise(() => this.#options.promptAccessibility());
+    this.#registerShortcuts();
+    return this.getState();
+  }).bind(this);
+
+  readonly promptMicrophone = Effect.fn("GlobalVoice.promptMicrophone")(function* (this: GlobalVoiceController) {
+    yield* Effect.promise(() => this.#options.promptMicrophone());
+    return this.getState();
+  }).bind(this);
+
   destroy(): void {
     this.#destroyed = true;
+    this.#options.keyRelease.stop();
     this.#options.shortcuts.unregisterAll();
     this.#listeningKeysRegistered = false;
     this.#shortcuts = [];
@@ -166,6 +218,34 @@ export class GlobalVoiceController {
     });
     // A listening dictation registers its keys again; the view state is kept by the window.
     if (preference.enabled && this.#view.listening) this.#registerListeningKeys();
+    this.#syncKeyRelease();
+  }
+
+  /** Starts the key-up hook only for hold mode. Toggle does not need to see the release. */
+  #syncKeyRelease(): void {
+    const accelerators = this.#shortcuts
+      .filter((shortcut) => shortcut.status === "active")
+      .map((shortcut) => shortcut.accelerator);
+    this.#options.keyRelease.setAccelerators(accelerators, process.platform);
+    const access = this.#options.readAccessibility();
+    const hold = this.#preference.enabled && this.#preference.captureMode === "hold";
+    if (!hold || access === "denied") {
+      this.#options.keyRelease.stop();
+      this.#keyRelease = access === "denied" ? "needs-accessibility" : "ready";
+      return;
+    }
+    this.#keyRelease = this.#options.keyRelease.start();
+  }
+
+  /** A key-up of a shortcut that is held. The window decides whether that ends the recording. */
+  #release(accelerator: string): void {
+    if (this.#destroyed || this.#preference.captureMode !== "hold" || this.#keyRelease !== "ready") return;
+    const shortcut = this.#shortcuts.find((item) => item.accelerator === accelerator && item.status === "active");
+    const window = this.window;
+    if (!shortcut || !window?.isVisible()) return;
+    const source =
+      shortcut.target.type === "picker" ? "picker" : shortcut.target.type === "agent" ? "agent" : "dictation";
+    this.#command({ type: "release", source });
   }
 
   #register(accelerator: string, onPress: () => void): boolean {
@@ -219,8 +299,8 @@ export class GlobalVoiceController {
       sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerShortcut, command);
       return;
     }
-    // Cancel and Tab have nothing to act on while the window is hidden.
-    if (command.type === "cancel") return;
+    // Cancel, a key release and Tab have nothing to act on while the window is hidden.
+    if (command.type === "cancel" || command.type === "release") return;
     this.#open(window, command);
   }
 
@@ -232,6 +312,9 @@ export class GlobalVoiceController {
       currentAgentId: this.#currentAgentId(),
       agents: this.#pickerAgents(),
       sendAfterSpeaking: this.#preference.sendAfterSpeaking,
+      captureMode: this.#preference.captureMode,
+      holdToTalk: this.#preference.captureMode === "hold" && this.#keyRelease === "ready",
+      keyRelease: this.#keyRelease,
     };
     this.#applyView({ view: request.type === "choose" ? "picker" : "pill", listening: false });
     if (!window.webContents.isLoading()) sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
@@ -251,8 +334,11 @@ export class GlobalVoiceController {
     this.#options.placeWindow(window, state.view);
     // The pill never takes the keyboard, so the app the user works in keeps it. The picker does,
     // for its search field, and takes it without activating OpenBot.
-    window.setFocusable(state.view === "picker");
-    if (state.view === "picker") {
+    const picker = state.view === "picker";
+    window.setIgnoreMouseEvents(!picker, { forward: true });
+    window.setFocusable(picker);
+    if (picker) {
+      this.#options.activateApp();
       window.show();
       window.focus();
     } else {
@@ -281,9 +367,14 @@ export class GlobalVoiceController {
     return window;
   }
 
-  /** The last agent that got a message, if it is still on this computer; otherwise the most recent. */
+  /**
+   * The default agent when one is saved and still on this computer, then the last agent that got a
+   * message, then the most recent.
+   */
   #currentAgentId(): string | null {
     const agents = this.#pickerAgents();
+    const preferred = this.#preference.defaultAgentId;
+    if (preferred && agents.some((agent) => agent.agentId === preferred)) return preferred;
     if (this.#lastAgentId && agents.some((agent) => agent.agentId === this.#lastAgentId)) return this.#lastAgentId;
     return agents[0]?.agentId ?? null;
   }

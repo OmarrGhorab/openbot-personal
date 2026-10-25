@@ -266,7 +266,9 @@ import type {
 } from "./ipc-events";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
 import type {
+  GlobalVoiceAgentFocus,
   GlobalVoiceCommand,
+  GlobalVoiceInteractiveInput,
   GlobalVoicePickerSnapshot,
   GlobalVoicePreference,
   GlobalVoiceSendInput,
@@ -813,6 +815,16 @@ export const IPC_ENDPOINTS = {
     setView: request<GlobalVoiceViewState, void>()("global-voice:set-view"),
     sendTranscript: request<GlobalVoiceSendInput, void>()("global-voice:send-transcript"),
     closePicker: request<undefined, void>()("global-voice:close-picker"),
+    /** Asks macOS for Accessibility, then opens the pane when the grant is still missing. */
+    openAccessibilitySettings: request<undefined, GlobalVoiceState>()("global-voice:open-accessibility-settings"),
+    /** Asks for the microphone, then opens the pane when the grant is still missing. */
+    openMicrophoneSettings: request<undefined, GlobalVoiceState>()("global-voice:open-microphone-settings"),
+    /** The island takes pointer events only while the pointer is over it. */
+    setInteractive: request<GlobalVoiceInteractiveInput, void>()("global-voice:set-interactive"),
+    /** Shows the main window on the agent that received the dictated message. */
+    openChat: request<GlobalVoiceAgentFocus, void>()("global-voice:open-chat"),
+    /** Main tells the main window to show that agent's chat. */
+    focusAgent: event<GlobalVoiceAgentFocus>()("global-voice:focus-agent"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view

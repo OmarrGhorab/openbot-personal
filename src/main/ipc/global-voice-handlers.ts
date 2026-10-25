@@ -7,6 +7,8 @@ import { runCauseEffect } from "../../backend/effect-boundary";
 import { type GlobalVoiceController, requireGlobalVoicePickerSender } from "../global-voice-window";
 import { authorizedHandler, eventHandler, handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import {
+  parseGlobalVoiceAgentFocus,
+  parseGlobalVoiceInteractiveInput,
   parseGlobalVoicePreference,
   parseGlobalVoiceSendInput,
   parseGlobalVoiceViewState,
@@ -41,6 +43,14 @@ export function globalVoiceIpcHandlers({
       closePicker: eventHandler((event) => {
         fromPicker(event);
         globalVoice.closePicker();
+      }),
+      openAccessibilitySettings: handler(() => runCauseEffect(globalVoice.promptAccessibility())),
+      openMicrophoneSettings: handler(() => runCauseEffect(globalVoice.promptMicrophone())),
+      setInteractive: authorizedHandler(fromPicker, parseGlobalVoiceInteractiveInput, (_event, input) => {
+        globalVoice.setInteractive(input);
+      }),
+      openChat: authorizedHandler(fromPicker, parseGlobalVoiceAgentFocus, (_event, input) => {
+        globalVoice.openChat(input.agentId);
       }),
     },
   };

@@ -184,6 +184,13 @@ import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFail
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
+import { createGlobalKeyRelease } from "./global-key-release";
+import {
+  promptGlobalVoiceAccessibility,
+  promptGlobalVoiceMicrophone,
+  readGlobalVoiceAccessibility,
+  readGlobalVoiceMicrophone,
+} from "./global-voice-permissions";
 import { GlobalVoiceController, GlobalVoiceFailed, toGlobalVoiceFailed } from "./global-voice-window";
 import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
@@ -913,6 +920,20 @@ export async function createApplicationServices({
           () => host.conversationSender(),
         ).pipe(toGlobalVoiceFailed);
       }),
+    keyRelease: createGlobalKeyRelease(),
+    readAccessibility: () => readGlobalVoiceAccessibility(false),
+    promptAccessibility: promptGlobalVoiceAccessibility,
+    promptMicrophone: promptGlobalVoiceMicrophone,
+    readMicrophone: readGlobalVoiceMicrophone,
+    activateApp: () => {
+      if (process.platform === "darwin") app.focus({ steal: true });
+    },
+    openAgentChat: (agentId) => {
+      void windows.ensureMainWindow().then((window) => {
+        showMainWindow(window);
+        sendToRenderer(window, IPC_ENDPOINTS.globalVoice.focusAgent, { agentId });
+      });
+    },
   });
   teardown.push(TEARDOWN_ORDER.globalVoice, "the global voice shortcuts", () => globalVoice.destroy());
   const centralAuthApiUrl = readCentralAuthApiUrl(

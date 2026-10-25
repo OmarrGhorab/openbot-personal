@@ -217,6 +217,7 @@ import {
   decodeDynamicIslandPresentation,
 } from "./dynamic-island-decoding";
 import {
+  decodeGlobalVoiceAgentFocus,
   decodeGlobalVoiceCommand,
   decodeGlobalVoicePickerSnapshot,
   decodeGlobalVoiceState,
@@ -669,6 +670,11 @@ const openbotApi: OpenBotDesktopApi = {
     setView: decodeVoid,
     sendTranscript: decodeVoid,
     closePicker: decodeVoid,
+    openAccessibilitySettings: decodeGlobalVoiceState,
+    openMicrophoneSettings: decodeGlobalVoiceState,
+    setInteractive: decodeVoid,
+    openChat: decodeVoid,
+    focusAgent: decodeGlobalVoiceAgentFocus,
   }),
   computerUse: bridgeGroup(IPC_ENDPOINTS.computerUse, {
     getState: decodeComputerUseState,

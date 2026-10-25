@@ -1,83 +1,118 @@
-/* The global voice window: the pill during a dictation, and the picker of agents. */
+/* The global voice island. It hangs from the top centre of the screen, in the notch area.
+   Size and motion come from transforms in the component, so this file does not animate layout. */
 
 html,
 body {
   background: transparent;
 }
 
-.global-voice-pill,
-.global-voice-picker {
+.global-voice-stage {
   box-sizing: border-box;
-  height: 100vh;
   width: 100vw;
-  overflow: hidden;
+  height: 100vh;
   display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: transparent;
+  pointer-events: none;
+}
+
+.global-voice-island {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  transform-origin: top center;
   color: var(--openbot-text-primary);
-  background: var(--openbot-bg-surface-raised);
-  border: 1px solid var(--openbot-border);
+  background: var(--openbot-bg-notch);
+  /* The top edge stays square so the shape sits flush with the screen, like the notch. */
+  border-radius: 0 0 var(--openbot-radius-modal) var(--openbot-radius-modal);
   box-shadow: var(--openbot-shadow-dialog);
   font-family: var(--openbot-font-sans);
   font-size: var(--openbot-text-sm);
 }
 
-.global-voice-pill {
+.global-voice-pill-body,
+.global-voice-review {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
   align-items: center;
   gap: 10px;
-  padding: 0 16px;
-  border-radius: var(--openbot-radius-pill);
+  padding: 8px 14px 10px;
 }
 
-.global-voice-pill-dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-text-muted);
+.global-voice-review {
+  flex-direction: column;
+  align-items: stretch;
 }
 
-.global-voice-pill[data-phase="listening"] .global-voice-pill-dot {
-  background: var(--openbot-accent);
-}
-
-.global-voice-pill[data-phase="sent"] .global-voice-pill-dot {
-  background: var(--openbot-success-text);
-}
-
-.global-voice-pill-body {
+.global-voice-pill-copy {
   display: flex;
   min-width: 0;
   flex: 1;
   flex-direction: column;
 }
 
-.global-voice-pill-phase,
-.global-voice-pill-transcript,
-.global-voice-pill-error {
+.global-voice-phase,
+.global-voice-transcript,
+.global-voice-error,
+.global-voice-note,
+.global-voice-option-name,
+.global-voice-option-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.global-voice-pill-phase {
+.global-voice-phase {
   font-weight: 600;
 }
 
-.global-voice-pill-transcript {
-  color: var(--openbot-text-secondary);
+.global-voice-transcript,
+.global-voice-note,
+.global-voice-option-title,
+.global-voice-hint,
+.global-voice-empty,
+.global-voice-review-label {
+  color: var(--openbot-text-muted);
 }
 
-.global-voice-pill-error {
+.global-voice-error {
   color: var(--openbot-danger-text);
 }
 
-.global-voice-picker {
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: var(--openbot-radius-modal);
+.global-voice-wave {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
 }
 
-.global-voice-search-input {
+.global-voice-wave span {
+  display: block;
+  width: 3px;
+  height: 16px;
+  transform-origin: center;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+}
+
+.global-voice-open {
+  flex: none;
+  color: var(--openbot-text-primary);
+}
+
+.global-voice-search {
+  padding: 12px 12px 0;
+}
+
+.global-voice-search-input,
+.global-voice-review-text {
   box-sizing: border-box;
   width: 100%;
   padding: 8px 10px;
@@ -88,27 +123,47 @@ body {
   font: inherit;
 }
 
-.global-voice-search-input:focus-visible {
+.global-voice-search-input:focus-visible,
+.global-voice-review-text:focus-visible,
+.global-voice-option:focus-visible,
+.global-voice-open:focus-visible {
   outline: 2px solid var(--openbot-border-focus);
   outline-offset: 1px;
 }
 
 .global-voice-list {
+  --voice-row: 44px;
+  position: relative;
+  box-sizing: border-box;
   margin: 0;
-  padding: 0;
+  padding: 4px 0;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  list-style: none;
+}
+
+.global-voice-highlight {
+  position: absolute;
+  z-index: 0;
+  inset-inline: 8px;
+  height: var(--voice-row);
+  transform: translateY(calc(var(--voice-index, 0) * var(--voice-row)));
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+  transition: transform var(--openbot-duration-island-content) var(--openbot-ease-out);
+  pointer-events: none;
 }
 
 .global-voice-option {
+  position: relative;
+  z-index: 1;
   box-sizing: border-box;
   display: flex;
   width: 100%;
+  height: var(--voice-row);
   align-items: center;
   gap: 10px;
-  padding: 8px;
+  padding: 0 16px;
   border: 0;
   border-radius: var(--openbot-radius-md);
   background: transparent;
@@ -116,15 +171,6 @@ body {
   font: inherit;
   text-align: start;
   cursor: pointer;
-}
-
-.global-voice-option:focus-visible {
-  outline: 2px solid var(--openbot-border-focus);
-  outline-offset: -2px;
-}
-
-.global-voice-option[aria-selected="true"] {
-  background: var(--openbot-bg-control-hover);
 }
 
 .global-voice-option[data-current="true"] .global-voice-option-name::after {
@@ -153,58 +199,25 @@ body {
   flex-direction: column;
 }
 
-.global-voice-option-name,
-.global-voice-option-title {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.global-voice-option-title,
-.global-voice-picker-hint,
-.global-voice-empty,
-.global-voice-review-label {
-  color: var(--openbot-text-muted);
-}
-
 .global-voice-option-key {
   flex: none;
   color: var(--openbot-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.global-voice-empty {
-  margin: 12px 0;
-  text-align: center;
-}
-
-.global-voice-review {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
+.global-voice-empty,
+.global-voice-hint {
+  margin: 8px 12px;
 }
 
 .global-voice-review-text {
-  box-sizing: border-box;
   min-height: 0;
   flex: 1;
   resize: none;
-  padding: 8px 10px;
-  border: 1px solid var(--openbot-border);
-  border-radius: var(--openbot-radius-md);
-  background: var(--openbot-bg-control);
-  color: var(--openbot-text-primary);
-  font: inherit;
 }
 
-.global-voice-picker-error {
-  margin: 0;
-  color: var(--openbot-danger-text);
-}
-
-.global-voice-picker-hint {
-  margin: 0;
-  font-size: var(--openbot-text-sm);
+@media (prefers-reduced-motion: reduce) {
+  .global-voice-highlight {
+    transition: none;
+  }
 }

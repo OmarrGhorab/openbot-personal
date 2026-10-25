@@ -262,9 +262,14 @@ const Navigation = createSimpleContext({
       };
       window.addEventListener("keydown", onKeyDown);
       window.addEventListener("mouseup", onMouseUp);
+      // The voice island sends a message without opening the window, then this shows that chat.
+      const stopVoiceFocus = window.openbot.globalVoice.onFocusAgent(({ agentId }) => {
+        selectAgent(agentId);
+      });
       return () => {
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("mouseup", onMouseUp);
+        stopVoiceFocus();
       };
     });
 
