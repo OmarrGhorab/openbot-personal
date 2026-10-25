@@ -6,12 +6,13 @@ import { isDynamicRecord } from "./runtime-values";
 // cancels. Saved in `global-voice-preference.json`; never rename the file or a field.
 
 /**
- * The dictation shortcut. Not Alt+Space: on macOS that types a no-break space in every other app,
- * and on Windows it opens the system menu of the focused window.
+ * The dictation shortcut: Option+V on macOS (Alt+V on a PC keyboard). A key without a modifier is
+ * not offered: a global V would stop the letter in every other app. Not Alt+Space: on macOS that
+ * types a no-break space in every other app, and on Windows it opens the system menu.
  */
-export const GLOBAL_VOICE_DEFAULT_ACCELERATOR = "CommandOrControl+Shift+Space";
-/** The shortcut that opens the agent picker. */
-export const GLOBAL_VOICE_DEFAULT_PICKER_ACCELERATOR = "Alt+Shift+Space";
+export const GLOBAL_VOICE_DEFAULT_ACCELERATOR = "Alt+V";
+/** The shortcut that opens the agent picker: Option+K, or Alt+K on a PC keyboard. */
+export const GLOBAL_VOICE_DEFAULT_PICKER_ACCELERATOR = "Alt+K";
 
 export const GLOBAL_VOICE_LIMITS = {
   /** Direct shortcuts, one for each agent at most. */

@@ -167,6 +167,7 @@ export class GlobalVoiceController {
     try {
       const registered = this.#options.shortcuts.register(accelerator, onPress);
       if (!registered) logger.warn("A global voice shortcut is taken by another app.", { accelerator });
+      else logger.info("A global voice shortcut is registered.", { accelerator });
       return registered;
     } catch (error) {
       logger.warn("A global voice shortcut could not be registered.", { accelerator, error: toLogValue(error) });
@@ -191,6 +192,7 @@ export class GlobalVoiceController {
   /** A registered shortcut, or Tab and Escape while listening, becomes a command for the window. */
   #press(target: GlobalVoiceShortcutTarget): void {
     if (this.#destroyed) return;
+    logger.info("A global voice shortcut was pressed.", { target: target.type });
     if (target.type === "picker") {
       this.#command({ type: "choose" });
       return;

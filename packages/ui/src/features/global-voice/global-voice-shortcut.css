@@ -1,0 +1,77 @@
+.global-voice-shortcut-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--openbot-space-1-5);
+  max-width: 360px;
+}
+
+.global-voice-shortcut-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.global-voice-shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  min-width: 120px;
+  justify-content: center;
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-control);
+  padding-inline: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font: inherit;
+  font-size: var(--openbot-text-md);
+  cursor: pointer;
+}
+
+.global-voice-shortcut-keys:hover:not(:disabled) {
+  border-color: var(--openbot-border-focus);
+}
+
+.global-voice-shortcut-keys:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.global-voice-shortcut-keys[data-recording] {
+  border-style: dashed;
+  border-color: var(--openbot-border-focus);
+}
+
+.global-voice-shortcut-caps {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+}
+
+.global-voice-shortcut-cap {
+  height: 22px;
+  padding-inline: var(--openbot-space-1-5);
+  color: var(--openbot-text-primary);
+  font-family: inherit;
+  font-size: var(--openbot-text-sm);
+}
+
+.global-voice-shortcut-prompt {
+  color: var(--openbot-text-muted);
+}
+
+.global-voice-shortcut-hint,
+.global-voice-shortcut-error {
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  text-align: end;
+}
+
+.global-voice-shortcut-hint {
+  color: var(--openbot-text-muted);
+}
+
+.global-voice-shortcut-error {
+  color: var(--openbot-danger-text);
+}

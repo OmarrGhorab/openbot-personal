@@ -12,6 +12,7 @@ export const messages = {
   "globalVoice.picker.hintListening": "اضغط الاختصار تاني أو Enter عشان تبعت. Escape بيلغي.",
   "globalVoice.picker.hintReview": "راجع الرسالة. Enter بيبعتها. Escape بيقفل.",
   "globalVoice.picker.preparing": "بجهّز الميكروفون",
+  "globalVoice.picker.downloading": "بنزّل موديل الصوت، {percent}%. ده بيحصل مرة واحدة بس.",
   "globalVoice.picker.listening": "بسمع {agent}",
   "globalVoice.picker.transcribing": "بكتب اللي قلته",
   "globalVoice.picker.sending": "بابعت لـ {agent}",
@@ -33,9 +34,12 @@ export const messages = {
   "globalVoice.settings.sendAfterSpeaking.title": "ابعت بعد الكلام",
   "globalVoice.settings.sendAfterSpeaking.description":
     "أول ما تقف، الرسالة تتبعت للـ agent. لو مقفول، الرسالة تفضل في القايمة عشان تراجعها الأول.",
-  "globalVoice.settings.record": "اضغط الاختصار",
+  "globalVoice.settings.record": "اضغط الزراير الجديدة…",
   "globalVoice.settings.recordLabel": "غيّر الاختصار بتاع {name}",
-  "globalVoice.settings.recordHint": "اضغط الزراير. Escape بيسيب الاختصار زي ما هو.",
+  "globalVoice.settings.recordHint":
+    "دوس على زرار تعديل (Option أو Control أو Shift أو Cmd)، وبعدين دوس حرف. Escape بيلغي.",
+  "globalVoice.settings.change": "غيّر",
+  "globalVoice.settings.cancel": "إلغاء",
   "globalVoice.settings.reset": "رجّعه",
   "globalVoice.settings.turnOff": "اقفله",
   "globalVoice.settings.needsModifier": "لازم تمسك Command أو Control أو Alt أو Shift مع الزرار.",

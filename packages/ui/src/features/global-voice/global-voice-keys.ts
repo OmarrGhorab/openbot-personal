@@ -66,6 +66,23 @@ export function formatGlobalVoiceAccelerator(accelerator: string, isMac: boolean
   return isMac ? parts.join("") : parts.join("+");
 }
 
+/** The keys of an accelerator as keycap labels, each with its symbol and name: "⌥ Option", "V". */
+export function globalVoiceAcceleratorKeys(accelerator: string, isMac: boolean): string[] {
+  return accelerator.split("+").map((part) => {
+    if (part === "CommandOrControl") return isMac ? "⌘ Cmd" : "Ctrl";
+    if (part === "Command") return "⌘ Cmd";
+    if (part === "Super") return isMac ? "⌘ Cmd" : "Win";
+    if (part === "Control") return isMac ? "⌃ Control" : "Ctrl";
+    if (part === "Alt") return isMac ? "⌥ Option" : "Alt";
+    if (part === "Shift") return isMac ? "⇧ Shift" : "Shift";
+    if (part === "Up") return "↑";
+    if (part === "Down") return "↓";
+    if (part === "Left") return "←";
+    if (part === "Right") return "→";
+    return part;
+  });
+}
+
 export function isMacPlatform(): boolean {
   return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 }

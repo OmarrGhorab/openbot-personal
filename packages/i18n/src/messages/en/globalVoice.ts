@@ -12,6 +12,7 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.picker.hintListening": "Press the shortcut again or Enter to send. Escape cancels.",
   "globalVoice.picker.hintReview": "Check the message. Enter sends it. Escape closes.",
   "globalVoice.picker.preparing": "Getting the microphone ready",
+  "globalVoice.picker.downloading": "Downloading the voice model, {percent}%. This happens once.",
   "globalVoice.picker.listening": "Listening to {agent}",
   "globalVoice.picker.transcribing": "Writing down what you said",
   "globalVoice.picker.sending": "Sending to {agent}",
@@ -35,9 +36,12 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.settings.sendAfterSpeaking.title": "Send after speaking",
   "globalVoice.settings.sendAfterSpeaking.description":
     "When you stop, the message goes to the agent. Off keeps it in the picker, so you can check it first.",
-  "globalVoice.settings.record": "Press keys",
+  "globalVoice.settings.record": "Press the new keys…",
   "globalVoice.settings.recordLabel": "Change the shortcut for {name}",
-  "globalVoice.settings.recordHint": "Press the keys. Escape keeps the shortcut as it was.",
+  "globalVoice.settings.recordHint":
+    "Hold a modifier (Option, Control, Shift or Cmd), then press a key. Escape cancels.",
+  "globalVoice.settings.change": "Change",
+  "globalVoice.settings.cancel": "Cancel",
   "globalVoice.settings.reset": "Reset",
   "globalVoice.settings.turnOff": "Turn off",
   "globalVoice.settings.needsModifier": "Hold Command, Control, Alt or Shift with the key.",

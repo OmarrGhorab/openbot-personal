@@ -30,6 +30,8 @@ interface SurfaceState {
   highlight: number;
   transcript: string;
   error: string | null;
+  /** The model download, in percent, while the first dictation waits for it. */
+  download: number | null;
 }
 
 /**
@@ -52,6 +54,7 @@ export function GlobalVoiceSurface() {
     highlight: 0,
     transcript: "",
     error: null,
+    download: null,
   });
   /** Sets one field of the state. The store takes a draft only, as this Solid release requires. */
   const set = <Key extends keyof SurfaceState>(key: Key, value: SurfaceState[Key]) => {
@@ -280,6 +283,9 @@ export function GlobalVoiceSurface() {
     const api = window.openbot.globalVoice;
     const stopOpened = api.onPickerOpened(applySnapshot);
     const stopShortcut = api.onPickerShortcut(applyCommand);
+    const stopModel = window.openbot.voice.onModelStatus((status) =>
+      set("download", status.phase === "downloading" ? Math.round(status.progress ?? 0) : null),
+    );
     void api.getPickerSnapshot().then((snapshot) => {
       if (snapshot) applySnapshot(snapshot);
     });
@@ -291,6 +297,7 @@ export function GlobalVoiceSurface() {
     return () => {
       stopOpened();
       stopShortcut();
+      stopModel();
       window.removeEventListener("blur", onBlur);
       clearLater();
       dictation.cancel();
@@ -349,7 +356,9 @@ export function GlobalVoiceSurface() {
   const phaseText = () => {
     switch (state.phase) {
       case "preparing":
-        return t("globalVoice.picker.preparing");
+        return state.download === null
+          ? t("globalVoice.picker.preparing")
+          : t("globalVoice.picker.downloading", { percent: state.download });
       case "listening":
         return t("globalVoice.picker.listening", { agent: targetName() });
       case "transcribing":

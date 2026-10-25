@@ -1,8 +1,15 @@
 import type { GlobalVoiceShortcutStatus } from "@openbot/contracts/ipc";
-import { createSignal, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { Button } from "../../button";
+import { Kbd } from "../../surface";
 import { useText } from "../../text";
-import { formatGlobalVoiceAccelerator, globalVoiceAcceleratorFromKeyboard, isMacPlatform } from "./global-voice-keys";
+import {
+  formatGlobalVoiceAccelerator,
+  globalVoiceAcceleratorFromKeyboard,
+  globalVoiceAcceleratorKeys,
+  isMacPlatform,
+} from "./global-voice-keys";
+import "./global-voice-shortcut.css";
 
 export interface GlobalVoiceShortcutFieldProps {
   /** The name of the shortcut, for the button's label. */
@@ -28,8 +35,17 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
   const [recording, setRecording] = createSignal(false);
   const [message, setMessage] = createSignal<string | null>(null);
   const isMac = isMacPlatform();
-  const shown = () =>
-    props.accelerator ? formatGlobalVoiceAccelerator(props.accelerator, isMac) : t("globalVoice.agent.none");
+  const keys = () => (props.accelerator ? globalVoiceAcceleratorKeys(props.accelerator, isMac) : []);
+  let recorder: HTMLButtonElement | undefined;
+  const startRecording = () => {
+    setMessage(null);
+    setRecording(true);
+    recorder?.focus();
+  };
+  const stopRecording = () => {
+    setRecording(false);
+    setMessage(null);
+  };
 
   function onKeyDown(event: KeyboardEvent) {
     if (!recording()) return;
@@ -62,25 +78,49 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
     <div class="global-voice-shortcut-field">
       <div class="global-voice-shortcut-controls">
         <Button
+          ref={recorder}
           type="button"
           variant="outline"
           size="sm"
+          class="global-voice-shortcut-keys"
+          data-recording={recording() ? "" : undefined}
           disabled={props.disabled}
           aria-label={t("globalVoice.settings.recordLabel", { name: props.name })}
           aria-describedby={recording() ? "global-voice-record-hint" : undefined}
-          onClick={() => {
-            setMessage(null);
-            setRecording(true);
-          }}
+          onClick={startRecording}
           onKeyDown={onKeyDown}
-          onBlur={() => {
-            setRecording(false);
-            setMessage(null);
-          }}
+          onBlur={stopRecording}
         >
-          <kbd dir="ltr">{recording() ? t("globalVoice.settings.record") : shown()}</kbd>
+          <Show
+            when={!recording()}
+            fallback={<span class="global-voice-shortcut-prompt">{t("globalVoice.settings.record")}</span>}
+          >
+            <Show when={keys().length > 0} fallback={<span>{t("globalVoice.agent.none")}</span>}>
+              <span class="global-voice-shortcut-caps" dir="ltr">
+                <For each={keys()}>{(key) => <Kbd class="global-voice-shortcut-cap">{key}</Kbd>}</For>
+              </span>
+            </Show>
+          </Show>
         </Button>
-        <Show when={props.defaultAccelerator && props.accelerator !== props.defaultAccelerator}>
+        <Show
+          when={!recording()}
+          fallback={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={stopRecording}
+            >
+              {t("globalVoice.settings.cancel")}
+            </Button>
+          }
+        >
+          <Button type="button" variant="outline" size="sm" disabled={props.disabled} onClick={startRecording}>
+            {t("globalVoice.settings.change")}
+          </Button>
+        </Show>
+        <Show when={!recording() && props.defaultAccelerator && props.accelerator !== props.defaultAccelerator}>
           <Button
             type="button"
             variant="ghost"
@@ -91,7 +131,7 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
             {t("globalVoice.settings.reset")}
           </Button>
         </Show>
-        <Show when={props.clearable && props.accelerator}>
+        <Show when={!recording() && props.clearable && props.accelerator}>
           <Button
             type="button"
             variant="ghost"
