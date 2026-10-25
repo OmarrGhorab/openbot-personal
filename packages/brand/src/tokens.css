@@ -272,6 +272,7 @@
    * sixteen sizes and eight line-heights, four of them a single call site, which is how
    * an 11px size ended up paired with a 26px line-height. scripts/ui-foundation-check.ts
    * holds "untokenized font-size" at zero, so a size that is not here has nowhere to go. */
+  --openbot-text-xs: 11px;
   --openbot-text-sm: 12px;
   --openbot-text-md: 13px;
   --openbot-text-lg: 14px;
@@ -325,6 +326,10 @@
   --openbot-radius-bubble: 22px;
   --openbot-radius-bubble-inset: calc(var(--openbot-radius-bubble) - var(--openbot-space-3) - 1px);
   --openbot-radius-modal: 30px;
+  /* Voice island (Dynamic Island look): always dark, independent of theme. */
+  --openbot-island-bg: rgb(0, 0, 0);
+  --openbot-island-fg: rgb(255, 255, 255);
+  --openbot-island-shadow: rgba(0, 0, 0, 0.42);
   --openbot-radius-media-preview: calc(var(--openbot-radius-lg) - 1px);
   --openbot-radius-pill: 999px;
   --openbot-radius-logo: 20%;

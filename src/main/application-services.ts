@@ -181,7 +181,12 @@ import {
   startDevelopmentRemoteRole,
 } from "./development-remote-bootstrap";
 import { performDynamicIslandCriticalAction } from "./dynamic-island-actions";
-import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFailed } from "./dynamic-island-window";
+import {
+  DynamicIslandFailed,
+  DynamicIslandWindowController,
+  dynamicIslandNotchSizeForDisplay,
+  toDynamicIslandFailed,
+} from "./dynamic-island-window";
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
@@ -909,6 +914,7 @@ export async function createApplicationServices({
     createWindow: createGlobalVoiceWindow,
     loadWindow: loadGlobalVoiceRenderer,
     placeWindow: placeGlobalVoiceWindow,
+    onVisibleChange: (visible) => dynamicIsland.yieldToVoiceIsland(visible),
     listAgents: () => criticalActionTargets?.agents.listAgents() ?? [],
     sendTranscript: (agentId, text) =>
       Effect.suspend(() => {
@@ -929,8 +935,13 @@ export async function createApplicationServices({
     promptAccessibility: promptGlobalVoiceAccessibility,
     promptMicrophone: promptGlobalVoiceMicrophone,
     readMicrophone: readGlobalVoiceMicrophone,
-    activateApp: () => {
-      if (process.platform === "darwin") app.focus({ steal: true });
+    floating: () =>
+      dynamicIslandNotchSizeForDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint())) === undefined,
+    dictateInApp: (phase, send) => {
+      const window = windows.getMainWindow();
+      if (!window || window.isDestroyed() || !window.isFocused()) return false;
+      sendToRenderer(window, IPC_ENDPOINTS.globalVoice.composerDictation, { phase, send });
+      return true;
     },
     openAgentChat: (agentId) => {
       void windows.ensureMainWindow().then((window) => {

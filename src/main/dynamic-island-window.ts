@@ -20,6 +20,10 @@ import type { CriticalAction } from "./dynamic-island-actions";
 import { readDynamicIslandPreference, writeDynamicIslandPreference } from "./dynamic-island-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
 
+/** The idle island comes back over about 160 ms after the voice island leaves the notch. */
+const ISLAND_RETURN_STEPS = 8;
+const ISLAND_RETURN_STEP_MS = 20;
+
 const logger = createOpenBotLogger("dynamic-island-window");
 
 const DYNAMIC_ISLAND_WINDOW_SIZE = { width: 614, height: 380 } as const;
@@ -122,6 +126,36 @@ export class DynamicIslandWindowController {
         return { ...savedPreference };
       }),
     );
+  }
+
+  #yielding = false;
+
+  /**
+   * While the global voice island is up it is the one island at the notch: this idle pill fades out
+   * under it, so nothing shows through or beside it, and comes back when the voice island hides.
+   */
+  #returnFade: ReturnType<typeof setInterval> | undefined;
+
+  yieldToVoiceIsland(yielding: boolean): void {
+    this.#yielding = yielding;
+    clearInterval(this.#returnFade);
+    this.#returnFade = undefined;
+    const windows = [...this.#windows.values()].filter((window) => !window.isDestroyed());
+    // Gone at once when the voice island takes the notch; back with a short fade, not a pop.
+    if (yielding) {
+      for (const window of windows) window.setOpacity(0);
+      return;
+    }
+    let step = 0;
+    this.#returnFade = setInterval(() => {
+      step += 1;
+      const opacity = Math.min(1, step / ISLAND_RETURN_STEPS);
+      for (const window of windows) if (!window.isDestroyed()) window.setOpacity(opacity);
+      if (opacity >= 1) {
+        clearInterval(this.#returnFade);
+        this.#returnFade = undefined;
+      }
+    }, ISLAND_RETURN_STEP_MS);
   }
 
   performHaptic(): void {
@@ -349,6 +383,7 @@ export class DynamicIslandWindowController {
     });
     window.once("ready-to-show", () => {
       if (this.#windows.get(display.id) !== window || window.isDestroyed()) return;
+      if (this.#yielding) window.setOpacity(0);
       window.showInactive();
     });
     window.on("blur", () => this.setInteractive(window.webContents.id, false));
@@ -376,6 +411,7 @@ export class DynamicIslandWindowController {
 
   destroy(): void {
     this.#destroyed = true;
+    clearInterval(this.#returnFade);
     this.destroyWindows();
   }
 
@@ -437,10 +473,17 @@ function criticalActionKey(action: CriticalAction): string {
   return [action.type, action.serverId, action.agentId, id].join("\u0000");
 }
 
-function dynamicIslandWindowBounds(display: Pick<Display, "bounds">): Rectangle {
+/** A display without a notch gets a floating pill: the window starts just below the menu bar. */
+const FLOATING_ISLAND_TOP_OFFSET = 2;
+
+export function dynamicIslandWindowBounds(
+  display: Pick<Display, "bounds" | "internal"> & Partial<Pick<Display, "workArea">>,
+): Rectangle {
+  const notched = dynamicIslandNotchSizeForDisplay(display) !== undefined;
+  const top = display.workArea ? display.workArea.y + FLOATING_ISLAND_TOP_OFFSET : display.bounds.y;
   return {
     x: Math.round(display.bounds.x + (display.bounds.width - DYNAMIC_ISLAND_WINDOW_SIZE.width) / 2),
-    y: display.bounds.y,
+    y: notched ? display.bounds.y : top,
     ...DYNAMIC_ISLAND_WINDOW_SIZE,
   };
 }

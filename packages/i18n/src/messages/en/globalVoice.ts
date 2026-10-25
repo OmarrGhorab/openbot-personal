@@ -47,7 +47,7 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.settings.mode.toggle": "Toggle",
   "globalVoice.settings.defaultAgent.title": "Default agent",
   "globalVoice.settings.defaultAgent.description":
-    "The agent the dictation shortcut uses. Last used picks the agent that got the previous message.",
+    "The agent the dictation shortcut uses. An agent you choose in the picker comes first until you quit OpenBot. Last used picks the agent that got the previous message.",
   "globalVoice.settings.defaultAgent.lastUsed": "Last used",
   "globalVoice.settings.accessibility.title": "Accessibility",
   "globalVoice.settings.accessibility.description":

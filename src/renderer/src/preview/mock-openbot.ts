@@ -1090,11 +1090,13 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       onPickerShortcut: () => () => undefined,
       sendTranscript: async () => undefined,
       closePicker: async () => undefined,
+      selectAgent: async () => undefined,
       openAccessibilitySettings: async () => globalVoiceState(),
       openMicrophoneSettings: async () => globalVoiceState(),
       setInteractive: async () => undefined,
       openChat: async () => undefined,
       onFocusAgent: () => () => undefined,
+      onComposerDictation: () => () => undefined,
     },
     computerUse: {
       getState: async () => computerUseState(),

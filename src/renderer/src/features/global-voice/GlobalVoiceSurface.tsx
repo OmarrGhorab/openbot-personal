@@ -7,21 +7,27 @@ import type {
 import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, For, onCleanup, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createStore, For, flush, onSettled, Show } from "solid-js";
+import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
   GLOBAL_VOICE_ISLAND,
+  GLOBAL_VOICE_ISLAND_MORPH_MS,
+  globalVoicePickerSize,
   globalVoiceTextDirection,
   type IslandSize,
-  islandScaleKeyframes,
+  islandMorphKeyframes,
 } from "./global-voice-island-motion";
 import {
   filterGlobalVoiceAgents,
+  globalVoiceHasAvatar,
   globalVoiceInitials,
   globalVoiceNumberKeyIndex,
   moveGlobalVoiceHighlight,
+  pointInRect,
 } from "./global-voice-picker-logic";
 import "./global-voice.css";
+import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 
 /** How long the confirmation stays after a message is sent, and the error after a failed dictation. */
 const SENT_CONFIRMATION_MS = 1_500;
@@ -38,6 +44,8 @@ interface SurfaceState {
   snapshotId: number;
   agents: GlobalVoicePickerAgent[];
   sendAfterSpeaking: boolean;
+  /** No notch on this display: the island floats below the menu bar with all corners round. */
+  floating: boolean;
   /** This recording ends when the key comes up. A picker release starts a toggle recording instead. */
   sessionHold: boolean;
   holdToTalk: boolean;
@@ -68,6 +76,7 @@ export function GlobalVoiceSurface() {
     snapshotId: 0,
     agents: [],
     sendAfterSpeaking: true,
+    floating: false,
     sessionHold: false,
     holdToTalk: true,
     keyRelease: "ready",
@@ -88,10 +97,14 @@ export function GlobalVoiceSurface() {
   let generation = 0;
   /** A hold ended while the microphone was still opening. */
   let stopWhenReady = false;
+  /** True while the island shrinks into the notch. A press then opens it again, as if it were hidden. */
+  let closing = false;
   let timers: Array<ReturnType<typeof setTimeout>> = [];
   let searchBox: HTMLDivElement | undefined;
   let reviewBox: HTMLDivElement | undefined;
   let shell: HTMLElement | undefined;
+  /** Whether the pointer is over the drawn island. Only then does the window take clicks. */
+  let overIsland = false;
   let phaseNode: HTMLSpanElement | undefined;
   let waveRoot: HTMLDivElement | undefined;
   let shellSize: IslandSize = GLOBAL_VOICE_ISLAND.notch;
@@ -121,26 +134,33 @@ export function GlobalVoiceSurface() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  /** The shell is already the next size. The animation only scales and fades it. */
+  /** The size the island takes for a view: the picker fits its rows, the review its text box. */
+  function islandSize(view: Exclude<View, "hidden">): IslandSize {
+    if (view === "pill") return GLOBAL_VOICE_ISLAND.pill;
+    if (state.phase === "review") return GLOBAL_VOICE_ISLAND.review;
+    return globalVoicePickerSize(filtered().length);
+  }
+
+  /** Morphs the island from its current size to `size`: width, height and corners follow one spring. */
   function paintIsland(size: IslandSize, fromNotch: boolean): void {
     const element = shell;
     if (!element) return;
-    const from = fromNotch ? GLOBAL_VOICE_ISLAND.notch : shellSize;
+    // An interrupted morph starts from the size on screen, not the old target, so Escape or a second
+    // press mid-animation bends the shape instead of jumping it.
+    const from = fromNotch ? GLOBAL_VOICE_ISLAND.notch : drawnSize(element);
     shellSize = size;
     element.style.width = `${size.width}px`;
     element.style.height = `${size.height}px`;
     shellAnimation?.cancel();
     const reveal = () => {
       element.style.opacity = "1";
-      element.style.removeProperty("transform");
     };
     if (typeof element.animate !== "function") {
       reveal();
       return;
     }
-    const frames = islandScaleKeyframes(from, size, reducedMotion());
-    shellAnimation = element.animate(frames, {
-      duration: reducedMotion() ? 120 : 400,
+    shellAnimation = element.animate(islandMorphKeyframes(from, size, reducedMotion(), state.floating), {
+      duration: reducedMotion() ? 120 : GLOBAL_VOICE_ISLAND_MORPH_MS,
       easing: "linear",
       fill: "both",
     });
@@ -148,25 +168,46 @@ export function GlobalVoiceSurface() {
     shellAnimation.addEventListener("cancel", reveal);
   }
 
+  function drawnSize(element: HTMLElement): IslandSize {
+    if (shellAnimation?.playState !== "running") return shellSize;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? { width: rect.width, height: rect.height } : shellSize;
+  }
+
   function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
+    // Solid 2 holds writes until a flush. Without it the size and the keyboard below were read from
+    // the phase before: the review grew to the picker size and then jumped, and "sending" took focus.
+    flush();
+    closing = false;
+    if (shell) delete shell.dataset.collapsing;
     const fromNotch = state.view === "hidden";
-    const size = view === "picker" ? GLOBAL_VOICE_ISLAND.picker : GLOBAL_VOICE_ISLAND.pill;
+    const size = islandSize(view);
     const same =
       !fromNotch && state.view === view && shellSize.width === size.width && shellSize.height === size.height;
-    // Paint the collapsed scale before the window appears, so the first frame is the notch.
-    if (fromNotch && shell && typeof shell.animate === "function") {
+    // Paint the notch before the window appears, so the first frame grows out of it.
+    if (fromNotch && shell) {
       const notch = GLOBAL_VOICE_ISLAND.notch;
-      shell.style.width = `${size.width}px`;
-      shell.style.height = `${size.height}px`;
+      shell.style.width = `${notch.width}px`;
+      shell.style.height = `${notch.height}px`;
       shell.style.opacity = "0";
-      shell.style.transform = `scale(${notch.width / size.width}, ${notch.height / size.height})`;
     }
     setView(view, listening);
     if (!same) paintIsland(size, fromNotch);
     const keyboard = view === "picker" || state.phase === "review";
-    const interactive = keyboard || state.phase === "sent" || state.error !== null;
-    void window.openbot.globalVoice.setInteractive({ interactive, keyboard });
+    // Only the drawn island takes clicks. The rest of the window passes them to the app below.
+    void window.openbot.globalVoice.setInteractive({ interactive: overIsland, keyboard });
   }
+
+  // The picker follows its rows as the search narrows them, and the review gets room for its text.
+  createEffect(
+    () => (state.view === "hidden" ? null : islandSize(state.view)),
+    (size) => {
+      // A closing island keeps shrinking. This effect runs after the flush, and repainting the old view
+      // here cancelled the collapse, so a double press left an empty pill on screen.
+      if (!size || closing || (size.width === shellSize.width && size.height === shellSize.height)) return;
+      paintIsland(size, false);
+    },
+  );
 
   function hide(): void {
     clearLater();
@@ -180,9 +221,15 @@ export function GlobalVoiceSurface() {
       draft.error = null;
       draft.errorAction = "none";
     });
+    // The content fades out first, so nothing is squeezed while the shape shrinks into the notch.
+    if (shell) shell.dataset.collapsing = "true";
+    closing = true;
     paintIsland(GLOBAL_VOICE_ISLAND.notch, false);
     const animation = shellAnimation;
-    const finish = () => setView("hidden", false);
+    const finish = () => {
+      closing = false;
+      setView("hidden", false);
+    };
     if (animation) animation.onfinish = finish;
     else finish();
   }
@@ -276,7 +323,13 @@ export function GlobalVoiceSurface() {
       return;
     }
     if (current !== generation) return;
-    set("transcript", text);
+    // "Software Engineer, check the PR" goes to Software Engineer, without the address.
+    const address = matchAgentAddress(text, state.agents);
+    if (address && address.agentId !== state.targetId) {
+      set("targetId", address.agentId);
+      void window.openbot.globalVoice.selectAgent({ agentId: address.agentId }).catch(() => undefined);
+    }
+    set("transcript", address ? address.text : text);
     if (state.sendAfterSpeaking) {
       await sendTranscript();
       return;
@@ -326,18 +379,30 @@ export function GlobalVoiceSurface() {
     hide();
   }
 
+  /**
+   * Targets an agent chosen in the picker, and tells main, so the next dictation shortcut goes to it
+   * even when the picker closes before a message is sent.
+   */
+  function pick(agentId: string): void {
+    set("targetId", agentId);
+    void window.openbot.globalVoice.selectAgent({ agentId }).catch(() => undefined);
+  }
+
   /** Chooses an agent from the picker: a new dictation starts, or the target changes while one listens. */
   function choose(agent: GlobalVoicePickerAgent): void {
     if (state.phase === "listening") {
-      set("targetId", agent.agentId);
+      pick(agent.agentId);
       showIsland("pill", true);
       return;
     }
     if (state.phase === "review") {
-      set("targetId", agent.agentId);
+      pick(agent.agentId);
       return;
     }
-    if (state.phase === "idle") startFor(agent.agentId, false);
+    if (state.phase === "idle") {
+      void window.openbot.globalVoice.selectAgent({ agentId: agent.agentId }).catch(() => undefined);
+      startFor(agent.agentId, false);
+    }
   }
 
   function applySnapshot(snapshot: GlobalVoicePickerSnapshot): void {
@@ -349,6 +414,7 @@ export function GlobalVoiceSurface() {
       draft.snapshotId = snapshot.id;
       draft.agents = snapshot.agents;
       draft.sendAfterSpeaking = snapshot.sendAfterSpeaking;
+      draft.floating = snapshot.floating ?? false;
       draft.query = "";
       draft.highlight = Math.max(
         0,
@@ -377,6 +443,25 @@ export function GlobalVoiceSurface() {
   }
 
   function applyCommand(command: GlobalVoiceCommand): void {
+    if (closing) {
+      // The window is still on screen while it collapses, so main sends the press here. Act as a
+      // fresh opening: the picker shortcut used to move a highlight nobody could see.
+      if (command.type === "choose") {
+        set(
+          "highlight",
+          Math.max(
+            0,
+            state.agents.findIndex((agent) => agent.agentId === state.targetId),
+          ),
+        );
+        set("query", "");
+        showIsland("picker", false);
+        searchBox?.querySelector("input")?.focus();
+      } else if (command.type === "agent") {
+        startFor(command.agentId, state.holdToTalk);
+      }
+      return;
+    }
     if (command.type === "cancel") {
       cancel();
       return;
@@ -385,12 +470,12 @@ export function GlobalVoiceSurface() {
       if (command.source === "picker") {
         const agent = highlightedAgent();
         if (state.phase === "idle" && agent) choose(agent);
-        else if (state.phase === "listening" && agent) set("targetId", agent.agentId);
+        else if (state.phase === "listening" && agent) pick(agent.agentId);
         return;
       }
       if (!state.sessionHold) return;
       const agent = highlightedAgent();
-      if (state.view === "picker" && agent) set("targetId", agent.agentId);
+      if (state.view === "picker" && agent) pick(agent.agentId);
       if (state.phase === "preparing") stopWhenReady = true;
       else void stopAndDeliver();
       return;
@@ -415,6 +500,9 @@ export function GlobalVoiceSurface() {
       startFor(command.agentId, state.holdToTalk);
     } else if (state.phase === "idle") {
       startFor(command.agentId, state.holdToTalk);
+    } else if (state.phase === "preparing" && !state.sessionHold && state.targetId === command.agentId) {
+      // A double press before the microphone is ready closes the island, as a second tap would.
+      cancel();
     } else if (state.phase === "listening" && state.targetId === command.agentId && !state.sessionHold) {
       void stopAndDeliver();
     } else if (state.phase === "listening" && state.sessionHold) {
@@ -527,19 +615,12 @@ export function GlobalVoiceSurface() {
       }
     };
     frame = requestAnimationFrame(tick);
-    let overIsland = false;
     const onMove = (event: MouseEvent) => {
-      const rect = shell?.getBoundingClientRect();
-      const inside = rect
-        ? event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom
-        : false;
+      const inside = pointInRect(shell?.getBoundingClientRect(), event.clientX, event.clientY);
       if (inside === overIsland) return;
       overIsland = inside;
       const keyboard = state.view === "picker" || state.phase === "review";
-      void window.openbot.globalVoice.setInteractive({ interactive: inside || keyboard, keyboard });
+      void window.openbot.globalVoice.setInteractive({ interactive: inside, keyboard });
     };
     window.addEventListener("mousemove", onMove);
     return () => {
@@ -548,16 +629,20 @@ export function GlobalVoiceSurface() {
     };
   });
 
-  createEffect(() => {
-    if (state.phase !== "transcribing") return;
-    const node = phaseNode;
-    if (!node) return;
-    const animation = node.animate([{ opacity: 0.35 }, { opacity: 1 }, { opacity: 0.35 }], {
-      duration: reducedMotion() ? 120 : 900,
-      iterations: Infinity,
-    });
-    onCleanup(() => animation.cancel());
-  });
+  // Solid 2 effects take a compute and an effect. The one-function form threw on mount, which left
+  // the whole window blank: the picker never drew and never asked main to show it.
+  createEffect(
+    () => state.phase === "transcribing",
+    (transcribing) => {
+      const node = phaseNode;
+      if (!transcribing || !node) return;
+      const animation = node.animate([{ opacity: 0.35 }, { opacity: 1 }, { opacity: 0.35 }], {
+        duration: reducedMotion() ? 120 : 900,
+        iterations: Infinity,
+      });
+      return () => animation.cancel();
+    },
+  );
   const phaseText = () => {
     switch (state.phase) {
       case "preparing":
@@ -578,7 +663,7 @@ export function GlobalVoiceSurface() {
   };
 
   return (
-    <div class="global-voice-stage" dir={localeDirection(locale())}>
+    <div class="global-voice-stage" data-floating={state.floating ? "true" : undefined} dir={localeDirection(locale())}>
       <section
         class="global-voice-island"
         data-phase={state.phase}
@@ -593,6 +678,14 @@ export function GlobalVoiceSurface() {
           <Show when={state.phase === "review"} fallback={<PickerList />}>
             <div class="global-voice-review" ref={(element) => (reviewBox = element)}>
               <span class="global-voice-review-label">
+                {/* Keyed by agent, so a switch by name shows the new face arriving. */}
+                <For each={targetAgent() ? [targetAgent()?.agentId] : []}>
+                  {() => (
+                    <span class="global-voice-pill-identity">
+                      <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="small" />}</Show>
+                    </span>
+                  )}
+                </For>
                 {t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
               </span>
               <Textarea
@@ -614,6 +707,46 @@ export function GlobalVoiceSurface() {
   function PillBody() {
     return (
       <div class="global-voice-pill-body">
+        {/* Keyed by agent, so a switch by name plays the entrance again. */}
+        <For each={targetAgent() ? [targetAgent()?.agentId] : []}>
+          {() => (
+            <span class="global-voice-pill-identity">
+              <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="large" />}</Show>
+            </span>
+          )}
+        </For>
+        <div class="global-voice-pill-copy">
+          <Show when={targetName()}>
+            <span class="global-voice-pill-name" dir={globalVoiceTextDirection(targetName())}>
+              {targetName()}
+            </span>
+          </Show>
+          <Show
+            when={state.error}
+            fallback={
+              <Show
+                when={state.transcript && state.phase !== "sent"}
+                fallback={
+                  <span class="global-voice-phase" ref={(element) => (phaseNode = element)}>
+                    {phaseText()}
+                  </span>
+                }
+              >
+                <span class="global-voice-transcript" dir={globalVoiceTextDirection(state.transcript)}>
+                  {state.transcript}
+                </span>
+              </Show>
+            }
+          >
+            {(message) => <span class="global-voice-error">{message()}</span>}
+          </Show>
+          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
+          </Show>
+          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
+          </Show>
+        </div>
         <Show when={state.phase === "listening"}>
           <div class="global-voice-wave" ref={(element) => (waveRoot = element)} aria-hidden="true">
             <span />
@@ -623,29 +756,6 @@ export function GlobalVoiceSurface() {
             <span />
           </div>
         </Show>
-        <div class="global-voice-pill-copy">
-          <Show
-            when={state.error}
-            fallback={
-              <span class="global-voice-phase" ref={(element) => (phaseNode = element)}>
-                {phaseText()}
-              </span>
-            }
-          >
-            {(message) => <span class="global-voice-error">{message()}</span>}
-          </Show>
-          <Show when={state.transcript && state.phase !== "sent"}>
-            <span class="global-voice-transcript" dir={globalVoiceTextDirection(state.transcript)}>
-              {state.transcript}
-            </span>
-          </Show>
-          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
-            <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
-          </Show>
-          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
-            <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
-          </Show>
-        </div>
         <Show when={state.phase === "sent" && state.targetId}>
           <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void openChat()}>
             {t("globalVoice.picker.openChat")}
@@ -685,6 +795,29 @@ export function GlobalVoiceSurface() {
       draft.keyRelease = next.keyRelease;
       draft.holdToTalk = next.preference.captureMode === "hold" && next.keyRelease === "ready";
     });
+  }
+
+  function IslandAvatar(props: { agent: GlobalVoicePickerAgent; size: "small" | "large" }) {
+    return (
+      <Show
+        when={globalVoiceHasAvatar(props.agent)}
+        fallback={
+          <span class="global-voice-avatar" data-size={props.size} aria-hidden="true">
+            {globalVoiceInitials(props.agent.name)}
+          </span>
+        }
+      >
+        {/* The same avatar the sidebar draws, so the island shows each agent's own face. */}
+        <AgentAvatar
+          class="global-voice-agent-avatar"
+          seed={props.agent.avatarSeed}
+          hue={props.agent.avatarHue}
+          url={props.agent.avatarUrl}
+          motion="idle"
+          style={{ "--voice-avatar": props.size === "large" ? "40px" : "24px" }}
+        />
+      </Show>
+    );
   }
 
   function PickerList() {
@@ -736,9 +869,7 @@ export function GlobalVoiceSurface() {
                   }}
                   onClick={() => choose(agent)}
                 >
-                  <span class="global-voice-avatar" aria-hidden="true">
-                    {globalVoiceInitials(agent.name)}
-                  </span>
+                  <IslandAvatar agent={agent} size="small" />
                   <span class="global-voice-option-text">
                     <span class="global-voice-option-name" dir={globalVoiceTextDirection(agent.name)}>
                       {agent.name}

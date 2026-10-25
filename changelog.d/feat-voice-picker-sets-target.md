@@ -1,0 +1,10 @@
+### Changed
+
+- An agent you choose in the voice picker (Option+K) becomes the target of the next dictation shortcut (Option+V), also when you close the picker without sending. It wins over the default agent until you quit OpenBot.
+- Fixed: the first press of a global voice shortcut after launch could leave an empty, invisible window, so Control+K and Control+V seemed to do nothing. The window now gets its opening once it has loaded.
+- Fixed the voice picker opening blank: a status animation crashed the window when it first drew.
+- The voice window no longer blocks clicks on the apps below it. Only the visible island takes clicks.
+- The voice picker shows each agent's own avatar, the same one as the sidebar, next to its name. Initials remain only for an agent without one.
+- Ctrl+K picker and voice island now open from the notch like a Dynamic Island: a spring morph of size and corners, a compact 3-row picker, and a pill with the agent's avatar and name.
+- The voice island is now solid black, so nothing behind it shows through, and the idle Dynamic Island steps aside while it is up, so there is one island at the notch.
+- Say an agent's name first when you dictate ("Software Engineer, check the PR", or in Arabic) and the message goes to that agent, without the name. Small mishearings are fine; an unclear name keeps the current agent.

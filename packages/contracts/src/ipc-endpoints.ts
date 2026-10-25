@@ -268,6 +268,7 @@ import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-g
 import type {
   GlobalVoiceAgentFocus,
   GlobalVoiceCommand,
+  GlobalVoiceComposerDictation,
   GlobalVoiceInteractiveInput,
   GlobalVoicePickerSnapshot,
   GlobalVoicePreference,
@@ -820,6 +821,8 @@ export const IPC_ENDPOINTS = {
     setView: request<GlobalVoiceViewState, void>()("global-voice:set-view"),
     sendTranscript: request<GlobalVoiceSendInput, void>()("global-voice:send-transcript"),
     closePicker: request<undefined, void>()("global-voice:close-picker"),
+    /** The agent chosen in the picker. The next dictation shortcut goes to it in this session. */
+    selectAgent: request<GlobalVoiceAgentFocus, void>()("global-voice:select-agent"),
     /** Asks macOS for Accessibility, then opens the pane when the grant is still missing. */
     openAccessibilitySettings: request<undefined, GlobalVoiceState>()("global-voice:open-accessibility-settings"),
     /** Asks for the microphone, then opens the pane when the grant is still missing. */
@@ -830,6 +833,8 @@ export const IPC_ENDPOINTS = {
     openChat: request<GlobalVoiceAgentFocus, void>()("global-voice:open-chat"),
     /** Main tells the main window to show that agent's chat. */
     focusAgent: event<GlobalVoiceAgentFocus>()("global-voice:focus-agent"),
+    /** The dictation shortcut while the OpenBot window is in front: the chat's composer listens. */
+    composerDictation: event<GlobalVoiceComposerDictation>()("global-voice:composer-dictation"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view

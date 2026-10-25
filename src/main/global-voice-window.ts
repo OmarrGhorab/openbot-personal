@@ -32,6 +32,8 @@ import { readGlobalVoicePreference, writeGlobalVoicePreference } from "./global-
 import { sendToRenderer } from "./renderer-ipc";
 
 const logger = createOpenBotLogger("global-voice");
+const SNAPSHOT_RETRY_MS = 50;
+const SNAPSHOT_RETRY_LIMIT = 40;
 
 /** Keys that work only while a dictation listens: Tab opens the picker, Escape cancels. */
 const LISTENING_KEYS = { choose: "Tab", cancel: "Escape" } as const;
@@ -70,10 +72,17 @@ export interface GlobalVoiceControllerOptions {
   promptAccessibility: () => Promise<void>;
   promptMicrophone: () => Promise<void>;
   readMicrophone: () => GlobalVoiceState["microphone"];
-  /** Brings the app forward so the island can take the keyboard. */
-  activateApp: () => void;
   /** Shows the main window on the agent's chat. */
   openAgentChat: (agentId: string) => void;
+  /**
+   * Hands the dictation shortcut to the chat on screen when the OpenBot window is in front. Returns
+   * false when it is not, and the island takes the shortcut.
+   */
+  dictateInApp?: (phase: "press" | "release", send: boolean) => boolean;
+  /** True when the display the island opens on has no notch, so it floats below the menu bar. */
+  floating?: () => boolean;
+  /** Called as the island shows and hides, so the idle Dynamic Island can give the notch to it. */
+  onVisibleChange?: (visible: boolean) => void;
 }
 
 export class GlobalVoiceController {
@@ -86,11 +95,16 @@ export class GlobalVoiceController {
   #listeningKeysRegistered = false;
   /** The agent that the last message went to. Dictation goes there unless the user chooses another. */
   #lastAgentId: string | null = null;
+  /** The agent last chosen in the picker in this session, sent or not. It wins over the default. */
+  #pickedAgentId: string | null = null;
   #openings = 0;
   #destroyed = false;
   #keyRelease: GlobalVoiceKeyRelease = "ready";
   /** True while Settings is recording a shortcut, so the keys are not also global shortcuts. */
   #capturingShortcut = false;
+
+  /** A hold-to-talk press went to the chat's composer, so its key-up goes there too. */
+  #composerHeld = false;
 
   constructor(options: GlobalVoiceControllerOptions) {
     this.#options = options;
@@ -170,6 +184,15 @@ export class GlobalVoiceController {
     });
   }
 
+  /**
+   * The window reports an agent chosen in the picker. The next dictation shortcut goes to it, also
+   * when the picker closes with no message sent. An agent that is not on this computer is ignored.
+   */
+  selectAgent(agentId: string): void {
+    if (this.#destroyed || !this.#options.listAgents().some((agent) => agent.id === agentId)) return;
+    this.#pickedAgentId = agentId;
+  }
+
   closePicker(): void {
     this.#applyView({ view: "hidden", listening: false });
   }
@@ -181,8 +204,8 @@ export class GlobalVoiceController {
     window.setIgnoreMouseEvents(!input.interactive, { forward: true });
     window.setFocusable(input.keyboard);
     if (!input.keyboard) return;
-    this.#options.activateApp();
-    window.show();
+    // The window is a panel: it becomes the key window without activating OpenBot, so the app the
+    // user works in stays in front and gets the keyboard back when the island hides.
     window.focus();
   }
 
@@ -271,6 +294,11 @@ export class GlobalVoiceController {
   /** A key-up of a shortcut that is held. The window decides whether that ends the recording. */
   #release(accelerator: string): void {
     if (this.#destroyed || this.#preference.captureMode !== "hold" || this.#keyRelease !== "ready") return;
+    if (this.#composerHeld) {
+      this.#composerHeld = false;
+      this.#options.dictateInApp?.("release", this.#preference.sendAfterSpeaking);
+      return;
+    }
     const shortcut = this.#shortcuts.find((item) => item.accelerator === accelerator && item.status === "active");
     const window = this.window;
     if (!shortcut || !window?.isVisible()) return;
@@ -313,6 +341,15 @@ export class GlobalVoiceController {
       this.#command({ type: "choose" });
       return;
     }
+    if (
+      target.type === "dictation" &&
+      !this.window?.isVisible() &&
+      this.#options.dictateInApp?.("press", this.#preference.sendAfterSpeaking)
+    ) {
+      // In the OpenBot window the chat's own composer listens; the island stays hidden.
+      this.#composerHeld = this.#preference.captureMode === "hold" && this.#keyRelease === "ready";
+      return;
+    }
     if (target.type === "dictation") {
       const agentId = this.#currentAgentId();
       this.#command(agentId ? { type: "agent", agentId } : { type: "choose" });
@@ -346,6 +383,7 @@ export class GlobalVoiceController {
       captureMode: this.#preference.captureMode,
       holdToTalk: this.#preference.captureMode === "hold" && this.#keyRelease === "ready",
       keyRelease: this.#keyRelease,
+      floating: this.#options.floating?.() ?? false,
     };
     const view = request.type === "choose" ? "picker" : "pill";
     this.#applyView({ view, listening: false });
@@ -353,8 +391,8 @@ export class GlobalVoiceController {
   }
 
   /** Sends the opening to the window. A load that has not finished gets it again from did-finish-load. */
-  #deliverSnapshot(window: BrowserWindow): void {
-    if (this.#destroyed || this.#window !== window || window.isDestroyed() || !this.#snapshot) return;
+  #deliverSnapshot(window: BrowserWindow): boolean {
+    if (this.#destroyed || this.#window !== window || window.isDestroyed() || !this.#snapshot) return true;
     const sent = sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
     if (sent) {
       logger.info("The global voice window received its opening.", {
@@ -362,12 +400,22 @@ export class GlobalVoiceController {
         view: this.#view.view,
         visible: window.isVisible(),
       });
-      return;
+      return true;
     }
     logger.warn("The global voice window is not ready for its opening yet.", {
       loading: window.webContents.isLoading(),
       visible: window.isVisible(),
     });
+    return false;
+  }
+
+  /**
+   * did-finish-load can fire while Electron still reports the main frame as loading, so the send
+   * is refused. Without a retry the first opening was lost and the window stayed empty.
+   */
+  #deliverAfterLoad(window: BrowserWindow, attempt = 0): void {
+    if (this.#deliverSnapshot(window) || attempt >= SNAPSHOT_RETRY_LIMIT) return;
+    setTimeout(() => this.#deliverAfterLoad(window, attempt + 1), SNAPSHOT_RETRY_MS);
   }
 
   /** Shows the window in a view, and registers Tab and Escape only while the dictation listens. */
@@ -379,15 +427,18 @@ export class GlobalVoiceController {
     if (!window || window.isDestroyed()) return;
     if (state.view === "hidden") {
       window.hide();
+      this.#options.onVisibleChange?.(false);
       return;
     }
+    this.#options.onVisibleChange?.(true);
     this.#options.placeWindow(window, state.view);
     // The pill never takes the keyboard, so the app the user works in keeps it. The picker does,
-    // for its search field, and takes it without activating OpenBot.
+    // for its search field. A panel takes it without activating OpenBot, so nothing comes to the front.
     const picker = state.view === "picker";
-    window.setIgnoreMouseEvents(!picker, { forward: true });
+    // Clicks pass through until the window reports the pointer over the drawn island. The window is
+    // 520 by 520 at the top of the screen, and a blank part of it must not block the apps below.
+    window.setIgnoreMouseEvents(true, { forward: true });
     window.setFocusable(picker);
-    if (picker) this.#options.activateApp();
     // showInactive does nothing on macOS while the app is in the background. A hidden window is the
     // failure Omar saw: the shortcut logged a press and the island never appeared.
     window.showInactive();
@@ -413,7 +464,7 @@ export class GlobalVoiceController {
     this.#window = window;
     window.webContents.on("did-finish-load", () => {
       logger.info("The global voice window finished loading.");
-      this.#deliverSnapshot(window);
+      this.#deliverAfterLoad(window);
     });
     window.webContents.on("did-fail-load", (_event, code, description) => {
       logger.error("The global voice window failed to load.", { code, description });
@@ -431,16 +482,12 @@ export class GlobalVoiceController {
     return window;
   }
 
-  /**
-   * The default agent when one is saved and still on this computer, then the last agent that got a
-   * message, then the most recent.
-   */
   #currentAgentId(): string | null {
-    const agents = this.#pickerAgents();
-    const preferred = this.#preference.defaultAgentId;
-    if (preferred && agents.some((agent) => agent.agentId === preferred)) return preferred;
-    if (this.#lastAgentId && agents.some((agent) => agent.agentId === this.#lastAgentId)) return this.#lastAgentId;
-    return agents[0]?.agentId ?? null;
+    return globalVoiceTargetAgentId(this.#pickerAgents(), {
+      picked: this.#pickedAgentId,
+      preferred: this.#preference.defaultAgentId,
+      last: this.#lastAgentId,
+    });
   }
 
   /** Agents on this computer that the user has not hidden, most recent first. */
@@ -449,8 +496,34 @@ export class GlobalVoiceController {
       .listAgents()
       .filter((agent) => !agent.hiddenAt)
       .sort((left, right) => activityTime(right) - activityTime(left))
-      .map((agent) => ({ agentId: agent.id, name: agent.name, title: agent.title, updatedAt: agent.updatedAt }));
+      .map((agent) => ({
+        agentId: agent.id,
+        name: agent.name,
+        title: agent.title,
+        updatedAt: agent.updatedAt,
+        avatarSeed: agent.avatarSeed,
+        avatarHue: agent.avatarHue,
+        avatarUrl: agent.avatarUrl,
+      }));
   }
+}
+
+/**
+ * The agent that the dictation shortcut targets. The first that is still in `agents` wins:
+ * 1. the agent last chosen in the picker in this session (the user's most recent explicit choice),
+ * 2. the saved default agent,
+ * 3. the agent that got the last message,
+ * 4. the most recent agent (the first in `agents`).
+ * The picker choice lives in memory only, so the saved default applies again after a restart.
+ */
+export function globalVoiceTargetAgentId(
+  agents: readonly Pick<GlobalVoicePickerAgent, "agentId">[],
+  choices: { picked: string | null; preferred: string | null; last: string | null },
+): string | null {
+  for (const candidate of [choices.picked, choices.preferred, choices.last]) {
+    if (candidate && agents.some((agent) => agent.agentId === candidate)) return candidate;
+  }
+  return agents[0]?.agentId ?? null;
 }
 
 function activityTime(agent: Pick<AgentSummary, "updatedAt">): number {

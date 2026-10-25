@@ -1,3 +1,4 @@
+import { type AvatarHue, isAvatarHue, isAvatarSeed } from "./ipc-agent-identity";
 import { type DynamicRecord, isDynamicRecord } from "./runtime-values";
 
 // The global voice shortcuts. The dictation shortcut works while OpenBot is in the background: it
@@ -139,6 +140,24 @@ export interface GlobalVoiceAgentFocus {
   agentId: string;
 }
 
+/**
+ * The dictation shortcut pressed while the OpenBot window is in front. The chat on screen dictates
+ * into its own composer instead of the island. `release` ends a held recording.
+ */
+export interface GlobalVoiceComposerDictation {
+  phase: "press" | "release";
+  /** Send the message when the transcript is ready, as the island does with "send after speaking". */
+  send?: boolean;
+}
+
+export function isGlobalVoiceComposerDictation(value: unknown): value is GlobalVoiceComposerDictation {
+  return (
+    isDynamicRecord(value) &&
+    (value.phase === "press" || value.phase === "release") &&
+    (value.send === undefined || typeof value.send === "boolean")
+  );
+}
+
 /** An agent the picker lists. Only agents on this computer, most recent first. */
 export interface GlobalVoicePickerAgent {
   agentId: string;
@@ -146,6 +165,10 @@ export interface GlobalVoicePickerAgent {
   title: string;
   /** ISO 8601 time of the agent's last activity, or null when it has none. */
   updatedAt: string | null;
+  /** The same avatar the sidebar draws: the generated mascot from the seed and hue, or the uploaded image. */
+  avatarSeed: string;
+  avatarHue: AvatarHue | null;
+  avatarUrl: string | null;
 }
 
 /**
@@ -190,6 +213,11 @@ export interface GlobalVoicePickerSnapshot {
   /** True only when the saved mode is hold and the key-release hook is running. */
   holdToTalk: boolean;
   keyRelease: GlobalVoiceKeyRelease;
+  /**
+   * The display has no notch, so the island floats below the menu bar as a detached pill with all
+   * corners rounded instead of hanging from the top edge.
+   */
+  floating?: boolean;
 }
 
 export interface GlobalVoiceSendInput {
@@ -286,6 +314,7 @@ export function isGlobalVoicePickerSnapshot(value: unknown): value is GlobalVoic
     (value.captureMode === "hold" || value.captureMode === "toggle") &&
     typeof value.holdToTalk === "boolean" &&
     new Set<unknown>(GLOBAL_VOICE_KEY_RELEASE).has(value.keyRelease) &&
+    (value.floating === undefined || typeof value.floating === "boolean") &&
     Array.isArray(value.agents) &&
     value.agents.every(
       (agent) =>
@@ -293,7 +322,10 @@ export function isGlobalVoicePickerSnapshot(value: unknown): value is GlobalVoic
         isGlobalVoiceAgentId(agent.agentId) &&
         typeof agent.name === "string" &&
         typeof agent.title === "string" &&
-        (agent.updatedAt === null || typeof agent.updatedAt === "string"),
+        (agent.updatedAt === null || typeof agent.updatedAt === "string") &&
+        isAvatarSeed(agent.avatarSeed) &&
+        (agent.avatarHue === null || isAvatarHue(agent.avatarHue)) &&
+        (agent.avatarUrl === null || typeof agent.avatarUrl === "string"),
     )
   );
 }
