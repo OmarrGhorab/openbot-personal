@@ -7,6 +7,7 @@ import {
   formatGlobalVoiceAccelerator,
   globalVoiceAcceleratorFromKeyboard,
   globalVoiceAcceleratorKeys,
+  isBareTypingKey,
   isMacPlatform,
 } from "./global-voice-keys";
 import "./global-voice-shortcut.css";
@@ -60,13 +61,7 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
     // Only modifiers are held: keep recording until a key comes.
     if (result === null) return;
     if ("error" in result) {
-      setMessage(
-        t(
-          result.error === "needsModifier"
-            ? "globalVoice.settings.needsModifier"
-            : "globalVoice.settings.keyNotAllowed",
-        ),
-      );
+      setMessage(t("globalVoice.settings.keyNotAllowed"));
       return;
     }
     setRecording(false);
@@ -154,6 +149,11 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
             {text()}
           </p>
         )}
+      </Show>
+      <Show when={!recording() && props.accelerator && isBareTypingKey(props.accelerator)}>
+        <p class="global-voice-shortcut-warning" role="status">
+          {t("globalVoice.settings.bareKeyWarning")}
+        </p>
       </Show>
       <Show when={props.status === "taken"}>
         <p class="global-voice-shortcut-error" role="status">

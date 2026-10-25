@@ -39,12 +39,13 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.settings.record": "Press the new keys…",
   "globalVoice.settings.recordLabel": "Change the shortcut for {name}",
   "globalVoice.settings.recordHint":
-    "Hold a modifier (Option, Control, Shift or Cmd), then press a key. Escape cancels.",
+    "Press a key, or a modifier (Option, Control, Shift or Cmd) with a key. F1 to F12 work alone. Escape cancels.",
   "globalVoice.settings.change": "Change",
   "globalVoice.settings.cancel": "Cancel",
+  "globalVoice.settings.bareKeyWarning":
+    "This key alone stops typing in other apps while OpenBot runs. F1 to F12 are safer.",
   "globalVoice.settings.reset": "Reset",
   "globalVoice.settings.turnOff": "Turn off",
-  "globalVoice.settings.needsModifier": "Hold Command, Control, Alt or Shift with the key.",
   "globalVoice.settings.keyNotAllowed": "This key cannot start a shortcut.",
   "globalVoice.settings.takenWarning":
     "Another app or shortcut already uses {accelerator}. Pick another key, or the shortcut does nothing.",

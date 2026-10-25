@@ -37,12 +37,13 @@ export const messages = {
   "globalVoice.settings.record": "اضغط الزراير الجديدة…",
   "globalVoice.settings.recordLabel": "غيّر الاختصار بتاع {name}",
   "globalVoice.settings.recordHint":
-    "دوس على زرار تعديل (Option أو Control أو Shift أو Cmd)، وبعدين دوس حرف. Escape بيلغي.",
+    "دوس زرار، أو زرار تعديل (Option أو Control أو Shift أو Cmd) مع زرار. F1 لحد F12 بيشتغلوا لوحدهم. Escape بيلغي.",
   "globalVoice.settings.change": "غيّر",
   "globalVoice.settings.cancel": "إلغاء",
+  "globalVoice.settings.bareKeyWarning":
+    "الزرار ده لوحده هيبطّل يكتب في البرامج التانية طول ما OpenBot شغّال. F1 لحد F12 أأمن.",
   "globalVoice.settings.reset": "رجّعه",
   "globalVoice.settings.turnOff": "اقفله",
-  "globalVoice.settings.needsModifier": "لازم تمسك Command أو Control أو Alt أو Shift مع الزرار.",
   "globalVoice.settings.keyNotAllowed": "الزرار ده مينفعش يبقى اختصار.",
   "globalVoice.settings.takenWarning":
     "برنامج تاني أو اختصار تاني واخد {accelerator}. اختار زرار تاني، وإلا الاختصار مش هيعمل حاجة.",

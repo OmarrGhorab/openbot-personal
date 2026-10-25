@@ -363,6 +363,7 @@ const {
   getMainWindow: () => windowHolder.current,
   // A function: the window controller is made after the forwarders, and no event comes before it.
   getChatWindows: () => windows.getChatWindows(),
+  getGlobalVoiceWindow: () => services?.globalVoice.window ?? null,
   getAgentService: () => services?.service ?? null,
   getHostService: () => services?.host ?? null,
   getHostAnalytics: () => services?.analytics ?? null,

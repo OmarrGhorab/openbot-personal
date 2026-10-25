@@ -42,8 +42,9 @@ const GLOBAL_VOICE_KEYS = [
 ] as const;
 
 /**
- * Whether the text is an Electron accelerator that a global shortcut can use: one or more modifiers
- * and one key. A key with no modifier is refused, as it would take that key from every app.
+ * Whether the text is an Electron accelerator that a global shortcut can use: modifiers, if any,
+ * and one key. A key with no modifier is allowed because the owner chose it; the settings warn
+ * that it then stops typing that key in every other app.
  */
 export function isGlobalVoiceAccelerator(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.length > GLOBAL_VOICE_LIMITS.acceleratorLength) {
@@ -52,7 +53,7 @@ export function isGlobalVoiceAccelerator(value: unknown): value is string {
   const parts = value.split("+");
   const key = parts.at(-1) ?? "";
   const modifiers = parts.slice(0, -1);
-  if (modifiers.length === 0 || new Set(modifiers).size !== modifiers.length) return false;
+  if (new Set(modifiers).size !== modifiers.length) return false;
   if (!modifiers.every((modifier) => new Set<string>(GLOBAL_VOICE_MODIFIERS).has(modifier))) return false;
   return isGlobalVoiceKey(key);
 }

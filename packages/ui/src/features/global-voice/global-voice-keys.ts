@@ -1,5 +1,5 @@
 /** A key press turned into an accelerator, or the reason it cannot be one. */
-export type GlobalVoiceKeyResult = { accelerator: string } | { error: "needsModifier" | "keyNotAllowed" };
+export type GlobalVoiceKeyResult = { accelerator: string } | { error: "keyNotAllowed" };
 
 type KeyboardKeys = Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">;
 
@@ -24,7 +24,7 @@ const NAMED_KEYS: Record<string, string> = {
 /**
  * The accelerator of a key press, read from its physical key (`code`), so a Mac's Option layer
  * does not change the letter. Returns null while only modifiers are held. Keys that cannot start a
- * shortcut, and a key with no modifier, return an error.
+ * shortcut return an error. A key with no modifier is allowed; see `isBareTypingKey`.
  */
 export function globalVoiceAcceleratorFromKeyboard(keys: KeyboardKeys, isMac: boolean): GlobalVoiceKeyResult | null {
   const key = keyFromCode(keys.code);
@@ -35,8 +35,12 @@ export function globalVoiceAcceleratorFromKeyboard(keys: KeyboardKeys, isMac: bo
   if (keys.ctrlKey) modifiers.push("Control");
   if (keys.altKey) modifiers.push("Alt");
   if (keys.shiftKey) modifiers.push("Shift");
-  if (modifiers.length === 0) return { error: "needsModifier" };
   return { accelerator: [...modifiers, key].join("+") };
+}
+
+/** True for a letter, digit or Space with no modifier: a global shortcut on it stops that key in every app. */
+export function isBareTypingKey(accelerator: string): boolean {
+  return /^([A-Z0-9]|Space|Tab|Enter|Backspace)$/.test(accelerator);
 }
 
 /** The key name for a code: null for a modifier alone, undefined for a key that cannot be a shortcut. */

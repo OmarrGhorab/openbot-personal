@@ -277,6 +277,7 @@ try {
   const forwarders = createRendererForwarders({
     getMainWindow: () => mainWindow,
     getChatWindows: () => [],
+    getGlobalVoiceWindow: () => null,
     getAgentService: () => agents ?? null,
     getHostService: () => null,
     getHostAnalytics: () => null,

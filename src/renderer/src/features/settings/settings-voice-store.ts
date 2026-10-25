@@ -13,7 +13,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
-import { createEffect, createStore } from "solid-js";
+import { createEffect, createStore, snapshot } from "solid-js";
 import { desktopAnalytics } from "../../analytics";
 import { readAloud, stopSpeech } from "../speech/speech-playback";
 import { voicePort } from "./voice-port";
@@ -109,7 +109,8 @@ export function createSettingsVoiceStore(active: () => boolean) {
     const current = state.globalVoice;
     if (!current) return;
     try {
-      const next = await voicePort().globalVoice.setPreference({ ...current.preference, ...patch });
+      // A store value is a proxy that IPC cannot clone; send a plain copy.
+      const next = await voicePort().globalVoice.setPreference({ ...snapshot(current.preference), ...patch });
       setState((draft) => {
         draft.globalVoice = next;
       });

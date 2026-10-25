@@ -85,6 +85,11 @@ export class GlobalVoiceController {
   }).bind(this);
 
   /** The renderer of the window, which the picker requests check. */
+  /** The pill and picker window while it exists, so voice model progress can reach it. */
+  get window(): BrowserWindow | null {
+    return this.#window && !this.#window.isDestroyed() ? this.#window : null;
+  }
+
   get pickerRendererIds(): ReadonlySet<number> {
     return new Set(this.#window && !this.#window.isDestroyed() ? [this.#window.webContents.id] : []);
   }

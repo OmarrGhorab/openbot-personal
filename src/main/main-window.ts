@@ -769,7 +769,8 @@ export function createGlobalVoiceWindow(): BrowserWindow {
       webSecurity: true,
     },
   });
-  window.setAlwaysOnTop(true, "floating");
+  // Above every app window, full-screen ones too, so the pill shows while another app is in front.
+  window.setAlwaysOnTop(true, "screen-saver");
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
   // The fixed sizes fit the contents only at 100%, as the other fixed helper windows.
   window.webContents.setZoomMode("isolated");
@@ -790,6 +791,9 @@ export function placeGlobalVoiceWindow(window: BrowserWindow, view: "pill" | "pi
       ? workArea.y + workArea.height - height - 24
       : workArea.y + Math.min(workArea.height - height, Math.max(48, workArea.height * 0.16));
   window.setBounds({ x, y: Math.round(y), width, height });
+  // The picker takes the keyboard for its search field. A window of an app in the background on
+  // macOS cannot, until the app is active; the pill never takes it, so the user's app stays in front.
+  if (view === "picker" && process.platform === "darwin") app.focus({ steal: true });
 }
 
 export function loadGlobalVoiceRenderer(window: BrowserWindow): Promise<void> {

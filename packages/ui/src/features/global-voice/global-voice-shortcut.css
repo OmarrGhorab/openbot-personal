@@ -75,3 +75,11 @@
 .global-voice-shortcut-error {
   color: var(--openbot-danger-text);
 }
+
+.global-voice-shortcut-warning {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  text-align: end;
+}

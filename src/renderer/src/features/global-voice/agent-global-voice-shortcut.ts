@@ -1,7 +1,7 @@
 import type { GlobalVoiceShortcutStatus, GlobalVoiceState } from "@openbot/contracts/ipc";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
-import { createStore } from "solid-js";
+import { createStore, snapshot } from "solid-js";
 
 /** The agent settings' view of one agent's direct global shortcut. */
 export interface AgentGlobalVoiceShortcutView {
@@ -55,8 +55,10 @@ export function createAgentGlobalVoiceShortcut(agentId: () => string | undefined
   }
 
   async function save(id: string, accelerator: string | null): Promise<void> {
-    const current = state.value;
-    if (!current) return;
+    const live = state.value;
+    if (!live) return;
+    // A store value is a proxy that IPC cannot clone; work on a plain copy.
+    const current = snapshot(live);
     const others = current.preference.agentShortcuts.filter((shortcut) => shortcut.agentId !== id);
     const agentShortcuts = accelerator ? [...others, { agentId: id, accelerator }] : others;
     try {

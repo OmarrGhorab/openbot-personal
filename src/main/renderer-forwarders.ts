@@ -66,6 +66,8 @@ export interface RendererForwarderDependencies {
   getMainWindow: () => BrowserWindow | null;
   /** Each chat window shows a live chat, so it gets the chat, server and provider events too. */
   getChatWindows: () => BrowserWindow[];
+  /** The global voice window: it waits for the voice model on its first dictation. */
+  getGlobalVoiceWindow: () => BrowserWindow | null;
   getAgentService: () => Pick<AgentService, "listAgents"> | null;
   getHostService: () => HostService | null;
   getHostAnalytics: () => HostAnalytics | null;
@@ -91,6 +93,7 @@ const ANSWER_LOOKUP_LIMIT = 20;
 export function createRendererForwarders({
   getMainWindow,
   getChatWindows,
+  getGlobalVoiceWindow,
   getAgentService,
   getHostService,
   getHostAnalytics,
@@ -409,6 +412,8 @@ export function createRendererForwarders({
 
   function forwardVoiceModelStatus(status: VoiceModelStatus): void {
     for (const window of appWindows()) sendToRenderer(window, IPC_ENDPOINTS.voice.modelStatus, status);
+    const voiceWindow = getGlobalVoiceWindow();
+    if (voiceWindow) sendToRenderer(voiceWindow, IPC_ENDPOINTS.voice.modelStatus, status);
   }
 
   function forwardSpeechModelStatus(status: SpeechModelStatus): void {
