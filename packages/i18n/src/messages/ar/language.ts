@@ -51,7 +51,6 @@ export const messages = {
   "language.name.mn": "المنغولية",
   "language.name.mr": "الماراثية",
   "language.name.ms": "الملايو",
-  "language.name.mt": "المالطية",
   "language.name.my": "البورمية",
   "language.name.nb": "النرويجية بوكمال",
   "language.name.ne": "النيبالية",

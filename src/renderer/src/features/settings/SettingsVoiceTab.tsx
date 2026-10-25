@@ -53,89 +53,16 @@ const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLang
   "bark-3.0-plus": { language: "en", description: "settings.voice.language.englishOnly" },
 };
 
-/** `jw` is Whisper's code for Javanese, whose catalog name is under `jv`. */
 const LANGUAGE_NAME = {
-  af: "language.name.af",
-  am: "language.name.am",
   ar: "language.name.ar",
-  az: "language.name.az",
-  be: "language.name.be",
-  bg: "language.name.bg",
-  bn: "language.name.bn",
-  bs: "language.name.bs",
-  ca: "language.name.ca",
-  cs: "language.name.cs",
-  cy: "language.name.cy",
-  da: "language.name.da",
-  de: "language.name.de",
-  el: "language.name.el",
   en: "language.name.en",
-  es: "language.name.es",
-  et: "language.name.et",
-  eu: "language.name.eu",
-  fa: "language.name.fa",
-  fi: "language.name.fi",
-  fr: "language.name.fr",
-  gl: "language.name.gl",
-  gu: "language.name.gu",
-  he: "language.name.he",
-  hi: "language.name.hi",
-  hr: "language.name.hr",
-  hu: "language.name.hu",
-  hy: "language.name.hy",
-  id: "language.name.id",
-  is: "language.name.is",
-  it: "language.name.it",
-  ja: "language.name.ja",
-  jw: "language.name.jv",
-  ka: "language.name.ka",
-  kk: "language.name.kk",
-  km: "language.name.km",
-  kn: "language.name.kn",
-  ko: "language.name.ko",
-  lo: "language.name.lo",
-  lt: "language.name.lt",
-  lv: "language.name.lv",
-  mk: "language.name.mk",
-  ml: "language.name.ml",
-  mn: "language.name.mn",
-  mr: "language.name.mr",
-  ms: "language.name.ms",
-  mt: "language.name.mt",
-  my: "language.name.my",
-  ne: "language.name.ne",
-  nl: "language.name.nl",
-  no: "language.name.no",
-  pa: "language.name.pa",
-  pl: "language.name.pl",
-  pt: "language.name.pt",
-  ro: "language.name.ro",
-  ru: "language.name.ru",
-  si: "language.name.si",
-  sk: "language.name.sk",
-  sl: "language.name.sl",
-  sq: "language.name.sq",
-  sr: "language.name.sr",
-  su: "language.name.su",
-  sv: "language.name.sv",
-  sw: "language.name.sw",
-  ta: "language.name.ta",
-  te: "language.name.te",
-  th: "language.name.th",
-  tr: "language.name.tr",
-  uk: "language.name.uk",
-  ur: "language.name.ur",
-  uz: "language.name.uz",
-  vi: "language.name.vi",
-  yue: "language.name.yue",
-  zh: "language.name.zh",
 } as const satisfies Record<WhisperLanguage, AppTextKey>;
 
 /** The country of a language's flag: the likely region of the language, as `Intl.Locale` gives it. */
 function flagFor(language: VoiceLanguage): string {
   if (language === AUTOMATIC_VOICE_LANGUAGE) return "🌐";
   try {
-    const region = new Intl.Locale(language === "jw" ? "jv" : language).maximize().region;
+    const region = new Intl.Locale(language).maximize().region;
     if (region && /^[A-Z]{2}$/u.test(region))
       return String.fromCodePoint(...[...region].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
   } catch {
@@ -165,7 +92,8 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
     const sorted = [...WHISPER_LANGUAGES].sort((left, right) =>
       collator.compare(names.get(left) ?? left, names.get(right) ?? right),
     );
-    return [AUTOMATIC_VOICE_LANGUAGE, ...sorted];
+    // Arabic and English only: automatic detection can pick a third language.
+    return sorted;
   });
 
   // The key is never read back: main has no getter for it, and the field clears once it is saved.

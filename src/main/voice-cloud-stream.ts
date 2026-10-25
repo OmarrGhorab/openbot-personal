@@ -64,7 +64,7 @@ export function scribeRealtimeUrl(language: VoiceLanguage): string {
   url.searchParams.set("audio_format", "pcm_16000");
   // Silence ends a segment, so the text before it stays fixed while the user speaks on.
   url.searchParams.set("commit_strategy", "vad");
-  if (language !== AUTOMATIC_VOICE_LANGUAGE) url.searchParams.set("language_code", language === "jw" ? "jv" : language);
+  if (language !== AUTOMATIC_VOICE_LANGUAGE) url.searchParams.set("language_code", language);
   return url.toString();
 }
 

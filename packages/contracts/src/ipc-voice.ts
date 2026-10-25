@@ -31,7 +31,7 @@ export const ELEVENLABS_VOICE_MODEL_ID = "elevenlabs-scribe-v2-realtime";
 /** Every dictation model, local ones first. */
 export const VOICE_MODEL_IDS = [...LOCAL_VOICE_MODEL_IDS, ELEVENLABS_VOICE_MODEL_ID] as const;
 export type VoiceModelId = (typeof VOICE_MODEL_IDS)[number];
-export const DEFAULT_VOICE_MODEL_ID: VoiceModelId = "parakeet-tdt-0.6b-v3";
+export const DEFAULT_VOICE_MODEL_ID: VoiceModelId = "whisper-turbo";
 
 interface VoiceModelCapabilities {
   /** The product name. It is not translated. */
@@ -102,86 +102,11 @@ export const VOICE_MODELS: readonly VoiceModelInfo[] = [
 export const AUTOMATIC_VOICE_LANGUAGE = "automatic";
 
 /**
- * The Whisper language codes that the settings offer. Each one has a `language.name.*` catalog
- * name; `jw` is Whisper's code for Javanese (`jv`). Automatic also finds the languages not listed.
- * ElevenLabs takes the same ISO 639 codes, with `jv` for `jw`.
+ * The Whisper language codes that the settings offer: Arabic and English only in this build. Each one
+ * has a `language.name.*` catalog name. ElevenLabs takes the same ISO 639 codes. A saved language
+ * not in this list reads back as the default.
  */
-export const WHISPER_LANGUAGES = [
-  "af",
-  "am",
-  "ar",
-  "az",
-  "be",
-  "bg",
-  "bn",
-  "bs",
-  "ca",
-  "cs",
-  "cy",
-  "da",
-  "de",
-  "el",
-  "en",
-  "es",
-  "et",
-  "eu",
-  "fa",
-  "fi",
-  "fr",
-  "gl",
-  "gu",
-  "he",
-  "hi",
-  "hr",
-  "hu",
-  "hy",
-  "id",
-  "is",
-  "it",
-  "ja",
-  "jw",
-  "ka",
-  "kk",
-  "km",
-  "kn",
-  "ko",
-  "lo",
-  "lt",
-  "lv",
-  "mk",
-  "ml",
-  "mn",
-  "mr",
-  "ms",
-  "mt",
-  "my",
-  "ne",
-  "nl",
-  "no",
-  "pa",
-  "pl",
-  "pt",
-  "ro",
-  "ru",
-  "si",
-  "sk",
-  "sl",
-  "sq",
-  "sr",
-  "su",
-  "sv",
-  "sw",
-  "ta",
-  "te",
-  "th",
-  "tr",
-  "uk",
-  "ur",
-  "uz",
-  "vi",
-  "yue",
-  "zh",
-] as const;
+export const WHISPER_LANGUAGES = ["ar", "en"] as const;
 export type WhisperLanguage = (typeof WHISPER_LANGUAGES)[number];
 export type VoiceLanguage = typeof AUTOMATIC_VOICE_LANGUAGE | WhisperLanguage;
 
@@ -193,7 +118,7 @@ export interface VoiceSettings {
 
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   modelId: DEFAULT_VOICE_MODEL_ID,
-  language: AUTOMATIC_VOICE_LANGUAGE,
+  language: "ar",
 };
 
 export type VoiceModelPhase = "missing" | "downloading" | "ready" | "error";

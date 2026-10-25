@@ -247,7 +247,7 @@ export const VoiceWhisperHungarian: Story = {
       initialTab="voice"
       voice={{
         voiceModelsReady: ["parakeet-tdt-0.6b-v3", "whisper-turbo"],
-        voiceSettings: { modelId: "whisper-turbo", language: "hu" },
+        voiceSettings: { modelId: "whisper-turbo", language: "ar" },
       }}
     />
   ),
