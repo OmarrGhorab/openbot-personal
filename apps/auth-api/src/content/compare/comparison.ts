@@ -80,7 +80,7 @@ export const OPENBOT_TEXT = {
     "Apps for iPhone and Android, and a web app, connect from anywhere. Chats and files go over an encrypted connection between your devices, with no VPN, and no cloud stores them. Private network mode keeps them on Tailscale or your own Wi-Fi.",
   teams:
     "Each agent is a full coding agent with its own job. They give work to each other in shared channels. Coworkers join one team host, and roles set who can view, chat with or manage each agent.",
-  regions: `In any country: OpenBot has no region lock. The desktop app is in ${OPENBOT_LANGUAGE_COUNT} languages, from English, German and Spanish to Japanese, Korean and Turkish, and hosted servers run in the EU. Each AI provider sets the countries for its own plan.`,
+  regions: `In any country: OpenBot has no region lock. The desktop app is in ${OPENBOT_LANGUAGE_COUNT} languages, English and Egyptian Arabic, and hosted servers run in the EU. Each AI provider sets the countries for its own plan.`,
   apps: "macOS, Windows and Linux, mobile apps for iPhone and Android, and a web app.",
   backupModels:
     "When a plan reaches its limit, or a provider is overloaded or down, an agent can move to a backup model on another provider. It keeps its chat and workspace, and a note in the chat shows the switch.",

@@ -49,7 +49,7 @@ export const Gallery: Story = {
           <LanguageRow />
         </SettingsSection>
         <SettingsSection title="Language, disabled">
-          <LanguageRow initial="ja" disabled />
+          <LanguageRow initial="ar" disabled />
         </SettingsSection>
       </div>
     </main>
@@ -62,7 +62,7 @@ export const Expanded: Story = {
     <main class="foundation-story">
       <div class="settings-story-panel">
         <SettingsSection title="Language">
-          <LanguageRow initial="ja" />
+          <LanguageRow initial="ar" />
         </SettingsSection>
       </div>
     </main>

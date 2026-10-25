@@ -2,7 +2,7 @@
 // does not fit: a button, tab, menu item, option, badge or select value whose text is cut off,
 // runs past its box, or wraps to a second line. Opens each menu and list trigger once, so the items
 // of a closed menu are measured too. Pass the URL that `bun run storybook` reports:
-// `bun scripts/i18n-fit-e2e.ts --storybook=http://localhost:6006 [--locales=de,pl] [--stories=sidebar,dialog]`.
+// `bun scripts/i18n-fit-e2e.ts --storybook=http://localhost:6006 [--locales=ar] [--stories=sidebar,dialog]`.
 // Writes .openbot-build/i18n-fit/report.json and one screenshot per failure that English does not have.
 // `--out=<name>` writes to .openbot-build/<name> instead, so a second run keeps the first report.
 import assert from "node:assert/strict";

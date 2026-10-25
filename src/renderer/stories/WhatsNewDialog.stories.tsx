@@ -59,7 +59,7 @@ const RELEASE_0_22: WhatsNewRelease = {
     },
     {
       type: "changed",
-      items: ["Show more of the interface in French and Japanese."],
+      items: ["Show more of the interface in Egyptian Arabic."],
     },
     {
       type: "fixed",

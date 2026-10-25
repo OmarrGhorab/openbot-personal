@@ -37,20 +37,7 @@ const meta = {
   argTypes: {
     systemLocale: {
       control: "select",
-      options: [
-        "en-US",
-        "en-GB",
-        "de-DE",
-        "es-ES",
-        "es-MX",
-        "fr-FR",
-        "fr-CA",
-        "ja-JP",
-        "pl-PL",
-        "pt-BR",
-        "ru-RU",
-        "tr-TR",
-      ],
+      options: ["en-US", "en-GB", "ar-EG", "ar-SA", "fr-FR"],
     },
   },
   parameters: { layout: "fullscreen" },
@@ -61,6 +48,6 @@ type Story = StoryObj<typeof meta>;
 
 export const English: Story = {};
 
-export const PolishComputer: Story = { args: { systemLocale: "pl-PL" } };
+export const EgyptianComputer: Story = { args: { systemLocale: "ar-EG" } };
 
-export const MexicanComputer: Story = { args: { systemLocale: "es-MX" } };
+export const SaudiComputer: Story = { args: { systemLocale: "ar-SA" } };

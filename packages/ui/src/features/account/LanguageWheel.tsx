@@ -30,24 +30,10 @@ const WHEEL: readonly WheelEntry[] = APP_LANGUAGE_OPTIONS.flatMap((option) => {
   return id ? [{ id, option }] : [];
 });
 
-/**
- * The usual country of each catalog. Portuguese is the Brazilian catalog, so it keeps Brazil.
- * Arabic is the Egyptian catalog, so it keeps Egypt.
- */
+/** The usual country of each catalog. Arabic is the Egyptian catalog, so it always shows Egypt. */
 const FLAG_REGION: Record<TranslatedLocale, string> = {
   en: "US",
   ar: "EG",
-  de: "DE",
-  es: "ES",
-  fr: "FR",
-  it: "IT",
-  ja: "JP",
-  ko: "KR",
-  pl: "PL",
-  pt: "BR",
-  ru: "RU",
-  tr: "TR",
-  zh: "CN",
 };
 
 /**
@@ -58,7 +44,7 @@ function flagFor(id: TranslatedLocale, systemLocale: string): string {
   let region = FLAG_REGION[id];
   try {
     const locale = new Intl.Locale(systemLocale);
-    if (id !== "pt" && id !== "ar" && locale.language === id && locale.region) region = locale.region;
+    if (id !== "ar" && locale.language === id && locale.region) region = locale.region;
   } catch {
     // An invalid system locale keeps the usual country.
   }

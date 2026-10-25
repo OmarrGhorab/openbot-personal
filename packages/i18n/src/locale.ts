@@ -1,7 +1,7 @@
 import type { AppLanguage } from "@openbot/contracts/app-language";
 
 /** The languages a catalog exists for. `"system"` resolves to one of these; it is never one itself. */
-export const TRANSLATED_LOCALES = ["en", "ar", "de", "es", "fr", "it", "ja", "ko", "pl", "pt", "ru", "tr", "zh"] as const;
+export const TRANSLATED_LOCALES = ["en", "ar"] as const;
 
 export type TranslatedLocale = (typeof TRANSLATED_LOCALES)[number];
 
@@ -21,6 +21,11 @@ export function resolveLocale(language: AppLanguage, systemLocale: string): Tran
   }
   const subtag = systemLocale.split("-")[0]?.toLowerCase() ?? "";
   return isTranslatedLocale(subtag) ? subtag : "en";
+}
+
+/** The reading direction of a locale. Arabic reads right to left; every other catalog reads left to right. */
+export function localeDirection(locale: TranslatedLocale): "ltr" | "rtl" {
+  return locale === "ar" ? "rtl" : "ltr";
 }
 
 /**
