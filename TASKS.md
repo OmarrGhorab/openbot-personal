@@ -47,6 +47,15 @@
 - [ ] Release scripts: keep four remote desktop targets or drop two (open, owner decision)
 - [x] Commit and push feat/own-backend, merged into main
 
+## 7. Omar account backend (branch cursor/omar-own-backend-1da1)
+- [x] Private env file loader (`OPENBOT_BACKEND_ENV_FILE`, default `~/.openbot-backend.env`)
+- [x] Ticket key script that appends the pair and does not print it
+- [x] `dev:api` / `dev:all` load that file with no dotenvx key; SMTP sends when configured
+- [x] Wrangler env `omar`, no R2, workers.dev only, deploy script does not read `.env.production`
+- [x] Document D1, KV (none), rate limits, and the desktop `OPENBOT_ACCOUNT_URL`
+- [x] Onboarding step order unchanged; test locks language, then sign-in, then first run
+- [ ] Narrow checks passed here; pull request still to open
+
 ## 6. Global voice (branch feat/global-voice)
 - [x] Merge origin/main (43eb450: Arabic/English dictation, Whisper default)
 - [x] Contract: global voice preference, state, picker and command types, endpoints

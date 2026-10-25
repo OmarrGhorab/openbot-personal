@@ -8,6 +8,7 @@ import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
 import { FirstRunChoice } from "./FirstRunChoice";
 import { FirstRunLaunch } from "./FirstRunLaunch";
 import { FirstRunPlanStep } from "./FirstRunPlanStep";
+import { type FirstRunStep, firstRunSteps } from "./first-run-steps";
 import { firstRunTransition } from "./first-run-transition";
 import { OnboardingComputerVisual } from "./OnboardingComputerVisual";
 import { createOnboardingAvatarVariant, createOnboardingTeam, onboardingSessionSeed } from "./onboarding-avatars";
@@ -32,7 +33,6 @@ export interface FirstRunFlowProps extends SetupProviderProps {
 
 const TEAM_SIZE = 7;
 
-type FirstRunStep = "choose" | "plan" | "computer";
 /** How the user starts: on free models, or on a plan they connect. `null` until they choose. */
 type FirstRunPath = "free" | "plan" | null;
 
@@ -77,10 +77,7 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   /** The free provider is started once on its own. A failed start waits for the user. */
   let freeStartRequested = false;
 
-  const stepsFor = (path: FirstRunPath): FirstRunStep[] => {
-    const permissions: FirstRunStep[] = props.platform === "darwin" ? ["computer"] : [];
-    return path === "plan" ? ["choose", "plan", ...permissions] : ["choose", ...permissions];
-  };
+  const stepsFor = (path: FirstRunPath): FirstRunStep[] => firstRunSteps(path, props.platform);
   const steps = () => stepsFor(state.path);
   const stepNumber = () => steps().indexOf(state.step) + 1;
   const lastStep = () => stepNumber() === steps().length;

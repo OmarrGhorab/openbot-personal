@@ -77,14 +77,102 @@ Use TLS certificates for every name. The desktop app accepts plain HTTP only for
    `REMOTE_AUTH_WEBHOOK_URL` is your Signal `/internal/auth-events` URL, and its secret is
    `REMOTE_AUTH_WEBHOOK_SECRET`. The GitHub App, APNs and FCM values are empty in the fork. Set them
    only when you have your own apps.
-4. Set the build-time settings listed above, then build and deploy:
-   `bun run api:deploy`. This script decrypts `apps/auth-api/.env.production` with the upstream
-   production key, which you do not have. Do not use it. Keep your own values, and delete or replace
-   the upstream encrypted `.env.production` before you deploy. Use `wrangler login` or your own
-   `CLOUDFLARE_API_TOKEN`.
+4. Do not run `bun run api:deploy`. That script decrypts `apps/auth-api/.env.production` with the
+   upstream production key, which you do not have. Use the private file and `bun run api:deploy:omar`
+   in the next section.
 5. Apply the D1 migrations first, as `apps/auth-api/AGENTS.md` describes, then deploy the Worker.
 
 The Worker's `OPENBOT_*` values are fixed at build time. Rebuild and deploy after you change them.
+
+## Private account file
+
+Local development and the `omar` deploy read a plain env file. They do not need `DOTENV_PRIVATE_KEY_DEV`
+or the encrypted `.env.dev` and `.env.production` files.
+
+The default path is `~/.openbot-backend.env`. Set `OPENBOT_BACKEND_ENV_FILE` to use another path.
+The file stays outside the repository. Set its mode to `600`. Do not commit it. `.env.local`,
+`.dev.vars`, and a copy named `.openbot-backend.env` inside the repo are gitignored.
+`apps/auth-api/omar.env.example` lists the names with empty secrets.
+
+```sh
+bun run api:ticket-keys
+```
+
+That command appends `REMOTE_TICKET_PRIVATE_JWK` and `REMOTE_TICKET_PUBLIC_JWKS` to the private file.
+It does not print the key. Run it again and the same key stays. `--rotate` replaces it.
+
+`bun run dev:api` and `bun run dev:all` load this file with no dotenvx key. Development still returns
+the sign-in code in the API response (`AUTH_EXPOSE_DEVELOPMENT_CODE`). When the file has all five SMTP
+settings, the same code is also sent by email. The mail host is Resend: `smtp.resend.com`, port `465`,
+user `resend`. Put `EMAIL_SMTP_PASSWORD` and `EMAIL_FROM` only in the private file.
+
+Load order for local development: generated defaults, decrypted `.env.dev` when you have the key,
+the private file, saved overrides in `.openbot/dev-state.json`, then the shell. The private file
+does not turn the development code flag off. The shell can.
+
+## Deploy the omar account Worker
+
+`apps/auth-api/wrangler.jsonc` environment `omar` is a free-tier Worker. Its name is `account`, so
+the origin is `https://account.omarghorabdev.workers.dev`. It has no custom domain and no zone.
+Do not change DNS for `randomlychat.app`. Do not deploy or edit the `randomchat-deadman` Worker.
+
+R2 is off. Cloudflare asks for a payment method before R2 can be enabled, so this environment binds
+no bucket. These features answer `503 object_storage_unavailable`:
+
+- Account and host avatars
+- Skill and agent marketplace files (the bundle, the icon, the avatar, and the share card)
+- Hosted sites
+
+Sign-in, accounts, sessions, and the other D1 data still work. Hosted server purchase stays off.
+There is no Stripe key and no analytics client. Workers Logs are off.
+
+Create these Cloudflare resources in account `f77ab81c787067b7c3ce1632449bfd68` before you deploy.
+Use `wrangler login` for that account. Do not use the upstream production file.
+
+| Resource | Name | Create |
+| --- | --- | --- |
+| D1 database | `openbot-auth-omar` | `cd apps/auth-api && bunx wrangler d1 create openbot-auth-omar` |
+| KV namespace | none | This Worker does not use KV. |
+| Rate limit `MARKETPLACE_INGRESS_RATE_LIMITER` | namespace `2026102501` | Declared in `env.omar`. No separate create command. |
+| Rate limit `MARKETPLACE_MUTATION_RATE_LIMITER` | namespace `2026102502` | Same. |
+| Rate limit `MARKETPLACE_UPLOAD_RATE_LIMITER` | namespace `2026102503` | Same. |
+| Rate limit `SITE_REPORT_RATE_LIMITER` | namespace `2026102504` | Same. |
+| Rate limit `GITHUB_TOKEN_RATE_LIMITER` | namespace `2026102505` | Same. |
+| Rate limit `LIVE_ACTIVITY_RATE_LIMITER` | namespace `2026102506` | Same. |
+
+Paste the D1 database id into `env.omar` `database_id`. The placeholder
+`00000000-0000-4000-8000-000000000000` blocks migrate and deploy.
+
+```sh
+bun run api:migrate:omar
+bun run api:deploy:omar
+```
+
+`api:migrate:omar` applies the D1 migrations to the remote `omar` database.
+`api:deploy:omar` uploads the private-file secrets with `wrangler secret put --env omar`, applies
+those migrations, builds, and deploys. It does not read `.env.production`. It sets
+`OPENBOT_ACCOUNT_URL` to `https://account.omarghorabdev.workers.dev` when the shell does not set it.
+A `CLOUDFLARE_API_TOKEN` in the shell is ignored. Put a token in the private file only when you do
+not use `wrangler login`.
+
+## Build the desktop app against this account
+
+Set `OPENBOT_ACCOUNT_URL` to the Worker origin, then build. This changes where account requests go.
+It does not change onboarding.
+
+```sh
+export OPENBOT_ACCOUNT_URL=https://account.omarghorabdev.workers.dev
+# Optional. Do not change DNS for this name.
+# export OPENBOT_SITE_URL=https://randomlychat.app
+export OPENBOT_SIGNAL_URL=wss://signal.openbot.invalid/v1/signal
+export OPENBOT_TEAM_HOST_DOMAIN=openbot.invalid
+
+bun run dist:mac   # macOS Intel (x64) on an Intel Mac
+bun run dist:win   # Windows x64
+```
+
+For local development the app uses the local Worker URL that `bun run dev` prints. You do not set
+`OPENBOT_ACCOUNT_URL` for that.
 
 ## Deploy Signal (`remote/`)
 

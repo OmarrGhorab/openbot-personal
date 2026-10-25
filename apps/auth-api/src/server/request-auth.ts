@@ -30,6 +30,7 @@ import {
   type MarketplaceMutationKind,
   MarketplaceRateLimitError,
 } from "./marketplace-request-policy";
+import { isObjectStorageUnavailable } from "./object-storage";
 import {
   deliverPendingRemoteAuthEvents,
   notifyAccountProfileChanged,
@@ -61,7 +62,8 @@ export function requestAuthService(): AuthService {
   const analytics = accountAnalytics(bindings);
   return new AuthService({
     repository: new D1AuthRepository(bindings.DB),
-    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings),
+    // The development code stays in the response. SMTP still sends that same code when it is set.
+    delivery: createEmailCodeDelivery(bindings),
     exposeDevelopmentCode,
     // The revocation is already written and the cron redelivers it, so the answer does not wait.
     flushSessionRevocations: () => Effect.sync(() => schedule(deliverPendingRemoteAuthEvents(bindings, Date.now()))),
@@ -407,6 +409,9 @@ export function apiError(status: number, code: string, message: string): Respons
 export function authErrorResponse(error: unknown): Response {
   if (error instanceof JsonBodyError) {
     return apiError(error.status, error.code, error.message);
+  }
+  if (isObjectStorageUnavailable(error)) {
+    return apiError(503, "object_storage_unavailable", "Object storage is not configured.");
   }
   if (error instanceof AuthServiceError) {
     const response = apiError(error.status, error.code, error.message);

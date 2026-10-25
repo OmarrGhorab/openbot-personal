@@ -4,6 +4,7 @@ import { ownBackend } from "@openbot/contracts/own-backend";
 import { isUuidV4 } from "@openbot/contracts/validation";
 import { Effect, Result, Schema } from "effect";
 import { AuthOperationError, type AuthService, AuthServiceError } from "./auth-service";
+import { OBJECT_STORAGE_UNAVAILABLE } from "./object-storage";
 import type { AuthUser } from "./types";
 
 export interface StoredAvatarUpload {
@@ -18,7 +19,13 @@ export class AvatarStorageError extends Schema.TaggedError<AvatarStorageError>()
 function avatarCall<A>(operation: () => Promise<A>): Effect.Effect<A, AvatarStorageError> {
   return Effect.tryPromise({
     try: operation,
-    catch: () => new AvatarStorageError({ message: "Account avatar operation failed." }),
+    catch: (cause) =>
+      new AvatarStorageError({
+        message:
+          cause instanceof Error && cause.message === OBJECT_STORAGE_UNAVAILABLE
+            ? OBJECT_STORAGE_UNAVAILABLE
+            : "Account avatar operation failed.",
+      }),
   });
 }
 

@@ -285,6 +285,95 @@
           "simple": { "limit": 300, "period": 60 }
         }
       ]
+    },
+    // Free-tier account service. workers.dev only: no custom domain and no zone.
+    // Account f77ab81c787067b7c3ce1632449bfd68, workers.dev subdomain omarghorabdev.
+    // The Worker name is `account`, so the origin is https://account.omarghorabdev.workers.dev.
+    // Do not add a route for randomlychat.app. Do not deploy randomchat-deadman.
+    // R2 is an empty list: Cloudflare asks for a payment method before R2 can be enabled.
+    // Replace database_id after `wrangler d1 create openbot-auth-omar`. The placeholder blocks deploy.
+    "omar": {
+      "name": "account",
+      "account_id": "f77ab81c787067b7c3ce1632449bfd68",
+      "workers_dev": true,
+      "preview_urls": false,
+      "routes": [],
+      "observability": {
+        "enabled": false
+      },
+      "triggers": {
+        "crons": ["*/5 * * * *"]
+      },
+      "secrets": {
+        "required": [
+          "EMAIL_SMTP_HOST",
+          "EMAIL_SMTP_PORT",
+          "EMAIL_SMTP_USERNAME",
+          "EMAIL_SMTP_PASSWORD",
+          "EMAIL_FROM",
+          "SKILLS_ADMIN_TOKEN",
+          "SITE_REPORT_HASH_SECRET",
+          "REMOTE_TICKET_PRIVATE_JWK",
+          "REMOTE_TICKET_PUBLIC_JWKS",
+          "REMOTE_AUTH_WEBHOOK_SECRET",
+          "SERVER_CLAIMS_ADMIN_TOKEN"
+        ]
+      },
+      "vars": {
+        "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
+        "SITE_PUBLISH_ENABLED": "false",
+        "SITE_COOKIE_ISOLATION_READY": "false",
+        "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
+        "REMOTE_SIGNAL_URL": "wss://signal.openbot.invalid/v1/signal",
+        "REMOTE_AUTH_WEBHOOK_URL": "https://signal.openbot.invalid/internal/auth-events",
+        "HOSTED_SERVERS_ENABLED": "false",
+        "HOSTED_SERVERS_ALLOWED_USER_IDS": "",
+        "GITHUB_APP_CLIENT_ID": "",
+        "APNS_TEAM_ID": "",
+        "APNS_TOPIC": ""
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "openbot-auth-omar",
+          "database_id": "00000000-0000-4000-8000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [],
+      "kv_namespaces": [],
+      "ratelimits": [
+        {
+          "name": "MARKETPLACE_INGRESS_RATE_LIMITER",
+          "namespace_id": "2026102501",
+          "simple": { "limit": 300, "period": 60 }
+        },
+        {
+          "name": "MARKETPLACE_MUTATION_RATE_LIMITER",
+          "namespace_id": "2026102502",
+          "simple": { "limit": 30, "period": 60 }
+        },
+        {
+          "name": "MARKETPLACE_UPLOAD_RATE_LIMITER",
+          "namespace_id": "2026102503",
+          "simple": { "limit": 5, "period": 60 }
+        },
+        {
+          "name": "SITE_REPORT_RATE_LIMITER",
+          "namespace_id": "2026102504",
+          "simple": { "limit": 10, "period": 60 }
+        },
+        {
+          "name": "GITHUB_TOKEN_RATE_LIMITER",
+          "namespace_id": "2026102505",
+          "simple": { "limit": 30, "period": 60 }
+        },
+        {
+          "name": "LIVE_ACTIVITY_RATE_LIMITER",
+          "namespace_id": "2026102506",
+          "simple": { "limit": 300, "period": 60 }
+        }
+      ]
     }
   }
 }
