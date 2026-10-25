@@ -9,3 +9,5 @@
   stops typing in other apps.
 - Saving a shortcut no longer fails with "An object could not be cloned".
 - The voice pill shows over other apps and full-screen apps, and shows the model download.
+- The voice pill sends nothing for a silent recording, and removes the subtitle credits that
+  Whisper writes for silence, such as "ترجمة نانسي قنقر".
