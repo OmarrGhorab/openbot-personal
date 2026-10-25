@@ -57,6 +57,7 @@ import { createSideQuestionStore } from "./stores/side-question-store";
 import { createSkillsStore } from "./stores/skills-store";
 import { createVoiceConversation } from "./stores/voice-conversation-store";
 import { createVoiceStore } from "./stores/voice-store";
+import { isTextEntryTarget, isVoiceShortcut } from "./voice-shortcut";
 
 /** A keyboard or wheel scroll moves the chat within a few frames of its input. */
 const READER_INPUT_WINDOW_MS = 250;
@@ -852,6 +853,12 @@ export function createConversationViewScope(props: ConversationProps) {
         event.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')
       )
         return;
+      // A dictation in progress ends on Escape, as its Finish button ends it: what was said is kept.
+      if (voicePhase() === "recording") {
+        event.preventDefault();
+        stopVoiceRecording();
+        return;
+      }
       if (browserExpandedOpen() && !props.globalOverlayOpen) {
         event.preventDefault();
         setActiveRightPanel("browser");
@@ -869,6 +876,26 @@ export function createConversationViewScope(props: ConversationProps) {
       setOpenReactionMessageId(null);
       setExpandedEmojiMessageId(null);
       hideBrowserPanel();
+    };
+    /**
+     * V starts dictation, as the microphone button does, and stops a recording that is on. It is a bare
+     * key, so a focused text field keeps it. A dialog or menu keeps its keys, as Escape does above.
+     */
+    const handleVoiceShortcut = (event: KeyboardEvent) => {
+      if (!isVoiceShortcut(event) || isTextEntryTarget(event.target) || props.globalOverlayOpen) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')
+      )
+        return;
+      if (voicePhase() === "recording") {
+        stopVoiceRecording();
+        return;
+      }
+      // The microphone button's own condition: a channel or a runtime has no voice input, and dictation
+      // needs an agent that is ready. Only the idle phase starts a recording.
+      if (channel || props.runtime || !props.agent || !agentReady() || voicePhase() !== "idle") return;
+      void startVoiceRecording();
     };
     const closeActiveRemoteBrowserTab = (event: KeyboardEvent) => {
       if (
@@ -912,9 +939,11 @@ export function createConversationViewScope(props: ConversationProps) {
     };
     const escapeListener = whenVisible(closeOnEscape);
     const chatSearchListener = whenVisible(handleChatSearchShortcut);
+    const voiceShortcutListener = whenVisible(handleVoiceShortcut);
     keyboardTarget.addEventListener("keydown", escapeListener);
     keyboardWindow.addEventListener("keydown", closeActiveRemoteBrowserTab);
     keyboardTarget.addEventListener("keydown", chatSearchListener);
+    keyboardTarget.addEventListener("keydown", voiceShortcutListener);
     window.addEventListener("pointerdown", closeMessageMenus);
     const readerInput = scrollElement;
     const endReaderDrag = () => {
@@ -954,6 +983,7 @@ export function createConversationViewScope(props: ConversationProps) {
       keyboardTarget.removeEventListener("keydown", escapeListener);
       keyboardWindow.removeEventListener("keydown", closeActiveRemoteBrowserTab);
       keyboardTarget.removeEventListener("keydown", chatSearchListener);
+      keyboardTarget.removeEventListener("keydown", voiceShortcutListener);
       window.removeEventListener("pointerdown", closeMessageMenus);
       readerInput?.removeEventListener("wheel", readerWheel);
       readerInput?.removeEventListener("touchmove", readerTouchMove);

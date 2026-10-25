@@ -51,6 +51,7 @@ import { deviceSendShortcut, sendShortcutAriaKey, sendShortcutHintKey } from "..
 import { speechReading } from "../speech/speech-playback";
 import { stopSpokenReply } from "../speech/speech-replies";
 import { useConversationViewScope } from "./conversation-scope";
+import { VOICE_SHORTCUT_KEY } from "./voice-shortcut";
 
 // Module scope: the composer remounts on navigation, and a dismissed notice must stay dismissed.
 const [dismissedCompactions, setDismissedCompactions] = createSignal<Record<string, string>>({});
@@ -838,6 +839,12 @@ export function ConversationComposer() {
                     type="button"
                     class="dictation-button"
                     aria-label={t(voiceButtonLabel(voicePhase()))}
+                    aria-keyshortcuts={voicePhase() === "idle" ? VOICE_SHORTCUT_KEY : undefined}
+                    title={
+                      voicePhase() === "idle"
+                        ? t("composer.voice.startShortcut", { key: VOICE_SHORTCUT_KEY })
+                        : undefined
+                    }
                     disabled={
                       voicePhase() === "requesting" ||
                       voicePhase() === "preparing" ||
