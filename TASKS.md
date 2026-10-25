@@ -28,7 +28,7 @@
 - [ ] Verify on a real VPS: install, `openbot login`, desktop sees the server (not run)
 
 ## 4. Checks
-- [ ] Run narrow typecheck and i18n check on changed files
+- [x] Run narrow typecheck and i18n check on changed files (merged main: i18n:check, typecheck:i18n, typecheck:node, typecheck:renderer pass)
 
 ## 5. Own backend (branch feat/own-backend)
 - [x] Inventory upstream endpoints (table in the report and docs/own-backend.md)
@@ -40,9 +40,9 @@
 - [x] Build only Windows x64 and macOS Intel (x64): electron-builder targets, workflow matrices, cua-driver
 - [x] Mac release repository check and tenant test now run on the x64 job
 - [x] Write docs/own-backend.md and changelog.d/feat-own-backend.md
-- [ ] Install dependencies (`bun` not on this machine; not verified)
-- [ ] Biome, typecheck and narrow tests on changed files (blocked by missing bun; not verified)
+- [x] Install dependencies (pinned bun 1.4.2 through npx)
+- [x] Biome and typecheck on changed files (pre-commit hook passed)
 - [ ] Mobile: map shared OPENBOT_* settings into the Expo build (open, owner decision)
 - [ ] Marketplace shareUrl: change generator in scripts/build-plugin-catalog.ts (open)
 - [ ] Release scripts: keep four remote desktop targets or drop two (open, owner decision)
-- [ ] Commit and push feat/own-backend (no PR)
+- [x] Commit and push feat/own-backend, merged into main

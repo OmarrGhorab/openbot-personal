@@ -50,6 +50,7 @@ export const messages = {
   "composer.voice.requesting": "جارٍ طلب الوصول للميكروفون",
   "composer.voice.transcribing": "جارٍ تفريغ الرسالة الصوتية",
   "composer.voice.start": "اكتب رسالتك بالصوت",
+  "composer.voice.startShortcut": "اكتب رسالتك بالصوت ({key})",
   "composer.voice.blocked": "الوصول للميكروفون متمنوع. اسمح لـ OpenBot يستخدم الميكروفون من إعدادات النظام.",
   "composer.voice.noMicrophone": "مفيش ميكروفون متاح.",
   "composer.voice.startFailed": "OpenBot معرفش يبدأ التسجيل الصوتي.",
