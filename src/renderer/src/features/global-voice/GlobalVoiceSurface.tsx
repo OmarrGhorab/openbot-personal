@@ -7,7 +7,7 @@ import type {
 import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createStore, For, flush, onSettled, Show } from "solid-js";
 import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
@@ -162,6 +162,10 @@ export function GlobalVoiceSurface() {
   }
 
   function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
+    // Solid 2 holds writes until a flush. Without it the size and the keyboard below were read from
+    // the phase before: the review grew to the picker size and then jumped, and "sending" took focus.
+    flush();
+    if (shell) delete shell.dataset.collapsing;
     const fromNotch = state.view === "hidden";
     const size = islandSize(view);
     const same =
@@ -201,6 +205,8 @@ export function GlobalVoiceSurface() {
       draft.error = null;
       draft.errorAction = "none";
     });
+    // The content fades out first, so nothing is squeezed while the shape shrinks into the notch.
+    if (shell) shell.dataset.collapsing = "true";
     paintIsland(GLOBAL_VOICE_ISLAND.notch, false);
     const animation = shellAnimation;
     const finish = () => setView("hidden", false);
@@ -629,6 +635,14 @@ export function GlobalVoiceSurface() {
           <Show when={state.phase === "review"} fallback={<PickerList />}>
             <div class="global-voice-review" ref={(element) => (reviewBox = element)}>
               <span class="global-voice-review-label">
+                {/* Keyed by agent, so a switch by name shows the new face arriving. */}
+                <For each={targetAgent() ? [targetAgent()?.agentId] : []}>
+                  {() => (
+                    <span class="global-voice-pill-identity">
+                      <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="small" />}</Show>
+                    </span>
+                  )}
+                </For>
                 {t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
               </span>
               <Textarea

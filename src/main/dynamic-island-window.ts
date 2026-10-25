@@ -20,6 +20,10 @@ import type { CriticalAction } from "./dynamic-island-actions";
 import { readDynamicIslandPreference, writeDynamicIslandPreference } from "./dynamic-island-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
 
+/** The idle island comes back over about 160 ms after the voice island leaves the notch. */
+const ISLAND_RETURN_STEPS = 8;
+const ISLAND_RETURN_STEP_MS = 20;
+
 const logger = createOpenBotLogger("dynamic-island-window");
 
 const DYNAMIC_ISLAND_WINDOW_SIZE = { width: 614, height: 380 } as const;
@@ -130,11 +134,28 @@ export class DynamicIslandWindowController {
    * While the global voice island is up it is the one island at the notch: this idle pill fades out
    * under it, so nothing shows through or beside it, and comes back when the voice island hides.
    */
+  #returnFade: ReturnType<typeof setInterval> | undefined;
+
   yieldToVoiceIsland(yielding: boolean): void {
     this.#yielding = yielding;
-    for (const window of this.#windows.values()) {
-      if (!window.isDestroyed()) window.setOpacity(yielding ? 0 : 1);
+    clearInterval(this.#returnFade);
+    this.#returnFade = undefined;
+    const windows = [...this.#windows.values()].filter((window) => !window.isDestroyed());
+    // Gone at once when the voice island takes the notch; back with a short fade, not a pop.
+    if (yielding) {
+      for (const window of windows) window.setOpacity(0);
+      return;
     }
+    let step = 0;
+    this.#returnFade = setInterval(() => {
+      step += 1;
+      const opacity = Math.min(1, step / ISLAND_RETURN_STEPS);
+      for (const window of windows) if (!window.isDestroyed()) window.setOpacity(opacity);
+      if (opacity >= 1) {
+        clearInterval(this.#returnFade);
+        this.#returnFade = undefined;
+      }
+    }, ISLAND_RETURN_STEP_MS);
   }
 
   performHaptic(): void {
@@ -390,6 +411,7 @@ export class DynamicIslandWindowController {
 
   destroy(): void {
     this.#destroyed = true;
+    clearInterval(this.#returnFade);
     this.destroyWindows();
   }
 
