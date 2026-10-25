@@ -31,6 +31,10 @@ Without this key, the Worker starts with generated local defaults and no Stripe 
 values override shared values. Development commands do not read the root `.env.keys`; production
 commands continue to use that file.
 
+A checkout with no development key can still load SMTP and the other account secrets from a plain
+file outside the repo. The default path is `~/.openbot-backend.env`. Set `OPENBOT_BACKEND_ENV_FILE`
+to use another path. See [Private account file](../../docs/own-backend.md#private-account-file).
+
 ### Stripe sandbox
 
 `bun run api:stripe:bootstrap` creates the six plan Prices (lookup keys `openbot_{plan}_{month|year}`),
@@ -141,14 +145,15 @@ before any change when the port is missing. Never copy the file into this reposi
 
 Any SMTP server that accepts implicit TLS (port 465) can send mail. Use a separate app password or
 send-only credential. Do not use a mailbox password. The sender and the SMTP host belong to the owner.
+The SMTP username does not have to be an email address. Resend uses the username `resend`. The sender
+address in `EMAIL_FROM` must still be an email address.
 
-Local development sends no email at all. Generated local defaults blank all five SMTP
-variables, which is what turns delivery off - `wrangler.jsonc` sets four of them
-in the top-level `vars` that local `vite dev` reads, and four out of five is the
-partial configuration `readSmtpConfig` rejects. The team-invitation endpoint then
-answers `503 email_delivery_not_configured`; login never reaches SMTP at all,
-because `AUTH_EXPOSE_DEVELOPMENT_CODE` returns its code in the API response. To
-exercise real delivery locally, put a full set in the ignored `.dev.vars` file:
+Local development returns the sign-in code in the API response. Generated defaults blank all five
+SMTP variables, so delivery stays off until a full set is present. Put that set in the private
+account file (`~/.openbot-backend.env`, or `OPENBOT_BACKEND_ENV_FILE`). When all five are set, local
+development still returns the code and also sends it through SMTP. The team-invitation endpoint
+sends mail only when that full set is present. `.dev.vars` and `.env.local` stay gitignored.
+The private file uses these names:
 
 ```dotenv
 EMAIL_SMTP_HOST=smtp.your-provider.example
@@ -160,7 +165,8 @@ EMAIL_FROM=noreply@your-domain.example
 
 `bun run env:set:smtp` encrypts the app password into `.env.production` only.
 
-For a deployed Worker, `bun run api:deploy` decrypts `.env.production`. It sends
+For the upstream production Worker, `bun run api:deploy` decrypts `.env.production`. The `omar`
+environment uses `bun run api:deploy:omar` and the private file instead. The upstream script sends
 `EMAIL_SMTP_PASSWORD`, `SKILLS_ADMIN_TOKEN`, `REMOTE_TICKET_PRIVATE_JWK`,
 `REMOTE_TICKET_PUBLIC_JWKS`, `REMOTE_AUTH_WEBHOOK_SECRET`, and `SITE_REPORT_HASH_SECRET` to
 `wrangler secret put` through standard input, and `GITHUB_APP_PRIVATE_KEY` when it is set. It then

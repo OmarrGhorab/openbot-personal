@@ -3,6 +3,7 @@ import { isDynamicRecord, isFunction } from "@openbot/contracts/runtime-values";
 import type { Effect } from "effect";
 import type { AuthStoreError } from "./d1-auth-repository";
 import type { EmailDeliveryError } from "./email-delivery";
+import { isObjectBucket, presentObjectBucket } from "./object-storage";
 import type { SmtpContactMessage, SmtpFailure, SmtpWelcomeMessage } from "./smtp-email-delivery";
 
 export interface WorkerBindings {
@@ -102,29 +103,23 @@ export interface WorkerBindings {
 function isWorkerBindings(value: unknown): value is WorkerBindings {
   if (!isDynamicRecord(value)) return false;
   const database = value.DB;
-  const avatars = value.AVATARS;
-  const skills = value.SKILLS;
-  const sites = value.SITES;
   const marketplaceIngressRateLimiter = value.MARKETPLACE_INGRESS_RATE_LIMITER;
   const marketplaceMutationRateLimiter = value.MARKETPLACE_MUTATION_RATE_LIMITER;
   const marketplaceUploadRateLimiter = value.MARKETPLACE_UPLOAD_RATE_LIMITER;
   const siteReportRateLimiter = value.SITE_REPORT_RATE_LIMITER;
   const githubTokenRateLimiter = value.GITHUB_TOKEN_RATE_LIMITER;
+  // R2 is optional. A Worker without it still signs in. A present bucket that is not a bucket is a
+  // broken binding, so that case still fails closed.
+  if (
+    (value.AVATARS !== undefined && !isObjectBucket(value.AVATARS)) ||
+    (value.SKILLS !== undefined && !isObjectBucket(value.SKILLS)) ||
+    (value.SITES !== undefined && !isObjectBucket(value.SITES))
+  ) {
+    return false;
+  }
   if (
     !isDynamicRecord(database) ||
     !isFunction(database.prepare) ||
-    !isDynamicRecord(avatars) ||
-    !isFunction(avatars.get) ||
-    !isFunction(avatars.put) ||
-    !isFunction(avatars.delete) ||
-    !isDynamicRecord(skills) ||
-    !isFunction(skills.get) ||
-    !isFunction(skills.put) ||
-    !isFunction(skills.delete) ||
-    !isDynamicRecord(sites) ||
-    !isFunction(sites.get) ||
-    !isFunction(sites.put) ||
-    !isFunction(sites.delete) ||
     !isDynamicRecord(marketplaceIngressRateLimiter) ||
     !isFunction(marketplaceIngressRateLimiter.limit) ||
     !isDynamicRecord(marketplaceMutationRateLimiter) ||
@@ -145,7 +140,12 @@ export function requireWorkerBindings(value: unknown): WorkerBindings {
   if (!isWorkerBindings(value)) {
     throw new Error("Cloudflare worker bindings are unavailable.");
   }
-  return value;
+  return {
+    ...value,
+    AVATARS: presentObjectBucket(value.AVATARS),
+    SKILLS: presentObjectBucket(value.SKILLS),
+    SITES: presentObjectBucket(value.SITES),
+  };
 }
 
 export interface MobileAuthSessionResult {

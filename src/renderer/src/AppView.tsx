@@ -2,6 +2,7 @@ import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Loading, Show } from "solid-js";
 import { useAuth } from "./features/account/account-context";
 import { useProviderDetection } from "./features/custom-providers/provider-detection-context";
+import { showLanguageStep } from "./features/onboarding/access-gate-screen";
 import { createLanguageStep } from "./features/onboarding/language-step";
 import { useSetup } from "./features/onboarding/onboarding-context";
 import { SetupReadError } from "./features/onboarding/SetupReadError";
@@ -50,7 +51,8 @@ export function AppAccessGate() {
   const [splashShown, setSplashShown] = createSignal(true);
   const languageStep = createLanguageStep();
   // Only a settled sign-out: a code in flight or a retry keeps the sign-in screen it belongs to.
-  const languageStepShown = () => auth.centralAuth().status === "signed_out" && !languageStep.done();
+  const languageStepShown = () =>
+    showLanguageStep({ authStatus: auth.centralAuth().status, languageDone: languageStep.done() });
   // A computer signed in before the wheel existed has its language already, so a later sign-out skips the wheel.
   createEffect(
     () => auth.centralAuth().status === "signed_in",

@@ -1,7 +1,5 @@
-// `wrangler.jsonc` sets the four non-secret SMTP variables in the top-level `vars`, which is what
-// local `vite dev` reads, so a local run inherits four fifths of a mail configuration and
-// `readSmtpConfig` rejects it as incomplete. They are listed here so a development env file can
-// blank all five and turn email delivery off locally instead of dialling the real mail host.
+// Local `vite dev` copies these process values over Wrangler vars. Empty SMTP values turn delivery
+// off. A full set from the private environment file turns delivery on, including in development.
 const LOCAL_RUNTIME_KEYS = [
   "AUTH_EXPOSE_DEVELOPMENT_CODE",
   "EMAIL_SMTP_HOST",
@@ -9,6 +7,9 @@ const LOCAL_RUNTIME_KEYS = [
   "EMAIL_SMTP_USERNAME",
   "EMAIL_FROM",
   "EMAIL_SMTP_PASSWORD",
+  "SKILLS_ADMIN_TOKEN",
+  "SERVER_CLAIMS_ADMIN_TOKEN",
+  "SITE_OPERATIONS_ADMIN_TOKEN",
   "SITE_REPORT_HASH_SECRET",
   "SITE_PUBLISH_ENABLED",
   "SITE_COOKIE_ISOLATION_READY",

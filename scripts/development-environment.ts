@@ -3,6 +3,7 @@ import { devNull } from "node:os";
 import { join } from "node:path";
 import { config } from "@dotenvx/dotenvx";
 import { readDevelopmentState } from "./development-secrets";
+import { readPrivateBackendEnv } from "./private-backend-env";
 
 const LOCAL_IDENTITY_KEYS = [
   "REMOTE_TICKET_PRIVATE_JWK",
@@ -55,6 +56,14 @@ async function decryptEnvironment(
   }
 }
 
+const SMTP_KEYS = [
+  "EMAIL_SMTP_HOST",
+  "EMAIL_SMTP_PORT",
+  "EMAIL_SMTP_USERNAME",
+  "EMAIL_SMTP_PASSWORD",
+  "EMAIL_FROM",
+] as const;
+
 export async function loadDevelopmentEnvironment(
   projectRoot: string,
   environment: NodeJS.ProcessEnv = process.env,
@@ -63,9 +72,25 @@ export async function loadDevelopmentEnvironment(
   const shared = await loadSharedDevelopmentEnvironment(projectRoot, environment);
   // Shared service credentials must not change the identity of an existing local instance.
   for (const key of LOCAL_IDENTITY_KEYS) delete shared[key];
+  // The private file is plain text outside the repo. It supplies Omar's SMTP and ticket keys when
+  // the encrypted development file cannot be opened. It does not turn the development code off:
+  // that flag stays the local default unless the shell or a saved override sets it.
+  const privateFile = readPrivateBackendEnv(environment);
+  delete privateFile.AUTH_EXPOSE_DEVELOPMENT_CODE;
+  delete privateFile.CLOUDFLARE_ACCOUNT_ID;
+  delete privateFile.CLOUDFLARE_API_TOKEN;
+  if (SMTP_KEYS.some((key) => privateFile[key]?.trim())) {
+    const missing = SMTP_KEYS.filter((key) => !privateFile[key]?.trim());
+    if (missing.length > 0) {
+      throw new Error(
+        `Set all SMTP settings in the private environment file, or none. Missing: ${missing.join(", ")}.`,
+      );
+    }
+  }
   return withoutDecryptionKeys({
     ...state.defaults,
     ...shared,
+    ...privateFile,
     ...state.overrides,
     ...definedEnvironment(environment),
   });
@@ -140,7 +165,7 @@ export function requireDevelopmentValues(environment: NodeJS.ProcessEnv, names: 
 }
 
 const ACCOUNT_SETTINGS =
-  /^(?:STRIPE_|BOAT_|HOSTED_SERVERS_|HOSTED_SERVER_TEMPLATE$|EMAIL_|SITE_REPORT_HASH_SECRET$|SKILLS_ADMIN_TOKEN$|APNS_|FCM_|GITHUB_APP_|SLACK_|DISCORD_|TELEGRAM_|REMOTE_TICKET_|REMOTE_AUTH_WEBHOOK_SECRET$|OPENPANEL_)/u;
+  /^(?:STRIPE_|BOAT_|HOSTED_SERVERS_|HOSTED_SERVER_TEMPLATE$|EMAIL_|SITE_REPORT_HASH_SECRET$|SKILLS_ADMIN_TOKEN$|SERVER_CLAIMS_ADMIN_TOKEN$|SITE_OPERATIONS_ADMIN_TOKEN$|APNS_|FCM_|GITHUB_APP_|SLACK_|DISCORD_|TELEGRAM_|REMOTE_TICKET_|REMOTE_AUTH_WEBHOOK_SECRET$|OPENPANEL_)/u;
 const SIGNAL_SETTINGS = new Set([
   "REMOTE_TICKET_PUBLIC_JWKS",
   "REMOTE_TICKET_PUBLIC_KEYS",

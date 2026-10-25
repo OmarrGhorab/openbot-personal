@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 
 // `wrangler.jsonc` pins the active ticket key ID in its top-level `vars`, and `parseJwks` rejects a
 // JWKS that does not carry that `kid`, so the generated pair has to claim the same one.
-const TICKET_KEY_ID = "openbot-remote-1";
+export const DEVELOPMENT_TICKET_KEY_ID = "openbot-remote-1";
 const DEVELOPMENT_STATE_VERSION = 1 as const;
 const DEVELOPMENT_STATE_DIRECTORY = ".openbot";
 const DEVELOPMENT_STATE_FILE = "dev-state.json";
@@ -46,7 +46,7 @@ export interface DevelopmentTicketKeyPair {
   publicJwks: string;
 }
 
-export function createDevelopmentTicketKeyPair(keyId: string = TICKET_KEY_ID): DevelopmentTicketKeyPair {
+export function createDevelopmentTicketKeyPair(keyId: string = DEVELOPMENT_TICKET_KEY_ID): DevelopmentTicketKeyPair {
   const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
   const privateJwk = { ...privateKey.export({ format: "jwk" }), kid: keyId, alg: "ES256", use: "sig" };
   const publicJwk = { ...publicKey.export({ format: "jwk" }), kid: keyId, alg: "ES256", use: "sig" };

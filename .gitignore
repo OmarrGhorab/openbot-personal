@@ -14,6 +14,9 @@ coverage/
 .env.*
 .dev.vars
 .dev.vars.*
+# A copy of the private account file. The real file is outside the repo (~/.openbot-backend.env).
+.openbot-backend.env
+openbot-backend.env
 !.env.example
 !apps/auth-api/.env.production
 !apps/auth-api/.env.dev
