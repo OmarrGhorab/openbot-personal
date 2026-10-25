@@ -9,9 +9,9 @@
 - [ ] Map saved removed-language preferences to `system` safely
 
 ## 2. Voice shortcut
-- [ ] Find the mic / dictation code in the composer
-- [ ] Add `V` key (when no text field has focus) to start the mic and send the task to agents
-- [ ] Show the shortcut in the shortcuts list
+- [x] Find the mic / dictation code in the composer
+- [x] Add `V` key (when no text field has focus) to start the mic and send the task to agents (same as the mic button: the text is added to the message, not sent)
+- [x] Show the shortcut in the shortcuts list (the app has no shortcut list; it shows in the mic button tooltip and `aria-keyshortcuts`)
 
 ## 3. Free self-hosted server on own VPS
 - [ ] Map priced parts (billing, account service, hosted servers, Signal)

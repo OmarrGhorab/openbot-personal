@@ -49,6 +49,7 @@ export const messages = defineMessages("composer", {
   "composer.voice.requesting": "Requesting microphone access",
   "composer.voice.transcribing": "Transcribing voice prompt",
   "composer.voice.start": "Create prompt with voice",
+  "composer.voice.startShortcut": "Create prompt with voice ({key})",
   "composer.voice.blocked": "Microphone access is blocked. Allow OpenBot to use the microphone in system settings.",
   "composer.voice.noMicrophone": "No microphone is available.",
   "composer.voice.startFailed": "OpenBot could not start voice recording.",
