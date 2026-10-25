@@ -2856,6 +2856,8 @@ textarea {
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* User text takes its own direction, so English stays left-to-right in an Arabic layout. */
+  unicode-bidi: plaintext;
 }
 
 /* The reference list extends agent tiles beyond the chat-list inset while the

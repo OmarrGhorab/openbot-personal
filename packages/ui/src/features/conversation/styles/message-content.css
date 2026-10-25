@@ -11,6 +11,13 @@
   user-select: text;
 }
 
+/* Message text takes its own direction, so English stays left-to-right in an Arabic layout. */
+.message-copy,
+.message-markdown :is(p, li, h1, h2, h3, h4, h5, h6, blockquote) {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 .message-markdown {
   white-space: normal;
 }
