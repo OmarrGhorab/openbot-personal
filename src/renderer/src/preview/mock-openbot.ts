@@ -1096,6 +1096,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       setInteractive: async () => undefined,
       openChat: async () => undefined,
       onFocusAgent: () => () => undefined,
+      onComposerDictation: () => () => undefined,
     },
     computerUse: {
       getState: async () => computerUseState(),

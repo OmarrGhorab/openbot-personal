@@ -930,6 +930,12 @@ export async function createApplicationServices({
     promptAccessibility: promptGlobalVoiceAccessibility,
     promptMicrophone: promptGlobalVoiceMicrophone,
     readMicrophone: readGlobalVoiceMicrophone,
+    dictateInApp: (phase) => {
+      const window = windows.getMainWindow();
+      if (!window || window.isDestroyed() || !window.isFocused()) return false;
+      sendToRenderer(window, IPC_ENDPOINTS.globalVoice.composerDictation, { phase });
+      return true;
+    },
     openAgentChat: (agentId) => {
       void windows.ensureMainWindow().then((window) => {
         showMainWindow(window);

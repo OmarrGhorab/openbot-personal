@@ -1,4 +1,4 @@
-import { VOICE_AUDIO_LIMITS } from "@openbot/contracts/ipc";
+import { VOICE_AUDIO_LIMITS, VOICE_MODELS } from "@openbot/contracts/ipc";
 import { recordingToWav } from "../../voice-recording";
 
 /** How often the recording so far is transcribed again for the live text. */
@@ -85,7 +85,13 @@ export class GlobalVoiceDictation {
     this.#onLive = callbacks.onLive;
     this.#onLimit = callbacks.onLimit;
     this.#onLevel = callbacks.onLevel ?? (() => {});
-    const status = await window.openbot.voice.prepareModel();
+    const [status, settings] = await Promise.all([
+      window.openbot.voice.prepareModel(),
+      window.openbot.voice.getSettings(),
+    ]);
+    // Whisper reads the whole clip each time: a preview every 1.5 s queues passes that each take
+    // as long as the clip, and Stop waits for all of them. Only fast models preview.
+    const livePreview = VOICE_MODELS.find((model) => model.id === settings.modelId)?.livePreview ?? true;
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
@@ -100,9 +106,11 @@ export class GlobalVoiceDictation {
     this.#startMeter(stream);
     recorder.start(1_000);
     this.#limitTimer = setTimeout(() => this.#onLimit(), VOICE_AUDIO_LIMITS.maximumSeconds * 1_000);
-    this.#liveTimer = setInterval(() => {
-      this.#liveRequest = this.#liveRequest.then(() => this.#refreshLive());
-    }, LIVE_INTERVAL_MS);
+    if (livePreview) {
+      this.#liveTimer = setInterval(() => {
+        this.#liveRequest = this.#liveRequest.then(() => this.#refreshLive());
+      }, LIVE_INTERVAL_MS);
+    }
   }
 
   /** Stops the microphone and returns the text. Throws when no speech was heard. */

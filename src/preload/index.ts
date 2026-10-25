@@ -219,6 +219,7 @@ import {
 import {
   decodeGlobalVoiceAgentFocus,
   decodeGlobalVoiceCommand,
+  decodeGlobalVoiceComposerDictation,
   decodeGlobalVoicePickerSnapshot,
   decodeGlobalVoiceState,
   decodeNullableGlobalVoicePickerSnapshot,
@@ -677,6 +678,7 @@ const openbotApi: OpenBotDesktopApi = {
     setInteractive: decodeVoid,
     openChat: decodeVoid,
     focusAgent: decodeGlobalVoiceAgentFocus,
+    composerDictation: decodeGlobalVoiceComposerDictation,
   }),
   computerUse: bridgeGroup(IPC_ENDPOINTS.computerUse, {
     getState: decodeComputerUseState,

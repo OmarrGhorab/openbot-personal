@@ -268,6 +268,7 @@ import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-g
 import type {
   GlobalVoiceAgentFocus,
   GlobalVoiceCommand,
+  GlobalVoiceComposerDictation,
   GlobalVoiceInteractiveInput,
   GlobalVoicePickerSnapshot,
   GlobalVoicePreference,
@@ -832,6 +833,8 @@ export const IPC_ENDPOINTS = {
     openChat: request<GlobalVoiceAgentFocus, void>()("global-voice:open-chat"),
     /** Main tells the main window to show that agent's chat. */
     focusAgent: event<GlobalVoiceAgentFocus>()("global-voice:focus-agent"),
+    /** The dictation shortcut while the OpenBot window is in front: the chat's composer listens. */
+    composerDictation: event<GlobalVoiceComposerDictation>()("global-voice:composer-dictation"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view

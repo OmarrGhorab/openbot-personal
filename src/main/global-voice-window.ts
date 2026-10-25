@@ -74,6 +74,11 @@ export interface GlobalVoiceControllerOptions {
   readMicrophone: () => GlobalVoiceState["microphone"];
   /** Shows the main window on the agent's chat. */
   openAgentChat: (agentId: string) => void;
+  /**
+   * Hands the dictation shortcut to the chat on screen when the OpenBot window is in front. Returns
+   * false when it is not, and the island takes the shortcut.
+   */
+  dictateInApp?: (phase: "press" | "release") => boolean;
   /** Called as the island shows and hides, so the idle Dynamic Island can give the notch to it. */
   onVisibleChange?: (visible: boolean) => void;
 }
@@ -95,6 +100,9 @@ export class GlobalVoiceController {
   #keyRelease: GlobalVoiceKeyRelease = "ready";
   /** True while Settings is recording a shortcut, so the keys are not also global shortcuts. */
   #capturingShortcut = false;
+
+  /** A hold-to-talk press went to the chat's composer, so its key-up goes there too. */
+  #composerHeld = false;
 
   constructor(options: GlobalVoiceControllerOptions) {
     this.#options = options;
@@ -284,6 +292,11 @@ export class GlobalVoiceController {
   /** A key-up of a shortcut that is held. The window decides whether that ends the recording. */
   #release(accelerator: string): void {
     if (this.#destroyed || this.#preference.captureMode !== "hold" || this.#keyRelease !== "ready") return;
+    if (this.#composerHeld) {
+      this.#composerHeld = false;
+      this.#options.dictateInApp?.("release");
+      return;
+    }
     const shortcut = this.#shortcuts.find((item) => item.accelerator === accelerator && item.status === "active");
     const window = this.window;
     if (!shortcut || !window?.isVisible()) return;
@@ -324,6 +337,11 @@ export class GlobalVoiceController {
     logger.info("A global voice shortcut was pressed.", { target: target.type });
     if (target.type === "picker") {
       this.#command({ type: "choose" });
+      return;
+    }
+    if (target.type === "dictation" && !this.window?.isVisible() && this.#options.dictateInApp?.("press")) {
+      // In the OpenBot window the chat's own composer listens; the island stays hidden.
+      this.#composerHeld = this.#preference.captureMode === "hold" && this.#keyRelease === "ready";
       return;
     }
     if (target.type === "dictation") {

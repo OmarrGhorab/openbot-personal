@@ -140,6 +140,18 @@ export interface GlobalVoiceAgentFocus {
   agentId: string;
 }
 
+/**
+ * The dictation shortcut pressed while the OpenBot window is in front. The chat on screen dictates
+ * into its own composer instead of the island. `release` ends a held recording.
+ */
+export interface GlobalVoiceComposerDictation {
+  phase: "press" | "release";
+}
+
+export function isGlobalVoiceComposerDictation(value: unknown): value is GlobalVoiceComposerDictation {
+  return isDynamicRecord(value) && (value.phase === "press" || value.phase === "release");
+}
+
 /** An agent the picker lists. Only agents on this computer, most recent first. */
 export interface GlobalVoicePickerAgent {
   agentId: string;

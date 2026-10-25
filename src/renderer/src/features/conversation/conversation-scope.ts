@@ -940,6 +940,20 @@ export function createConversationViewScope(props: ConversationProps) {
     const escapeListener = whenVisible(closeOnEscape);
     const chatSearchListener = whenVisible(handleChatSearchShortcut);
     const voiceShortcutListener = whenVisible(handleVoiceShortcut);
+    /**
+     * The global dictation shortcut, pressed while this window is in front, dictates into this
+     * composer instead of the island. A press starts or stops; a hold's key-up stops.
+     */
+    const stopComposerDictation = window.openbot.globalVoice.onComposerDictation(({ phase }) => {
+      if (props.workspaceCovered || props.globalOverlayOpen) return;
+      if (voicePhase() === "recording") {
+        stopVoiceRecording();
+        return;
+      }
+      if (phase !== "press") return;
+      if (channel || props.runtime || !props.agent || !agentReady() || voicePhase() !== "idle") return;
+      void startVoiceRecording();
+    });
     keyboardTarget.addEventListener("keydown", escapeListener);
     keyboardWindow.addEventListener("keydown", closeActiveRemoteBrowserTab);
     keyboardTarget.addEventListener("keydown", chatSearchListener);
@@ -984,6 +998,7 @@ export function createConversationViewScope(props: ConversationProps) {
       keyboardWindow.removeEventListener("keydown", closeActiveRemoteBrowserTab);
       keyboardTarget.removeEventListener("keydown", chatSearchListener);
       keyboardTarget.removeEventListener("keydown", voiceShortcutListener);
+      stopComposerDictation();
       window.removeEventListener("pointerdown", closeMessageMenus);
       readerInput?.removeEventListener("wheel", readerWheel);
       readerInput?.removeEventListener("touchmove", readerTouchMove);

@@ -5,10 +5,12 @@
 import {
   type GlobalVoiceAgentFocus,
   type GlobalVoiceCommand,
+  type GlobalVoiceComposerDictation,
   type GlobalVoicePickerSnapshot,
   type GlobalVoiceState,
   isGlobalVoiceAgentFocus,
   isGlobalVoiceCommand,
+  isGlobalVoiceComposerDictation,
   isGlobalVoicePickerSnapshot,
   isGlobalVoiceState,
 } from "@openbot/contracts/ipc";
@@ -30,6 +32,11 @@ export function decodeNullableGlobalVoicePickerSnapshot(value: unknown): GlobalV
 
 export function decodeGlobalVoiceCommand(value: unknown): GlobalVoiceCommand {
   if (!isGlobalVoiceCommand(value)) throw new Error("Invalid global voice command.");
+  return value;
+}
+
+export function decodeGlobalVoiceComposerDictation(value: unknown): GlobalVoiceComposerDictation {
+  if (!isGlobalVoiceComposerDictation(value)) throw new Error("Invalid composer dictation.");
   return value;
 }
 
