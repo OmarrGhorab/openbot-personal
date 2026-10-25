@@ -78,7 +78,9 @@ export interface GlobalVoiceControllerOptions {
    * Hands the dictation shortcut to the chat on screen when the OpenBot window is in front. Returns
    * false when it is not, and the island takes the shortcut.
    */
-  dictateInApp?: (phase: "press" | "release") => boolean;
+  dictateInApp?: (phase: "press" | "release", send: boolean) => boolean;
+  /** True when the display the island opens on has no notch, so it floats below the menu bar. */
+  floating?: () => boolean;
   /** Called as the island shows and hides, so the idle Dynamic Island can give the notch to it. */
   onVisibleChange?: (visible: boolean) => void;
 }
@@ -294,7 +296,7 @@ export class GlobalVoiceController {
     if (this.#destroyed || this.#preference.captureMode !== "hold" || this.#keyRelease !== "ready") return;
     if (this.#composerHeld) {
       this.#composerHeld = false;
-      this.#options.dictateInApp?.("release");
+      this.#options.dictateInApp?.("release", this.#preference.sendAfterSpeaking);
       return;
     }
     const shortcut = this.#shortcuts.find((item) => item.accelerator === accelerator && item.status === "active");
@@ -339,7 +341,11 @@ export class GlobalVoiceController {
       this.#command({ type: "choose" });
       return;
     }
-    if (target.type === "dictation" && !this.window?.isVisible() && this.#options.dictateInApp?.("press")) {
+    if (
+      target.type === "dictation" &&
+      !this.window?.isVisible() &&
+      this.#options.dictateInApp?.("press", this.#preference.sendAfterSpeaking)
+    ) {
       // In the OpenBot window the chat's own composer listens; the island stays hidden.
       this.#composerHeld = this.#preference.captureMode === "hold" && this.#keyRelease === "ready";
       return;
@@ -377,6 +383,7 @@ export class GlobalVoiceController {
       captureMode: this.#preference.captureMode,
       holdToTalk: this.#preference.captureMode === "hold" && this.#keyRelease === "ready",
       keyRelease: this.#keyRelease,
+      floating: this.#options.floating?.() ?? false,
     };
     const view = request.type === "choose" ? "picker" : "pill";
     this.#applyView({ view, listening: false });

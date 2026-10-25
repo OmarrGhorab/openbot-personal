@@ -944,10 +944,12 @@ export function createConversationViewScope(props: ConversationProps) {
      * The global dictation shortcut, pressed while this window is in front, dictates into this
      * composer instead of the island. A press starts or stops; a hold's key-up stops.
      */
-    const stopComposerDictation = window.openbot.globalVoice.onComposerDictation(({ phase }) => {
+    const stopComposerDictation = window.openbot.globalVoice.onComposerDictation(({ phase, send }) => {
       if (props.workspaceCovered || props.globalOverlayOpen) return;
       if (voicePhase() === "recording") {
-        stopVoiceRecording();
+        // With "send after speaking" the release sends, the same as pressing send while recording.
+        if (send) actions.submitComposer();
+        else stopVoiceRecording();
         return;
       }
       if (phase !== "press") return;

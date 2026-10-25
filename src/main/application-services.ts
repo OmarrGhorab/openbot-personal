@@ -181,7 +181,12 @@ import {
   startDevelopmentRemoteRole,
 } from "./development-remote-bootstrap";
 import { performDynamicIslandCriticalAction } from "./dynamic-island-actions";
-import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFailed } from "./dynamic-island-window";
+import {
+  DynamicIslandFailed,
+  DynamicIslandWindowController,
+  dynamicIslandNotchSizeForDisplay,
+  toDynamicIslandFailed,
+} from "./dynamic-island-window";
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
@@ -930,10 +935,12 @@ export async function createApplicationServices({
     promptAccessibility: promptGlobalVoiceAccessibility,
     promptMicrophone: promptGlobalVoiceMicrophone,
     readMicrophone: readGlobalVoiceMicrophone,
-    dictateInApp: (phase) => {
+    floating: () =>
+      dynamicIslandNotchSizeForDisplay(screen.getDisplayNearestPoint(screen.getCursorScreenPoint())) === undefined,
+    dictateInApp: (phase, send) => {
       const window = windows.getMainWindow();
       if (!window || window.isDestroyed() || !window.isFocused()) return false;
-      sendToRenderer(window, IPC_ENDPOINTS.globalVoice.composerDictation, { phase });
+      sendToRenderer(window, IPC_ENDPOINTS.globalVoice.composerDictation, { phase, send });
       return true;
     },
     openAgentChat: (agentId) => {

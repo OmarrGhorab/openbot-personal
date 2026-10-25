@@ -146,10 +146,16 @@ export interface GlobalVoiceAgentFocus {
  */
 export interface GlobalVoiceComposerDictation {
   phase: "press" | "release";
+  /** Send the message when the transcript is ready, as the island does with "send after speaking". */
+  send?: boolean;
 }
 
 export function isGlobalVoiceComposerDictation(value: unknown): value is GlobalVoiceComposerDictation {
-  return isDynamicRecord(value) && (value.phase === "press" || value.phase === "release");
+  return (
+    isDynamicRecord(value) &&
+    (value.phase === "press" || value.phase === "release") &&
+    (value.send === undefined || typeof value.send === "boolean")
+  );
 }
 
 /** An agent the picker lists. Only agents on this computer, most recent first. */
@@ -207,6 +213,11 @@ export interface GlobalVoicePickerSnapshot {
   /** True only when the saved mode is hold and the key-release hook is running. */
   holdToTalk: boolean;
   keyRelease: GlobalVoiceKeyRelease;
+  /**
+   * The display has no notch, so the island floats below the menu bar as a detached pill with all
+   * corners rounded instead of hanging from the top edge.
+   */
+  floating?: boolean;
 }
 
 export interface GlobalVoiceSendInput {
@@ -303,6 +314,7 @@ export function isGlobalVoicePickerSnapshot(value: unknown): value is GlobalVoic
     (value.captureMode === "hold" || value.captureMode === "toggle") &&
     typeof value.holdToTalk === "boolean" &&
     new Set<unknown>(GLOBAL_VOICE_KEY_RELEASE).has(value.keyRelease) &&
+    (value.floating === undefined || typeof value.floating === "boolean") &&
     Array.isArray(value.agents) &&
     value.agents.every(
       (agent) =>

@@ -60,4 +60,16 @@ describe("global voice island motion", () => {
     expect(globalVoiceTextDirection("Send the report")).toBe("ltr");
     expect(globalVoiceTextDirection("تقرير اليوم report")).toBe("rtl");
   });
+
+  it("keeps the top corners square under a notch and rounds all four when floating", () => {
+    const to = GLOBAL_VOICE_ISLAND.pill;
+    const notched = islandMorphKeyframes(GLOBAL_VOICE_ISLAND.notch, to, false);
+    const floating = islandMorphKeyframes(GLOBAL_VOICE_ISLAND.notch, to, false, true);
+    expect(String(notched.at(-1)?.borderRadius)).toMatch(/^0 0 /);
+    const corners = String(floating.at(-1)?.borderRadius).split(" ");
+    expect(corners).toHaveLength(1);
+    expect(px(corners[0])).toBe(islandRadius(to));
+    // Compact, the floating island is a full capsule: radius half its height.
+    expect(px(floating[0]?.borderRadius)).toBe(GLOBAL_VOICE_ISLAND.notch.height / 2);
+  });
 });

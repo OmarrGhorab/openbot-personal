@@ -44,6 +44,8 @@ interface SurfaceState {
   snapshotId: number;
   agents: GlobalVoicePickerAgent[];
   sendAfterSpeaking: boolean;
+  /** No notch on this display: the island floats below the menu bar with all corners round. */
+  floating: boolean;
   /** This recording ends when the key comes up. A picker release starts a toggle recording instead. */
   sessionHold: boolean;
   holdToTalk: boolean;
@@ -74,6 +76,7 @@ export function GlobalVoiceSurface() {
     snapshotId: 0,
     agents: [],
     sendAfterSpeaking: true,
+    floating: false,
     sessionHold: false,
     holdToTalk: true,
     keyRelease: "ready",
@@ -156,7 +159,7 @@ export function GlobalVoiceSurface() {
       reveal();
       return;
     }
-    shellAnimation = element.animate(islandMorphKeyframes(from, size, reducedMotion()), {
+    shellAnimation = element.animate(islandMorphKeyframes(from, size, reducedMotion(), state.floating), {
       duration: reducedMotion() ? 120 : GLOBAL_VOICE_ISLAND_MORPH_MS,
       easing: "linear",
       fill: "both",
@@ -411,6 +414,7 @@ export function GlobalVoiceSurface() {
       draft.snapshotId = snapshot.id;
       draft.agents = snapshot.agents;
       draft.sendAfterSpeaking = snapshot.sendAfterSpeaking;
+      draft.floating = snapshot.floating ?? false;
       draft.query = "";
       draft.highlight = Math.max(
         0,
@@ -659,7 +663,7 @@ export function GlobalVoiceSurface() {
   };
 
   return (
-    <div class="global-voice-stage" dir={localeDirection(locale())}>
+    <div class="global-voice-stage" data-floating={state.floating ? "true" : undefined} dir={localeDirection(locale())}>
       <section
         class="global-voice-island"
         data-phase={state.phase}

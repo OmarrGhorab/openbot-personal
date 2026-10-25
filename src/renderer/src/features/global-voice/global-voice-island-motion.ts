@@ -43,8 +43,17 @@ export function islandRadius(size: IslandSize): number {
  * and corner radius follow one spring. The island is small, so animating its size is cheap. Reduced
  * motion fades, with no change of size.
  */
-export function islandMorphKeyframes(from: IslandSize, to: IslandSize, reducedMotion: boolean): Keyframe[] {
-  const end = { width: `${to.width}px`, height: `${to.height}px`, borderRadius: radiusValue(islandRadius(to)) };
+export function islandMorphKeyframes(
+  from: IslandSize,
+  to: IslandSize,
+  reducedMotion: boolean,
+  floating = false,
+): Keyframe[] {
+  const end = {
+    width: `${to.width}px`,
+    height: `${to.height}px`,
+    borderRadius: radiusValue(islandRadius(to), floating),
+  };
   if (reducedMotion || to.width <= 0 || to.height <= 0) {
     return [
       { ...end, opacity: 0 },
@@ -57,13 +66,15 @@ export function islandMorphKeyframes(from: IslandSize, to: IslandSize, reducedMo
     opacity: Math.min(1, 0.4 + progress * 2),
     width: `${Math.max(0, from.width + (to.width - from.width) * progress)}px`,
     height: `${Math.max(0, from.height + (to.height - from.height) * progress)}px`,
-    borderRadius: radiusValue(Math.max(0, fromRadius + (toRadius - fromRadius) * progress)),
+    borderRadius: radiusValue(Math.max(0, fromRadius + (toRadius - fromRadius) * progress), floating),
   }));
 }
 
 /** The top corners stay square, flush with the screen edge like the notch. */
-function radiusValue(radius: number): string {
-  return `0 0 ${radius.toFixed(2)}px ${radius.toFixed(2)}px`;
+/** Under a notch the top corners stay square to merge with it; a floating pill rounds all four. */
+function radiusValue(radius: number, floating = false): string {
+  const value = `${radius.toFixed(2)}px`;
+  return floating ? value : `0 0 ${value} ${value}`;
 }
 
 /** `rtl` when the text is mostly Arabic, so a name stays right to left in an English island. */

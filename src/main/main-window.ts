@@ -789,12 +789,23 @@ export function createGlobalVoiceWindow(): BrowserWindow {
  * A display with no notch uses the same place. The view does not change the window size.
  */
 export function placeGlobalVoiceWindow(window: BrowserWindow, _view: "pill" | "picker"): void {
-  const bounds = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).bounds;
-  window.setBounds({
+  window.setBounds(globalVoiceWindowBounds(screen.getDisplayNearestPoint(screen.getCursorScreenPoint())));
+}
+
+/**
+ * The island hangs from the notch on a display that has one. Elsewhere the window starts below the
+ * menu bar, and the island floats a few points lower as a detached pill.
+ */
+export function globalVoiceWindowBounds(
+  display: Pick<Display, "bounds" | "internal"> & Partial<Pick<Display, "workArea">>,
+) {
+  const { bounds } = display;
+  const notched = dynamicIslandNotchSizeForDisplay(display) !== undefined;
+  return {
     x: Math.round(bounds.x + (bounds.width - GLOBAL_VOICE_WINDOW.width) / 2),
-    y: Math.round(bounds.y),
+    y: Math.round(notched ? bounds.y : (display.workArea?.y ?? bounds.y)),
     ...GLOBAL_VOICE_WINDOW,
-  });
+  };
 }
 
 export function loadGlobalVoiceRenderer(window: BrowserWindow): Promise<void> {

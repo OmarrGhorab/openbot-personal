@@ -586,7 +586,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
           </Show>
           <SwitchField
             data-settings-row="globalVoice.settings.sendAfterSpeaking.title"
-            checked={globalVoice()?.preference.sendAfterSpeaking ?? false}
+            checked={globalVoice()?.preference.sendAfterSpeaking ?? true}
             disabled={!globalVoice()}
             onChange={(checked) => props.store.setGlobalVoiceSendAfterSpeaking(checked)}
             label={t("globalVoice.settings.sendAfterSpeaking.title")}

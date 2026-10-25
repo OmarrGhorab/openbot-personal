@@ -473,10 +473,17 @@ function criticalActionKey(action: CriticalAction): string {
   return [action.type, action.serverId, action.agentId, id].join("\u0000");
 }
 
-function dynamicIslandWindowBounds(display: Pick<Display, "bounds">): Rectangle {
+/** A display without a notch gets a floating pill: the window starts just below the menu bar. */
+const FLOATING_ISLAND_TOP_OFFSET = 2;
+
+export function dynamicIslandWindowBounds(
+  display: Pick<Display, "bounds" | "internal"> & Partial<Pick<Display, "workArea">>,
+): Rectangle {
+  const notched = dynamicIslandNotchSizeForDisplay(display) !== undefined;
+  const top = display.workArea ? display.workArea.y + FLOATING_ISLAND_TOP_OFFSET : display.bounds.y;
   return {
     x: Math.round(display.bounds.x + (display.bounds.width - DYNAMIC_ISLAND_WINDOW_SIZE.width) / 2),
-    y: display.bounds.y,
+    y: notched ? display.bounds.y : top,
     ...DYNAMIC_ISLAND_WINDOW_SIZE,
   };
 }

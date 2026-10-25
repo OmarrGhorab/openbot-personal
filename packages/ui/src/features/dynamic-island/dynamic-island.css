@@ -12,8 +12,9 @@
   --dynamic-island-shoulder-size: 6px;
   --dynamic-island-expanded-shoulder-size: 19px;
   --dynamic-island-bottom-radius: 14px;
-  --dynamic-island-external-compact-radius: 16px;
-  --dynamic-island-external-expanded-radius: 24px;
+  /* Without a notch the island floats: a true capsule when compact, the voice island radius open. */
+  --dynamic-island-external-compact-radius: 999px;
+  --dynamic-island-external-expanded-radius: var(--openbot-radius-modal);
   --dynamic-island-shared-duration: 450ms;
   /* The voice island's spring (response 0.4 s, damping 0.8) sampled over 450 ms, overshoot
      included, so a reply card opens and closes exactly as the voice island does. */
@@ -509,7 +510,10 @@
 .dynamic-island-external .dynamic-island-silhouette {
   border-radius: var(--dynamic-island-external-compact-radius);
   background: var(--openbot-bg-notch);
-  box-shadow: inset 0 -1px 0 var(--openbot-shadow-ring);
+  box-shadow:
+    inset 0 0 0 1px var(--openbot-shadow-ring),
+    0 10px 30px var(--openbot-island-shadow),
+    0 2px 8px var(--openbot-island-shadow);
 }
 
 .dynamic-island-external .dynamic-island-silhouette-body {

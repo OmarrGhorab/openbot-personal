@@ -39,6 +39,22 @@ body {
   will-change: width, height, border-radius;
 }
 
+/*
+ * A display without a notch: the island floats as a detached pill 8 points below the menu bar,
+ * every corner round, with a soft shadow all around instead of a flat block on the top edge.
+ */
+.global-voice-stage[data-floating="true"] {
+  padding-top: 8px;
+}
+
+.global-voice-stage[data-floating="true"] .global-voice-island {
+  border-radius: var(--openbot-radius-modal);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--openbot-island-fg) 6%, transparent),
+    0 10px 30px var(--openbot-island-shadow),
+    0 2px 8px var(--openbot-island-shadow);
+}
+
 /* Content cross-fades in after the shape starts to grow, so text never squeezes. */
 .global-voice-island > * {
   animation: global-voice-content-in var(--openbot-duration-overlay) var(--openbot-ease-out) 70ms both;
