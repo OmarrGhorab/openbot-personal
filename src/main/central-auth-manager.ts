@@ -63,6 +63,7 @@ import {
   type RemoteInviteRecord,
   type RemoteMemberRecord,
 } from "./central-auth-records";
+import { DEVELOPMENT_SKIP_ACCOUNT } from "./development-account-skip";
 import type { NotificationRelayRequest } from "./push-notifications";
 
 interface CentralAuthEvents {
@@ -83,6 +84,16 @@ interface CentralAuthManagerOptions {
   startupRequestTimeoutMs?: number;
   startupRetryDelaysMs?: readonly number[];
   emailCodeRequestTimeoutMs?: number;
+  /**
+   * When true, `initialize` signs in {@link DEVELOPMENT_SKIP_ACCOUNT} and does not read the
+   * session file or call the account service. Set only for `OPENBOT_DEV_SKIP_ACCOUNT=1`.
+   */
+  skipAccountService?: boolean;
+  /**
+   * When true, `continueWithoutAccount` may sign in the same local account. Set only when the
+   * app variant is not production. The stored session file is left as it is.
+   */
+  allowContinueWithoutAccount?: boolean;
 }
 
 /** The persistent Mobile Connect link of this desktop. The account service keeps only its hash. */
@@ -191,7 +202,14 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       startupRequestTimeoutMs: options.startupRequestTimeoutMs ?? STARTUP_REQUEST_TIMEOUT_MS,
       startupRetryDelaysMs: options.startupRetryDelaysMs ?? STARTUP_RETRY_DELAYS_MS,
       emailCodeRequestTimeoutMs: options.emailCodeRequestTimeoutMs ?? EMAIL_CODE_REQUEST_TIMEOUT_MS,
+      skipAccountService: options.skipAccountService === true,
+      allowContinueWithoutAccount: options.allowContinueWithoutAccount === true,
     };
+    if (this.#options.skipAccountService) {
+      logger.info(
+        "OPENBOT_DEV_SKIP_ACCOUNT is set. Startup uses a local account and does not call the account service.",
+      );
+    }
   }
 
   readonly #pending = new Set<Deferred.Deferred<void>>();
@@ -1347,6 +1365,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   readonly #initialize = Effect.fn("CentralAuth.initialize")(function* (
     this: CentralAuthManager,
   ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
+    if (this.#options.skipAccountService) return this.#signInLocalDevelopmentAccount();
     this.#setState({ status: "loading" });
     // A session that cannot be read now stays on disk: a Keychain that is locked or asks for
     // permission at startup can open it at the next start, and the next sign-in replaces it.
@@ -1622,11 +1641,31 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     return user;
   });
 
+  readonly continueWithoutAccount = Effect.fn("CentralAuth.continueWithoutAccount")(
+    function* (
+      this: CentralAuthManager,
+    ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
+      if (!this.#options.allowContinueWithoutAccount) {
+        return yield* new CentralAuthOperationError({
+          cause: new Error("Continue without an account is available only in a development or preview build."),
+        });
+      }
+      return this.#signInLocalDevelopmentAccount();
+    },
+    (operation) => this.#owned(operation),
+  ).bind(this);
+
   readonly logout = Effect.fn("CentralAuth.logout")(
     function* (
       this: CentralAuthManager,
     ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
       this.#emailCodeRequest = null;
+      // The placeholder has no session token and no file of its own. Leave a real session file
+      // in place so the next start, without the development skip, can restore it.
+      if (this.#isLocalDevelopmentAccount()) {
+        this.#forgetSession();
+        return this.#setState({ status: "signed_out" });
+      }
       if (this.#sessionToken) {
         const attempt8 = yield* Effect.gen({ self: this }, function* () {
           yield* this.#authorizedRequestEffect("/v1/auth/logout", { method: "POST" }, decodeVoid);
@@ -1871,6 +1910,27 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     this.#sessionAccountId = null;
     this.#teamHostTokens.clear();
     this.#mobileConnectLink = null;
+  }
+
+  #isLocalDevelopmentAccount(): boolean {
+    return (
+      this.#state.status === "signed_in" &&
+      this.#sessionToken === null &&
+      this.#state.user.id === DEVELOPMENT_SKIP_ACCOUNT.id
+    );
+  }
+
+  /**
+   * Signs in the local placeholder. Drops any in-memory session so a later call cannot send a
+   * real token as this account, and does not read or write the session file.
+   */
+  #signInLocalDevelopmentAccount(): CentralAuthState {
+    this.#emailCodeRequest = null;
+    this.#forgetSession();
+    return this.#setState({
+      status: "signed_in",
+      user: { ...DEVELOPMENT_SKIP_ACCOUNT },
+    });
   }
 
   #restoreStoredSession(value: string): void {

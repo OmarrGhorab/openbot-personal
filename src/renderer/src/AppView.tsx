@@ -80,6 +80,7 @@ export function AppAccessGate() {
                     onRequestEmailCode={auth.requestEmailCode}
                     onVerifyEmailCode={auth.verifyEmailCode}
                     onReset={auth.logoutCentralAccount}
+                    onContinueWithoutAccount={auth.continueWithoutAccount}
                   />
                 }
               >

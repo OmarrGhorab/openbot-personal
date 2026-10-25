@@ -275,6 +275,7 @@
     "test:messaging-discord-access": "bun scripts/messaging-discord-access-e2e.ts",
     "test:analytics-redaction": "bun scripts/analytics-redaction-e2e.ts",
     "test:central-auth-startup": "bun scripts/central-auth-startup-stall-e2e.ts",
+    "test:development-account-skip": "bun scripts/development-account-skip-e2e.ts",
     "test:exit-records": "bun scripts/exit-records-e2e.ts",
     "test:zero-filled-settings": "bun scripts/zero-filled-settings-e2e.ts",
     "test:hosted-start-wait": "bun apps/auth-api/scripts/hosted-start-wait-e2e.ts",

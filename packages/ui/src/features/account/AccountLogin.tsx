@@ -15,9 +15,14 @@ interface AccountLoginProps {
   onRequestEmailCode: (email: string) => Promise<void>;
   onVerifyEmailCode: (challengeId: string, code: string) => Promise<void>;
   onReset: () => Promise<void>;
+  /**
+   * Development and preview builds pass this. The button stays hidden for a production variant.
+   * Main refuses the action unless the variant is not production.
+   */
+  onContinueWithoutAccount?: () => Promise<void>;
 }
 
-type PendingAction = "retry" | "send" | "check" | "verify" | "resend" | "reset";
+type PendingAction = "retry" | "send" | "check" | "verify" | "resend" | "reset" | "skip";
 type LoginStep = "email" | "code";
 type LoginTransition = "none" | "forward" | "back";
 
@@ -339,6 +344,19 @@ export function AccountLogin(props: AccountLoginProps) {
     }
   }
 
+  async function continueWithoutAccount(): Promise<void> {
+    if (!props.onContinueWithoutAccount || pendingAction()) return;
+    setPendingAction("skip");
+    setLocalError(null);
+    try {
+      await props.onContinueWithoutAccount();
+    } catch (error) {
+      showActionError(error, t("account.login.continueWithoutAccountFailed"), false);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   async function resetEmail(): Promise<void> {
     if (pendingAction()) return;
     setPendingAction("reset");
@@ -625,6 +643,18 @@ export function AccountLogin(props: AccountLoginProps) {
                 </Show>
               </div>
             </Show>
+          </Show>
+          <Show when={!verified() && !codeSent() && props.onContinueWithoutAccount && props.variant !== "production"}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="account-login-skip"
+              disabled={pendingAction() !== null}
+              onClick={() => void continueWithoutAccount()}
+            >
+              {t("account.login.continueWithoutAccount")}
+            </Button>
           </Show>
         </section>
       </div>

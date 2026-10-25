@@ -33,6 +33,7 @@ import { type ApplicationServices, createApplicationServices } from "./applicati
 import { type BackgroundTray, createBackgroundTray } from "./background-tray";
 import { type DeepLink, findDeepLink, parseDeepLink } from "./deep-link-router";
 import { requestNotificationPermission, showRetainedNotification } from "./desktop-notifications";
+import { startupSkipsAccountService } from "./development-account-skip";
 import { guardDevelopmentOutput } from "./development-output";
 import {
   developmentUserDataName,
@@ -168,6 +169,11 @@ const developmentRemoteRole =
     ? process.env.OPENBOT_DEV_REMOTE_ROLE
     : null;
 const developmentTestClientEnabled = !app.isPackaged && process.env.OPENBOT_DEV_TEST_CLIENT_ENABLED === "1";
+// Honored in a packaged build. The variable is the opt-in; a start without it is unchanged.
+const developmentSkipAccount = startupSkipsAccountService(process.env.OPENBOT_DEV_SKIP_ACCOUNT, developmentRemoteRole);
+if (process.env.OPENBOT_DEV_SKIP_ACCOUNT === "1" && !developmentSkipAccount) {
+  logger.warn("OPENBOT_DEV_SKIP_ACCOUNT is ignored because OPENBOT_DEV_REMOTE_ROLE is set.");
+}
 // Before any child process starts: this removes the single-use claim from the environment they inherit.
 const hostedServer = takeHostedServerEnvironment(process.env, app.isPackaged, process.platform);
 const hostingDeveloperKey = takeHostingDeveloperKey(process.env, app.isPackaged);
@@ -1075,6 +1081,7 @@ if (!hasSingleInstanceLock) {
         appVariant,
         analyticsCaptureUrl,
         developmentRemoteRole,
+        developmentSkipAccount,
         developmentTestClientEnabled,
         hostedServer,
         serverMode,

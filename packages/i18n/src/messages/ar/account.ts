@@ -91,6 +91,8 @@ export const messages = {
   "account.login.resend": "إعادة إرسال الكود",
   "account.login.resendIn": "أعد الإرسال بعد {time}",
   "account.login.loadFailed": "OpenBot معرفش يحمّل خدمة الحسابات.",
+  "account.login.continueWithoutAccount": "كمّل من غير حساب (تطوير)",
+  "account.login.continueWithoutAccountFailed": "OpenBot معرفش يكمّل من غير حساب.",
   "account.otp.incorrect": "الكود ده غلط. حاول تاني.",
   "account.otp.verifying": "بنتحقق…",
   "account.otp.entry": "إدخال كود المرة الواحدة",

@@ -149,6 +149,10 @@ const Auth = createSimpleContext({
       applyCentralAuthState(await accountPort().auth.retry());
     }
 
+    async function continueWithoutAccount(): Promise<void> {
+      applyCentralAuthState(await accountPort().auth.continueWithoutAccount());
+    }
+
     async function verifyEmailCode(challengeId: string, code: string): Promise<void> {
       const anonymousAnalytics = desktopAnalytics.anonymousScope();
       try {
@@ -307,6 +311,7 @@ const Auth = createSimpleContext({
       refreshAccountUsage,
       requestEmailCode,
       retryCentralAccount,
+      continueWithoutAccount,
       verifyEmailCode,
       logoutCentralAccount,
       updateAccountName,

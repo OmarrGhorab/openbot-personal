@@ -174,6 +174,7 @@ import { type CustomProviderChanges, createCustomProviderChanges } from "./custo
 import { CustomProviderStore } from "./custom-provider-store";
 import { MCP_OAUTH_REDIRECT_URL } from "./deep-link-router";
 import { desktopShowsAgentEvent } from "./desktop-notifications";
+import { continueWithoutAccountAllowed } from "./development-account-skip";
 import {
   applyDevelopmentRemoteAccount,
   type DevelopmentRemoteRole,
@@ -473,6 +474,8 @@ export interface ApplicationServiceContext {
   /** A local server that receives analytics in an unpackaged build. See `readAnalyticsCaptureUrl`. */
   analyticsCaptureUrl: string | null;
   developmentRemoteRole: DevelopmentRemoteRole | null;
+  /** `OPENBOT_DEV_SKIP_ACCOUNT=1`, and no development remote role. See `startupSkipsAccountService`. */
+  developmentSkipAccount: boolean;
   developmentTestClientEnabled: boolean;
   /** Set only in a hosted server VM. */
   hostedServer: HostedServerEnvironment | null;
@@ -831,6 +834,7 @@ export async function createApplicationServices({
   appVariant,
   analyticsCaptureUrl,
   developmentRemoteRole,
+  developmentSkipAccount,
   developmentTestClientEnabled,
   hostedServer,
   serverMode: serverModeEnvironment,
@@ -924,8 +928,10 @@ export async function createApplicationServices({
     mobileConnectApiUrl: readMobileConnectApiUrl(process.env.OPENBOT_MOBILE_AUTH_API_URL, centralAuthApiUrl),
     storagePath: join(app.getPath("userData"), CENTRAL_AUTH_FILE),
     ...safeStorageCipher("error.app.macSecureStorageUnavailable"),
+    skipAccountService: developmentSkipAccount,
+    allowContinueWithoutAccount: continueWithoutAccountAllowed(appVariant),
   });
-  // Registered before `initialize()`, which publishes `{ status: "loading" }` synchronously: the
+  // Registered before `initialize()`, which publishes its first state synchronously: the
   // listener therefore runs on the next line with most of this function's services still unbuilt.
   teardown.push(TEARDOWN_ORDER.centralAuth, "the account runtime", () => Effect.runPromise(centralAuth.dispose()));
   centralAuth.on("changed", forwardCentralAuth);
