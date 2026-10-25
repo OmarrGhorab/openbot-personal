@@ -55,33 +55,25 @@ function fakeWhisper(phrases: Phrase[]): LoadedRecognizer & { decodes: string[] 
 }
 
 describe("transcribeAutomatic", () => {
-  it("keeps Arabic and English phrases each in their own language", async () => {
-    const phrases: Phrase[] = [
-      { level: 0.2, auto: { text: "افتح الإعدادات", lang: "ar" } },
-      { level: 0.4, auto: { text: "Check the build", lang: "en" }, ar: "تشيك ذا بيلد" },
-      { level: 0.6, auto: { text: "وقولي", lang: "ar" } },
-    ];
-    const texts = await transcribeAutomatic(fakeWhisper(phrases), audio(phrases), "ar");
-    expect(texts).toEqual(["افتح الإعدادات", "Check the build", "وقولي"]);
+  it("reads an Arabic clip once", async () => {
+    const phrases: Phrase[] = [{ level: 0.3, auto: { text: "افتح الإعدادات وقولي", lang: "ar" } }];
+    const whisper = fakeWhisper(phrases);
+    expect(await transcribeAutomatic(whisper, audio(phrases), "ar")).toEqual(["افتح الإعدادات وقولي"]);
+    expect(whisper.decodes).toEqual(["auto"]);
   });
 
-  it("keeps a mixed phrase in Arabic mode instead of translating it", async () => {
+  it("keeps mixed speech detected as English in Arabic instead of translating it", async () => {
     const phrases: Phrase[] = [
-      { level: 0.2, auto: { text: "لو سمحت شوف", lang: "ar" } },
       { level: 0.5, auto: { text: "and tell me if tests passed", lang: "en" }, ar: "وقولي ال tests passed" },
     ];
-    const texts = await transcribeAutomatic(fakeWhisper(phrases), audio(phrases), "ar");
-    expect(texts).toEqual(["لو سمحت شوف", "وقولي ال tests passed"]);
+    const whisper = fakeWhisper(phrases);
+    expect(await transcribeAutomatic(whisper, audio(phrases), "ar")).toEqual(["وقولي ال tests passed"]);
+    expect(whisper.decodes).toEqual(["auto", "ar"]);
   });
 
-  it("does not decode English again when nothing was Arabic", async () => {
-    const phrases: Phrase[] = [
-      { level: 0.2, auto: { text: "Open settings.", lang: "en" } },
-      { level: 0.5, auto: { text: "Check the build.", lang: "en" } },
-    ];
-    const whisper = fakeWhisper(phrases);
-    expect(await transcribeAutomatic(whisper, audio(phrases), "ar")).toEqual(["Open settings.", "Check the build."]);
-    expect(whisper.decodes).toEqual(["auto", "auto"]);
+  it("keeps English when the Arabic reading has no English words", async () => {
+    const phrases: Phrase[] = [{ level: 0.5, auto: { text: "Check the build.", lang: "en" }, ar: "تشيك ذا بيلد" }];
+    expect(await transcribeAutomatic(fakeWhisper(phrases), audio(phrases), "ar")).toEqual(["Check the build."]);
   });
 
   it("decodes a phrase detected as a third language in the fallback language", async () => {
