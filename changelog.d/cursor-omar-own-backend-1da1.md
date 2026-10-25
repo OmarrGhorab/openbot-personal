@@ -7,6 +7,11 @@
   It binds `openbot-omar-avatars`, `openbot-omar-skills`, and `openbot-omar-sites`. A missing
   bucket binding still answers 503. See `docs/own-backend.md`.
 
+### Fixed
+
+- The SMTP username can be a login that is not an email address, such as Resend's `resend`. The
+  sender address in `EMAIL_FROM` must still be an email address.
+
 ### Changed
 
 - A local account Worker that has SMTP configured sends the sign-in code and still returns it in the

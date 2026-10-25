@@ -145,6 +145,8 @@ before any change when the port is missing. Never copy the file into this reposi
 
 Any SMTP server that accepts implicit TLS (port 465) can send mail. Use a separate app password or
 send-only credential. Do not use a mailbox password. The sender and the SMTP host belong to the owner.
+The SMTP username does not have to be an email address. Resend uses the username `resend`. The sender
+address in `EMAIL_FROM` must still be an email address.
 
 Local development returns the sign-in code in the API response. Generated defaults blank all five
 SMTP variables, so delivery stays off until a full set is present. Put that set in the private

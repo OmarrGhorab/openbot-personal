@@ -54,6 +54,7 @@
 - [x] Wrangler env `omar` binds the three openbot-omar R2 buckets. workers.dev only. Deploy does not read `.env.production`
 - [x] Document D1, KV (none), rate limits, and the desktop `OPENBOT_ACCOUNT_URL`
 - [x] Onboarding step order unchanged; test locks language, then sign-in, then first run
+- [x] SMTP username may be a non-email login such as `resend`. `EMAIL_FROM` stays an email address
 - [x] Narrow checks passed here. Pull request: https://github.com/OmarrGhorab/openbot-personal/pull/14
 
 ## 6. Global voice (branch feat/global-voice)

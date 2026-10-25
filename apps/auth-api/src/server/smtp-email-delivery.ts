@@ -106,6 +106,8 @@ const SMTP_TIMEOUT_MS = 7_500;
 const SMTP_CLOSE_TIMEOUT_MS = 250;
 const SMTP_MAX_ATTEMPTS = 3;
 const EMAIL_PATTERN = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+$/iu;
+/** An SMTP login is not always an email address. Resend uses the username `resend`. */
+export const SMTP_USERNAME_MAX_LENGTH = 256;
 
 export const sendPrivateEmailCode = Effect.fn("Smtp.sendPrivateEmailCode ")(function* (
   config: SmtpEmailConfig,
@@ -521,9 +523,15 @@ const writeCommand = Effect.fn("SmtpEmail.writeCommand")(
 function validateConfig(config: SmtpEmailConfig): void {
   if (!isValidHostname(config.host)) throw new Error("smtp_invalid_host");
   if (config.port !== 465) throw new Error("smtp_port_must_be_465");
-  validateEmail(config.username, "username");
+  validateUsername(config.username);
   validateEmail(config.from, "sender");
   if (!config.password || hasHeaderBreak(config.password)) throw new Error("smtp_invalid_password");
+}
+
+function validateUsername(value: string): void {
+  if (!value.trim() || value.length > SMTP_USERNAME_MAX_LENGTH || hasHeaderBreak(value)) {
+    throw new Error("smtp_invalid_username");
+  }
 }
 
 function validateEmail(value: string, field: string): void {

@@ -190,6 +190,7 @@
     "test:desktop": "vitest run",
     "test:onboarding-step-order": "bun scripts/onboarding-step-order-e2e.ts",
     "test:private-backend-env": "bun scripts/private-backend-env-e2e.ts",
+    "test:smtp-username": "bun apps/auth-api/scripts/smtp-username-e2e.ts",
     "test:changed": "git merge-base origin/main HEAD > /dev/null && vitest run --changed origin/main --maxWorkers=1",
     "test:related": "vitest related --run --maxWorkers=1",
     "test:durations": "bun scripts/test-durations.ts",

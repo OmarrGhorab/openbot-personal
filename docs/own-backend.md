@@ -104,7 +104,8 @@ It does not print the key. Run it again and the same key stays. `--rotate` repla
 `bun run dev:api` and `bun run dev:all` load this file with no dotenvx key. Development still returns
 the sign-in code in the API response (`AUTH_EXPOSE_DEVELOPMENT_CODE`). When the file has all five SMTP
 settings, the same code is also sent by email. The mail host is Resend: `smtp.resend.com`, port `465`,
-user `resend`. Put `EMAIL_SMTP_PASSWORD` and `EMAIL_FROM` only in the private file.
+user `resend`. That username is not an email address, and the Worker accepts it. `EMAIL_FROM` must still
+be an email address. Put `EMAIL_SMTP_PASSWORD` and `EMAIL_FROM` only in the private file.
 
 Load order for local development: generated defaults, decrypted `.env.dev` when you have the key,
 the private file, saved overrides in `.openbot/dev-state.json`, then the shell. The private file
