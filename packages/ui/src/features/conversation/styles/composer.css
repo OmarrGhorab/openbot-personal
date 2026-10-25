@@ -262,14 +262,14 @@
 }
 
 .voice-morph-bar {
-  right: 46px;
+  inset-inline-end: 46px;
   width: 28px;
   transition: width var(--voice-morph-exit-duration) var(--openbot-ease-out);
 }
 
 .voice-morph-send-blob,
 .voice-morph-finish-blob {
-  right: 12px;
+  inset-inline-end: 12px;
   width: 28px;
   opacity: 0;
   transition: opacity 0s linear var(--voice-morph-exit-duration);
@@ -535,7 +535,7 @@
 
 .composer[data-compact] .composer-editor-placeholder {
   top: 4px;
-  left: 0;
+  inset-inline-start: 0;
 }
 
 .composer[data-has-attachments] .composer-input-label,
@@ -621,7 +621,7 @@
   display: inline-block;
   width: 2px;
   height: 16px;
-  margin-left: 2px;
+  margin-inline-start: 2px;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-accent);
   vertical-align: -3px;
@@ -656,7 +656,7 @@
 .composer-editor-placeholder {
   position: absolute;
   top: 2px;
-  left: 4px;
+  inset-inline-start: 4px;
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-lg);
   line-height: 20px;
@@ -676,7 +676,7 @@
 
 .composer-editor-root[data-size="compact"] .composer-editor-placeholder {
   top: 4px;
-  left: 0;
+  inset-inline-start: 0;
 }
 
 /* The box comes from `.reference-chip`; this token only loses the chip fill and gains the outline. */
@@ -684,7 +684,7 @@
   border: 1px dashed var(--openbot-border-strong);
   background: transparent;
   /* No leading icon, so the left inset matches the right one. */
-  padding-left: var(--openbot-space-1-5);
+  padding-inline-start: var(--openbot-space-1-5);
   color: var(--openbot-text-muted);
 }
 
@@ -708,9 +708,9 @@
 
   position: absolute;
   z-index: 10;
-  right: var(--mention-picker-side-inset);
+  inset-inline-end: var(--mention-picker-side-inset);
   bottom: calc(var(--mention-picker-bottom, 0px) - var(--mention-picker-overlap));
-  left: var(--mention-picker-side-inset);
+  inset-inline-start: var(--mention-picker-side-inset);
   border: 1px solid var(--openbot-queue-border);
   border-radius: var(--openbot-radius-lg);
   background: var(--openbot-queue-surface);
@@ -778,7 +778,7 @@
   background: transparent;
   padding: 0 8px;
   color: var(--openbot-queue-text);
-  text-align: left;
+  text-align: start;
 }
 
 .mention-picker-file-option .attachment-reference-visual {
@@ -856,7 +856,7 @@
 }
 
 .mention-picker-badge {
-  margin-left: auto;
+  margin-inline-start: auto;
   flex: 0 0 auto;
   color: var(--openbot-queue-action);
 }

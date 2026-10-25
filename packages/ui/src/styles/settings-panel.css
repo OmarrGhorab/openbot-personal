@@ -19,12 +19,12 @@
   position: absolute;
   z-index: 15;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   display: flex;
   width: var(--settings-panel-width, 360px);
   flex-direction: column;
-  border-left: 1px solid var(--openbot-border);
+  border-inline-start: 1px solid var(--openbot-border);
   background: var(--openbot-bg-canvas);
   color: var(--openbot-text-primary);
   animation: settings-panel-in var(--openbot-duration-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -154,7 +154,7 @@
   background-size:
     5px 5px,
     5px 5px;
-  padding-right: 32px;
+  padding-inline-end: 32px;
 }
 
 .settings-field select option {
@@ -220,7 +220,7 @@
   border-radius: 0;
   background: transparent;
   padding: 0 var(--openbot-space-1);
-  text-align: left;
+  text-align: start;
   transition: none;
 }
 

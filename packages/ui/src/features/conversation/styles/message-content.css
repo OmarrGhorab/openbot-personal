@@ -55,7 +55,7 @@
 }
 
 .message-markdown :is(ul, ol) {
-  padding-left: var(--openbot-space-6);
+  padding-inline-start: var(--openbot-space-6);
 }
 
 .message-markdown ul {
@@ -88,8 +88,8 @@
 }
 
 .message-markdown blockquote {
-  border-left: var(--openbot-space-0-5) solid var(--openbot-border-strong);
-  padding-left: var(--openbot-space-3);
+  border-inline-start: var(--openbot-space-0-5) solid var(--openbot-border-strong);
+  padding-inline-start: var(--openbot-space-3);
   color: var(--openbot-text-secondary);
 }
 
@@ -164,11 +164,11 @@
 }
 
 .message-markdown-table :is(th, td) {
-  border-right: 1px solid var(--openbot-data-table-border);
+  border-inline-end: 1px solid var(--openbot-data-table-border);
   border-bottom: 1px solid var(--openbot-data-table-border);
   padding: var(--openbot-space-2) var(--openbot-space-3);
   overflow-wrap: break-word;
-  text-align: left;
+  text-align: start;
   vertical-align: top;
 }
 
@@ -179,7 +179,7 @@
 }
 
 .message-markdown-table :is(th, td):last-child {
-  border-right: 0;
+  border-inline-end: 0;
 }
 
 .message-markdown-table tbody tr:last-child td {
@@ -191,7 +191,7 @@
 }
 
 .message-markdown-table [data-align="right"] {
-  text-align: right;
+  text-align: end;
 }
 
 ::highlight(openbot-message-selection) {
@@ -346,18 +346,18 @@
 .selection-actions-more-presets {
   max-width: 0;
   gap: 2px;
-  margin-left: 0;
+  margin-inline-start: 0;
   overflow: hidden;
   opacity: 0;
   transition:
     max-width var(--openbot-duration-overlay) cubic-bezier(0.23, 1, 0.32, 1),
     opacity var(--openbot-duration-overlay) cubic-bezier(0.23, 1, 0.32, 1),
-    margin-left var(--openbot-duration-overlay) cubic-bezier(0.23, 1, 0.32, 1);
+    margin-inline-start var(--openbot-duration-overlay) cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .selection-actions-presets-expanded .selection-actions-more-presets {
   max-width: 262px;
-  margin-left: 2px;
+  margin-inline-start: 2px;
   opacity: 1;
 }
 
@@ -442,7 +442,7 @@
 }
 
 .selection-actions-more-divider {
-  margin-left: 1px;
+  margin-inline-start: 1px;
 }
 
 .selection-actions-expand svg {
@@ -496,7 +496,7 @@
   max-height: 124px;
   overflow: auto;
   margin: 0;
-  border-left: 2px solid var(--openbot-accent);
+  border-inline-start: 2px solid var(--openbot-accent);
   border-radius: 0 var(--openbot-radius-sm) var(--openbot-radius-sm) 0;
   background: var(--openbot-bg-control);
   padding: 6px 8px;
@@ -780,16 +780,16 @@
 .message-code-line-number {
   width: 40px;
   flex: none;
-  padding-right: 8px;
+  padding-inline-end: 8px;
   color: var(--openbot-text-dim);
   font-size: var(--openbot-text-sm);
-  text-align: right;
+  text-align: end;
   user-select: none;
 }
 
 .message-code-line-source {
   min-width: 0;
-  padding-right: 12px;
+  padding-inline-end: 12px;
   white-space: pre;
 }
 
@@ -797,7 +797,7 @@
   width: 2px;
   height: 13px;
   display: inline-block;
-  margin-left: 2px;
+  margin-inline-start: 2px;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-accent);
   transform: translateY(2px);
@@ -902,7 +902,7 @@
   color: var(--openbot-data-table-text);
   font-weight: inherit;
   overflow-wrap: break-word;
-  text-align: left;
+  text-align: start;
   vertical-align: top;
 }
 
@@ -915,7 +915,7 @@
 
 .message-data-table th:not(:last-child),
 .message-data-table td:not(:last-child) {
-  border-right: 1px solid var(--openbot-data-table-border);
+  border-inline-end: 1px solid var(--openbot-data-table-border);
 }
 
 /* Links and code can be one long token. Break them inside the column, so they do not make the
@@ -930,7 +930,7 @@
 }
 
 .message-data-table [data-align="right"] {
-  text-align: right;
+  text-align: end;
 }
 
 .message-comparison-table-yes {
@@ -961,7 +961,7 @@
   height: 14px;
   align-items: center;
   justify-content: center;
-  margin-right: 4px;
+  margin-inline-end: 4px;
   color: currentColor;
   vertical-align: -2px;
 }
@@ -1047,7 +1047,7 @@
   line-height: 15px;
   overflow-wrap: anywhere;
   pointer-events: none;
-  text-align: left;
+  text-align: start;
   white-space: normal;
   opacity: 0;
   transform: translateY(4px);
@@ -1125,7 +1125,7 @@
   display: flex;
   width: 14px;
   height: 14px;
-  margin-left: -2px;
+  margin-inline-start: -2px;
   color: var(--openbot-text-dim);
   opacity: 0;
   transform: rotate(45deg) translate(-1px, 1px);
@@ -1192,8 +1192,8 @@
 .message-reply-context {
   max-width: 360px;
   margin: -1px 0 7px;
-  border-left: 2px solid var(--openbot-text-dim);
-  padding-left: 8px;
+  border-inline-start: 2px solid var(--openbot-text-dim);
+  padding-inline-start: 8px;
   color: var(--openbot-text-secondary);
 }
 
@@ -1249,14 +1249,14 @@
 }
 
 [data-slot="bubble"][data-author="user"] .message-reply-context {
-  border-left-color: var(--openbot-border-strong);
+  border-inline-start-color: var(--openbot-border-strong);
   color: var(--openbot-text-readable);
 }
 
 /* A quote that opens its original. The button lies over the whole quote, its left mark included. */
 .message-reply-context[data-opens] {
   position: relative;
-  transition: border-left-color var(--openbot-duration-hover) var(--openbot-ease-out);
+  transition: border-inline-start-color var(--openbot-duration-hover) var(--openbot-ease-out);
 }
 
 /* The spinner takes the right column; the author and the text flow into the left one. */
@@ -1268,7 +1268,7 @@
 }
 
 .message-reply-context[data-opens]:hover {
-  border-left-color: var(--openbot-accent);
+  border-inline-start-color: var(--openbot-accent);
 }
 
 .message-reply-context .message-reply-open,
@@ -1299,7 +1299,7 @@
 }
 
 .message-reply-context[data-unavailable] {
-  border-left-style: dashed;
+  border-inline-start-style: dashed;
 }
 
 .message-reply-unavailable {
@@ -1623,7 +1623,7 @@
   padding: var(--openbot-space-2) var(--openbot-space-3);
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-lg);
-  text-align: left;
+  text-align: start;
   overflow-wrap: anywhere;
 }
 
@@ -1676,7 +1676,7 @@
 .reference-chip.message-reference-chip .reference-chip-icon,
 .message-file-reference .attachment-reference-visual {
   display: inline-block;
-  margin-right: var(--openbot-space-1);
+  margin-inline-end: var(--openbot-space-1);
   text-align: center;
   vertical-align: top;
   user-select: none;
