@@ -1,4 +1,4 @@
-import { isDynamicRecord } from "./runtime-values";
+import { type DynamicRecord, isDynamicRecord } from "./runtime-values";
 
 // The global voice shortcuts. The dictation shortcut works while OpenBot is in the background: it
 // starts dictation at once to the current agent, and pressing it again sends the text. A second
@@ -42,9 +42,8 @@ const GLOBAL_VOICE_KEYS = [
 ] as const;
 
 /**
- * Whether the text is an Electron accelerator that a global shortcut can use: modifiers, if any,
- * and one key. A key with no modifier is allowed because the owner chose it; the settings warn
- * that it then stops typing that key in every other app.
+ * Whether the text is an Electron accelerator that a global shortcut can use: one or more modifiers
+ * and one key. A key with no modifier is rejected. A global V would swallow typing in every other app.
  */
 export function isGlobalVoiceAccelerator(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.length > GLOBAL_VOICE_LIMITS.acceleratorLength) {
@@ -53,6 +52,7 @@ export function isGlobalVoiceAccelerator(value: unknown): value is string {
   const parts = value.split("+");
   const key = parts.at(-1) ?? "";
   const modifiers = parts.slice(0, -1);
+  if (modifiers.length === 0) return false;
   if (new Set(modifiers).size !== modifiers.length) return false;
   if (!modifiers.every((modifier) => new Set<string>(GLOBAL_VOICE_MODIFIERS).has(modifier))) return false;
   return isGlobalVoiceKey(key);
@@ -69,10 +69,13 @@ export interface GlobalVoiceAgentShortcut {
   accelerator: string;
 }
 
+/** Hold records while the key is down. Toggle records from one press to the next. */
+export type GlobalVoiceCaptureMode = "hold" | "toggle";
+
 export interface GlobalVoicePreference {
   /** Whether the global shortcuts are registered at all. */
   enabled: boolean;
-  /** Starts dictation to the current agent; pressed again, it sends. */
+  /** Starts dictation to the current agent. In hold mode, releasing the key sends. */
   accelerator: string;
   /** Opens the agent picker. */
   pickerAccelerator: string;
@@ -83,6 +86,13 @@ export interface GlobalVoicePreference {
   sendAfterSpeaking: boolean;
   /** Direct shortcuts: each one starts dictation to one agent. */
   agentShortcuts: GlobalVoiceAgentShortcut[];
+  /** How the dictation shortcut records. A saved file without this field means hold. */
+  captureMode: GlobalVoiceCaptureMode;
+  /**
+   * The agent the dictation shortcut uses. Null uses the last agent that got a message, then the
+   * most recent agent. A saved file without this field means null.
+   */
+  defaultAgentId: string | null;
 }
 
 export const DEFAULT_GLOBAL_VOICE_PREFERENCE: GlobalVoicePreference = {
@@ -91,6 +101,8 @@ export const DEFAULT_GLOBAL_VOICE_PREFERENCE: GlobalVoicePreference = {
   pickerAccelerator: GLOBAL_VOICE_DEFAULT_PICKER_ACCELERATOR,
   sendAfterSpeaking: true,
   agentShortcuts: [],
+  captureMode: "hold",
+  defaultAgentId: null,
 };
 
 /** What a global shortcut does: start dictation to the current agent, open the picker, or dictate to one agent. */
@@ -111,6 +123,20 @@ export interface GlobalVoiceShortcutState {
 export interface GlobalVoiceState {
   preference: GlobalVoicePreference;
   shortcuts: GlobalVoiceShortcutState[];
+  /** Whether hold-to-talk can see the key go up. */
+  keyRelease: GlobalVoiceKeyRelease;
+  microphone: GlobalVoiceMicrophoneAccess;
+}
+
+/** The window asks main to take or ignore pointer and key events over the island. */
+export interface GlobalVoiceInteractiveInput {
+  interactive: boolean;
+  keyboard: boolean;
+}
+
+/** The agent whose chat the confirmation opens. */
+export interface GlobalVoiceAgentFocus {
+  agentId: string;
 }
 
 /** An agent the picker lists. Only agents on this computer, most recent first. */
@@ -128,8 +154,20 @@ export interface GlobalVoicePickerAgent {
  */
 export type GlobalVoicePickerRequest = { type: "choose" } | { type: "agent"; agentId: string };
 
-/** A command main sends to the open window: a request, or Escape while the dictation listens. */
-export type GlobalVoiceCommand = GlobalVoicePickerRequest | { type: "cancel" };
+/**
+ * A command main sends to the open window.
+ * `release` is the key going up. The window sends on release only while hold-to-talk is active.
+ */
+export type GlobalVoiceCommand =
+  | GlobalVoicePickerRequest
+  | { type: "cancel" }
+  | { type: "release"; source: "dictation" | "picker" | "agent" };
+
+/** Whether the key-release hook can see the key go up. macOS needs Accessibility for hold-to-talk. */
+export type GlobalVoiceKeyRelease = "ready" | "needs-accessibility" | "unavailable";
+
+/** The microphone grant. `unknown` means this computer asks at the first recording. */
+export type GlobalVoiceMicrophoneAccess = "granted" | "denied" | "unknown";
 
 /** What the window shows: the pill beside the work, the picker, or nothing. */
 export type GlobalVoiceView = "hidden" | "pill" | "picker";
@@ -148,6 +186,10 @@ export interface GlobalVoicePickerSnapshot {
   currentAgentId: string | null;
   agents: GlobalVoicePickerAgent[];
   sendAfterSpeaking: boolean;
+  captureMode: GlobalVoiceCaptureMode;
+  /** True only when the saved mode is hold and the key-release hook is running. */
+  holdToTalk: boolean;
+  keyRelease: GlobalVoiceKeyRelease;
 }
 
 export interface GlobalVoiceSendInput {
@@ -157,6 +199,8 @@ export interface GlobalVoiceSendInput {
 
 const GLOBAL_VOICE_SHORTCUT_STATUSES: readonly GlobalVoiceShortcutStatus[] = ["active", "taken", "disabled"];
 const GLOBAL_VOICE_VIEWS: readonly GlobalVoiceView[] = ["hidden", "pill", "picker"];
+const GLOBAL_VOICE_KEY_RELEASE: readonly GlobalVoiceKeyRelease[] = ["ready", "needs-accessibility", "unavailable"];
+const GLOBAL_VOICE_MICROPHONE: readonly GlobalVoiceMicrophoneAccess[] = ["granted", "denied", "unknown"];
 const GLOBAL_VOICE_AGENT_ID_LENGTH = 128;
 
 /**
@@ -166,9 +210,13 @@ const GLOBAL_VOICE_AGENT_ID_LENGTH = 128;
 export function toGlobalVoicePreference(value: unknown): GlobalVoicePreference | null {
   if (!isDynamicRecord(value)) return null;
   const { enabled, accelerator, pickerAccelerator, sendAfterSpeaking, agentShortcuts } = value;
+  const captureMode = readCaptureMode(value);
+  const defaultAgentId = readDefaultAgentId(value);
   if (
     typeof enabled !== "boolean" ||
     typeof sendAfterSpeaking !== "boolean" ||
+    captureMode === null ||
+    defaultAgentId === undefined ||
     !isGlobalVoiceAccelerator(accelerator) ||
     !isGlobalVoiceAccelerator(pickerAccelerator) ||
     !Array.isArray(agentShortcuts) ||
@@ -187,12 +235,34 @@ export function toGlobalVoicePreference(value: unknown): GlobalVoicePreference |
     agentIds.add(agentId);
     shortcuts.push({ agentId, accelerator: shortcutAccelerator });
   }
-  return { enabled, accelerator, pickerAccelerator, sendAfterSpeaking, agentShortcuts: shortcuts };
+  return {
+    enabled,
+    accelerator,
+    pickerAccelerator,
+    sendAfterSpeaking,
+    agentShortcuts: shortcuts,
+    captureMode,
+    defaultAgentId,
+  };
+}
+
+/** A file written before hold-to-talk has no mode. It means hold. A wrong value is rejected. */
+function readCaptureMode(value: DynamicRecord): GlobalVoiceCaptureMode | null {
+  if (!("captureMode" in value)) return "hold";
+  return value.captureMode === "hold" || value.captureMode === "toggle" ? value.captureMode : null;
+}
+
+/** A file written before the default agent has no id. It means the last agent that got a message. */
+function readDefaultAgentId(value: DynamicRecord): string | null | undefined {
+  if (!("defaultAgentId" in value) || value.defaultAgentId === null) return null;
+  return isGlobalVoiceAgentId(value.defaultAgentId) ? value.defaultAgentId : undefined;
 }
 
 /** Checks what main answers for the Settings: the saved preference and each shortcut's registration. */
 export function isGlobalVoiceState(value: unknown): value is GlobalVoiceState {
   if (!isDynamicRecord(value) || toGlobalVoicePreference(value.preference) === null) return false;
+  if (!new Set<unknown>(GLOBAL_VOICE_KEY_RELEASE).has(value.keyRelease)) return false;
+  if (!new Set<unknown>(GLOBAL_VOICE_MICROPHONE).has(value.microphone)) return false;
   return (
     Array.isArray(value.shortcuts) &&
     value.shortcuts.every(
@@ -213,6 +283,9 @@ export function isGlobalVoicePickerSnapshot(value: unknown): value is GlobalVoic
     isGlobalVoicePickerRequest(value.request) &&
     (value.currentAgentId === null || isGlobalVoiceAgentId(value.currentAgentId)) &&
     typeof value.sendAfterSpeaking === "boolean" &&
+    (value.captureMode === "hold" || value.captureMode === "toggle") &&
+    typeof value.holdToTalk === "boolean" &&
+    new Set<unknown>(GLOBAL_VOICE_KEY_RELEASE).has(value.keyRelease) &&
     Array.isArray(value.agents) &&
     value.agents.every(
       (agent) =>
@@ -232,8 +305,19 @@ export function isGlobalVoicePickerRequest(value: unknown): value is GlobalVoice
 }
 
 export function isGlobalVoiceCommand(value: unknown): value is GlobalVoiceCommand {
-  if (isDynamicRecord(value) && value.type === "cancel") return true;
+  if (!isDynamicRecord(value)) return false;
+  if (value.type === "cancel") return true;
+  if (value.type === "release")
+    return value.source === "dictation" || value.source === "picker" || value.source === "agent";
   return isGlobalVoicePickerRequest(value);
+}
+
+export function isGlobalVoiceInteractiveInput(value: unknown): value is GlobalVoiceInteractiveInput {
+  return isDynamicRecord(value) && typeof value.interactive === "boolean" && typeof value.keyboard === "boolean";
+}
+
+export function isGlobalVoiceAgentFocus(value: unknown): value is GlobalVoiceAgentFocus {
+  return isDynamicRecord(value) && isGlobalVoiceAgentId(value.agentId);
 }
 
 export function isGlobalVoiceShortcutTarget(value: unknown): value is GlobalVoiceShortcutTarget {

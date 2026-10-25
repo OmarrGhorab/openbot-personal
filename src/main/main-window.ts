@@ -734,19 +734,17 @@ export function loadDynamicIslandRenderer(window: BrowserWindow, display: Displa
   return window.loadURL(url.toString());
 }
 
-const GLOBAL_VOICE_SIZES = {
-  pill: { width: 380, height: 68 },
-  picker: { width: 460, height: 420 },
-} as const;
+/** One window for the notch island. The shell morphs inside it, so the window does not resize. */
+const GLOBAL_VOICE_WINDOW = { width: 520, height: 520 } as const;
 
 /**
- * The window of the global voice shortcuts: the pill during a dictation and the picker of agents. It
- * is hidden, not closed, between uses. It is a panel that never takes the keyboard unless the
- * picker shows, so the app the user works in keeps its focus while the pill is up.
+ * The window of the global voice shortcuts. The island hangs from the top of the screen. The window
+ * is hidden, not closed, between uses. It takes the keyboard only while the picker shows, so the
+ * app the user works in keeps its focus while the pill is up.
  */
 export function createGlobalVoiceWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    ...GLOBAL_VOICE_SIZES.pill,
+    ...GLOBAL_VOICE_WINDOW,
     show: false,
     transparent: true,
     frame: false,
@@ -758,6 +756,9 @@ export function createGlobalVoiceWindow(): BrowserWindow {
     skipTaskbar: true,
     hiddenInMissionControl: true,
     hasShadow: false,
+    // macOS Sonoma clips a transparent window to its rounded corners and can leave it blank.
+    roundedCorners: false,
+    enableLargerThanScreen: true,
     type: "panel",
     backgroundColor: "#00000000",
     webPreferences: {
@@ -772,6 +773,8 @@ export function createGlobalVoiceWindow(): BrowserWindow {
   // Above every app window, full-screen ones too, so the pill shows while another app is in front.
   window.setAlwaysOnTop(true, "screen-saver");
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  // Clicks pass through the transparent window until the pointer is over the island.
+  window.setIgnoreMouseEvents(true, { forward: true });
   // The fixed sizes fit the contents only at 100%, as the other fixed helper windows.
   window.webContents.setZoomMode("isolated");
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
@@ -781,19 +784,17 @@ export function createGlobalVoiceWindow(): BrowserWindow {
   return window;
 }
 
-/** The pill sits at the bottom centre of the display the cursor is on; the picker in its upper part. */
-export function placeGlobalVoiceWindow(window: BrowserWindow, view: "pill" | "picker"): void {
-  const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-  const { width, height } = GLOBAL_VOICE_SIZES[view];
-  const x = Math.round(workArea.x + (workArea.width - width) / 2);
-  const y =
-    view === "pill"
-      ? workArea.y + workArea.height - height - 24
-      : workArea.y + Math.min(workArea.height - height, Math.max(48, workArea.height * 0.16));
-  window.setBounds({ x, y: Math.round(y), width, height });
-  // The picker takes the keyboard for its search field. A window of an app in the background on
-  // macOS cannot, until the app is active; the pill never takes it, so the user's app stays in front.
-  if (view === "picker" && process.platform === "darwin") app.focus({ steal: true });
+/**
+ * The island hangs from the top centre of the display the cursor is on, flush with the top edge.
+ * A display with no notch uses the same place. The view does not change the window size.
+ */
+export function placeGlobalVoiceWindow(window: BrowserWindow, _view: "pill" | "picker"): void {
+  const bounds = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).bounds;
+  window.setBounds({
+    x: Math.round(bounds.x + (bounds.width - GLOBAL_VOICE_WINDOW.width) / 2),
+    y: Math.round(bounds.y),
+    ...GLOBAL_VOICE_WINDOW,
+  });
 }
 
 export function loadGlobalVoiceRenderer(window: BrowserWindow): Promise<void> {

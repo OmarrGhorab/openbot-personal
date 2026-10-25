@@ -10,6 +10,8 @@ export interface AgentGlobalVoiceShortcutView {
   /** Whether the global shortcuts are on at all. Off, the agent shortcut does nothing either. */
   enabled: boolean;
   onChange: (accelerator: string | null) => void;
+  /** Pauses the live shortcuts while the field records a new one. */
+  onCaptureChange: (capturing: boolean) => void;
 }
 
 /**
@@ -51,6 +53,9 @@ export function createAgentGlobalVoiceShortcut(agentId: () => string | undefined
       status,
       enabled: current.preference.enabled,
       onChange: (accelerator) => void save(id, accelerator),
+      onCaptureChange: (capturing) => {
+        void window.openbot.globalVoice.setCapturingShortcut(capturing).catch(() => undefined);
+      },
     };
   }
 

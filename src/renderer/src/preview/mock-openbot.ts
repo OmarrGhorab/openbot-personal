@@ -429,6 +429,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           status,
         })),
       ],
+      keyRelease: "ready",
+      microphone: "unknown",
     };
   };
   let agentStatus = clone(options.agentStatus ?? STORY_AGENT_STATUS);
@@ -1081,12 +1083,18 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         globalVoicePreference = clone(preference);
         return globalVoiceState();
       },
+      setCapturingShortcut: async () => globalVoiceState(),
       getPickerSnapshot: async () => null,
       setView: async () => undefined,
       onPickerOpened: () => () => undefined,
       onPickerShortcut: () => () => undefined,
       sendTranscript: async () => undefined,
       closePicker: async () => undefined,
+      openAccessibilitySettings: async () => globalVoiceState(),
+      openMicrophoneSettings: async () => globalVoiceState(),
+      setInteractive: async () => undefined,
+      openChat: async () => undefined,
+      onFocusAgent: () => () => undefined,
     },
     computerUse: {
       getState: async () => computerUseState(),

@@ -137,6 +137,7 @@ export interface AgentSettingsPanelProps {
         status: GlobalVoiceShortcutStatus | undefined;
         enabled: boolean;
         onChange: (accelerator: string | null) => void;
+        onCaptureChange: (capturing: boolean) => void;
       }
     | undefined;
   /** The busy-message setting is local-only too: the Team API does not carry it. */
@@ -1557,6 +1558,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                       status={shortcut().status}
                       clearable
                       disabled={!shortcut().enabled}
+                      onCaptureChange={shortcut().onCaptureChange}
                       onChange={shortcut().onChange}
                     />
                   </div>

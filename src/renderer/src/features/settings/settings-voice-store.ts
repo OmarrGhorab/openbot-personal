@@ -296,8 +296,38 @@ export function createSettingsVoiceStore(active: () => boolean) {
     setReadReplies,
     setGlobalVoiceEnabled: (enabled: boolean) => void saveGlobalVoice({ enabled }),
     setGlobalVoiceAccelerator: (accelerator: string) => void saveGlobalVoice({ accelerator }),
+    setGlobalVoiceCapturing: (capturing: boolean) =>
+      void voicePort()
+        .globalVoice.setCapturingShortcut(capturing)
+        .then((next) => {
+          setState((draft) => {
+            draft.globalVoice = next;
+          });
+        })
+        .catch((error: unknown) => fail(error, "globalVoice.settings.saveFailed")),
     setGlobalVoicePickerAccelerator: (pickerAccelerator: string) => void saveGlobalVoice({ pickerAccelerator }),
     setGlobalVoiceSendAfterSpeaking: (sendAfterSpeaking: boolean) => void saveGlobalVoice({ sendAfterSpeaking }),
+    setGlobalVoiceCaptureMode: (captureMode: GlobalVoicePreference["captureMode"]) =>
+      void saveGlobalVoice({ captureMode }),
+    setGlobalVoiceDefaultAgent: (defaultAgentId: string | null) => void saveGlobalVoice({ defaultAgentId }),
+    allowGlobalVoiceAccessibility: () =>
+      void voicePort()
+        .globalVoice.openAccessibilitySettings()
+        .then((next) => {
+          setState((draft) => {
+            draft.globalVoice = next;
+          });
+        })
+        .catch((error: unknown) => fail(error, "globalVoice.settings.saveFailed")),
+    allowGlobalVoiceMicrophone: () =>
+      void voicePort()
+        .globalVoice.openMicrophoneSettings()
+        .then((next) => {
+          setState((draft) => {
+            draft.globalVoice = next;
+          });
+        })
+        .catch((error: unknown) => fail(error, "globalVoice.settings.saveFailed")),
     setSpeechVoice: (voice: SpeechVoice) =>
       void saveSpeech({ voice }).then((saved) =>
         desktopAnalytics.track("speech_settings_action", {

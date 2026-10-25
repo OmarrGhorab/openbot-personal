@@ -24,6 +24,8 @@ export interface GlobalVoiceShortcutFieldProps {
   /** Shows a button that clears the shortcut, for an agent shortcut that is optional. */
   clearable?: boolean | undefined;
   disabled?: boolean | undefined;
+  /** Tells main to pause the live shortcuts while this field records, then register them again. */
+  onCaptureChange?: ((capturing: boolean) => void) | undefined;
   onChange: (accelerator: string | null) => void;
 }
 
@@ -40,10 +42,12 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
   let recorder: HTMLButtonElement | undefined;
   const startRecording = () => {
     setMessage(null);
+    if (!recording()) props.onCaptureChange?.(true);
     setRecording(true);
     recorder?.focus();
   };
   const stopRecording = () => {
+    if (recording()) props.onCaptureChange?.(false);
     setRecording(false);
     setMessage(null);
   };
@@ -53,19 +57,23 @@ export function GlobalVoiceShortcutField(props: GlobalVoiceShortcutFieldProps) {
     event.preventDefault();
     event.stopPropagation();
     if (event.key === "Escape") {
-      setRecording(false);
-      setMessage(null);
+      stopRecording();
       return;
     }
     const result = globalVoiceAcceleratorFromKeyboard(event, isMac);
     // Only modifiers are held: keep recording until a key comes.
     if (result === null) return;
     if ("error" in result) {
-      setMessage(t("globalVoice.settings.keyNotAllowed"));
+      setMessage(
+        t(
+          result.error === "modifierRequired"
+            ? "globalVoice.settings.modifierRequired"
+            : "globalVoice.settings.keyNotAllowed",
+        ),
+      );
       return;
     }
-    setRecording(false);
-    setMessage(null);
+    stopRecording();
     props.onChange(result.accelerator);
   }
 

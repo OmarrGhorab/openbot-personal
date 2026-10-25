@@ -370,6 +370,7 @@
     "solid-recharts": "catalog:",
     "solid-sonner": "catalog:",
     "tldts": "7.4.10",
+    "uiohook-napi": "1.5.5",
     "ws": "8.21.3",
     "yaml": "catalog:",
     "zod": "catalog:"
@@ -420,6 +421,7 @@
   "trustedDependencies": [
     "electron-winstaller",
     "esbuild",
+    "uiohook-napi",
     "workerd"
   ]
 }

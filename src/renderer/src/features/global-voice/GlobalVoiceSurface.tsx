@@ -1,8 +1,20 @@
-import type { GlobalVoiceCommand, GlobalVoicePickerAgent, GlobalVoicePickerSnapshot } from "@openbot/contracts/ipc";
+import type {
+  GlobalVoiceCommand,
+  GlobalVoiceKeyRelease,
+  GlobalVoicePickerAgent,
+  GlobalVoicePickerSnapshot,
+} from "@openbot/contracts/ipc";
+import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createStore, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createStore, For, onCleanup, onSettled, Show } from "solid-js";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
+import {
+  GLOBAL_VOICE_ISLAND,
+  globalVoiceTextDirection,
+  type IslandSize,
+  islandScaleKeyframes,
+} from "./global-voice-island-motion";
 import {
   filterGlobalVoiceAgents,
   globalVoiceInitials,
@@ -26,10 +38,16 @@ interface SurfaceState {
   snapshotId: number;
   agents: GlobalVoicePickerAgent[];
   sendAfterSpeaking: boolean;
+  /** This recording ends when the key comes up. A picker release starts a toggle recording instead. */
+  sessionHold: boolean;
+  holdToTalk: boolean;
+  keyRelease: GlobalVoiceKeyRelease;
   query: string;
   highlight: number;
   transcript: string;
   error: string | null;
+  /** Which button the error offers. */
+  errorAction: "none" | "microphone" | "accessibility";
   /** The model download, in percent, while the first dictation waits for it. */
   download: number | null;
 }
@@ -41,7 +59,7 @@ interface SurfaceState {
  * time the window opens.
  */
 export function GlobalVoiceSurface() {
-  const { t, errorMessage } = useText();
+  const { t, errorMessage, locale } = useText();
   const dictation = new GlobalVoiceDictation();
   const [state, setState] = createStore<SurfaceState>({
     view: "hidden",
@@ -50,10 +68,14 @@ export function GlobalVoiceSurface() {
     snapshotId: 0,
     agents: [],
     sendAfterSpeaking: true,
+    sessionHold: false,
+    holdToTalk: true,
+    keyRelease: "ready",
     query: "",
     highlight: 0,
     transcript: "",
     error: null,
+    errorAction: "none",
     download: null,
   });
   /** Sets one field of the state. The store takes a draft only, as this Solid release requires. */
@@ -64,9 +86,19 @@ export function GlobalVoiceSurface() {
   };
   /** Changes on each Escape, so a dictation that was cancelled while it started or stopped does nothing. */
   let generation = 0;
+  /** A hold ended while the microphone was still opening. */
+  let stopWhenReady = false;
   let timers: Array<ReturnType<typeof setTimeout>> = [];
   let searchBox: HTMLDivElement | undefined;
   let reviewBox: HTMLDivElement | undefined;
+  let shell: HTMLElement | undefined;
+  let phaseNode: HTMLSpanElement | undefined;
+  let waveRoot: HTMLDivElement | undefined;
+  let shellSize: IslandSize = GLOBAL_VOICE_ISLAND.notch;
+  let shellAnimation: Animation | undefined;
+  let level = 0;
+  /** The user moved the highlight, so the picker stays open while the key is held. */
+  let pickerPinned = false;
 
   const filtered = createMemo(() => filterGlobalVoiceAgents(state.agents, state.query));
   const targetAgent = () => state.agents.find((agent) => agent.agentId === state.targetId);
@@ -85,51 +117,128 @@ export function GlobalVoiceSurface() {
     void window.openbot.globalVoice.setView({ view, listening: listening && view !== "hidden" });
   }
 
+  function reducedMotion(): boolean {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  /** The shell is already the next size. The animation only scales and fades it. */
+  function paintIsland(size: IslandSize, fromNotch: boolean): void {
+    const element = shell;
+    if (!element) return;
+    const from = fromNotch ? GLOBAL_VOICE_ISLAND.notch : shellSize;
+    shellSize = size;
+    element.style.width = `${size.width}px`;
+    element.style.height = `${size.height}px`;
+    shellAnimation?.cancel();
+    const reveal = () => {
+      element.style.opacity = "1";
+      element.style.removeProperty("transform");
+    };
+    if (typeof element.animate !== "function") {
+      reveal();
+      return;
+    }
+    const frames = islandScaleKeyframes(from, size, reducedMotion());
+    shellAnimation = element.animate(frames, {
+      duration: reducedMotion() ? 120 : 400,
+      easing: "linear",
+      fill: "both",
+    });
+    shellAnimation.addEventListener("finish", reveal);
+    shellAnimation.addEventListener("cancel", reveal);
+  }
+
+  function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
+    const fromNotch = state.view === "hidden";
+    const size = view === "picker" ? GLOBAL_VOICE_ISLAND.picker : GLOBAL_VOICE_ISLAND.pill;
+    const same =
+      !fromNotch && state.view === view && shellSize.width === size.width && shellSize.height === size.height;
+    // Paint the collapsed scale before the window appears, so the first frame is the notch.
+    if (fromNotch && shell && typeof shell.animate === "function") {
+      const notch = GLOBAL_VOICE_ISLAND.notch;
+      shell.style.width = `${size.width}px`;
+      shell.style.height = `${size.height}px`;
+      shell.style.opacity = "0";
+      shell.style.transform = `scale(${notch.width / size.width}, ${notch.height / size.height})`;
+    }
+    setView(view, listening);
+    if (!same) paintIsland(size, fromNotch);
+    const keyboard = view === "picker" || state.phase === "review";
+    const interactive = keyboard || state.phase === "sent" || state.error !== null;
+    void window.openbot.globalVoice.setInteractive({ interactive, keyboard });
+  }
+
   function hide(): void {
     clearLater();
     dictation.cancel();
     generation += 1;
+    level = 0;
+    pickerPinned = false;
     setState((draft) => {
       draft.phase = "idle";
       draft.transcript = "";
       draft.error = null;
+      draft.errorAction = "none";
     });
-    setView("hidden", false);
+    paintIsland(GLOBAL_VOICE_ISLAND.notch, false);
+    const animation = shellAnimation;
+    const finish = () => setView("hidden", false);
+    if (animation) animation.onfinish = finish;
+    else finish();
   }
 
-  function failWith(message: string): void {
+  function failWith(message: string, action: SurfaceState["errorAction"] = "none"): void {
     setState((draft) => {
       draft.phase = "idle";
       draft.error = message;
+      draft.errorAction = action;
     });
-    setView("pill", false);
+    showIsland("pill", false);
     later(hide, ERROR_VISIBLE_MS);
   }
 
-  function dictationFailure(error: unknown): string {
-    if (error instanceof GlobalVoiceDictationError) {
-      if (error.kind === "noSpeech") return t("globalVoice.picker.noSpeech");
-      if (error.kind === "unavailable") return errorMessage(error.message, t("globalVoice.picker.dictationFailed"));
+  function dictationFailure(error: unknown): { message: string; action: SurfaceState["errorAction"] } {
+    if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "NotFoundError")) {
+      return { message: t("globalVoice.picker.microphoneDenied"), action: "microphone" };
     }
-    return errorMessage(error, t("globalVoice.picker.dictationFailed"));
+    if (error instanceof GlobalVoiceDictationError) {
+      if (error.kind === "noSpeech") return { message: t("globalVoice.picker.noSpeech"), action: "none" };
+      if (error.kind === "unavailable")
+        return { message: errorMessage(error.message, t("globalVoice.picker.dictationFailed")), action: "none" };
+    }
+    return { message: errorMessage(error, t("globalVoice.picker.dictationFailed")), action: "none" };
   }
 
   /** Starts a dictation to an agent at once. The microphone opens after the model is ready. */
-  function startFor(agentId: string): void {
+  function startFor(agentId: string, hold: boolean): void {
     clearLater();
+    stopWhenReady = false;
+    pickerPinned = false;
     generation += 1;
     const current = generation;
+    const openPicker = hold && state.agents.length > 1;
     setState((draft) => {
       draft.targetId = agentId;
+      draft.sessionHold = hold;
       draft.phase = "preparing";
       draft.transcript = "";
       draft.error = null;
+      draft.errorAction = "none";
     });
-    setView("pill", false);
+    showIsland(openPicker ? "picker" : "pill", false);
+    if (openPicker) {
+      later(() => {
+        if (current !== generation || pickerPinned || state.phase === "idle") return;
+        if (state.view === "picker") showIsland("pill", state.phase === "listening");
+      }, 450);
+    }
     dictation
       .start({
         onLive: (text) => {
           if (current === generation) set("transcript", text);
+        },
+        onLevel: (value) => {
+          level = value;
         },
         onLimit: () => void stopAndDeliver(),
       })
@@ -139,10 +248,14 @@ export function GlobalVoiceSurface() {
           return;
         }
         set("phase", "listening");
-        setView("pill", true);
+        showIsland(state.view === "picker" ? "picker" : "pill", true);
+        // The key can come up before the microphone is ready. End the recording then.
+        if (state.sessionHold && stopWhenReady) void stopAndDeliver();
       })
       .catch((error: unknown) => {
-        if (current === generation) failWith(dictationFailure(error));
+        if (current !== generation) return;
+        const failure = dictationFailure(error);
+        failWith(failure.message, failure.action);
       });
   }
 
@@ -151,12 +264,15 @@ export function GlobalVoiceSurface() {
     if (state.phase !== "listening") return;
     const current = generation;
     set("phase", "transcribing");
-    setView("pill", false);
+    showIsland("pill", false);
     let text: string;
     try {
       text = await dictation.stop();
     } catch (error) {
-      if (current === generation) failWith(dictationFailure(error));
+      if (current === generation) {
+        const failure = dictationFailure(error);
+        failWith(failure.message, failure.action);
+      }
       return;
     }
     if (current !== generation) return;
@@ -169,7 +285,7 @@ export function GlobalVoiceSurface() {
       draft.phase = "review";
       draft.error = null;
     });
-    setView("picker", false);
+    showIsland("picker", false);
     reviewBox?.querySelector("textarea")?.focus();
   }
 
@@ -183,7 +299,7 @@ export function GlobalVoiceSurface() {
       draft.phase = "sending";
       draft.error = null;
     });
-    setView("pill", false);
+    showIsland("pill", false);
     try {
       await window.openbot.globalVoice.sendTranscript({ agentId, text });
     } catch (error) {
@@ -192,7 +308,7 @@ export function GlobalVoiceSurface() {
         draft.phase = "review";
         draft.error = errorMessage(error, t("globalVoice.picker.sendFailed"));
       });
-      setView("picker", false);
+      showIsland("picker", false);
       reviewBox?.querySelector("textarea")?.focus();
       return;
     }
@@ -201,7 +317,7 @@ export function GlobalVoiceSurface() {
       draft.phase = "sent";
       draft.transcript = "";
     });
-    setView("pill", false);
+    showIsland("pill", false);
     later(hide, SENT_CONFIRMATION_MS);
   }
 
@@ -214,14 +330,14 @@ export function GlobalVoiceSurface() {
   function choose(agent: GlobalVoicePickerAgent): void {
     if (state.phase === "listening") {
       set("targetId", agent.agentId);
-      setView("pill", true);
+      showIsland("pill", true);
       return;
     }
     if (state.phase === "review") {
       set("targetId", agent.agentId);
       return;
     }
-    if (state.phase === "idle") startFor(agent.agentId);
+    if (state.phase === "idle") startFor(agent.agentId, false);
   }
 
   function applySnapshot(snapshot: GlobalVoicePickerSnapshot): void {
@@ -234,18 +350,30 @@ export function GlobalVoiceSurface() {
       draft.agents = snapshot.agents;
       draft.sendAfterSpeaking = snapshot.sendAfterSpeaking;
       draft.query = "";
-      draft.highlight = 0;
+      draft.highlight = Math.max(
+        0,
+        snapshot.agents.findIndex((agent) => agent.agentId === snapshot.currentAgentId),
+      );
       draft.transcript = "";
       draft.error = null;
+      draft.errorAction = "none";
       draft.phase = "idle";
+      draft.sessionHold = false;
+      draft.holdToTalk = snapshot.holdToTalk;
+      draft.keyRelease = snapshot.keyRelease;
       draft.targetId = snapshot.currentAgentId;
     });
+    stopWhenReady = false;
     if (snapshot.request.type === "agent") {
-      startFor(snapshot.request.agentId);
+      startFor(snapshot.request.agentId, snapshot.holdToTalk);
       return;
     }
-    setView("picker", false);
+    showIsland("picker", false);
     searchBox?.querySelector("input")?.focus();
+  }
+
+  function highlightedAgent(): GlobalVoicePickerAgent | undefined {
+    return filtered()[state.highlight];
   }
 
   function applyCommand(command: GlobalVoiceCommand): void {
@@ -253,10 +381,30 @@ export function GlobalVoiceSurface() {
       cancel();
       return;
     }
+    if (command.type === "release") {
+      if (command.source === "picker") {
+        const agent = highlightedAgent();
+        if (state.phase === "idle" && agent) choose(agent);
+        else if (state.phase === "listening" && agent) set("targetId", agent.agentId);
+        return;
+      }
+      if (!state.sessionHold) return;
+      const agent = highlightedAgent();
+      if (state.view === "picker" && agent) set("targetId", agent.agentId);
+      if (state.phase === "preparing") stopWhenReady = true;
+      else void stopAndDeliver();
+      return;
+    }
     if (command.type === "choose") {
+      // A second press of the picker shortcut moves the highlight. The first press opens it.
+      if (state.view === "picker" && (state.phase === "idle" || state.phase === "listening")) {
+        pickerPinned = true;
+        set("highlight", moveGlobalVoiceHighlight(state.highlight, filtered().length, 1));
+        return;
+      }
       // Tab while the dictation listens opens the picker and keeps listening.
       if (state.phase === "listening" || state.phase === "idle" || state.phase === "review") {
-        setView("picker", state.phase === "listening");
+        showIsland("picker", state.phase === "listening");
         searchBox?.querySelector("input")?.focus();
       }
       return;
@@ -264,11 +412,13 @@ export function GlobalVoiceSurface() {
     if (state.phase === "sent") {
       // The confirmation gives way to the next dictation at once.
       hide();
-      startFor(command.agentId);
+      startFor(command.agentId, state.holdToTalk);
     } else if (state.phase === "idle") {
-      startFor(command.agentId);
-    } else if (state.phase === "listening" && state.targetId === command.agentId) {
+      startFor(command.agentId, state.holdToTalk);
+    } else if (state.phase === "listening" && state.targetId === command.agentId && !state.sessionHold) {
       void stopAndDeliver();
+    } else if (state.phase === "listening" && state.sessionHold) {
+      set("targetId", command.agentId);
     } else if (state.phase === "listening") {
       // A direct shortcut for another agent while one listens: that agent gets the text.
       set("targetId", command.agentId);
@@ -294,11 +444,18 @@ export function GlobalVoiceSurface() {
       if (state.view === "picker" && state.phase === "idle") hide();
     };
     window.addEventListener("blur", onBlur);
+    const onPointerDown = (event: PointerEvent) => {
+      if (state.view !== "picker" || state.phase !== "idle") return;
+      if (event.target instanceof Node && shell?.contains(event.target)) return;
+      hide();
+    };
+    window.addEventListener("pointerdown", onPointerDown);
     return () => {
       stopOpened();
       stopShortcut();
       stopModel();
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pointerdown", onPointerDown);
       clearLater();
       dictation.cancel();
     };
@@ -329,6 +486,7 @@ export function GlobalVoiceSurface() {
     const list = filtered();
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      pickerPinned = true;
       set("highlight", moveGlobalVoiceHighlight(state.highlight, list.length, event.key === "ArrowDown" ? 1 : -1));
       return;
     }
@@ -349,10 +507,57 @@ export function GlobalVoiceSurface() {
   }
 
   const hint = () => {
-    if (state.phase === "listening") return t("globalVoice.picker.hintListening");
+    if (state.phase === "listening")
+      return state.sessionHold ? t("globalVoice.picker.hintHold") : t("globalVoice.picker.hintListening");
     if (state.phase === "review") return t("globalVoice.picker.hintReview");
     return t("globalVoice.picker.hintChoose");
   };
+
+  onSettled(() => {
+    let frame = 0;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      if (!waveRoot || state.phase !== "listening") return;
+      const now = performance.now();
+      for (let index = 0; index < waveRoot.children.length; index += 1) {
+        const bar = waveRoot.children.item(index);
+        if (!(bar instanceof HTMLElement)) continue;
+        const wobble = 0.55 + 0.45 * Math.sin(now / 140 + index);
+        bar.style.transform = `scaleY(${0.2 + level * wobble})`;
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    let overIsland = false;
+    const onMove = (event: MouseEvent) => {
+      const rect = shell?.getBoundingClientRect();
+      const inside = rect
+        ? event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        : false;
+      if (inside === overIsland) return;
+      overIsland = inside;
+      const keyboard = state.view === "picker" || state.phase === "review";
+      void window.openbot.globalVoice.setInteractive({ interactive: inside || keyboard, keyboard });
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("mousemove", onMove);
+    };
+  });
+
+  createEffect(() => {
+    if (state.phase !== "transcribing") return;
+    const node = phaseNode;
+    if (!node) return;
+    const animation = node.animate([{ opacity: 0.35 }, { opacity: 1 }, { opacity: 0.35 }], {
+      duration: reducedMotion() ? 120 : 900,
+      iterations: Infinity,
+    });
+    onCleanup(() => animation.cancel());
+  });
   const phaseText = () => {
     switch (state.phase) {
       case "preparing":
@@ -373,45 +578,114 @@ export function GlobalVoiceSurface() {
   };
 
   return (
-    <Show
-      when={state.view === "picker"}
-      fallback={
-        <section class="global-voice-pill" data-phase={state.phase} role="status" aria-live="polite">
-          <span class="global-voice-pill-dot" aria-hidden="true" />
-          <div class="global-voice-pill-body">
-            <Show when={state.error} fallback={<span class="global-voice-pill-phase">{phaseText()}</span>}>
-              {(message) => <span class="global-voice-pill-error">{message()}</span>}
-            </Show>
-            <Show when={state.transcript && state.phase !== "sent"}>
-              <span class="global-voice-pill-transcript" dir="auto">
-                {state.transcript}
+    <div class="global-voice-stage" dir={localeDirection(locale())}>
+      <section
+        class="global-voice-island"
+        data-phase={state.phase}
+        data-shape={state.view === "picker" ? "picker" : "pill"}
+        role="status"
+        aria-live="polite"
+        aria-label={t("globalVoice.picker.label")}
+        ref={(element) => (shell = element)}
+        onKeyDown={onPickerKeyDown}
+      >
+        <Show when={state.view === "picker"} fallback={<PillBody />}>
+          <Show when={state.phase === "review"} fallback={<PickerList />}>
+            <div class="global-voice-review" ref={(element) => (reviewBox = element)}>
+              <span class="global-voice-review-label">
+                {t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
               </span>
-            </Show>
-          </div>
-        </section>
-      }
-    >
-      <section class="global-voice-picker" aria-label={t("globalVoice.picker.label")} onKeyDown={onPickerKeyDown}>
-        <Show when={state.phase === "review"} fallback={<PickerList />}>
-          <div class="global-voice-review" ref={(element) => (reviewBox = element)}>
-            <span class="global-voice-review-label">
-              {t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
-            </span>
-            <Textarea
-              aria-label={t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
-              class="global-voice-review-text"
-              dir="auto"
-              value={state.transcript}
-              placeholder={t("globalVoice.picker.transcriptPlaceholder")}
-              onValueChange={(value) => set("transcript", value)}
-            />
+              <Textarea
+                aria-label={t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
+                class="global-voice-review-text"
+                dir={globalVoiceTextDirection(state.transcript)}
+                value={state.transcript}
+                placeholder={t("globalVoice.picker.transcriptPlaceholder")}
+                onValueChange={(value) => set("transcript", value)}
+              />
+            </div>
+          </Show>
+          <p class="global-voice-hint">{hint()}</p>
+        </Show>
+      </section>
+    </div>
+  );
+
+  function PillBody() {
+    return (
+      <div class="global-voice-pill-body">
+        <Show when={state.phase === "listening"}>
+          <div class="global-voice-wave" ref={(element) => (waveRoot = element)} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
           </div>
         </Show>
-        <Show when={state.error}>{(message) => <p class="global-voice-picker-error">{message()}</p>}</Show>
-        <p class="global-voice-picker-hint">{hint()}</p>
-      </section>
-    </Show>
-  );
+        <div class="global-voice-pill-copy">
+          <Show
+            when={state.error}
+            fallback={
+              <span class="global-voice-phase" ref={(element) => (phaseNode = element)}>
+                {phaseText()}
+              </span>
+            }
+          >
+            {(message) => <span class="global-voice-error">{message()}</span>}
+          </Show>
+          <Show when={state.transcript && state.phase !== "sent"}>
+            <span class="global-voice-transcript" dir={globalVoiceTextDirection(state.transcript)}>
+              {state.transcript}
+            </span>
+          </Show>
+          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
+          </Show>
+          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
+          </Show>
+        </div>
+        <Show when={state.phase === "sent" && state.targetId}>
+          <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void openChat()}>
+            {t("globalVoice.picker.openChat")}
+          </Button>
+        </Show>
+        <Show when={state.errorAction === "microphone"}>
+          <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void allowMicrophone()}>
+            {t("globalVoice.picker.allowMicrophone")}
+          </Button>
+        </Show>
+        <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
+          <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void allowAccessibility()}>
+            {t("globalVoice.picker.allowAccessibility")}
+          </Button>
+        </Show>
+      </div>
+    );
+  }
+
+  async function openChat(): Promise<void> {
+    const agentId = state.targetId;
+    if (!agentId) return;
+    await window.openbot.globalVoice.openChat({ agentId });
+    hide();
+  }
+
+  async function allowMicrophone(): Promise<void> {
+    const next = await window.openbot.globalVoice.openMicrophoneSettings();
+    set("keyRelease", next.keyRelease);
+    const agentId = state.targetId;
+    if (next.microphone === "granted" && agentId) startFor(agentId, state.holdToTalk);
+  }
+
+  async function allowAccessibility(): Promise<void> {
+    const next = await window.openbot.globalVoice.openAccessibilitySettings();
+    setState((draft) => {
+      draft.keyRelease = next.keyRelease;
+      draft.holdToTalk = next.preference.captureMode === "hold" && next.keyRelease === "ready";
+    });
+  }
 
   function PickerList() {
     return (
@@ -424,6 +698,7 @@ export function GlobalVoiceSurface() {
             placeholder={t("globalVoice.picker.searchPlaceholder")}
             value={state.query}
             onValueChange={(value) => {
+              pickerPinned = true;
               setState((draft) => {
                 draft.query = value;
                 draft.highlight = 0;
@@ -439,7 +714,12 @@ export function GlobalVoiceSurface() {
             </p>
           }
         >
-          <section class="global-voice-list" aria-label={t("globalVoice.picker.list")}>
+          <section
+            class="global-voice-list"
+            aria-label={t("globalVoice.picker.list")}
+            style={{ "--voice-index": String(state.highlight) }}
+          >
+            <div class="global-voice-highlight" aria-hidden="true" />
             <For each={filtered()}>
               {(agent, index) => (
                 <Button
@@ -450,18 +730,21 @@ export function GlobalVoiceSurface() {
                   aria-keyshortcuts={index() < 9 ? String(index() + 1) : undefined}
                   aria-label={agent.name}
                   data-current={agent.agentId === state.targetId ? "true" : undefined}
-                  onPointerEnter={() => set("highlight", index())}
+                  onPointerEnter={() => {
+                    pickerPinned = true;
+                    set("highlight", index());
+                  }}
                   onClick={() => choose(agent)}
                 >
                   <span class="global-voice-avatar" aria-hidden="true">
                     {globalVoiceInitials(agent.name)}
                   </span>
                   <span class="global-voice-option-text">
-                    <span class="global-voice-option-name" dir="auto">
+                    <span class="global-voice-option-name" dir={globalVoiceTextDirection(agent.name)}>
                       {agent.name}
                     </span>
                     <Show when={agent.title}>
-                      <span class="global-voice-option-title" dir="auto">
+                      <span class="global-voice-option-title" dir={globalVoiceTextDirection(agent.title)}>
                         {agent.title}
                       </span>
                     </Show>

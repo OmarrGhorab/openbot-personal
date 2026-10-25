@@ -20,10 +20,11 @@ describe("global voice picker sender", () => {
 });
 
 describe("global voice inputs", () => {
-  it("accepts a key alone, and refuses a key or modifier it does not know", () => {
+  it("refuses a key with no modifier, and a key or modifier it does not know", () => {
     const base = { enabled: true, pickerAccelerator: "Alt+Shift+Space", sendAfterSpeaking: true, agentShortcuts: [] };
-    expect(toGlobalVoicePreference({ ...base, accelerator: "V" })).not.toBeNull();
-    expect(toGlobalVoicePreference({ ...base, accelerator: "F8" })).not.toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "V" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "F8" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...base, accelerator: "Alt+V" })).not.toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Control+Space" })).not.toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Hyper+V" })).toBeNull();
     expect(toGlobalVoicePreference({ ...base, accelerator: "Alt+Alt+V" })).toBeNull();
@@ -39,6 +40,23 @@ describe("global voice inputs", () => {
     };
     const shortcut = { agentId: "agent-1", accelerator: "Control+Shift+K" };
     expect(toGlobalVoicePreference({ ...base, agentShortcuts: [shortcut, shortcut] })).toBeNull();
+  });
+
+  it("keeps a saved preference that has no hold mode or default agent", () => {
+    const saved = {
+      enabled: true,
+      accelerator: "Alt+V",
+      pickerAccelerator: "Alt+K",
+      sendAfterSpeaking: true,
+      agentShortcuts: [],
+    };
+    expect(toGlobalVoicePreference(saved)).toMatchObject({ captureMode: "hold", defaultAgentId: null });
+    expect(toGlobalVoicePreference({ ...saved, captureMode: "toggle", defaultAgentId: "agent-1" })).toMatchObject({
+      captureMode: "toggle",
+      defaultAgentId: "agent-1",
+    });
+    expect(toGlobalVoicePreference({ ...saved, captureMode: "push" })).toBeNull();
+    expect(toGlobalVoicePreference({ ...saved, defaultAgentId: "" })).toBeNull();
   });
 
   it("refuses an empty transcript and an unknown view", () => {

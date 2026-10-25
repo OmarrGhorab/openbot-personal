@@ -23,8 +23,8 @@ installPointerFocusGuard();
 
 const query = new URLSearchParams(window.location.search);
 const surface = query.get("surface");
-// The Dynamic Island imitates the camera housing, so it stays dark in the light theme.
-if (surface !== "dynamic-island") syncAppearance();
+// The Dynamic Island and the voice island imitate the camera housing, so they stay dark.
+if (surface !== "dynamic-island" && surface !== "global-voice") syncAppearance();
 syncLogoColor();
 // The helper windows are not inside `App`, so each gets the language setting of its own. They use
 // the same preload and the same trusted-origin IPC gate as the main window, and main already sends

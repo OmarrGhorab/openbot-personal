@@ -74,11 +74,17 @@ export class GlobalVoiceDictation {
   #liveRequest: Promise<void> = Promise.resolve();
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
+  #onLevel: (level: number) => void = () => {};
 
   /** Opens the microphone and starts recording. `onLimit` runs when the time limit is reached. */
-  async start(callbacks: { onLive: (text: string) => void; onLimit: () => void }): Promise<void> {
+  async start(callbacks: {
+    onLive: (text: string) => void;
+    onLimit: () => void;
+    onLevel?: (level: number) => void;
+  }): Promise<void> {
     this.#onLive = callbacks.onLive;
     this.#onLimit = callbacks.onLimit;
+    this.#onLevel = callbacks.onLevel ?? (() => {});
     const status = await window.openbot.voice.prepareModel();
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
@@ -190,9 +196,14 @@ export class GlobalVoiceDictation {
       let sum = 0;
       for (const sample of samples) sum += sample * sample;
       const db = 20 * Math.log10(Math.max(Math.sqrt(sum / samples.length), 1e-5));
-      if (db <= DIGITAL_SILENCE_DB) return;
+      if (db <= DIGITAL_SILENCE_DB) {
+        this.#onLevel(0);
+        return;
+      }
       noiseDb = db < noiseDb ? db : Math.min(db, noiseDb + NOISE_RISE_DB);
-      this.#loudestAboveNoiseDb = Math.max(this.#loudestAboveNoiseDb, db - noiseDb);
+      const above = db - noiseDb;
+      this.#loudestAboveNoiseDb = Math.max(this.#loudestAboveNoiseDb, above);
+      this.#onLevel(Math.max(0, Math.min(1, above / 24)));
     }, LEVEL_INTERVAL_MS);
     this.#meter = { context, timer };
   }
