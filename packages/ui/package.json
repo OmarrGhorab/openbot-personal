@@ -89,6 +89,7 @@
     "./features/connectors/ConnectorDetailPanel": "./src/features/connectors/ConnectorDetailPanel.tsx",
     "./features/connectors/connector-catalog": "./src/features/connectors/connector-catalog.tsx",
     "./features/connectors/connectors": "./src/features/connectors/connectors.ts",
+    "./features/conversation/agent-accent": "./src/features/conversation/agent-accent.ts",
     "./features/conversation/AgentActivity": "./src/features/conversation/AgentActivity.tsx",
     "./features/conversation/AgentChatEmptyState": "./src/features/conversation/AgentChatEmptyState.tsx",
     "./features/conversation/AgentMemoriesEmpty": "./src/features/conversation/AgentMemoriesEmpty.tsx",
