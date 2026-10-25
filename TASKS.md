@@ -19,10 +19,13 @@
 - [x] Show the shortcut in the shortcuts list (the app has no shortcut list; it shows in the mic button tooltip and `aria-keyshortcuts`)
 
 ## 3. Free self-hosted server on own VPS
-- [ ] Map priced parts (billing, account service, hosted servers, Signal)
-- [ ] Remove paywall / billing checks for the server feature
-- [ ] Add a setting to connect to own VPS host URL
-- [ ] Document VPS setup (`docs/self-hosted-server.md`)
+- [x] Map priced parts (billing, account service, hosted servers, Signal)
+- [x] Remove paywall / billing checks for the server feature (one switch: `HOSTED_SERVER_PURCHASES_ENABLED` in `packages/contracts/src/hosted-servers.ts`, read by `src/main/hosted-server-service.ts` `list()`)
+- [x] Add a setting to connect to own VPS host URL (not added: the app reaches a host by host ID through Signal, and the existing `OPENBOT_AUTH_API_URL` / `OPENBOT_REMOTE_SIGNAL_URL` flow already covers a self-hosted account service)
+- [x] Document VPS setup (`docs/self-hosted-server.md`, section VPS setup)
+- [ ] Web client still reads the account `available` flag directly (`src/renderer/src/features/web-client/web-hosted-server-state.ts`), so hosted purchase prompts remain there
+- [ ] Account service still accepts hosted server creates for accounts on its allow list (server side, not changed)
+- [ ] Verify on a real VPS: install, `openbot login`, desktop sees the server (not run)
 
 ## 4. Checks
 - [ ] Run narrow typecheck and i18n check on changed files
