@@ -1,7 +1,11 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
+import { CONTACT_EMAIL } from "../lib/contact";
+
 // The text of the privacy policy. Legal wording: change it only from the approved source text,
 // and move `PRIVACY_POLICY_UPDATED_AT` with it.
 
-const PRIVACY_EMAIL = "privacy@openbot.run";
+const PRIVACY_EMAIL = CONTACT_EMAIL;
+const SITE_ORIGIN = ownBackend().siteOrigin;
 
 function PrivacyEmail() {
   return <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>;
@@ -24,8 +28,8 @@ export function PrivacyPolicy() {
         tasks.
       </p>
       <p>
-        This Privacy Policy applies to the OpenBot website at <a href="https://openbot.run">https://openbot.run</a>, its
-        applications, and related services (collectively, the "Services").
+        This Privacy Policy applies to the OpenBot website at <a href={SITE_ORIGIN}>{SITE_ORIGIN}</a>, its applications,
+        and related services (collectively, the "Services").
       </p>
       <p>
         By accessing or using the Services, you acknowledge that you have read and understood this Privacy Policy. If
@@ -34,7 +38,7 @@ export function PrivacyPolicy() {
       <p>
         Contact: <PrivacyEmail />
         <br />
-        Website: <a href="https://openbot.run">https://openbot.run</a>
+        Website: <a href={SITE_ORIGIN}>{SITE_ORIGIN}</a>
       </p>
 
       <h2>About Our Services</h2>

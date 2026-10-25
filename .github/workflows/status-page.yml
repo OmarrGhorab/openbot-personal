@@ -192,7 +192,7 @@ jobs:
   deploy:
     name: Deploy
     needs: update
-    if: needs.update.outputs.publish == 'true'
+    if: github.repository == 'nightly-labs/openbot' && needs.update.outputs.publish == 'true'
     concurrency:
       group: status-page-deploy
       cancel-in-progress: false
@@ -216,7 +216,7 @@ jobs:
   notify:
     name: Send webhooks
     needs: update
-    if: needs.update.outputs.publish == 'true'
+    if: github.repository == 'nightly-labs/openbot' && needs.update.outputs.publish == 'true'
     # One job at a time, because each job replaces `status-notify`. A newer pending job replaces an
     # older one. Its `status.json` holds the same incidents or newer ones, but a service change or a
     # test event of the replaced job is lost.

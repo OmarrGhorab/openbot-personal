@@ -1,4 +1,5 @@
 import type { BillingPlanId } from "@openbot/contracts/billing";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { OPENBOT_LINKS } from "../lib/landing-links";
 
 // HTML and plain-text bodies for account email. Mail clients render HTML very differently, so the
@@ -46,12 +47,12 @@ export interface WelcomeEmailInput {
   serverName: string;
 }
 
-const SITE_URL = "https://openbot.run";
+const SITE_URL = ownBackend().siteOrigin;
 const WEB_APP_URL = `${SITE_URL}/app`;
 const PLAN_NAMES: Record<BillingPlanId, string> = { starter: "Starter", standard: "Standard", pro: "Pro" };
 const LOGO_URL = `${SITE_URL}/icon-192x192.png`;
 const FOOTER_LINKS = [
-  { label: "openbot.run", href: SITE_URL },
+  { label: new URL(SITE_URL).hostname, href: SITE_URL },
   { label: "X", href: OPENBOT_LINKS.x },
   { label: "GitHub", href: OPENBOT_LINKS.repository },
 ] as const;

@@ -66,6 +66,7 @@ jobs:
     # which is a narrower gate than any association, and the lookup below is what turns that
     # into the permission to merge.
     if: >
+      github.repository == 'nightly-labs/openbot' && (
       (github.event_name == 'pull_request' &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.draft == false) ||
@@ -74,7 +75,7 @@ jobs:
         contains(github.event.comment.body, '/norbiai review') &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
       (github.event_name == 'pull_request_target' &&
-        github.event.label.name == 'norbiai')
+        github.event.label.name == 'norbiai'))
 
     permissions:
       contents: read
@@ -116,6 +117,8 @@ jobs:
     # authorization skips this job, so the self-hosted runner is never allocated for a
     # request that would not be read anyway.
     needs: authorize
+    # `success()` keeps the default of a job with `needs`: it runs only after `authorize` succeeded.
+    if: success() && github.repository == 'nightly-labs/openbot'
     runs-on: [self-hosted]
     # 15 minutes for the review, and the steps around it.
     timeout-minutes: 20

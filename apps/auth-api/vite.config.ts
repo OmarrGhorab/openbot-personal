@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { ownBackendBuildDefines } from "@openbot/contracts/own-backend";
 import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
@@ -24,6 +25,11 @@ export default defineConfig(({ command }) => {
         "@openbot/renderer-preview": rendererPreviewAlias,
         "@openbot/renderer-web": rendererWebAlias,
       },
+    },
+    // The build-time settings of the services this Worker calls (see packages/contracts/src/own-backend.ts).
+    define: {
+      ...ownBackendBuildDefines(process.env),
+      "process.env.OPENBOT_CONTACT_EMAIL": JSON.stringify(process.env.OPENBOT_CONTACT_EMAIL ?? ""),
     },
     // Vite removes license comments by default. The home page beam's license requires its notice
     // in each copy, so the minifier moves `/*!` and `@license` comments to the end of each file.

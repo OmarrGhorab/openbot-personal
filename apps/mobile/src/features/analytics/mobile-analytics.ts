@@ -44,16 +44,19 @@ function filterMobilePayload(event: TrackHandlerPayload): boolean {
 export const mobileAnalytics = new MobileAnalytics(() => {
   const clientId = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_ID;
   const clientSecret = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET;
+  // The OpenPanel project of this build. Unset, analytics sends nothing.
+  const apiUrl = process.env.EXPO_PUBLIC_OPENBOT_ANALYTICS_URL;
   if (
     __DEV__ ||
     process.env.EXPO_PUBLIC_APP_ENV !== "production" ||
     !clientId ||
     !clientSecret ||
+    !apiUrl ||
     (Platform.OS !== "ios" && Platform.OS !== "android")
   )
     return null;
   const client = new OpenPanel({
-    apiUrl: "https://analytics.openbot.run/api",
+    apiUrl,
     clientId,
     clientSecret,
     filter: filterMobilePayload,

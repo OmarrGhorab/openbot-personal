@@ -16,11 +16,14 @@ import {
   type HostedServerError,
   type HostedServerSize,
 } from "@openbot/contracts/hosted-servers";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { isOneOf } from "@openbot/contracts/runtime-values";
 import { Effect, Schema } from "effect";
 
-/** The same OpenPanel project as the desktop app and the website. ANALYTICS.md is the contract. */
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
+/**
+ * The OpenPanel project of this build, from the build-time `OPENBOT_ANALYTICS_URL` setting. ANALYTICS.md
+ * is the contract. Without the setting, the sender is off.
+ */
 /**
  * The current generation. Generation 10 adds the account events, first-touch properties, and
  * `reactivated` and `end_reason` on plan events. Generation 11 adds the license to the billing events
@@ -147,7 +150,8 @@ class AnalyticsDeliveryError extends Schema.TaggedError<AnalyticsDeliveryError>(
 export function createAccountAnalytics(options: AccountAnalyticsOptions): AccountAnalytics {
   const clientId = options.clientId?.trim();
   const clientSecret = options.clientSecret?.trim();
-  if (!clientId || !clientSecret) return NO_ACCOUNT_ANALYTICS;
+  const apiUrl = ownBackend().analytics?.apiUrl;
+  if (!clientId || !clientSecret || !apiUrl) return NO_ACCOUNT_ANALYTICS;
   const send = Effect.fn("AccountAnalytics.send")(function* (
     accountId: string,
     event: AccountAnalyticsEvent,
@@ -155,7 +159,7 @@ export function createAccountAnalytics(options: AccountAnalyticsOptions): Accoun
   ) {
     const response = yield* Effect.tryPromise({
       try: (signal) =>
-        options.fetch(`${OPENPANEL_API_URL}/track`, {
+        options.fetch(`${apiUrl}/track`, {
           method: "POST",
           headers: {
             "content-type": "application/json",

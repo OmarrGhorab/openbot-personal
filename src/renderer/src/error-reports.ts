@@ -1,4 +1,5 @@
 import type { AppInfo, CentralAuthUser } from "@openbot/contracts/ipc";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import {
   ANALYTICS_GENERATIONS,
   classifyFailure,
@@ -28,11 +29,13 @@ export function configureDesktopReports(
   user: Pick<CentralAuthUser, "id" | "email"> | null,
 ): void {
   const capture = info.analyticsCaptureUrl;
-  if (capture === undefined && (!import.meta.env.PROD || info.variant !== "production")) return;
+  const analytics = ownBackend().analytics;
+  if (capture === undefined && (analytics === null || !import.meta.env.PROD || info.variant !== "production")) return;
   queue ??= new ReportQueue(
     indexedReportStorage("openbot-desktop-error-reports-v1"),
     openPanelTransport({
-      clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2",
+      // A development capture server takes any client id, so it gets a fixed one when analytics is off.
+      clientId: analytics?.clientId ?? "development-capture",
       ...(capture === undefined ? {} : { endpoint: `${capture}/track` }),
     }),
     {
@@ -76,10 +79,11 @@ export function webReportsEnabled(): boolean {
 }
 
 export function configureWebReports(user: Pick<CentralAuthUser, "id" | "email"> | null): void {
-  if (!import.meta.env.PROD || window.location.origin !== "https://openbot.run") return;
+  const analytics = ownBackend().analytics;
+  if (!import.meta.env.PROD || analytics === null || window.location.origin !== ownBackend().siteOrigin) return;
   queue ??= new ReportQueue(
     indexedReportStorage("openbot-web-error-reports-v1"),
-    openPanelTransport({ clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2" }),
+    openPanelTransport({ clientId: analytics.clientId }),
     { surface: "web", platform: "web", app_version: version, event_schema_version: ANALYTICS_GENERATIONS.web },
   );
   configureErrorReports(webReportsEnabled(), user?.id ?? null);

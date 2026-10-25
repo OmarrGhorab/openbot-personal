@@ -1,7 +1,9 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { OPENBOT_SITE_URL } from "../lib/site-metadata";
 
 const SITE_ORIGIN = new URL(OPENBOT_SITE_URL).origin;
 const SITE_HOST = new URL(OPENBOT_SITE_URL).hostname;
+const ACCOUNT_HOST = new URL(ownBackend().accountOrigin).hostname;
 
 /**
  * Sends `http://openbot.run` and `www.openbot.run` to `https://openbot.run`, so
@@ -34,10 +36,10 @@ export function permanentTrailingSlashRedirect(request: Request, response: Respo
 }
 
 /**
- * The page that a Slack or Discord install returns to. The callback runs on `api.openbot.run`, and the
+ * The page that a Slack or Discord install returns to. The callback runs on the account host, and the
  * page opens on `openbot.run`, where the browser client runs, so the client tab that started the
  * install can take its grant. Another origin, such as a development one, keeps its own.
  */
 export function installReturnPage(path: string, callbackUrl: URL): URL {
-  return new URL(path, callbackUrl.hostname === `api.${SITE_HOST}` ? SITE_ORIGIN : callbackUrl);
+  return new URL(path, callbackUrl.hostname === ACCOUNT_HOST ? SITE_ORIGIN : callbackUrl);
 }

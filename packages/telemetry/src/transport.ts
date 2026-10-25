@@ -1,5 +1,10 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { type ReportTransport, telemetryIO } from "./queue";
 
+/**
+ * The OpenPanel track endpoint. Without an explicit `endpoint`, it is the build's analytics setting
+ * (`OPENBOT_ANALYTICS_URL`). A build with analytics off has no endpoint, so the transport refuses to send.
+ */
 export function openPanelTransport(options: {
   clientId: string;
   clientSecret?: string;
@@ -8,9 +13,12 @@ export function openPanelTransport(options: {
   fetch?: typeof fetch;
 }): ReportTransport {
   const send = options.fetch ?? globalThis.fetch;
+  const analytics = ownBackend().analytics;
+  const endpoint = options.endpoint ?? (analytics ? `${analytics.apiUrl.replace(/\/$/u, "")}/track` : null);
   return (report, signal) =>
     telemetryIO(async () => {
-      const response = await send(options.endpoint ?? "https://analytics.openbot.run/api/track", {
+      if (endpoint === null) throw new Error("Analytics is off in this build.");
+      const response = await send(endpoint, {
         method: "POST",
         signal,
         credentials: "omit",

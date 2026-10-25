@@ -2,8 +2,7 @@
 // and move `TERMS_UPDATED_AT` with it.
 
 import { Link } from "@tanstack/solid-router";
-
-const CONTACT_EMAIL = "hello@openbot.run";
+import { CONTACT_EMAIL } from "../lib/contact";
 
 export function Terms() {
   return (

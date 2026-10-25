@@ -7,6 +7,7 @@ import {
   firstTouchDay,
   rememberFirstTouch,
 } from "@openbot/contracts/first-touch";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { isBoolean, isOneOf } from "@openbot/contracts/runtime-values";
 import { OpenPanel, OpenPanelBase, type OpenPanelOptions, type TrackProperties } from "@openpanel/web";
 import { CONTACT_TOPICS } from "./contact";
@@ -24,8 +25,6 @@ import { PRIVACY_POLICY_ROUTE } from "./privacy-policy";
 import { TEAMS_ROUTE } from "./teams-page";
 import { TERMS_ROUTE } from "./terms";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
-const OPENPANEL_CLIENT_ID = "6c989975-87ef-4f0c-857e-ab449a65b5c2";
 /** Generation 10 adds `billing_return_viewed` and `contact_form_submitted`. */
 const ANALYTICS_SCHEMA_VERSION = 10;
 
@@ -254,8 +253,10 @@ const EVENT_PROPERTY_ALLOWLIST = {
  */
 const PENDING_EVENT_LIMIT = 4;
 
+// Landing analytics runs only on the configured public site, and only when the build sets an
+// OpenPanel client. Both come from build-time settings, so an unconfigured build sends nothing.
 function shouldEnableLandingAnalytics(hostname: string, productionBuild: boolean): boolean {
-  return productionBuild && hostname === "openbot.run";
+  return productionBuild && ownBackend().analytics !== null && hostname === new URL(ownBackend().siteOrigin).hostname;
 }
 
 class LandingAnalytics {
@@ -393,10 +394,12 @@ class LandingAnalytics {
   #ensureClient(hostname: string): boolean {
     if (!shouldEnableLandingAnalytics(hostname, this.#productionBuild)) return false;
     if (this.#client) return true;
+    const analytics = ownBackend().analytics;
+    if (!analytics) return false;
     try {
       const client = this.#createClient({
-        apiUrl: OPENPANEL_API_URL,
-        clientId: OPENPANEL_CLIENT_ID,
+        apiUrl: analytics.apiUrl,
+        clientId: analytics.clientId,
         trackScreenViews: false,
         trackOutgoingLinks: false,
         trackAttributes: false,

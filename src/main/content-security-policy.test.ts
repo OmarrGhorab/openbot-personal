@@ -2,19 +2,21 @@ import { describe, expect, it } from "vitest";
 import { buildContentSecurityPolicy, readSelfHostedSignalOrigin } from "./content-security-policy";
 
 describe("buildContentSecurityPolicy", () => {
-  it("allows the production analytics endpoint", () => {
+  it("allows only the build's own services when analytics is off", () => {
     const policy = buildContentSecurityPolicy(true);
 
+    // The defaults are placeholders on the reserved `.invalid` domain, and analytics is off.
     expect(policy).toContain(
-      "connect-src 'self' openbot-attachment: openbot-remote-attachment: https://analytics.openbot.run ws://127.0.0.1:* wss://*.openbot.run",
+      "connect-src 'self' openbot-attachment: openbot-remote-attachment: ws://127.0.0.1:* wss://*.openbot.invalid wss://signal.openbot.invalid",
     );
+    expect(policy).not.toContain("analytics");
     expect(policy.split("; ").find((directive) => directive.startsWith("connect-src "))).not.toContain("localhost");
   });
 
   it.each([true, false])("allows loopback viewer frames when packaged=%s", (packaged) => {
     const directives = buildContentSecurityPolicy(packaged).split("; ");
     expect(directives.find((directive) => directive.startsWith("frame-src "))).toBe(
-      "frame-src 'self' openbot-attachment: openbot-remote-attachment: openbot-visual: openbot-remote-visual: https://*.openbot.run http://127.0.0.1:* http://localhost:*",
+      "frame-src 'self' openbot-attachment: openbot-remote-attachment: openbot-visual: openbot-remote-visual: https://openbot.invalid https://*.openbot.invalid http://127.0.0.1:* http://localhost:*",
     );
     expect(directives.find((directive) => directive.startsWith("script-src "))).toBe("script-src 'self'");
   });

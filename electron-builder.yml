@@ -18,10 +18,12 @@ electronFuses:
   onlyLoadAppFromAsar: true
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
+# The update feed of this fork is a placeholder on the reserved `.invalid` domain. The app checks it
+# only when OPENBOT_UPDATE_FEED_URL is set at build time (src/main/application-services.ts). Set this
+# URL to the same value, and serve the electron-builder metadata (latest*.yml) there. See docs/own-backend.md.
 publish:
-  provider: github
-  owner: nightly-labs
-  repo: openbot
+  provider: generic
+  url: https://updates.openbot.invalid/desktop
 files:
   - out/**/*
   - package.json
@@ -118,13 +120,15 @@ mac:
     NSAppleEventsUsageDescription: OpenBot sends Automation events so an agent can control the apps you ask it to control.
     NSUserActivityTypes:
       - NSUserActivityTypeBrowsingWeb
-  # No `arch` here: a target's own `arch` list replaces the one given on the command line, so
-  # `--x64` would still build ARM64. With no flag, electron-builder builds for the machine it runs
-  # on. Build one architecture at a time: the voice runtime and remote desktop builds on disk are for the
-  # architecture of the machine that made them.
+  # This fork builds Intel (x64) macOS only. The voice runtime and remote desktop builds on disk are
+  # for the architecture of the machine that made them, so an arm64 build needs its own runtime.
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
 win:
   icon: build/icon-production.ico
   extraResources:
@@ -146,37 +150,6 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-linux:
-  category: Development
-  icon: build/icon-production.png
-  synopsis: A local-first multi-agent desktop workspace.
-  extraResources:
-    - from: build/linux/openbot.apparmor
-      to: linux/openbot.apparmor
-    # A hosted server installs the packages, scripts and units of the release that it updates to.
-    - from: scripts/hosting
-      to: hosting
-      filter:
-        - "**/*"
-        - "!*.ts"
-    # The sherpa-onnx addon and its libraries. The dictation and speech models are downloaded on demand.
-    - from: .openbot-build/voice/runtime
-      to: voice/runtime
-    # Only the x64 build installs this runtime. For arm64 the directory does not exist, and
-    # electron-builder skips a missing source with a warning.
-    - from: build/remote-desktop-runtime
-      to: remote-desktop-runtime
-    - from: build/cua-driver/linux/${arch}
-      to: cua-driver/linux/${arch}
-  # Electron takes its Linux app id from `desktopName` in package.json, and the window manager
-  # matches a running window to the launcher through `StartupWMClass`. Syncing the two from one
-  # value is what makes the taskbar icon group with the window it belongs to.
-  syncDesktopName: true
-  target:
-    - target: AppImage
-      arch:
-        - x64
-        - arm64
 dmg:
   title: ${productName} ${version}
   background: build/dmg-background.png

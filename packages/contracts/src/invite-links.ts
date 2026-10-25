@@ -1,8 +1,11 @@
+import { ownBackend } from "./own-backend";
 import { isOpenBotTeamApiHostname } from "./validation";
 
-export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
+/** The public website, from the build's `OPENBOT_SITE_URL`. */
+export const OPENBOT_INVITE_ORIGIN = ownBackend().siteOrigin;
 export const OPENBOT_INVITE_PATH = "/join";
-export const OPENBOT_CONTROL_PLANE_ORIGIN = "https://api.openbot.run";
+/** The account service, from the build's `OPENBOT_ACCOUNT_URL`. */
+export const OPENBOT_CONTROL_PLANE_ORIGIN = ownBackend().accountOrigin;
 
 /**
  * The finite deadline a permanent invitation carries. Invitation expiry travels the

@@ -1,3 +1,4 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { toast } from "@openbot/ui";
 import { WhatsNewDialog } from "@openbot/ui/features/updates/WhatsNewDialog";
 import { useText } from "@openbot/ui/text";
@@ -27,7 +28,7 @@ export function WhatsNewOverlay(props: { ready: boolean }) {
       onRetry={whatsNew.retry}
       onOpenChangelog={() => {
         void appPort()
-          .openUrl("https://openbot.run/changelog")
+          .openUrl(`${ownBackend().siteOrigin}/changelog`)
           .catch((error: unknown) => toast.error(errorMessage(error, t("update.whatsNew.changelogFailed")), { error }));
       }}
     />

@@ -83,6 +83,7 @@ import {
   latestTurnAnswer,
 } from "@openbot/contracts/ipc";
 import { decodeRecord, requiredString } from "@openbot/contracts/ipc-decoding";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { REMOTE_ACCOUNT_CHECK_INTERVAL_MS } from "@openbot/team-client";
@@ -876,7 +877,7 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.dynamicIsland, "the Dynamic Island", () => dynamicIsland.destroy());
   const centralAuthApiUrl = readCentralAuthApiUrl(
     process.env.OPENBOT_AUTH_API_URL,
-    app.isPackaged ? "https://api.openbot.run" : "http://127.0.0.1:3100",
+    app.isPackaged ? ownBackend().accountOrigin : "http://127.0.0.1:3100",
   );
   const centralAuth = new CentralAuthManager({
     apiUrl: centralAuthApiUrl,
@@ -2331,12 +2332,13 @@ export async function createApplicationServices({
         : resolve(__dirname, "../../resources/plugin-catalog"),
     ),
   );
-  const analyticsEnabled = (app.isPackaged && appVariant === "production") || analyticsCaptureUrl !== null;
+  const analyticsEnabled =
+    (app.isPackaged && appVariant === "production" && ownBackend().analytics !== null) || analyticsCaptureUrl !== null;
   const failureReports = analyticsEnabled
     ? new ReportQueue(
         fileReportStorage(join(app.getPath("userData"), "openbot-error-reports-v1.json")),
         openPanelTransport({
-          clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2",
+          clientId: ownBackend().analytics?.clientId ?? "development-capture",
           origin: "openbot-app://app",
           ...(analyticsCaptureUrl ? { endpoint: `${analyticsCaptureUrl}/track` } : {}),
         }),
@@ -2600,6 +2602,9 @@ export async function createApplicationServices({
       arch: process.arch,
       ...(containerInstaller ? { paths: CONTAINER_UPDATE_PATHS } : {}),
     });
+  } else if (updatesEnabled && ownBackend().updateFeedUrl === null) {
+    // This build has no update feed (OPENBOT_UPDATE_FEED_URL is unset), so no release feed is contacted.
+    updaterEnabled = false;
   } else if (updatesEnabled) {
     try {
       const updaterModule = await import("electron-updater");
