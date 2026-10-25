@@ -1,17 +1,7 @@
 import type { TranslatedLocale } from "./locale";
 import { createTranslate, type MessageParams, type Translate } from "./message";
-import { deMobile } from "./messages/de/mobile";
+import { arMobile } from "./messages/ar/mobile";
 import { type AppMobileMessages, enMobile } from "./messages/en/mobile";
-import { esMobile } from "./messages/es/mobile";
-import { frMobile } from "./messages/fr/mobile";
-import { itMobile } from "./messages/it/mobile";
-import { jaMobile } from "./messages/ja/mobile";
-import { koMobile } from "./messages/ko/mobile";
-import { plMobile } from "./messages/pl/mobile";
-import { ptMobile } from "./messages/pt/mobile";
-import { ruMobile } from "./messages/ru/mobile";
-import { trMobile } from "./messages/tr/mobile";
-import { zhMobile } from "./messages/zh/mobile";
 
 /**
  * The mobile entry. It carries the shared keys, the source text and the mobile areas only, so the
@@ -19,23 +9,13 @@ import { zhMobile } from "./messages/zh/mobile";
  */
 export { APP_LANGUAGES, type AppLanguage, DEFAULT_APP_LANGUAGE, isAppLanguage } from "@openbot/contracts/app-language";
 export { type AppFormat, createFormat } from "./format";
-export { formatLocale, resolveLocale, TRANSLATED_LOCALES, type TranslatedLocale } from "./locale";
+export { formatLocale, localeDirection, resolveLocale, TRANSLATED_LOCALES, type TranslatedLocale } from "./locale";
 export { localizeSourceText, sourceText } from "./source-text";
 export type { AppMobileMessages };
 
 const catalogs = {
-  de: deMobile,
-  es: esMobile,
+  ar: arMobile,
   en: enMobile,
-  fr: frMobile,
-  it: itMobile,
-  ja: jaMobile,
-  ko: koMobile,
-  pl: plMobile,
-  pt: ptMobile,
-  ru: ruMobile,
-  tr: trMobile,
-  zh: zhMobile,
 } as const;
 
 export type MobileTranslate = Translate<AppMobileMessages>;

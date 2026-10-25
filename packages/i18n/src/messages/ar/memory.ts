@@ -1,0 +1,55 @@
+import type { PartialTranslation } from "../../message";
+import type { messages as source } from "../en/memory";
+
+export const messages = {
+  "memory.title": "الذكريات",
+  "memory.description": "الذكريات المحفوظة لـ {name}",
+  "memory.add": "إضافة ذكرى",
+  "memory.close": "إغلاق الذكريات",
+  "memory.new": "ذكرى جديدة",
+  "memory.newPlaceholder": "ضيف معلومة أو تفضيل ثابت",
+  "memory.save": "حفظ الذكرى",
+  "memory.limitAgent":
+    "الإيجنت ده وصل للحد الأقصى وهو {limit} ذكرى. عدّل ذكرى أو ادمجها أو احذفها قبل ما تضيف واحدة تانية.",
+  "memory.limitChannel":
+    "القناة دي وصلت للحد الأقصى وهو {limit} ذكرى. عدّل ذكرى أو ادمجها أو احذفها قبل ما تضيف واحدة تانية.",
+  "memory.loading": "بنحمّل الذكريات…",
+  "memory.emptyLead": "قولها مرة واحدة.",
+  "memory.emptyTitle": "{remember}.",
+  "memory.emptyRemember": "هيفتكرها",
+  "memory.emptyLearnsAgent": "{name} بيحفظ اللي بيتعلمه من شاتاتك.",
+  "memory.emptyLearnsChannel": "الإيجنتات في {name} بتحفظ اللي بتتعلمه هنا.",
+  "memory.emptyAddOwn": "تقدر كمان تضيف ذكرى بنفسك.",
+  "memory.sample.updates": "المستخدم بيفضّل تحديثات تقدّم قصيرة والنتيجة تيجي الأول.",
+  "memory.sample.scripts": "استخدم Bun لسكربتات الحزم.",
+  "memory.sample.brief": "ابعت الملخص الصباحي الساعة 7:00 في أيام الأسبوع.",
+  "memory.sample.confirm": "اسأل قبل ما تحذف ملفات برّه مساحة العمل.",
+  "memory.editText": "تعديل الذكرى: {text}",
+  "memory.edit": "تعديل الذكرى",
+  "memory.delete": "حذف الذكرى",
+  "memory.learned": "اتعلمها تلقائيًا",
+  "memory.manual": "اتضافت يدويًا",
+  "memory.unknownDate": "تاريخ غير معروف",
+  "memory.clearAll": "مسح كل الذكريات",
+  "memory.clearTitle": "تمسح كل الذكريات؟",
+  "memory.clearDescription":
+    "OpenBot هيمسح نهائيًا كل الذكريات المحفوظة لـ {name} وعددها {total}. الرسائل الأصلية هتفضل في سجل المحادثة.",
+
+  "memory.loadFailed": "معرفناش نحمّل الذكريات.",
+  "memory.saveFailed": "معرفناش نحفظ الذكرى.",
+  "memory.updateFailed": "معرفناش نحدّث الذكرى.",
+  "memory.deleteFailed": "معرفناش نحذف الذكرى.",
+  "memory.deleteUndo.title": "الذكرى اتحذفت",
+  "memory.deleteUndo.action": "تراجع",
+  "memory.clearFailed": "معرفناش نمسح الذكريات.",
+  "memory.inclusion.label": "استخدام الذكرى",
+  "memory.inclusion.essential": "موجودة دايمًا",
+  "memory.inclusion.searchable": "تتدوّر عليها لما تحتاجها",
+  "memory.inclusion.automatic": "سيب الإيجنت يقرر",
+  "memory.inclusion.automaticCurrent": "سيب الإيجنت يقرر. دلوقتي: {current}",
+  "memory.inclusion.userControlled": "إنت اللي اخترت",
+  "memory.inclusion.agentControlled": "الإيجنت يقدر يغيّر ده",
+  "memory.inclusion.explanation":
+    "كل الذكريات بتفضل محفوظة. الذكريات الأساسية بس بتدخل في كل برومبت. الإيجنت يقدر يدوّر على الباقي.",
+  "memory.inclusion.capacity": "سعة الذكريات الأساسية: {used} من {total}",
+} as const satisfies PartialTranslation<typeof source>;

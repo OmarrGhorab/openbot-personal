@@ -312,7 +312,7 @@
   position: absolute;
   z-index: 1;
   top: -8px;
-  right: -8px;
+  inset-inline-end: -8px;
   border: 1px solid var(--openbot-border-strong);
   border-radius: var(--openbot-radius-pill);
   background: color-mix(in srgb, var(--openbot-bg-surface-raised) 72%, transparent);
@@ -376,11 +376,11 @@
 }
 
 :where(.z-badge):has(> [data-icon="inline-start"]) {
-  padding-left: var(--openbot-space-1-5);
+  padding-inline-start: var(--openbot-space-1-5);
 }
 
 :where(.z-badge):has(> [data-icon="inline-end"]) {
-  padding-right: var(--openbot-space-1-5);
+  padding-inline-end: var(--openbot-space-1-5);
 }
 
 :where(.z-badge-variant-default) {
@@ -633,7 +633,7 @@
   font-family: var(--openbot-font-sans);
   font-size: var(--openbot-text-md);
   line-height: var(--openbot-leading-md);
-  text-align: left;
+  text-align: start;
   transition:
     background-color var(--openbot-duration-hover) ease,
     border-color var(--openbot-duration-hover) ease,
@@ -769,7 +769,7 @@
 
 .ui-select-item-indicator {
   position: absolute;
-  right: var(--openbot-space-2);
+  inset-inline-end: var(--openbot-space-2);
   width: var(--openbot-icon-md);
   height: var(--openbot-icon-md);
   display: inline-flex;
@@ -829,7 +829,7 @@
 }
 
 .ui-field-required {
-  margin-left: var(--openbot-space-0-5);
+  margin-inline-start: var(--openbot-space-0-5);
 }
 
 .ui-field-description,
@@ -950,7 +950,7 @@
 .ui-switch-thumb {
   position: absolute;
   top: 50%;
-  left: 0;
+  inset-inline-start: 0;
   width: var(--ui-switch-thumb-size);
   height: var(--ui-switch-thumb-size);
   display: block;
@@ -1673,7 +1673,7 @@
    even while the control itself is hidden. */
 .ui-toaster.ui-toaster-closeable [data-sonner-toast][data-styled="true"] [data-content],
 .ui-toaster [data-sonner-toast][data-styled="true"]:has([data-close-button]) [data-content] {
-  padding-right: var(--openbot-space-6);
+  padding-inline-end: var(--openbot-space-6);
 }
 
 .ui-toaster [data-sonner-toast][data-styled="true"] [data-title] {
@@ -1788,8 +1788,8 @@
 
 .ui-toaster [data-sonner-toast][data-styled="true"] [data-close-button] {
   top: var(--openbot-space-1);
-  right: var(--openbot-space-1);
-  left: auto;
+  inset-inline-end: var(--openbot-space-1);
+  inset-inline-start: auto;
   width: var(--openbot-control-md);
   height: var(--openbot-control-md);
   border: 0;
@@ -1985,8 +1985,8 @@
 }
 
 .ui-tooltip[data-placement="left"]::after {
-  right: -4px;
-  left: auto;
+  inset-inline-end: -4px;
+  inset-inline-start: auto;
   box-shadow: 1px -1px 0 var(--openbot-border-strong);
   transform: translateY(-50%) rotate(45deg);
 }
@@ -1996,7 +1996,7 @@
 }
 
 .ui-tooltip[data-placement="right"]::after {
-  left: -4px;
+  inset-inline-start: -4px;
   box-shadow: -1px 1px 0 var(--openbot-border-strong);
   transform: translateY(-50%) rotate(45deg);
 }
@@ -2305,7 +2305,7 @@ a.ui-bubble-content {
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
+  text-align: start;
   transition: color var(--openbot-duration-hover) ease;
 }
 
@@ -2322,7 +2322,7 @@ button.ui-bubble-content {
 }
 
 .ui-bubble-variant-default .message-reply-context {
-  border-left-color: var(--openbot-text-muted-on-light);
+  border-inline-start-color: var(--openbot-text-muted-on-light);
   color: var(--openbot-text-on-light);
 }
 
@@ -2409,11 +2409,11 @@ button.ui-bubble-content {
 }
 
 .ui-bubble-reactions-align-start {
-  left: var(--openbot-space-3);
+  inset-inline-start: var(--openbot-space-3);
 }
 
 .ui-bubble-reactions-align-end {
-  right: var(--openbot-space-3);
+  inset-inline-end: var(--openbot-space-3);
 }
 
 .ui-bubble-reaction-overflow {

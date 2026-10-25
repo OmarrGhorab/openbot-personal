@@ -164,7 +164,7 @@ explicit threat-model note in the pull request.
 
 ## Translations
 
-English is the source text. A French or Japanese catalog can be partial: a key it does not have
+English is the source text. An Arabic catalog can be partial: a key it does not have
 shows in English. To add a key, a translation or a language, follow [docs/i18n.md](docs/i18n.md) and
 run `bun run i18n:check`.
 

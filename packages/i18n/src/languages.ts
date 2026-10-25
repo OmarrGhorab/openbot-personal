@@ -20,18 +20,8 @@ export interface AppLanguageOption {
 
 const LABELS: Record<AppLanguage, AppLanguageOption> = {
   system: { id: "system", label: "System default" },
-  de: { id: "de", label: "Deutsch", lang: "de" },
-  es: { id: "es", label: "Español", lang: "es" },
   en: { id: "en", label: "English", lang: "en" },
-  fr: { id: "fr", label: "Français", lang: "fr" },
-  it: { id: "it", label: "Italiano", lang: "it" },
-  ja: { id: "ja", label: "日本語", lang: "ja" },
-  ko: { id: "ko", label: "한국어", lang: "ko" },
-  pl: { id: "pl", label: "Polski", lang: "pl" },
-  pt: { id: "pt", label: "Português (Brasil)", lang: "pt-BR" },
-  ru: { id: "ru", label: "Русский", lang: "ru" },
-  tr: { id: "tr", label: "Türkçe", lang: "tr" },
-  zh: { id: "zh", label: "简体中文", lang: "zh-CN" },
+  ar: { id: "ar", label: "العربية (مصر)", lang: "ar-EG" },
 };
 
 /**

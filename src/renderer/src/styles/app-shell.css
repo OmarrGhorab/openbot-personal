@@ -216,7 +216,7 @@
 .global-search-filter-pill {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: var(--openbot-control-xs);
   border-radius: var(--openbot-radius-sm);
   background: var(--openbot-bg-control-active);
@@ -280,8 +280,8 @@
 
 .global-search-results [role="listbox"] > [data-index] {
   position: absolute;
-  right: 0;
-  left: 0;
+  inset-inline-end: 0;
+  inset-inline-start: 0;
 }
 
 .global-search-section {
@@ -309,8 +309,8 @@
 .global-search-highlight {
   position: absolute;
   top: 0;
-  right: var(--openbot-space-1-5);
-  left: var(--openbot-space-1-5);
+  inset-inline-end: var(--openbot-space-1-5);
+  inset-inline-start: var(--openbot-space-1-5);
   border-radius: var(--openbot-radius-sm);
   background: var(--openbot-bg-control-active);
   pointer-events: none;
@@ -492,7 +492,7 @@
 }
 
 .global-search-hint .ui-kbd + .ui-kbd {
-  margin-left: calc(var(--openbot-space-0-5) * -1);
+  margin-inline-start: calc(var(--openbot-space-0-5) * -1);
 }
 
 @media (max-width: 640px) {
@@ -561,8 +561,8 @@
 .server-rail::before {
   position: absolute;
   top: calc(var(--left-header-height) - 1px);
-  right: 0;
-  left: 0;
+  inset-inline-end: 0;
+  inset-inline-start: 0;
   height: 1px;
   background: var(--openbot-border);
   content: "";
@@ -572,7 +572,7 @@
 .server-rail::after {
   position: absolute;
   top: var(--left-header-height);
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   width: clamp(0.5px, 0.05123cqw, 1px);
   background: var(--openbot-border);
@@ -709,7 +709,7 @@
 .server-rail-mark {
   position: absolute;
   top: 50%;
-  left: -7px;
+  inset-inline-start: -7px;
   width: 3px;
   height: 0;
   border-radius: 0 var(--openbot-radius-xs) var(--openbot-radius-xs) 0;
@@ -766,7 +766,7 @@
 .server-rail-tooltip::before {
   position: absolute;
   top: 50%;
-  left: -6px;
+  inset-inline-start: -6px;
   width: 6px;
   height: 12px;
   background: var(--openbot-bg-surface-raised);
@@ -841,7 +841,7 @@ html.panel-resizing {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: auto;
 }
 
@@ -850,7 +850,7 @@ html.panel-resizing {
 }
 
 .panel-edge {
-  border-right: clamp(0.5px, 0.05123cqw, 1px) solid var(--openbot-border);
+  border-inline-end: clamp(0.5px, 0.05123cqw, 1px) solid var(--openbot-border);
 }
 
 .window-drag {
@@ -903,7 +903,7 @@ textarea {
   .app-frame-edge > .sidebar {
     position: relative;
     isolation: isolate;
-    border-right: 0;
+    border-inline-end: 0;
   }
 
   .app-frame-edge > .sidebar::before {
@@ -1013,7 +1013,7 @@ textarea {
   flex: 0 1 auto;
   justify-content: flex-start;
   gap: var(--openbot-space-1-5);
-  margin-right: auto;
+  margin-inline-end: auto;
   border-radius: var(--openbot-radius-pill);
   padding: 0 var(--openbot-space-2) 0 var(--openbot-space-1);
   color: var(--openbot-text-primary);
@@ -1022,7 +1022,7 @@ textarea {
   font-weight: var(--openbot-weight-semibold);
   line-height: var(--openbot-leading-md);
   opacity: 1;
-  text-align: left;
+  text-align: start;
   transition:
     background-color var(--openbot-duration-hover) ease,
     border-color var(--openbot-duration-hover) ease,
@@ -1095,7 +1095,7 @@ textarea {
 /* The server menu view has no rail, so the server name moves right of the macOS traffic lights. The web
  * frame uses the macOS geometry but has no traffic lights, so these rules skip it. */
 .app-frame-platform-darwin:not(.app-frame-with-server-rail, .web-app-frame) .sidebar-topbar {
-  padding-left: 78px;
+  padding-inline-start: 78px;
 }
 
 /* A compact sidebar is too narrow for the traffic lights and the expand button in one row, and the
@@ -1185,7 +1185,7 @@ textarea {
 }
 
 .server-menu .server-menu-layout-chevron {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 
 /* The add item: a dashed circle that fills in on the highlighted row, with the plus cut out of it. */
@@ -1515,8 +1515,8 @@ textarea {
 .sidebar-section-drop-after::after {
   position: absolute;
   z-index: 3;
-  right: 7px;
-  left: 7px;
+  inset-inline-end: 7px;
+  inset-inline-start: 7px;
   height: 2px;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-accent-text);
@@ -1737,7 +1737,7 @@ textarea {
 .sidebar-section-editor-chevron {
   position: absolute;
   top: 50%;
-  right: 9px;
+  inset-inline-end: 9px;
   color: var(--openbot-text-muted);
   pointer-events: none;
   transform: translateY(-50%);
@@ -2076,7 +2076,7 @@ textarea {
 .person-unread-badge {
   position: absolute;
   z-index: 2;
-  right: -4px;
+  inset-inline-end: -4px;
   bottom: -3px;
   display: grid;
   min-width: 17px;
@@ -2103,7 +2103,7 @@ textarea {
   background: transparent;
   padding: 8px;
   color: inherit;
-  text-align: left;
+  text-align: start;
   transition:
     background-color var(--openbot-duration-hover) ease,
     border-color var(--openbot-duration-hover) ease,
@@ -2146,7 +2146,7 @@ textarea {
 .agent-row-agent-status {
   position: absolute;
   z-index: 1;
-  right: -5px;
+  inset-inline-end: -5px;
   bottom: -3px;
   display: inline-flex;
   align-items: center;
@@ -2349,7 +2349,7 @@ textarea {
 }
 
 .agent-context-submenu-chevron {
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--openbot-text-muted);
 }
 
@@ -2575,7 +2575,7 @@ textarea {
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 11px;
   color: var(--openbot-text-primary);
-  text-align: left;
+  text-align: start;
   transition:
     border-color var(--openbot-duration-hover) ease,
     background-color var(--openbot-duration-hover) ease,
@@ -3064,7 +3064,7 @@ textarea {
 }
 
 .account-usage-window-reset {
-  text-align: right;
+  text-align: end;
 }
 
 .account-usage-window-bar {
@@ -3086,7 +3086,7 @@ textarea {
   color: var(--openbot-text-primary);
   font-variant-numeric: tabular-nums;
   font-weight: var(--openbot-weight-semibold);
-  text-align: right;
+  text-align: end;
 }
 
 .account-usage-window:not([data-usage-tone="neutral"]) .account-usage-window-remaining {
@@ -3245,7 +3245,7 @@ textarea {
   color: var(--openbot-text-primary);
   font-size: var(--openbot-text-md);
   letter-spacing: -0.01em;
-  text-align: left;
+  text-align: start;
   transition: background-color var(--openbot-duration-hover) ease;
 }
 
@@ -3406,7 +3406,7 @@ textarea {
 }
 .server-rail-muted {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   color: var(--openbot-text-secondary);
   background: var(--openbot-bg-sidebar);

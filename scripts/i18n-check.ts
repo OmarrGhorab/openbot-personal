@@ -10,7 +10,7 @@ import { createOpenBotLogger } from "@openbot/logging";
 //
 // Fails on:
 // - a key that does not start with its module's prefix, or a key in two modules;
-// - a French or Japanese key that English does not have, a placeholder English does not have, or
+// - an Arabic key that English does not have, a placeholder English does not have, or
 //   a string where English has plural forms (and the reverse);
 // - a source template that more than one source key can match, so the reverse lookup is ambiguous;
 // - an English key no code names. Write keys as literals, so this check and a search find them.

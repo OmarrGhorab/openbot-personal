@@ -357,7 +357,7 @@
 }
 
 .message-reaction-anchor .ui-bubble-reaction-overflow {
-  padding-right: 6px;
+  padding-inline-end: 6px;
 }
 
 .message-reaction-pill:hover {
@@ -665,7 +665,7 @@
   padding: var(--openbot-space-1-5) var(--openbot-space-2);
   border-inline-start: 1px solid var(--openbot-border-grouped);
   list-style: none;
-  text-align: left;
+  text-align: start;
 }
 
 .chat-action-history-entry {
@@ -774,7 +774,7 @@
   font: inherit;
   line-height: inherit;
   outline: none;
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
   transition:
     background-color var(--openbot-duration-hover) var(--openbot-ease-out),
@@ -908,7 +908,7 @@ button.chat-action-target:active,
 }
 
 .chat-action-avatar-stack .chat-action-agent-avatar + .chat-action-agent-avatar {
-  margin-left: -6px;
+  margin-inline-start: -6px;
 }
 
 /* An open group lists each message as its own marker, centred like the row that holds them. */
@@ -1153,7 +1153,7 @@ button.chat-action-target:active,
   position: absolute;
   z-index: 1;
   top: 8px;
-  right: 8px;
+  inset-inline-end: 8px;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-bg-surface);
   padding: 2px 7px;
@@ -1169,7 +1169,7 @@ button.chat-action-target:active,
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  text-align: left;
+  text-align: start;
 }
 
 .image-generation-label {
@@ -1249,7 +1249,7 @@ button.chat-action-target:active,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  right: 10px;
+  inset-inline-end: 10px;
   bottom: 10px;
   border: 1px solid var(--openbot-border-strong);
   border-radius: var(--openbot-radius-pill);
