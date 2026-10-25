@@ -139,8 +139,8 @@ before any change when the port is missing. Never copy the file into this reposi
 
 ## Email delivery
 
-Private Email SMTP is the primary delivery method. Use a separate app password.
-Do not use the mailbox password.
+Any SMTP server that accepts implicit TLS (port 465) can send mail. Use a separate app password or
+send-only credential. Do not use a mailbox password. The sender and the SMTP host belong to the owner.
 
 Local development sends no email at all. Generated local defaults blank all five SMTP
 variables, which is what turns delivery off - `wrangler.jsonc` sets four of them
@@ -151,11 +151,11 @@ because `AUTH_EXPOSE_DEVELOPMENT_CODE` returns its code in the API response. To
 exercise real delivery locally, put a full set in the ignored `.dev.vars` file:
 
 ```dotenv
-EMAIL_SMTP_HOST=mail.privateemail.com
+EMAIL_SMTP_HOST=smtp.your-provider.example
 EMAIL_SMTP_PORT=465
-EMAIL_SMTP_USERNAME=hello@openbot.run
-EMAIL_SMTP_PASSWORD=<PRIVATE_EMAIL_APP_PASSWORD>
-EMAIL_FROM=hello@openbot.run
+EMAIL_SMTP_USERNAME=noreply@your-domain.example
+EMAIL_SMTP_PASSWORD=<SMTP_APP_PASSWORD>
+EMAIL_FROM=noreply@your-domain.example
 ```
 
 `bun run env:set:smtp` encrypts the app password into `.env.production` only.
@@ -215,7 +215,8 @@ The contact form on `/contact` posts to `/v1/contact`. The Worker sends each mes
 The D1 counter of sign-in allows 3 messages for each IP address and 15 in total in each 15-minute
 window, so the form cannot spend the quota that sign-in codes need. A Cloudflare rate-limit binding
 counts in each location separately, so it cannot hold a total. Without SMTP the route answers 503
-`email_delivery_not_configured`, and the form tells the visitor to write to `hello@openbot.run`.
+`email_delivery_not_configured`, and the form tells the visitor to write to the address that the build setting `OPENBOT_CONTACT_EMAIL`
+sets. See [docs/own-backend.md](../../docs/own-backend.md).
 
 ## Cloudflare deployment
 

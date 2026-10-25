@@ -19,6 +19,7 @@ import {
   SPEECH_VOICES,
   type SpeechVoice,
 } from "@openbot/contracts/ipc";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { isBoolean, isDynamicRecord, isFunction, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
 import { ANALYTICS_GENERATIONS } from "@openbot/telemetry";
@@ -26,8 +27,10 @@ import { OpenPanelBase, type OpenPanelOptions } from "@openpanel/web";
 import { ANALYTICS_SCHEMA_VERSION, configureDesktopReports, configureErrorReports } from "./error-reports";
 import { MARKETPLACE_PLUGINS } from "./features/settings/marketplace-plugin-catalog";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
-const OPENPANEL_CLIENT_ID = "6c989975-87ef-4f0c-857e-ab449a65b5c2";
+/** The build's OpenPanel settings. Null when analytics is off, and then no production client is created. */
+const OPENPANEL_SETTINGS = ownBackend().analytics;
+const OPENPANEL_API_URL = OPENPANEL_SETTINGS?.apiUrl ?? "";
+const OPENPANEL_CLIENT_ID = OPENPANEL_SETTINGS?.clientId ?? "";
 const MAX_PENDING_EVENTS = 100;
 const CURATED_LISTING_PATTERN = /^openbot-curated-(?:skill|agent)-([a-z0-9][a-z0-9-]{0,63})$/u;
 const PLUGIN_SLUGS = new Set(MARKETPLACE_PLUGINS.map((plugin) => plugin.slug));
@@ -677,7 +680,10 @@ const UPDATE_PHASES = new Set([
 ]);
 
 function shouldEnableDesktopAnalytics(appInfo: AppInfo, productionBuild: boolean): boolean {
-  return appInfo.analyticsCaptureUrl !== undefined || (productionBuild && appInfo.variant === "production");
+  return (
+    appInfo.analyticsCaptureUrl !== undefined ||
+    (OPENPANEL_SETTINGS !== null && productionBuild && appInfo.variant === "production")
+  );
 }
 
 function sanitizeDesktopAnalyticsEvent(
@@ -837,7 +843,10 @@ class DesktopAnalytics {
    * failure reports, and the web preference controls both.
    */
   configureWeb(options: { version: string; user: AnalyticsIdentity | null; enabled: boolean }): boolean {
-    if (!this.#client && (!this.#productionBuild || window.location.origin !== "https://openbot.run")) {
+    if (
+      !this.#client &&
+      (OPENPANEL_SETTINGS === null || !this.#productionBuild || window.location.origin !== ownBackend().siteOrigin)
+    ) {
       this.#disabled = true;
       this.#pending = [];
       return false;

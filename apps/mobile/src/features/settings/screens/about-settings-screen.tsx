@@ -25,12 +25,16 @@ export function AboutSettingsScreen() {
     setError(null);
     void Linking.openURL(url).catch(() => setError(t("mobile.settings.about.openFailed")));
   }
+  // The public website of this build. Unset, the row is hidden.
+  const siteUrl = process.env.EXPO_PUBLIC_OPENBOT_SITE_URL;
   return (
     <SettingsContent>
       <SettingsSection title={t("mobile.settings.about.resources")}>
-        <SettingsRow onPress={() => open("https://openbot.run")}>
-          <Typography.Paragraph>{t("mobile.settings.about.website")}</Typography.Paragraph>
-        </SettingsRow>
+        {siteUrl ? (
+          <SettingsRow onPress={() => open(siteUrl)}>
+            <Typography.Paragraph>{t("mobile.settings.about.website")}</Typography.Paragraph>
+          </SettingsRow>
+        ) : null}
         <SettingsRow onPress={() => open("https://github.com/nightly-labs/openbot/blob/main/PRIVACY.md")}>
           <Typography.Paragraph>{t("mobile.settings.about.privacy")}</Typography.Paragraph>
         </SettingsRow>

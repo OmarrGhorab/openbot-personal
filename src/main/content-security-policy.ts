@@ -1,4 +1,5 @@
 import { isMobileConnectDevelopmentHost } from "@openbot/contracts/mobile-connect";
+import { ownBackend } from "@openbot/contracts/own-backend";
 
 export function buildContentSecurityPolicy(
   packaged: boolean,
@@ -10,6 +11,12 @@ export function buildContentSecurityPolicy(
     ? ""
     : ` http://localhost:* ws://localhost:*${developmentSignalSource(developmentSignalUrl)}`;
   const developmentImageSources = packaged ? "" : " http://127.0.0.1:* http://localhost:*";
+  // The build's own services only: analytics when it is on, the Signal socket, and team hosts.
+  const backend = ownBackend();
+  const analyticsSource = backend.analytics ? ` ${new URL(backend.analytics.apiUrl).origin}` : "";
+  const signalSource = ` ${new URL(backend.signalUrl).origin}`;
+  const teamHostSource = ` wss://*.${backend.teamHostDomain}`;
+  const teamFrameSource = ` ${backend.siteOrigin} https://*.${backend.teamHostDomain}`;
 
   return [
     "default-src 'self'",
@@ -20,10 +27,10 @@ export function buildContentSecurityPolicy(
     // The lightbox plays a recording from the attachment scheme, and the preview panel plays one
     // from an object URL of the bytes that the main process sent. Neither matches `default-src`.
     "media-src 'self' blob: openbot-attachment: openbot-remote-attachment:",
-    `connect-src 'self' openbot-attachment: openbot-remote-attachment: https://analytics.openbot.run ws://127.0.0.1:* wss://*.openbot.run${selfHostedSignalSource}${developmentSources}`,
+    `connect-src 'self' openbot-attachment: openbot-remote-attachment:${analyticsSource} ws://127.0.0.1:*${teamHostSource}${signalSource}${selfHostedSignalSource}${developmentSources}`,
     "object-src 'none'",
     // The remote desktop viewer uses a loopback proxy in packaged apps too.
-    "frame-src 'self' openbot-attachment: openbot-remote-attachment: openbot-visual: openbot-remote-visual: https://*.openbot.run http://127.0.0.1:* http://localhost:*",
+    `frame-src 'self' openbot-attachment: openbot-remote-attachment: openbot-visual: openbot-remote-visual:${teamFrameSource} http://127.0.0.1:* http://localhost:*`,
     "base-uri 'none'",
   ].join("; ");
 }

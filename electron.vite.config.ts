@@ -2,11 +2,15 @@ import { resolve } from "node:path";
 import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { ownBackendBuildDefines } from "./packages/contracts/src/own-backend";
 
 const rendererPort = readRendererPort(process.env.OPENBOT_DEV_RENDERER_PORT);
+// The services this build talks to (OPENBOT_SITE_URL, OPENBOT_ACCOUNT_URL, ...) are fixed at build time.
+const ownBackendDefines = ownBackendBuildDefines(process.env);
 
 export default defineConfig({
   main: {
+    define: ownBackendDefines,
     // Workspace sources ship as TypeScript and must be bundled for the packaged app.
     plugins: [
       externalizeDepsPlugin({
@@ -37,6 +41,7 @@ export default defineConfig({
     },
   },
   preload: {
+    define: ownBackendDefines,
     plugins: [externalizeDepsPlugin({ exclude: ["@openbot/contracts"] })],
     build: {
       rollupOptions: {
@@ -52,6 +57,7 @@ export default defineConfig({
     },
   },
   renderer: {
+    define: ownBackendDefines,
     plugins: [solidPlugin(), tailwindcss({ optimize: false })],
     optimizeDeps: {
       include: ["@norbert_bodziony/bloub"],

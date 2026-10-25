@@ -1,4 +1,5 @@
 import { HOSTED_SERVER_ENTRY_POINTS } from "@openbot/contracts/hosted-servers";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { isDynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import { Effect, Schema } from "effect";
 import {
@@ -9,7 +10,6 @@ import {
   PLAN_CHANGE_DIRECTIONS,
 } from "./account-analytics";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
 const SEND_TIMEOUT_MS = 5_000;
 const CLAIM_TIMEOUT_MS = 5 * 60_000;
 const MAX_BATCH_SIZE = 50;
@@ -176,6 +176,8 @@ export class SalesAnalyticsDelivery {
   readonly #database: D1Database;
   readonly #clientId: string | undefined;
   readonly #clientSecret: string | undefined;
+  /** The OpenPanel project of this build, or undefined when analytics is off. */
+  readonly #apiUrl: string | undefined;
   readonly #fetch: (input: string, init: RequestInit) => Promise<Response>;
   readonly #now: () => number;
 
@@ -183,6 +185,7 @@ export class SalesAnalyticsDelivery {
     this.#database = options.database;
     this.#clientId = options.clientId?.trim() || undefined;
     this.#clientSecret = options.clientSecret?.trim() || undefined;
+    this.#apiUrl = ownBackend().analytics?.apiUrl;
     this.#fetch = options.fetch;
     this.#now = options.now ?? Date.now;
   }
@@ -271,10 +274,11 @@ export class SalesAnalyticsDelivery {
     try {
       const clientId = this.#clientId;
       const clientSecret = this.#clientSecret;
-      if (!clientId || !clientSecret) {
+      const apiUrl = this.#apiUrl;
+      if (!clientId || !clientSecret || !apiUrl) {
         return { status: "uncertain", httpStatus: null, retryAt: null, error: "credentials_unavailable" };
       }
-      response = await this.#fetch(`${OPENPANEL_API_URL}/track`, {
+      response = await this.#fetch(`${apiUrl}/track`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

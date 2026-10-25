@@ -12,6 +12,7 @@ import {
   type RoutineRunConversationEventStatus,
   type UsageTokens,
 } from "@openbot/contracts/ipc";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { isBoolean, isDynamicRecord, isFunction, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
 import {
@@ -32,8 +33,10 @@ import { type AnalyticsOperationFailure, analyticsIO, analyticsSync } from "./an
 import { PROVIDER_AUTH_KINDS, type ProviderAuthKind } from "./analytics-provider-auth";
 import { localDay, RESOURCE_ENUMS, RESOURCE_PROPERTY_NAMES, type ResourceProperties } from "./resource-summary";
 
-const OPENPANEL_API_URL = "https://analytics.openbot.run/api";
-const OPENPANEL_CLIENT_ID = "6c989975-87ef-4f0c-857e-ab449a65b5c2";
+/** The build's OpenPanel settings. Null when analytics is off, and then only a development capture server receives events. */
+const OPENPANEL_SETTINGS = ownBackend().analytics;
+const OPENPANEL_API_URL = OPENPANEL_SETTINGS?.apiUrl ?? "";
+const OPENPANEL_CLIENT_ID = OPENPANEL_SETTINGS?.clientId ?? "";
 // Node fetch sends no Origin, and OpenPanel answers 401 to a client with no allowed origin or
 // secret. The SDK drops a 401 in silence. Send the renderer's origin, which the project allows.
 const OPENPANEL_ORIGIN = "openbot-app://app";
@@ -312,7 +315,7 @@ export class HostAnalytics {
     this.#inventoryDayStore = options.inventoryDay;
     this.#resources = options.resources;
     this.#trackingEnabled = options.trackingEnabled ?? true;
-    if (!options.enabled) {
+    if (!options.enabled || (options.apiUrl === undefined && OPENPANEL_SETTINGS === null)) {
       this.#client = null;
       return;
     }

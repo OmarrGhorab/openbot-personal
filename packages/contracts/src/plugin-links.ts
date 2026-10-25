@@ -1,3 +1,5 @@
+import { ownBackend } from "./own-backend";
+
 /**
  * The addresses one plugin listing has: the page a person shares, the link that opens that listing
  * in the app, and the browser client's entry for it.
@@ -20,7 +22,7 @@
  * rule becomes weaker.
  */
 
-export const OPENBOT_PLUGIN_ORIGIN = "https://openbot.run";
+export const OPENBOT_PLUGIN_ORIGIN = ownBackend().siteOrigin;
 export const OPENBOT_PLUGIN_PATH_PREFIX = "/plugins/";
 export const OPENBOT_PLUGIN_HOST = "plugins";
 export const WEB_APP_PLUGIN_PARAM = "plugin";

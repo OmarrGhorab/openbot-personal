@@ -1,3 +1,4 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { Deferred, Effect, Exit, Fiber, Result, Scope } from "effect";
 import { McpOperationError, mcpCall, mcpFailure, mcpSync, toMcpOperationError } from "./mcp-effects";
 /**
@@ -843,8 +844,8 @@ class McpOAuthClientProvider implements OAuthClientProvider {
     const scope = this.#record().app?.scope;
     return {
       client_name: "OpenBot",
-      client_uri: "https://openbot.run",
-      logo_uri: "https://openbot.run/icon-512x512.png",
+      client_uri: ownBackend().siteOrigin,
+      logo_uri: `${ownBackend().siteOrigin}/icon-512x512.png`,
       redirect_uris: [this.#options.redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],

@@ -505,7 +505,7 @@ have the version in `apps/mobile/CHANGELOG.md`, and the file must be for that ve
 
 The app uses the official [`@openpanel/react-native` SDK](https://openpanel.dev/docs/sdks/react-native)
 and `expo-application`, following the [React Native guide](https://openpanel.dev/guides/react-native-analytics).
-The endpoint is fixed to `https://analytics.openbot.run/api`. No analytics credentials are committed.
+The endpoint comes from `EXPO_PUBLIC_OPENBOT_ANALYTICS_URL`, and the client from `EXPO_PUBLIC_OPENPANEL_CLIENT_ID` and `EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET`. Unset, analytics sends nothing. No analytics credentials are committed.
 
 ### Production configuration
 

@@ -1,3 +1,5 @@
+import { ownBackend } from "./own-backend";
+
 /**
  * The addresses one agent template has: the page a person shares, the link that opens that template in
  * the app, and the browser client's entry for it.
@@ -13,7 +15,7 @@
  * installing is still a press of Install there.
  */
 
-export const OPENBOT_AGENT_TEMPLATE_ORIGIN = "https://openbot.run";
+export const OPENBOT_AGENT_TEMPLATE_ORIGIN = ownBackend().siteOrigin;
 export const OPENBOT_AGENT_TEMPLATE_PATH_PREFIX = "/agents/";
 export const OPENBOT_AGENT_TEMPLATE_HOST = "agents";
 export const WEB_APP_AGENT_TEMPLATE_PARAM = "agent";

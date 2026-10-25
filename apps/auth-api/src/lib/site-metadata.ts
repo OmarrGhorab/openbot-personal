@@ -3,10 +3,11 @@
 // resolve an `?url` specifier. That is why the font asset arrives as an argument
 // from the root route instead of as an import here.
 
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { LANDING_FAQ_STRUCTURED_DATA } from "./landing-faq";
 import { OPENBOT_ALTERNATE_DOWNLOAD_LINKS, OPENBOT_DOWNLOAD_LINKS } from "./landing-links";
 
-export const OPENBOT_SITE_URL = "https://openbot.run/";
+export const OPENBOT_SITE_URL = `${ownBackend().siteOrigin}/`;
 export const OPENBOT_SITE_TITLE = "OpenBot: Run a team of AI agents on your computer";
 export const OPENBOT_SITE_DESCRIPTION =
   "A free desktop app that runs AI agents as a team on your own computer, with the ChatGPT, Claude, Gemini or Grok plan you already pay for, or your own model.";
@@ -37,7 +38,10 @@ export const OPENBOT_SOCIAL_IMAGE_META = [
 
 // The hosts production answers on. Both serve the same pages, and those pages go by
 // openbot.run.
-const OPENBOT_PRODUCTION_HOSTS = new Set(["openbot.run", "api.openbot.run"]);
+const OPENBOT_PRODUCTION_HOSTS = new Set([
+  new URL(ownBackend().siteOrigin).hostname,
+  new URL(ownBackend().accountOrigin).hostname,
+]);
 
 /**
  * The site that the head tags of a page served at `pageUrl` name. Social sites fetch

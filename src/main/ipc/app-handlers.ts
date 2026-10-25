@@ -12,6 +12,7 @@ import {
   type ExternalDestination,
   GROK_BOT_EXPORT_URL,
 } from "@openbot/contracts/ipc";
+import { ownBackend } from "@openbot/contracts/own-backend";
 import { app, type BrowserWindow, shell } from "electron";
 import { version as developmentVersion } from "../../../package.json";
 import type { AgentService } from "../../backend/agent-service";
@@ -70,10 +71,10 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "claude-install": "https://code.claude.com/docs",
   feedback: "https://x.com/intent/post?text=Feedback%20for%20OpenBot%20%40norbertbodziony%3A%20",
   message: "https://x.com/norbertbodziony",
-  changelog: "https://openbot.run/changelog",
-  guides: "https://openbot.run/guides",
-  // A Redirect Rule in the openbot.run Cloudflare zone sends this to the current Discord invite.
-  discord: "https://discord.openbot.run",
+  changelog: `${ownBackend().siteOrigin}/changelog`,
+  guides: `${ownBackend().siteOrigin}/guides`,
+  // The public website redirects this to the current Discord invite. Without a Discord setting, it opens the site.
+  discord: ownBackend().discordUrl ?? ownBackend().siteOrigin,
   x: "https://x.com/OpenBot_",
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,

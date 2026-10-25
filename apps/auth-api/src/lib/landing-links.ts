@@ -1,3 +1,4 @@
+import { ownBackend } from "@openbot/contracts/own-backend";
 export const EXTERNAL_LINK_REL = "noopener noreferrer";
 
 /** The installer each platform's download button starts: Apple silicon on macOS, x64 elsewhere. */
@@ -27,8 +28,8 @@ export const OPENBOT_LINKS = {
   /** The contact form page. */
   contact: "/contact",
   x: "https://x.com/OpenBot_",
-  /** A Redirect Rule in the openbot.run Cloudflare zone sends this to the current Discord invite. */
-  discord: "https://discord.openbot.run",
+  /** The Discord community link (OPENBOT_DISCORD_URL). Unset, it points at the site. */
+  discord: ownBackend().discordUrl ?? ownBackend().siteOrigin,
   download: "#download",
   news: "/news",
   guides: "/guides",
@@ -41,7 +42,7 @@ export const OPENBOT_LINKS = {
   documentation: "https://github.com/nightly-labs/openbot#readme",
   troubleshooting: "https://github.com/nightly-labs/openbot/blob/main/docs/TROUBLESHOOTING.md",
   /** GitHub Pages hosts the status page, so it stays up when Cloudflare does not. */
-  status: "https://status.openbot.run",
+  status: ownBackend().statusOrigin ?? ownBackend().siteOrigin,
   selfHostedServer: "https://github.com/nightly-labs/openbot/blob/main/docs/self-hosted-server.md",
   architecture: "https://github.com/nightly-labs/openbot#architecture",
   contributing: "https://github.com/nightly-labs/openbot/blob/main/CONTRIBUTING.md",

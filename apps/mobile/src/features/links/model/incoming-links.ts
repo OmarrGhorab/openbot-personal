@@ -3,7 +3,7 @@ import {
   OPENBOT_AGENT_TEMPLATE_PATH_PREFIX,
   parseAgentTemplateUrl,
 } from "@openbot/contracts/agent-template-links";
-import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
+import { OPENBOT_INVITE_ORIGIN, parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import { parseMobileConnectUrl } from "@openbot/contracts/mobile-connect";
 import { createPluginShareUrl, parsePluginUrl } from "@openbot/contracts/plugin-links";
 
@@ -94,7 +94,7 @@ export function redirectIncomingLink(path: string): string {
   // Expo Go and ordinary internal routes retain Expo Router's normal behavior.
   if (/^exps?:\/\//u.test(path)) return path;
   if (path.startsWith("/") && !path.startsWith("//")) {
-    const url = new URL(path, "https://openbot.run");
+    const url = new URL(path, OPENBOT_INVITE_ORIGIN);
     if (
       url.pathname !== "/join" &&
       !url.pathname.startsWith("/plugins/") &&

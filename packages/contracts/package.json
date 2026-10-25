@@ -33,6 +33,7 @@
     "./host-key-handover": "./src/host-key-handover.ts",
     "./input-limits": "./src/input-limits.ts",
     "./invite-links": "./src/invite-links.ts",
+    "./own-backend": "./src/own-backend.ts",
     "./landing-preview-messages": "./src/landing-preview-messages.ts",
     "./markdown-lists": "./src/markdown-lists.ts",
     "./markdown-preview-text": "./src/markdown-preview-text.ts",

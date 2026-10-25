@@ -42,17 +42,20 @@ export function mobileReportQueue(): ReportQueue | undefined {
   if (reports) return reports;
   const clientId = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_ID;
   const clientSecret = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET;
+  // The OpenPanel project of this build. Unset, analytics sends nothing.
+  const apiUrl = process.env.EXPO_PUBLIC_OPENBOT_ANALYTICS_URL;
   if (
     __DEV__ ||
     process.env.EXPO_PUBLIC_APP_ENV !== "production" ||
     !clientId ||
     !clientSecret ||
+    !apiUrl ||
     (Platform.OS !== "ios" && Platform.OS !== "android")
   )
     return undefined;
   reports = new ReportQueue(
     storage,
-    openPanelTransport({ clientId, clientSecret }),
+    openPanelTransport({ clientId, clientSecret, endpoint: `${apiUrl}/track` }),
     {
       surface: "mobile",
       platform: Platform.OS,

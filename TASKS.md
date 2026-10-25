@@ -29,3 +29,20 @@
 
 ## 4. Checks
 - [ ] Run narrow typecheck and i18n check on changed files
+
+## 5. Own backend (branch feat/own-backend)
+- [x] Inventory upstream endpoints (table in the report and docs/own-backend.md)
+- [x] Central config module `packages/contracts/src/own-backend.ts` with placeholder defaults
+- [x] Replace upstream hosts in desktop main, renderer, team client, telemetry, CSP and contracts
+- [x] Account Worker: email sender, SMTP and contact address from owner settings (fork workstream)
+- [x] Disable analytics and auto-update to upstream unless their settings are set
+- [x] Disable upstream-only GitHub Actions jobs and workflows (guard on nightly-labs/openbot)
+- [x] Build only Windows x64 and macOS Intel (x64): electron-builder targets, workflow matrices, cua-driver
+- [x] Mac release repository check and tenant test now run on the x64 job
+- [x] Write docs/own-backend.md and changelog.d/feat-own-backend.md
+- [ ] Install dependencies (`bun` not on this machine; not verified)
+- [ ] Biome, typecheck and narrow tests on changed files (blocked by missing bun; not verified)
+- [ ] Mobile: map shared OPENBOT_* settings into the Expo build (open, owner decision)
+- [ ] Marketplace shareUrl: change generator in scripts/build-plugin-catalog.ts (open)
+- [ ] Release scripts: keep four remote desktop targets or drop two (open, owner decision)
+- [ ] Commit and push feat/own-backend (no PR)
