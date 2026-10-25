@@ -30,6 +30,12 @@ export const OMAR_SECRET_NAMES = [
   "SERVER_CLAIMS_ADMIN_TOKEN",
 ] as const;
 
+export const OMAR_R2_BUCKETS = [
+  ["AVATARS", "openbot-omar-avatars"],
+  ["SKILLS", "openbot-omar-skills"],
+  ["SITES", "openbot-omar-sites"],
+] as const;
+
 export const OMAR_RATE_LIMITS = [
   ["MARKETPLACE_INGRESS_RATE_LIMITER", "2026102501"],
   ["MARKETPLACE_MUTATION_RATE_LIMITER", "2026102502"],
@@ -51,7 +57,7 @@ interface OmarWranglerConfig {
   databaseId: string;
   workersDev: boolean;
   routes: unknown[];
-  r2Buckets: unknown[];
+  r2Buckets: Array<[string, string]>;
   kvNamespaces: unknown[];
   hostedServersEnabled: string;
   exposeDevelopmentCode: string;
@@ -104,6 +110,12 @@ function stringPair(entry: unknown): [string, string] | undefined {
   return [record.name, record.namespace_id];
 }
 
+function bucketPair(entry: unknown): [string, string] | undefined {
+  const record = asRecord(entry);
+  if (!record || !isString(record.binding) || !isString(record.bucket_name)) return undefined;
+  return [record.binding, record.bucket_name];
+}
+
 export function readOmarWranglerConfig(text: string): OmarWranglerConfig {
   const parsed = asRecord(JSON.parse(stripJsonComments(text)));
   const env = asRecord(parsed?.env);
@@ -124,7 +136,12 @@ export function readOmarWranglerConfig(text: string): OmarWranglerConfig {
     databaseId: textField(database, "database_id"),
     workersDev: omar.workers_dev === true,
     routes: Array.isArray(omar.routes) ? omar.routes : ["missing"],
-    r2Buckets: Array.isArray(omar.r2_buckets) ? omar.r2_buckets : ["missing"],
+    r2Buckets: Array.isArray(omar.r2_buckets)
+      ? omar.r2_buckets.flatMap((entry) => {
+          const pair = bucketPair(entry);
+          return pair ? [pair] : [];
+        })
+      : [],
     kvNamespaces: Array.isArray(omar.kv_namespaces) ? omar.kv_namespaces : ["missing"],
     hostedServersEnabled: textField(vars, "HOSTED_SERVERS_ENABLED"),
     exposeDevelopmentCode: textField(vars, "AUTH_EXPOSE_DEVELOPMENT_CODE"),
@@ -132,7 +149,7 @@ export function readOmarWranglerConfig(text: string): OmarWranglerConfig {
   };
 }
 
-/** Rejects a config that could touch another Worker, a custom domain, or R2. */
+/** Rejects a config that could touch another Worker, a custom domain, or the wrong bucket. */
 export function assertOmarDeploySafe(config: OmarWranglerConfig): void {
   if (config.name === FORBIDDEN_WORKER_NAME) throw new Error("Refusing to deploy randomchat-deadman.");
   if (config.name !== OMAR_WORKER_NAME) {
@@ -141,7 +158,11 @@ export function assertOmarDeploySafe(config: OmarWranglerConfig): void {
   if (config.accountId !== OMAR_ACCOUNT_ID) throw new Error("The omar environment account id does not match.");
   if (!config.workersDev) throw new Error("The omar environment must use workers.dev.");
   if (config.routes.length !== 0) throw new Error("The omar environment must not set a route or a custom domain.");
-  if (config.r2Buckets.length !== 0) throw new Error("The omar environment must not bind R2.");
+  const expectedBuckets = OMAR_R2_BUCKETS.map(([binding, name]) => `${binding}:${name}`).join(",");
+  const actualBuckets = config.r2Buckets.map(([binding, name]) => `${binding}:${name}`).join(",");
+  if (actualBuckets !== expectedBuckets) {
+    throw new Error("The omar environment must bind AVATARS, SKILLS, and SITES to the openbot-omar buckets.");
+  }
   if (config.kvNamespaces.length !== 0) throw new Error("The omar environment must not bind KV.");
   if (config.hostedServersEnabled !== "false") throw new Error("Hosted servers must stay off in the omar environment.");
   if (config.exposeDevelopmentCode !== "false") {

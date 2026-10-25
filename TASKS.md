@@ -51,7 +51,7 @@
 - [x] Private env file loader (`OPENBOT_BACKEND_ENV_FILE`, default `~/.openbot-backend.env`)
 - [x] Ticket key script that appends the pair and does not print it
 - [x] `dev:api` / `dev:all` load that file with no dotenvx key; SMTP sends when configured
-- [x] Wrangler env `omar`, no R2, workers.dev only, deploy script does not read `.env.production`
+- [x] Wrangler env `omar` binds the three openbot-omar R2 buckets. workers.dev only. Deploy does not read `.env.production`
 - [x] Document D1, KV (none), rate limits, and the desktop `OPENBOT_ACCOUNT_URL`
 - [x] Onboarding step order unchanged; test locks language, then sign-in, then first run
 - [x] Narrow checks passed here. Pull request: https://github.com/OmarrGhorab/openbot-personal/pull/14

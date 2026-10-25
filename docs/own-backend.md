@@ -116,12 +116,18 @@ does not turn the development code flag off. The shell can.
 the origin is `https://account.omarghorabdev.workers.dev`. It has no custom domain and no zone.
 Do not change DNS for `randomlychat.app`. Do not deploy or edit the `randomchat-deadman` Worker.
 
-R2 is off. Cloudflare asks for a payment method before R2 can be enabled, so this environment binds
-no bucket. These features answer `503 object_storage_unavailable`:
+R2 is on. The environment binds the three buckets that already exist in this account:
 
-- Account and host avatars
-- Skill and agent marketplace files (the bundle, the icon, the avatar, and the share card)
-- Hosted sites
+| Binding | Bucket |
+| --- | --- |
+| `AVATARS` | `openbot-omar-avatars` |
+| `SKILLS` | `openbot-omar-skills` |
+| `SITES` | `openbot-omar-sites` |
+
+A Worker that has no bucket binding still answers `503 object_storage_unavailable` for avatar,
+marketplace file, and hosted-site storage. This environment has the bindings, so those routes use
+the buckets. Site publishing stays off until `SITE_PUBLISH_ENABLED` and `SITE_COOKIE_ISOLATION_READY`
+are `true`.
 
 Sign-in, accounts, sessions, and the other D1 data still work. Hosted server purchase stays off.
 There is no Stripe key and no analytics client. Workers Logs are off.
@@ -132,6 +138,9 @@ Use `wrangler login` for that account. Do not use the upstream production file.
 | Resource | Name | Create |
 | --- | --- | --- |
 | D1 database | `openbot-auth-omar` | `cd apps/auth-api && bunx wrangler d1 create openbot-auth-omar` |
+| R2 bucket | `openbot-omar-avatars` | Created. Binding `AVATARS`. |
+| R2 bucket | `openbot-omar-skills` | Created. Binding `SKILLS`. |
+| R2 bucket | `openbot-omar-sites` | Created. Binding `SITES`. |
 | KV namespace | none | This Worker does not use KV. |
 | Rate limit `MARKETPLACE_INGRESS_RATE_LIMITER` | namespace `2026102501` | Declared in `env.omar`. No separate create command. |
 | Rate limit `MARKETPLACE_MUTATION_RATE_LIMITER` | namespace `2026102502` | Same. |

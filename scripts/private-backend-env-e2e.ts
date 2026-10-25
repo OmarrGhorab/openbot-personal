@@ -13,6 +13,7 @@ import {
   assertOmarDeploySafe,
   OMAR_ACCOUNT_ID,
   OMAR_PLACEHOLDER_DATABASE_ID,
+  OMAR_R2_BUCKETS,
   OMAR_WORKER_NAME,
   readOmarWranglerConfig,
 } from "./deploy-omar-auth-api";
@@ -36,7 +37,7 @@ const report: {
   omarWorker?: string;
   omarUsesWorkersDev?: boolean;
   omarRoutes?: number;
-  omarR2Buckets?: number;
+  omarR2Buckets?: string;
   omarKvNamespaces?: number;
   deployRefusesPlaceholderDatabase?: boolean;
 } = { passed: false };
@@ -95,6 +96,10 @@ try {
   assertOmarDeploySafe(config);
   assert.equal(config.name, OMAR_WORKER_NAME);
   assert.equal(config.accountId, OMAR_ACCOUNT_ID);
+  assert.deepEqual(
+    config.r2Buckets,
+    OMAR_R2_BUCKETS.map(([binding, name]) => [binding, name]),
+  );
   assert.equal(config.databaseId, OMAR_PLACEHOLDER_DATABASE_ID);
   assert.throws(() => assertOmarDatabaseReady(config.databaseId), /placeholder id blocks/);
 
@@ -107,7 +112,7 @@ try {
   report.omarWorker = config.name;
   report.omarUsesWorkersDev = config.workersDev;
   report.omarRoutes = config.routes.length;
-  report.omarR2Buckets = config.r2Buckets.length;
+  report.omarR2Buckets = config.r2Buckets.map(([binding, name]) => `${binding}=${name}`).join(",");
   report.omarKvNamespaces = config.kvNamespaces.length;
   report.deployRefusesPlaceholderDatabase = true;
 } catch (cause) {

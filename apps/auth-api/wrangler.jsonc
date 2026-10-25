@@ -290,7 +290,7 @@
     // Account f77ab81c787067b7c3ce1632449bfd68, workers.dev subdomain omarghorabdev.
     // The Worker name is `account`, so the origin is https://account.omarghorabdev.workers.dev.
     // Do not add a route for randomlychat.app. Do not deploy randomchat-deadman.
-    // R2 is an empty list: Cloudflare asks for a payment method before R2 can be enabled.
+    // R2 uses the three buckets that already exist in this account.
     // Replace database_id after `wrangler d1 create openbot-auth-omar`. The placeholder blocks deploy.
     "omar": {
       "name": "account",
@@ -340,7 +340,20 @@
           "migrations_dir": "migrations"
         }
       ],
-      "r2_buckets": [],
+      "r2_buckets": [
+        {
+          "binding": "AVATARS",
+          "bucket_name": "openbot-omar-avatars"
+        },
+        {
+          "binding": "SKILLS",
+          "bucket_name": "openbot-omar-skills"
+        },
+        {
+          "binding": "SITES",
+          "bucket_name": "openbot-omar-sites"
+        }
+      ],
       "kv_namespaces": [],
       "ratelimits": [
         {
