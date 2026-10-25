@@ -32,6 +32,8 @@ import { readGlobalVoicePreference, writeGlobalVoicePreference } from "./global-
 import { sendToRenderer } from "./renderer-ipc";
 
 const logger = createOpenBotLogger("global-voice");
+const SNAPSHOT_RETRY_MS = 50;
+const SNAPSHOT_RETRY_LIMIT = 40;
 
 /** Keys that work only while a dictation listens: Tab opens the picker, Escape cancels. */
 const LISTENING_KEYS = { choose: "Tab", cancel: "Escape" } as const;
@@ -364,8 +366,8 @@ export class GlobalVoiceController {
   }
 
   /** Sends the opening to the window. A load that has not finished gets it again from did-finish-load. */
-  #deliverSnapshot(window: BrowserWindow): void {
-    if (this.#destroyed || this.#window !== window || window.isDestroyed() || !this.#snapshot) return;
+  #deliverSnapshot(window: BrowserWindow): boolean {
+    if (this.#destroyed || this.#window !== window || window.isDestroyed() || !this.#snapshot) return true;
     const sent = sendToRenderer(window, IPC_ENDPOINTS.globalVoice.pickerOpened, this.#snapshot);
     if (sent) {
       logger.info("The global voice window received its opening.", {
@@ -373,12 +375,22 @@ export class GlobalVoiceController {
         view: this.#view.view,
         visible: window.isVisible(),
       });
-      return;
+      return true;
     }
     logger.warn("The global voice window is not ready for its opening yet.", {
       loading: window.webContents.isLoading(),
       visible: window.isVisible(),
     });
+    return false;
+  }
+
+  /**
+   * did-finish-load can fire while Electron still reports the main frame as loading, so the send
+   * is refused. Without a retry the first opening was lost and the window stayed empty.
+   */
+  #deliverAfterLoad(window: BrowserWindow, attempt = 0): void {
+    if (this.#deliverSnapshot(window) || attempt >= SNAPSHOT_RETRY_LIMIT) return;
+    setTimeout(() => this.#deliverAfterLoad(window, attempt + 1), SNAPSHOT_RETRY_MS);
   }
 
   /** Shows the window in a view, and registers Tab and Escape only while the dictation listens. */
@@ -424,7 +436,7 @@ export class GlobalVoiceController {
     this.#window = window;
     window.webContents.on("did-finish-load", () => {
       logger.info("The global voice window finished loading.");
-      this.#deliverSnapshot(window);
+      this.#deliverAfterLoad(window);
     });
     window.webContents.on("did-fail-load", (_event, code, description) => {
       logger.error("The global voice window failed to load.", { code, description });
