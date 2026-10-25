@@ -470,7 +470,15 @@ export class GlobalVoiceController {
       .listAgents()
       .filter((agent) => !agent.hiddenAt)
       .sort((left, right) => activityTime(right) - activityTime(left))
-      .map((agent) => ({ agentId: agent.id, name: agent.name, title: agent.title, updatedAt: agent.updatedAt }));
+      .map((agent) => ({
+        agentId: agent.id,
+        name: agent.name,
+        title: agent.title,
+        updatedAt: agent.updatedAt,
+        avatarSeed: agent.avatarSeed,
+        avatarHue: agent.avatarHue,
+        avatarUrl: agent.avatarUrl,
+      }));
   }
 }
 

@@ -4,3 +4,4 @@
 - Fixed: the first press of a global voice shortcut after launch could leave an empty, invisible window, so Control+K and Control+V seemed to do nothing. The window now gets its opening once it has loaded.
 - Fixed the voice picker opening blank: a status animation crashed the window when it first drew.
 - The voice window no longer blocks clicks on the apps below it. Only the visible island takes clicks.
+- The voice picker shows each agent's own avatar, the same one as the sidebar, next to its name. Initials remain only for an agent without one.

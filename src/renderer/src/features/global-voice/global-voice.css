@@ -223,3 +223,8 @@ body {
     transition: none;
   }
 }
+
+.global-voice-agent-avatar.agent-avatar {
+  width: 28px;
+  height: 28px;
+}

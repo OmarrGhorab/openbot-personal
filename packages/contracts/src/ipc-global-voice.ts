@@ -1,3 +1,4 @@
+import { type AvatarHue, isAvatarHue, isAvatarSeed } from "./ipc-agent-identity";
 import { type DynamicRecord, isDynamicRecord } from "./runtime-values";
 
 // The global voice shortcuts. The dictation shortcut works while OpenBot is in the background: it
@@ -146,6 +147,10 @@ export interface GlobalVoicePickerAgent {
   title: string;
   /** ISO 8601 time of the agent's last activity, or null when it has none. */
   updatedAt: string | null;
+  /** The same avatar the sidebar draws: the generated mascot from the seed and hue, or the uploaded image. */
+  avatarSeed: string;
+  avatarHue: AvatarHue | null;
+  avatarUrl: string | null;
 }
 
 /**
@@ -293,7 +298,10 @@ export function isGlobalVoicePickerSnapshot(value: unknown): value is GlobalVoic
         isGlobalVoiceAgentId(agent.agentId) &&
         typeof agent.name === "string" &&
         typeof agent.title === "string" &&
-        (agent.updatedAt === null || typeof agent.updatedAt === "string"),
+        (agent.updatedAt === null || typeof agent.updatedAt === "string") &&
+        isAvatarSeed(agent.avatarSeed) &&
+        (agent.avatarHue === null || isAvatarHue(agent.avatarHue)) &&
+        (agent.avatarUrl === null || typeof agent.avatarUrl === "string"),
     )
   );
 }

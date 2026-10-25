@@ -17,12 +17,14 @@ import {
 } from "./global-voice-island-motion";
 import {
   filterGlobalVoiceAgents,
+  globalVoiceHasAvatar,
   globalVoiceInitials,
   globalVoiceNumberKeyIndex,
   moveGlobalVoiceHighlight,
   pointInRect,
 } from "./global-voice-picker-logic";
 import "./global-voice.css";
+import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 
 /** How long the confirmation stays after a message is sent, and the error after a failed dictation. */
 const SENT_CONFIRMATION_MS = 1_500;
@@ -748,9 +750,23 @@ export function GlobalVoiceSurface() {
                   }}
                   onClick={() => choose(agent)}
                 >
-                  <span class="global-voice-avatar" aria-hidden="true">
-                    {globalVoiceInitials(agent.name)}
-                  </span>
+                  <Show
+                    when={globalVoiceHasAvatar(agent)}
+                    fallback={
+                      <span class="global-voice-avatar" aria-hidden="true">
+                        {globalVoiceInitials(agent.name)}
+                      </span>
+                    }
+                  >
+                    {/* The same avatar the sidebar draws, so the picker shows each agent's own face. */}
+                    <AgentAvatar
+                      class="global-voice-agent-avatar"
+                      seed={agent.avatarSeed}
+                      hue={agent.avatarHue}
+                      url={agent.avatarUrl}
+                      motion="idle"
+                    />
+                  </Show>
                   <span class="global-voice-option-text">
                     <span class="global-voice-option-name" dir={globalVoiceTextDirection(agent.name)}>
                       {agent.name}

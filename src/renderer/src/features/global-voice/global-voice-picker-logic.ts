@@ -51,3 +51,8 @@ export function pointInRect(
 ): boolean {
   return rect ? x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom : false;
 }
+
+/** Whether the agent has its own avatar to draw. Without a seed or an image the picker shows its initials. */
+export function globalVoiceHasAvatar(agent: Pick<GlobalVoicePickerAgent, "avatarSeed" | "avatarUrl">): boolean {
+  return agent.avatarSeed.trim() !== "" || (agent.avatarUrl ?? "").trim() !== "";
+}
