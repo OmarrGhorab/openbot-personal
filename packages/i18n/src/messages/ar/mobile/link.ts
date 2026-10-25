@@ -1,4 +1,45 @@
 import type { PartialTranslation } from "../../../message";
 import type { messages as source } from "../../en/mobile/link";
 
-export const messages = {} as const satisfies PartialTranslation<typeof source>;
+export const messages = {
+  "mobile.link.connectFailed": "OpenBot معرفش يتصل. حاول تاني.",
+  "mobile.link.invite.signInTitle": "سجّل دخول علشان تنضم للسيرفر ده",
+  "mobile.link.invite.signInDescription": "امسح رمز QR في OpenBot على الكمبيوتر بتاعك. بعد كده تقدر تراجع الدعوة.",
+  "mobile.link.invite.cancel": "إلغاء الدعوة",
+  "mobile.link.pairing.title": "وصّل الموبايل ده",
+  "mobile.link.pairing.alreadySignedIn": "إنت مسجّل دخول بالفعل. سجّل خروج من الإعدادات قبل ما توصّل حساب تاني.",
+  "mobile.link.pairing.description": "كمّل بس لو إنت اللي طلبت رابط Mobile Connect ده من الكمبيوتر بتاعك.",
+  "mobile.link.pairing.accountService": "الرابط ده بيتصل بخدمة الحساب على {origin}، مش بخدمة حساب OpenBot.",
+  "mobile.link.pairing.connect": "اتصال",
+  "mobile.link.plugin.title": "فتح صفحة الإضافة",
+  "mobile.link.plugin.description": "شوف الإضافة دي على موقع OpenBot.",
+  "mobile.link.plugin.openFailed": "معرفناش نفتح صفحة الإضافة.",
+  "mobile.link.plugin.view": "عرض الإضافة",
+  "mobile.link.unavailable.title": "الرابط مش متاح",
+  "mobile.link.unavailable.description": "الرابط ده مش صالح، أو مبقاش متاح، أو مش مدعوم على الموبايل.",
+  "mobile.link.template.signInTitle": "سجّل دخول علشان تضيف الإيجنت ده",
+  "mobile.link.template.signInDescription":
+    "امسح رمز QR في OpenBot على الكمبيوتر بتاعك. بعد كده تقدر تراجع الإيجنت قبل ما تضيفه.",
+  "mobile.link.template.loading": "بنحمّل الإيجنت…",
+  "mobile.link.template.creator": "من {name}",
+  "mobile.link.template.section.instructions": "التعليمات",
+  "mobile.link.template.section.skills": "المهارات",
+  "mobile.link.template.section.noSkills": "مفيش مهارات.",
+  "mobile.link.template.section.routines": "الروتينات",
+  "mobile.link.template.section.noRoutines": "مفيش روتينات.",
+  "mobile.link.template.skill.local": "مهارة محلية (SKILL.md بس)",
+  "mobile.link.template.skill.marketplace": "مهارة من السوق، الإصدار {version}",
+  "mobile.link.template.server.title": "إضافة للسيرفر",
+  "mobile.link.template.server.footer": "السيرفرات اللي إنت مالكها أو أدمن فيها بس هي اللي بتظهر.",
+  "mobile.link.template.server.updateRequired": "حدّث OpenBot على السيرفر ده علشان تقدر تضيف إيجنتات مشتركة.",
+  "mobile.link.template.server.none": "لازم تكون مالك أو أدمن في سيرفر علشان تضيف إيجنت مشترك.",
+  "mobile.link.template.install.action": "إضافة الإيجنت",
+  "mobile.link.template.install.pending": "بنضيف…",
+  "mobile.link.template.install.failed": "معرفناش نضيف الإيجنت.",
+  "mobile.link.template.notFound.title": "الإيجنت مش موجود",
+  "mobile.link.template.notFound.description": "الإيجنت المشترك ده مش موجود، أو صاحبه شال نشره.",
+  "mobile.link.template.error.title": "معرفناش نحمّل الإيجنت",
+  "mobile.link.template.error.loadFailed": "معرفناش نقرا الإيجنت المشترك. حاول تاني.",
+  "mobile.link.template.error.unsupported":
+    "السيرفر ده مش بيقدر يضيف إيجنتات مشتركة. حدّث OpenBot على الكمبيوتر اللي شغّال عليه السيرفر.",
+} as const satisfies PartialTranslation<typeof source>;
