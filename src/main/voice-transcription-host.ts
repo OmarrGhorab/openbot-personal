@@ -10,7 +10,7 @@
 // the application database, or any module of the main bundle.
 
 import { join } from "node:path";
-import { detectedLanguage } from "./voice-phrase-split";
+import { detectedLanguage, splitAtPauses } from "./voice-phrase-split";
 import type {
   VoiceTranscriptionEngine,
   VoiceTranscriptionFailure,
@@ -266,22 +266,83 @@ export async function transcribeAutomatic(
   fallbackLanguage: string,
 ): Promise<string[]> {
   // Whisper pays a full 30 s window per pass, so a clip is read whole (in parts of up to 30 s), not
-  // phrase by phrase: one pass, and a second in Arabic only when the first heard English.
-  const parts = splitForWhisper(samples);
+  // phrase by phrase: one pass, and a second in Arabic only when the first heard English. A part
+  // whose whole reading looks wrong is read again phrase by phrase, which costs more but is right.
   const results: string[] = [];
-  for (const part of parts) {
-    let result = await decode(loaded, part);
-    if (result.language && !AUTOMATIC_LANGUAGES.has(result.language) && fallbackLanguage)
-      result = { text: await decodeIn(loaded, part, fallbackLanguage), language: fallbackLanguage };
-    if (result.language === "en" && !ARABIC_LETTER.test(result.text)) {
-      // Arabic with English words mixed in is often detected as English and translated. Read in
-      // Arabic, Whisper keeps the English words in Latin letters; text in both scripts is that case.
-      const arabic = await decodeIn(loaded, part, "ar");
-      if (ARABIC_LETTER.test(arabic) && LATIN_LETTER.test(arabic)) result = { text: arabic, language: "ar" };
+  for (const part of splitForWhisper(samples)) {
+    const whole = await readWhole(loaded, part, fallbackLanguage);
+    if (!whole.suspect) {
+      results.push(whole.text);
+      continue;
     }
-    results.push(result.text);
+    const phrases = splitAtPauses(part);
+    if (phrases.length < 2) results.push(whole.text);
+    else results.push(...(await readByPhrase(loaded, phrases, fallbackLanguage)));
   }
   return results;
+}
+
+/**
+ * One pass over a part. It is suspect when Whisper repeated a sentence (it loops when a language
+ * changes after a pause), or when it heard English but the Arabic reading has only Arabic: then
+ * the part holds Arabic and English said separately, and one language was dropped.
+ */
+async function readWhole(
+  loaded: LoadedRecognizer,
+  part: Float32Array,
+  fallbackLanguage: string,
+): Promise<{ text: string; suspect: boolean }> {
+  let result = await decode(loaded, part);
+  if (result.language && !AUTOMATIC_LANGUAGES.has(result.language) && fallbackLanguage)
+    result = { text: await decodeIn(loaded, part, fallbackLanguage), language: fallbackLanguage };
+  let suspect = hasRepeatedSentence(result.text);
+  if (result.language === "en" && !ARABIC_LETTER.test(result.text)) {
+    // Arabic with English words mixed in is often detected as English and translated. Read in
+    // Arabic, Whisper keeps the English words in Latin letters; text in both scripts is that case.
+    const arabic = await decodeIn(loaded, part, "ar");
+    if (ARABIC_LETTER.test(arabic) && LATIN_LETTER.test(arabic)) return { text: arabic, suspect: false };
+    if (ARABIC_LETTER.test(arabic) && !hasRepeatedSentence(arabic) && splitAtPauses(part).length > 1) suspect = true;
+  }
+  return { text: result.text, suspect };
+}
+
+/** Reads each phrase in its own language: Arabic and English said apart each keep their script. */
+async function readByPhrase(
+  loaded: LoadedRecognizer,
+  phrases: Float32Array[],
+  fallbackLanguage: string,
+): Promise<string[]> {
+  const results: Array<{ text: string; language: string }> = [];
+  for (const phrase of phrases) {
+    let result = await decode(loaded, phrase);
+    if (result.language && !AUTOMATIC_LANGUAGES.has(result.language) && fallbackLanguage)
+      result = { text: await decodeIn(loaded, phrase, fallbackLanguage), language: fallbackLanguage };
+    results.push(result);
+  }
+  if (results.some((result) => result.language === "ar")) {
+    for (const [index, result] of results.entries()) {
+      const phrase = phrases[index];
+      if (result.language !== "en" || !phrase) continue;
+      const arabic = await decodeIn(loaded, phrase, "ar");
+      if (ARABIC_LETTER.test(arabic) && LATIN_LETTER.test(arabic)) results[index] = { text: arabic, language: "ar" };
+    }
+  }
+  return results.map((result) => result.text);
+}
+
+/** True when the same sentence (case and punctuation aside) appears twice: Whisper looping. */
+export function hasRepeatedSentence(text: string): boolean {
+  const seen = new Set<string>();
+  for (const sentence of text.split(/[.!?\u061F\u06D4]+/u)) {
+    const key = sentence
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+    if (key.split(" ").length < 3) continue;
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
 }
 
 async function decode(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type LoadedRecognizer, transcribeAutomatic } from "./voice-transcription-host";
+import { hasRepeatedSentence, type LoadedRecognizer, transcribeAutomatic } from "./voice-transcription-host";
 
 const RATE = 16_000;
 
@@ -20,7 +20,11 @@ function audio(phrases: Phrase[]): Float32Array {
   return Float32Array.from(pieces);
 }
 
-function fakeWhisper(phrases: Phrase[]): LoadedRecognizer & { decodes: string[] } {
+/** `whole` answers the first decode, the reading of the whole clip, when given. */
+function fakeWhisper(
+  phrases: Phrase[],
+  whole?: { text: string; lang: string; ar?: string },
+): LoadedRecognizer & { decodes: string[] } {
   let language = "";
   const decodes: string[] = [];
   let wave: Float32Array = new Float32Array(0);
@@ -44,6 +48,9 @@ function fakeWhisper(phrases: Phrase[]): LoadedRecognizer & { decodes: string[] 
           Math.abs(item.level - peak) < Math.abs(best.level - peak) ? item : best,
         );
         decodes.push(language || "auto");
+        if (whole && decodes.length === 1) return JSON.stringify({ text: whole.text, lang: `<|${whole.lang}|>` });
+        if (whole && decodes.length === 2 && language === "ar")
+          return JSON.stringify({ text: whole.ar ?? "", lang: "<|ar|>" });
         if (!language) return JSON.stringify({ text: phrase.auto.text, lang: `<|${phrase.auto.lang}|>` });
         return JSON.stringify({ text: (language === "ar" ? phrase.ar : phrase.en) ?? "", lang: `<|${language}|>` });
       },
@@ -74,6 +81,41 @@ describe("transcribeAutomatic", () => {
   it("keeps English when the Arabic reading has no English words", async () => {
     const phrases: Phrase[] = [{ level: 0.5, auto: { text: "Check the build.", lang: "en" }, ar: "تشيك ذا بيلد" }];
     expect(await transcribeAutomatic(fakeWhisper(phrases), audio(phrases), "ar")).toEqual(["Check the build."]);
+  });
+
+  it("reads phrase by phrase when the whole reading repeats a sentence", async () => {
+    const phrases: Phrase[] = [
+      { level: 0.3, auto: { text: "افتح الإعدادات", lang: "ar" } },
+      { level: 0.5, auto: { text: "Check the latest build status", lang: "en" }, ar: "تشيك ذا بيلد" },
+    ];
+    const whisper = fakeWhisper(phrases, {
+      text: "Check the latest build status. Check the latest build status.",
+      lang: "en",
+      ar: "تشيك ذا لاتست بيلد ستاتس",
+    });
+    expect(await transcribeAutomatic(whisper, audio(phrases), "ar")).toEqual([
+      "افتح الإعدادات",
+      "Check the latest build status",
+    ]);
+  });
+
+  it("reads phrase by phrase when English was heard but the Arabic reading is all Arabic", async () => {
+    const phrases: Phrase[] = [
+      { level: 0.3, auto: { text: "افتح الإعدادات", lang: "ar" } },
+      { level: 0.5, auto: { text: "Check the build", lang: "en" }, ar: "تشيك ذا بيلد" },
+    ];
+    const whisper = fakeWhisper(phrases, {
+      text: "Open the settings, check the build",
+      lang: "en",
+      ar: "افتح الإعدادات تشيك",
+    });
+    expect(await transcribeAutomatic(whisper, audio(phrases), "ar")).toEqual(["افتح الإعدادات", "Check the build"]);
+  });
+
+  it("finds a repeated sentence regardless of case and punctuation", () => {
+    expect(hasRepeatedSentence("Check the build. check the build!")).toBe(true);
+    expect(hasRepeatedSentence("Check the build. Then ship it.")).toBe(false);
+    expect(hasRepeatedSentence("Yes. Yes.")).toBe(false);
   });
 
   it("decodes a phrase detected as a third language in the fallback language", async () => {
