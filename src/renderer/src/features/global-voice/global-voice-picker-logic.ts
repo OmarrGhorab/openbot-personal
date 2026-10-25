@@ -39,3 +39,15 @@ export function globalVoiceInitials(name: string): string {
     .map((word) => Array.from(word)[0] ?? "");
   return letters.join("").toLocaleUpperCase() || "?";
 }
+
+/**
+ * Whether a pointer is over the drawn island. The window is larger than the island, and only the
+ * island takes clicks; a missing island takes none.
+ */
+export function pointInRect(
+  rect: { left: number; right: number; top: number; bottom: number } | undefined,
+  x: number,
+  y: number,
+): boolean {
+  return rect ? x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom : false;
+}

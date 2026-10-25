@@ -408,7 +408,9 @@ export class GlobalVoiceController {
     // The pill never takes the keyboard, so the app the user works in keeps it. The picker does,
     // for its search field, and takes it without activating OpenBot.
     const picker = state.view === "picker";
-    window.setIgnoreMouseEvents(!picker, { forward: true });
+    // Clicks pass through until the window reports the pointer over the drawn island. The window is
+    // 520 by 520 at the top of the screen, and a blank part of it must not block the apps below.
+    window.setIgnoreMouseEvents(true, { forward: true });
     window.setFocusable(picker);
     if (picker) this.#options.activateApp();
     // showInactive does nothing on macOS while the app is in the background. A hidden window is the

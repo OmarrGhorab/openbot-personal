@@ -7,7 +7,7 @@ import type {
 import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, For, onCleanup, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createStore, For, onSettled, Show } from "solid-js";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
   GLOBAL_VOICE_ISLAND,
@@ -20,6 +20,7 @@ import {
   globalVoiceInitials,
   globalVoiceNumberKeyIndex,
   moveGlobalVoiceHighlight,
+  pointInRect,
 } from "./global-voice-picker-logic";
 import "./global-voice.css";
 
@@ -92,6 +93,8 @@ export function GlobalVoiceSurface() {
   let searchBox: HTMLDivElement | undefined;
   let reviewBox: HTMLDivElement | undefined;
   let shell: HTMLElement | undefined;
+  /** Whether the pointer is over the drawn island. Only then does the window take clicks. */
+  let overIsland = false;
   let phaseNode: HTMLSpanElement | undefined;
   let waveRoot: HTMLDivElement | undefined;
   let shellSize: IslandSize = GLOBAL_VOICE_ISLAND.notch;
@@ -164,8 +167,8 @@ export function GlobalVoiceSurface() {
     setView(view, listening);
     if (!same) paintIsland(size, fromNotch);
     const keyboard = view === "picker" || state.phase === "review";
-    const interactive = keyboard || state.phase === "sent" || state.error !== null;
-    void window.openbot.globalVoice.setInteractive({ interactive, keyboard });
+    // Only the drawn island takes clicks. The rest of the window passes them to the app below.
+    void window.openbot.globalVoice.setInteractive({ interactive: overIsland, keyboard });
   }
 
   function hide(): void {
@@ -539,19 +542,12 @@ export function GlobalVoiceSurface() {
       }
     };
     frame = requestAnimationFrame(tick);
-    let overIsland = false;
     const onMove = (event: MouseEvent) => {
-      const rect = shell?.getBoundingClientRect();
-      const inside = rect
-        ? event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom
-        : false;
+      const inside = pointInRect(shell?.getBoundingClientRect(), event.clientX, event.clientY);
       if (inside === overIsland) return;
       overIsland = inside;
       const keyboard = state.view === "picker" || state.phase === "review";
-      void window.openbot.globalVoice.setInteractive({ interactive: inside || keyboard, keyboard });
+      void window.openbot.globalVoice.setInteractive({ interactive: inside, keyboard });
     };
     window.addEventListener("mousemove", onMove);
     return () => {
@@ -560,16 +556,20 @@ export function GlobalVoiceSurface() {
     };
   });
 
-  createEffect(() => {
-    if (state.phase !== "transcribing") return;
-    const node = phaseNode;
-    if (!node) return;
-    const animation = node.animate([{ opacity: 0.35 }, { opacity: 1 }, { opacity: 0.35 }], {
-      duration: reducedMotion() ? 120 : 900,
-      iterations: Infinity,
-    });
-    onCleanup(() => animation.cancel());
-  });
+  // Solid 2 effects take a compute and an effect. The one-function form threw on mount, which left
+  // the whole window blank: the picker never drew and never asked main to show it.
+  createEffect(
+    () => state.phase === "transcribing",
+    (transcribing) => {
+      const node = phaseNode;
+      if (!transcribing || !node) return;
+      const animation = node.animate([{ opacity: 0.35 }, { opacity: 1 }, { opacity: 0.35 }], {
+        duration: reducedMotion() ? 120 : 900,
+        iterations: Infinity,
+      });
+      return () => animation.cancel();
+    },
+  );
   const phaseText = () => {
     switch (state.phase) {
       case "preparing":
