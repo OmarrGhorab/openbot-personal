@@ -46,6 +46,8 @@ export type MaintenanceDesktopApi = GroupApi<IpcEndpoints["maintenance"]>;
 
 export type DynamicIslandDesktopApi = GroupApi<IpcEndpoints["dynamicIsland"]>;
 
+export type GlobalVoiceDesktopApi = GroupApi<IpcEndpoints["globalVoice"]>;
+
 /**
  * The preload wraps some bridged methods: the server list calls record which server is selected, and
  * `onEvent` does too. The scoped events come from every server; the three methods below keep one.

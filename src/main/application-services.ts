@@ -36,6 +36,7 @@ import { MAC_PERMISSION_URLS } from "./mac-permission-urls";
 import { PushNotificationStore } from "./push-notification-store";
 import { DESKTOP_USE_MS } from "./push-notifications";
 import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-effects";
+
 /**
  * The composition root. Every long-lived service the desktop app owns is built here, in one
  * function, in dependency order, and handed back as a single record.
@@ -57,6 +58,7 @@ import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-eff
  * when - see `teardown-registry.ts` for why shutdown here is not the reverse of construction.
  */
 
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { homedir, hostname, tmpdir } from "node:os";
@@ -92,6 +94,7 @@ import {
   type BrowserWindow,
   clipboard,
   desktopCapturer,
+  globalShortcut,
   Notification,
   nativeImage,
   powerMonitor,
@@ -181,6 +184,7 @@ import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFail
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
+import { GlobalVoiceController, GlobalVoiceFailed, toGlobalVoiceFailed } from "./global-voice-window";
 import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
 import { agentWebhookRoutineWriter, HostEventsService } from "./host-events-service";
@@ -209,11 +213,14 @@ import {
   createComputerUseHighlightWindow,
   createComputerUsePermissionHelpWindow,
   createDynamicIslandWindow,
+  createGlobalVoiceWindow,
   loadBrowserDockRenderer,
   loadComputerUseHighlightRenderer,
   loadComputerUsePermissionHelpRenderer,
   loadDynamicIslandRenderer,
+  loadGlobalVoiceRenderer,
   type MainWindowController,
+  placeGlobalVoiceWindow,
   sendComputerUseHighlightPlacement,
   showMainWindow,
 } from "./main-window";
@@ -338,6 +345,7 @@ const REMOTE_SESSION_REUSE_PREFERENCE_FILE = "openbot-remote-session-reuse-prefe
 const REMOTE_NETWORK_ROUTE_PREFERENCE_FILE = "openbot-remote-network-route-v1.json";
 const APP_BEHAVIOR_PREFERENCE_FILE = "openbot-app-behavior-preference-v1.json";
 const DYNAMIC_ISLAND_PREFERENCE_FILE = "openbot-dynamic-island-preference-v1.json";
+const GLOBAL_VOICE_PREFERENCE_FILE = "openbot-global-voice-preference-v1.json";
 const BROWSER_STATE_FILE = "openbot-browser-state-v1.json";
 const SIDEBAR_LAYOUT_FILE = "openbot-sidebar-layout-v1.json";
 const TEAM_FILE = "openbot-team-server-v1.json";
@@ -395,6 +403,8 @@ const TEARDOWN_ORDER = {
   computerUseHighlight: 18,
   computerUsePermissionHelp: 19,
   dynamicIsland: 20,
+  // After the Dynamic Island, so the shortcuts stop before the picker window that they open.
+  globalVoice: 21,
   // Before the browser, so no sign-in opens a tab while it stops.
   providerAccountsHost: 27,
   providerHostSignIns: 28,
@@ -569,6 +579,7 @@ export interface ApplicationServices {
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
   dynamicIsland: DynamicIslandWindowController;
+  globalVoice: GlobalVoiceController;
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
   computerUsePermissionHelp: ComputerUsePermissionHelpWindowController;
@@ -875,6 +886,35 @@ export async function createApplicationServices({
       }),
   });
   teardown.push(TEARDOWN_ORDER.dynamicIsland, "the Dynamic Island", () => dynamicIsland.destroy());
+  // The shortcuts send through the same path as the Dynamic Island's reply, so a message from either
+  // is the same message to the agent. The agents are read once `criticalActionTargets` is set below.
+  const globalVoice = new GlobalVoiceController({
+    preferencePath: join(app.getPath("userData"), GLOBAL_VOICE_PREFERENCE_FILE),
+    shortcuts: {
+      register: (accelerator, onPress) => globalShortcut.register(accelerator, onPress),
+      unregister: (accelerator) => globalShortcut.unregister(accelerator),
+      unregisterAll: () => globalShortcut.unregisterAll(),
+    },
+    createWindow: createGlobalVoiceWindow,
+    loadWindow: loadGlobalVoiceRenderer,
+    placeWindow: placeGlobalVoiceWindow,
+    listAgents: () => criticalActionTargets?.agents.listAgents() ?? [],
+    sendTranscript: (agentId, text) =>
+      Effect.suspend(() => {
+        if (!criticalActionTargets) {
+          return Effect.fail(new GlobalVoiceFailed({ cause: new Error(sourceText("error.app.notReady")) }));
+        }
+        const { agents, host, remoteServers } = criticalActionTargets;
+        return performDynamicIslandCriticalAction(
+          { type: "send-message", serverId: LOCAL_SERVER_ID, agentId, text, clientMessageId: randomUUID() },
+          agents,
+          remoteServers,
+          { decodeVoid, decodeQueuedMessageReceipt },
+          () => host.conversationSender(),
+        ).pipe(toGlobalVoiceFailed);
+      }),
+  });
+  teardown.push(TEARDOWN_ORDER.globalVoice, "the global voice shortcuts", () => globalVoice.destroy());
   const centralAuthApiUrl = readCentralAuthApiUrl(
     process.env.OPENBOT_AUTH_API_URL,
     app.isPackaged ? ownBackend().accountOrigin : "http://127.0.0.1:3100",
@@ -2908,6 +2948,7 @@ export async function createApplicationServices({
     voice,
     speech,
     dynamicIsland,
+    globalVoice,
     cuaDriver,
     computerUseHighlight,
     computerUsePermissionHelp,

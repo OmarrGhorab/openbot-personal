@@ -30,6 +30,7 @@ import {
   DEFAULT_AGENT_ACCESS,
   DEFAULT_AGENT_DEFAULTS,
   DEFAULT_BUSY_MESSAGE_MODE,
+  type GlobalVoiceShortcutStatus,
   type ProviderRuntimeStatus,
   type UpdateAgentAdminSettingsInput,
   type UpdateAgentInput,
@@ -76,6 +77,7 @@ import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { InstructionsLimit, instructionsTooLong } from "@openbot/ui/features/agents/InstructionsLimit";
 import { type BrowserProfileChoice, BrowserProfileSelect } from "@openbot/ui/features/browser/BrowserProfileSelect";
+import { GlobalVoiceShortcutField } from "@openbot/ui/features/global-voice/GlobalVoiceShortcutField";
 import { errorReference } from "@openbot/user-errors";
 import type { JSX } from "@solidjs/web";
 import {
@@ -125,6 +127,18 @@ export interface AgentSettingsPanelProps {
   quickAcknowledgementEditable?: boolean;
   /** The browser profile of the agent's tabs. Left out when the host cannot change it. */
   browserProfiles?: AgentBrowserProfileOptions | undefined;
+  /**
+   * The direct global voice shortcut of this agent. Local-only: left out for a remote agent. A key
+   * here starts dictation to the agent from any app.
+   */
+  globalVoiceShortcut?:
+    | {
+        accelerator: string | null;
+        status: GlobalVoiceShortcutStatus | undefined;
+        enabled: boolean;
+        onChange: (accelerator: string | null) => void;
+      }
+    | undefined;
   /** The busy-message setting is local-only too: the Team API does not carry it. */
   busyMessageModeEditable?: boolean;
   /** Tasks run only on this computer: the Team API has no task route. */
@@ -1526,6 +1540,27 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     onChange={(next) => void saveQuickAcknowledgement(next)}
                   />
                 </div>
+              </Show>
+              <Show when={props.globalVoiceShortcut}>
+                {(shortcut) => (
+                  <div class="agent-settings-notifications">
+                    <div>
+                      <strong>{t("globalVoice.agent.title")}</strong>
+                      <span>{t("globalVoice.agent.description")}</span>
+                      <Show when={!shortcut().enabled}>
+                        <span>{t("globalVoice.agent.disabledHint")}</span>
+                      </Show>
+                    </div>
+                    <GlobalVoiceShortcutField
+                      name={props.agent.name}
+                      accelerator={shortcut().accelerator}
+                      status={shortcut().status}
+                      clearable
+                      disabled={!shortcut().enabled}
+                      onChange={shortcut().onChange}
+                    />
+                  </div>
+                )}
               </Show>
               <Show when={props.browserProfiles}>
                 {(options) => (

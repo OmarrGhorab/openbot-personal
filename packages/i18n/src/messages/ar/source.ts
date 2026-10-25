@@ -6,6 +6,7 @@ import { messages as errorBackend } from "./error/backend";
 import { messages as errorBilling } from "./error/billing";
 import { messages as errorComputerUse } from "./error/computerUse";
 import { messages as errorConnector } from "./error/connector";
+import { messages as errorGlobalVoice } from "./error/globalVoice";
 import { messages as errorHost } from "./error/host";
 import { messages as errorImport } from "./error/import";
 import { messages as errorKind } from "./error/kind";
@@ -42,6 +43,7 @@ export const source = {
   ...errorAgent,
   ...errorProvider,
   ...errorComputerUse,
+  ...errorGlobalVoice,
   ...errorVoice,
   ...errorBackend,
   ...errorSkill,

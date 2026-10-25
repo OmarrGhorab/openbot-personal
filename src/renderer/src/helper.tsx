@@ -5,6 +5,7 @@ import { BrowserDockSurface } from "./features/browser/BrowserDockSurface";
 import { ComputerUseHighlightSurface } from "./features/computer-use/ComputerUseHighlightSurface";
 import { ComputerUsePermissionHelp, permissionFromQuery } from "./features/computer-use/ComputerUsePermissionHelp";
 import { DynamicIslandSurface } from "./features/dynamic-island/DynamicIslandSurface";
+import { GlobalVoiceSurface } from "./features/global-voice/GlobalVoiceSurface";
 import { I18nProvider } from "./i18n-context";
 import { syncLogoColor } from "./logo-color";
 import "./styles.css";
@@ -45,6 +46,12 @@ render(() => {
     return (
       <I18nProvider>
         <ComputerUseHighlightSurface />
+      </I18nProvider>
+    );
+  if (surface === "global-voice")
+    return (
+      <I18nProvider>
+        <GlobalVoiceSurface />
       </I18nProvider>
     );
   if (surface === "computer-use-permission-help")

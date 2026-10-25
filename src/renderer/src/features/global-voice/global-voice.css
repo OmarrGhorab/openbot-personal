@@ -1,0 +1,210 @@
+/* The global voice window: the pill during a dictation, and the picker of agents. */
+
+html,
+body {
+  background: transparent;
+}
+
+.global-voice-pill,
+.global-voice-picker {
+  box-sizing: border-box;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  color: var(--openbot-text-primary);
+  background: var(--openbot-bg-surface-raised);
+  border: 1px solid var(--openbot-border);
+  box-shadow: var(--openbot-shadow-dialog);
+  font-family: var(--openbot-font-sans);
+  font-size: var(--openbot-text-sm);
+}
+
+.global-voice-pill {
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-radius: var(--openbot-radius-pill);
+}
+
+.global-voice-pill-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-muted);
+}
+
+.global-voice-pill[data-phase="listening"] .global-voice-pill-dot {
+  background: var(--openbot-accent);
+}
+
+.global-voice-pill[data-phase="sent"] .global-voice-pill-dot {
+  background: var(--openbot-success-text);
+}
+
+.global-voice-pill-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.global-voice-pill-phase,
+.global-voice-pill-transcript,
+.global-voice-pill-error {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.global-voice-pill-phase {
+  font-weight: 600;
+}
+
+.global-voice-pill-transcript {
+  color: var(--openbot-text-secondary);
+}
+
+.global-voice-pill-error {
+  color: var(--openbot-danger-text);
+}
+
+.global-voice-picker {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--openbot-radius-modal);
+}
+
+.global-voice-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-primary);
+  font: inherit;
+}
+
+.global-voice-search-input:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: 1px;
+}
+
+.global-voice-list {
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.global-voice-option {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--openbot-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.global-voice-option:focus-visible {
+  outline: 2px solid var(--openbot-border-focus);
+  outline-offset: -2px;
+}
+
+.global-voice-option[aria-selected="true"] {
+  background: var(--openbot-bg-control-hover);
+}
+
+.global-voice-option[data-current="true"] .global-voice-option-name::after {
+  content: " \2022";
+  color: var(--openbot-accent);
+}
+
+.global-voice-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent-soft);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-sm);
+  font-weight: 600;
+}
+
+.global-voice-option-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.global-voice-option-name,
+.global-voice-option-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.global-voice-option-title,
+.global-voice-picker-hint,
+.global-voice-empty,
+.global-voice-review-label {
+  color: var(--openbot-text-muted);
+}
+
+.global-voice-option-key {
+  flex: none;
+  color: var(--openbot-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.global-voice-empty {
+  margin: 12px 0;
+  text-align: center;
+}
+
+.global-voice-review {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.global-voice-review-text {
+  box-sizing: border-box;
+  min-height: 0;
+  flex: 1;
+  resize: none;
+  padding: 8px 10px;
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-control);
+  color: var(--openbot-text-primary);
+  font: inherit;
+}
+
+.global-voice-picker-error {
+  margin: 0;
+  color: var(--openbot-danger-text);
+}
+
+.global-voice-picker-hint {
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+}

@@ -1,5 +1,7 @@
 import {
   ELEVENLABS_VOICE_MODEL_ID,
+  type GlobalVoicePreference,
+  type GlobalVoiceState,
   isSpeechLanguage,
   type SpeechModelStatus,
   type SpeechSettings,
@@ -22,6 +24,8 @@ interface SettingsVoiceState {
   settings: VoiceSettings | null;
   /** The model that reads replies aloud, and its settings, or null before main answers. */
   speech: { status: SpeechModelStatus | null; settings: SpeechSettings | null; listening: boolean };
+  /** The global voice shortcuts and their registration, or null before main answers. */
+  globalVoice: GlobalVoiceState | null;
 }
 
 const EMPTY_STATUSES: SettingsVoiceState["statuses"] = {
@@ -39,7 +43,8 @@ type FailureKey =
   | "settings.voice.removeFailed"
   | "settings.voice.apiKey.saveFailed"
   | "settings.voice.apiKey.removeFailed"
-  | "settings.voice.speech.listenFailed";
+  | "settings.voice.speech.listenFailed"
+  | "globalVoice.settings.saveFailed";
 
 /**
  * The Voice tab's view of the dictation models and settings. It is created by the settings page,
@@ -50,6 +55,7 @@ export function createSettingsVoiceStore(active: () => boolean) {
     statuses: { ...EMPTY_STATUSES },
     settings: null,
     speech: { status: null, settings: null, listening: false },
+    globalVoice: null,
   });
   const setStatus = (status: VoiceModelStatus) =>
     setState((draft) => {
@@ -82,11 +88,35 @@ export function createSettingsVoiceStore(active: () => boolean) {
         });
       })
       .catch((error: unknown) => fail(error, "settings.voice.loadFailed"));
+    void voicePort()
+      .globalVoice.getState()
+      .then((globalVoice) => {
+        setState((draft) => {
+          draft.globalVoice = globalVoice;
+        });
+      })
+      .catch(() => {
+        // The global shortcut section stays empty until the next time the tab opens.
+      });
     return () => {
       stopModel();
       stopSpeechModel();
     };
   });
+
+  /** Saves a change of the global voice preference. The state is what main answers, so a conflict shows. */
+  async function saveGlobalVoice(patch: Partial<GlobalVoicePreference>): Promise<void> {
+    const current = state.globalVoice;
+    if (!current) return;
+    try {
+      const next = await voicePort().globalVoice.setPreference({ ...current.preference, ...patch });
+      setState((draft) => {
+        draft.globalVoice = next;
+      });
+    } catch (error) {
+      fail(error, "globalVoice.settings.saveFailed");
+    }
+  }
 
   function fail(error: unknown, fallback: FailureKey): void {
     const { t, errorMessage } = currentText();
@@ -263,6 +293,10 @@ export function createSettingsVoiceStore(active: () => boolean) {
     cancelSpeech,
     removeSpeech,
     setReadReplies,
+    setGlobalVoiceEnabled: (enabled: boolean) => void saveGlobalVoice({ enabled }),
+    setGlobalVoiceAccelerator: (accelerator: string) => void saveGlobalVoice({ accelerator }),
+    setGlobalVoicePickerAccelerator: (pickerAccelerator: string) => void saveGlobalVoice({ pickerAccelerator }),
+    setGlobalVoiceSendAfterSpeaking: (sendAfterSpeaking: boolean) => void saveGlobalVoice({ sendAfterSpeaking }),
     setSpeechVoice: (voice: SpeechVoice) =>
       void saveSpeech({ voice }).then((saved) =>
         desktopAnalytics.track("speech_settings_action", {

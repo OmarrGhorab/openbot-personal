@@ -18,6 +18,7 @@ import { createPublishAgent } from "../agent-templates/PublishAgent";
 import { desktopBrowserProfileCalls } from "../browser/browser-profiles-port";
 import type { AgentFilesOptions } from "../files/AgentFilesSettings";
 import { canManageStorage, serverHasStorage } from "../files/storage-usage";
+import { createAgentGlobalVoiceShortcut } from "../global-voice/agent-global-voice-shortcut";
 import { serverCanAdminister, serverSupportsCapability } from "../servers/server-capabilities";
 import { htmlAttachmentPageHtml, htmlAttachmentPageUrl } from "./chat-visual-url";
 import { useConversationController } from "./conversation-controller-context";
@@ -139,6 +140,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
   // own agents, for an owner or admin, when it serves `agent-publish-v1`.
   // A remote agent's host resolves its settings, so the account defaults of this computer do not apply.
   const localAgentDefaults = () => (props.server?.kind === "local" ? props.agentDefaults : undefined);
+  const agentGlobalVoice = createAgentGlobalVoiceShortcut(() => props.agent?.id);
   const canPublish = () =>
     props.runtime
       ? props.runtime.admin !== undefined && serverCanAdminister(props.server, "agent-publish-v1")
@@ -514,6 +516,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
               agentDefaults={localAgentDefaults()}
               memoryLimit={props.server?.kind === "local" ? props.agentMemoryLimit : undefined}
               agents={props.agents}
+              globalVoiceShortcut={props.server?.kind === "local" ? agentGlobalVoice.view() : undefined}
               onStartNewChat={props.onClearAgentContext}
               onCreateSkill={
                 serverCanAdminister(props.server, "skills-admin-v1") &&
