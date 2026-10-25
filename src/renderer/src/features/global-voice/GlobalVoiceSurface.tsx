@@ -11,9 +11,11 @@ import { createEffect, createMemo, createStore, For, onSettled, Show } from "sol
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
   GLOBAL_VOICE_ISLAND,
+  GLOBAL_VOICE_ISLAND_SPRING,
+  globalVoicePickerSize,
   globalVoiceTextDirection,
   type IslandSize,
-  islandScaleKeyframes,
+  islandMorphKeyframes,
 } from "./global-voice-island-motion";
 import {
   filterGlobalVoiceAgents,
@@ -126,7 +128,14 @@ export function GlobalVoiceSurface() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  /** The shell is already the next size. The animation only scales and fades it. */
+  /** The size the island takes for a view: the picker fits its rows, the review its text box. */
+  function islandSize(view: Exclude<View, "hidden">): IslandSize {
+    if (view === "pill") return GLOBAL_VOICE_ISLAND.pill;
+    if (state.phase === "review") return GLOBAL_VOICE_ISLAND.review;
+    return globalVoicePickerSize(filtered().length);
+  }
+
+  /** Morphs the island from its current size to `size`: width, height and corners follow one spring. */
   function paintIsland(size: IslandSize, fromNotch: boolean): void {
     const element = shell;
     if (!element) return;
@@ -137,15 +146,13 @@ export function GlobalVoiceSurface() {
     shellAnimation?.cancel();
     const reveal = () => {
       element.style.opacity = "1";
-      element.style.removeProperty("transform");
     };
     if (typeof element.animate !== "function") {
       reveal();
       return;
     }
-    const frames = islandScaleKeyframes(from, size, reducedMotion());
-    shellAnimation = element.animate(frames, {
-      duration: reducedMotion() ? 120 : 400,
+    shellAnimation = element.animate(islandMorphKeyframes(from, size, reducedMotion()), {
+      duration: reducedMotion() ? 120 : GLOBAL_VOICE_ISLAND_SPRING.response * 1000,
       easing: "linear",
       fill: "both",
     });
@@ -155,16 +162,15 @@ export function GlobalVoiceSurface() {
 
   function showIsland(view: Exclude<View, "hidden">, listening: boolean): void {
     const fromNotch = state.view === "hidden";
-    const size = view === "picker" ? GLOBAL_VOICE_ISLAND.picker : GLOBAL_VOICE_ISLAND.pill;
+    const size = islandSize(view);
     const same =
       !fromNotch && state.view === view && shellSize.width === size.width && shellSize.height === size.height;
-    // Paint the collapsed scale before the window appears, so the first frame is the notch.
-    if (fromNotch && shell && typeof shell.animate === "function") {
+    // Paint the notch before the window appears, so the first frame grows out of it.
+    if (fromNotch && shell) {
       const notch = GLOBAL_VOICE_ISLAND.notch;
-      shell.style.width = `${size.width}px`;
-      shell.style.height = `${size.height}px`;
+      shell.style.width = `${notch.width}px`;
+      shell.style.height = `${notch.height}px`;
       shell.style.opacity = "0";
-      shell.style.transform = `scale(${notch.width / size.width}, ${notch.height / size.height})`;
     }
     setView(view, listening);
     if (!same) paintIsland(size, fromNotch);
@@ -172,6 +178,15 @@ export function GlobalVoiceSurface() {
     // Only the drawn island takes clicks. The rest of the window passes them to the app below.
     void window.openbot.globalVoice.setInteractive({ interactive: overIsland, keyboard });
   }
+
+  // The picker follows its rows as the search narrows them, and the review gets room for its text.
+  createEffect(
+    () => (state.view === "hidden" ? null : islandSize(state.view)),
+    (size) => {
+      if (!size || (size.width === shellSize.width && size.height === shellSize.height)) return;
+      paintIsland(size, false);
+    },
+  );
 
   function hide(): void {
     clearLater();
@@ -628,6 +643,39 @@ export function GlobalVoiceSurface() {
   function PillBody() {
     return (
       <div class="global-voice-pill-body">
+        <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="large" />}</Show>
+        <div class="global-voice-pill-copy">
+          <Show when={targetName()}>
+            <span class="global-voice-pill-name" dir={globalVoiceTextDirection(targetName())}>
+              {targetName()}
+            </span>
+          </Show>
+          <Show
+            when={state.error}
+            fallback={
+              <Show
+                when={state.transcript && state.phase !== "sent"}
+                fallback={
+                  <span class="global-voice-phase" ref={(element) => (phaseNode = element)}>
+                    {phaseText()}
+                  </span>
+                }
+              >
+                <span class="global-voice-transcript" dir={globalVoiceTextDirection(state.transcript)}>
+                  {state.transcript}
+                </span>
+              </Show>
+            }
+          >
+            {(message) => <span class="global-voice-error">{message()}</span>}
+          </Show>
+          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
+          </Show>
+          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
+            <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
+          </Show>
+        </div>
         <Show when={state.phase === "listening"}>
           <div class="global-voice-wave" ref={(element) => (waveRoot = element)} aria-hidden="true">
             <span />
@@ -637,29 +685,6 @@ export function GlobalVoiceSurface() {
             <span />
           </div>
         </Show>
-        <div class="global-voice-pill-copy">
-          <Show
-            when={state.error}
-            fallback={
-              <span class="global-voice-phase" ref={(element) => (phaseNode = element)}>
-                {phaseText()}
-              </span>
-            }
-          >
-            {(message) => <span class="global-voice-error">{message()}</span>}
-          </Show>
-          <Show when={state.transcript && state.phase !== "sent"}>
-            <span class="global-voice-transcript" dir={globalVoiceTextDirection(state.transcript)}>
-              {state.transcript}
-            </span>
-          </Show>
-          <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
-            <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
-          </Show>
-          <Show when={state.keyRelease === "unavailable" && state.phase !== "sent"}>
-            <span class="global-voice-note">{t("globalVoice.picker.holdUnavailable")}</span>
-          </Show>
-        </div>
         <Show when={state.phase === "sent" && state.targetId}>
           <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void openChat()}>
             {t("globalVoice.picker.openChat")}
@@ -699,6 +724,29 @@ export function GlobalVoiceSurface() {
       draft.keyRelease = next.keyRelease;
       draft.holdToTalk = next.preference.captureMode === "hold" && next.keyRelease === "ready";
     });
+  }
+
+  function IslandAvatar(props: { agent: GlobalVoicePickerAgent; size: "small" | "large" }) {
+    return (
+      <Show
+        when={globalVoiceHasAvatar(props.agent)}
+        fallback={
+          <span class="global-voice-avatar" data-size={props.size} aria-hidden="true">
+            {globalVoiceInitials(props.agent.name)}
+          </span>
+        }
+      >
+        {/* The same avatar the sidebar draws, so the island shows each agent's own face. */}
+        <AgentAvatar
+          class="global-voice-agent-avatar"
+          seed={props.agent.avatarSeed}
+          hue={props.agent.avatarHue}
+          url={props.agent.avatarUrl}
+          motion="idle"
+          style={{ "--voice-avatar": props.size === "large" ? "40px" : "24px" }}
+        />
+      </Show>
+    );
   }
 
   function PickerList() {
@@ -750,23 +798,7 @@ export function GlobalVoiceSurface() {
                   }}
                   onClick={() => choose(agent)}
                 >
-                  <Show
-                    when={globalVoiceHasAvatar(agent)}
-                    fallback={
-                      <span class="global-voice-avatar" aria-hidden="true">
-                        {globalVoiceInitials(agent.name)}
-                      </span>
-                    }
-                  >
-                    {/* The same avatar the sidebar draws, so the picker shows each agent's own face. */}
-                    <AgentAvatar
-                      class="global-voice-agent-avatar"
-                      seed={agent.avatarSeed}
-                      hue={agent.avatarHue}
-                      url={agent.avatarUrl}
-                      motion="idle"
-                    />
-                  </Show>
+                  <IslandAvatar agent={agent} size="small" />
                   <span class="global-voice-option-text">
                     <span class="global-voice-option-name" dir={globalVoiceTextDirection(agent.name)}>
                       {agent.name}

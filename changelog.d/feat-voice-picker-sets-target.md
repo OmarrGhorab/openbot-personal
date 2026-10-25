@@ -5,3 +5,4 @@
 - Fixed the voice picker opening blank: a status animation crashed the window when it first drew.
 - The voice window no longer blocks clicks on the apps below it. Only the visible island takes clicks.
 - The voice picker shows each agent's own avatar, the same one as the sidebar, next to its name. Initials remain only for an agent without one.
+- Ctrl+K picker and voice island now open from the notch like a Dynamic Island: a spring morph of size and corners, a compact 3-row picker, and a pill with the agent's avatar and name.

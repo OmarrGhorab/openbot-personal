@@ -1,5 +1,6 @@
-/* The global voice island. It hangs from the top centre of the screen, in the notch area.
-   Size and motion come from transforms in the component, so this file does not animate layout. */
+/* The global voice island. It hangs from the top centre of the screen and grows out of the notch,
+   like the Dynamic Island. The component morphs its width, height and corners with one spring;
+   this file draws the surface and cross-fades the content. */
 
 html,
 body {
@@ -19,20 +20,46 @@ body {
 
 .global-voice-island {
   box-sizing: border-box;
-  min-width: 180px;
-  min-height: 32px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   pointer-events: auto;
-  transform-origin: top center;
-  color: var(--openbot-text-primary);
-  background: var(--openbot-bg-notch);
+  color: color-mix(in srgb, var(--openbot-island-fg) 94%, transparent);
+  /* Nearly opaque dark, so the top edge blends into the notch, with a little depth when blur is available. */
+  background: var(--openbot-island-bg);
   /* The top edge stays square so the shape sits flush with the screen, like the notch. */
   border-radius: 0 0 var(--openbot-radius-modal) var(--openbot-radius-modal);
-  box-shadow: var(--openbot-shadow-dialog);
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--openbot-island-fg) 7%, transparent),
+    inset 1px 0 0 color-mix(in srgb, var(--openbot-island-fg) 4%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--openbot-island-fg) 4%, transparent),
+    0 14px 36px var(--openbot-island-shadow);
   font-family: var(--openbot-font-sans);
-  font-size: var(--openbot-text-sm);
+  font-size: var(--openbot-text-md);
+  will-change: width, height, border-radius;
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .global-voice-island {
+    background: var(--openbot-island-bg-glass);
+    backdrop-filter: blur(24px) saturate(160%);
+  }
+}
+
+/* Content cross-fades in after the shape starts to grow, so text never squeezes. */
+.global-voice-island > * {
+  animation: global-voice-content-in var(--openbot-duration-overlay) var(--openbot-ease-out) 70ms both;
+}
+
+@keyframes global-voice-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .global-voice-pill-body,
@@ -43,13 +70,15 @@ body {
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px 10px;
+  gap: 12px;
+  padding: 10px 20px 14px;
 }
 
 .global-voice-review {
   flex-direction: column;
   align-items: stretch;
+  gap: 8px;
+  padding: 12px 18px 4px;
 }
 
 .global-voice-pill-copy {
@@ -57,8 +86,10 @@ body {
   min-width: 0;
   flex: 1;
   flex-direction: column;
+  gap: 2px;
 }
 
+.global-voice-pill-name,
 .global-voice-phase,
 .global-voice-transcript,
 .global-voice-error,
@@ -70,17 +101,20 @@ body {
   text-overflow: ellipsis;
 }
 
-.global-voice-phase {
-  font-weight: 600;
+.global-voice-pill-name {
+  font-size: var(--openbot-text-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
+.global-voice-phase,
 .global-voice-transcript,
 .global-voice-note,
 .global-voice-option-title,
 .global-voice-hint,
 .global-voice-empty,
 .global-voice-review-label {
-  color: var(--openbot-text-muted);
+  color: color-mix(in srgb, var(--openbot-island-fg) 56%, transparent);
 }
 
 .global-voice-error {
@@ -92,13 +126,13 @@ body {
   flex: none;
   align-items: center;
   gap: 3px;
-  height: 18px;
+  height: 22px;
 }
 
 .global-voice-wave span {
   display: block;
   width: 3px;
-  height: 16px;
+  height: 18px;
   transform-origin: center;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-accent);
@@ -106,23 +140,48 @@ body {
 
 .global-voice-open {
   flex: none;
-  color: var(--openbot-text-primary);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-island-fg) 10%, transparent);
+  color: color-mix(in srgb, var(--openbot-island-fg) 94%, transparent);
 }
 
 .global-voice-search {
-  padding: 12px 12px 0;
+  padding: 10px 14px 4px;
 }
 
 .global-voice-search-input,
 .global-voice-review-text {
   box-sizing: border-box;
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--openbot-border);
-  border-radius: var(--openbot-radius-md);
-  background: var(--openbot-bg-control);
-  color: var(--openbot-text-primary);
+  border: 1px solid color-mix(in srgb, var(--openbot-island-fg) 6%, transparent);
+  background: color-mix(in srgb, var(--openbot-island-fg) 7%, transparent);
+  color: color-mix(in srgb, var(--openbot-island-fg) 94%, transparent);
   font: inherit;
+  transition:
+    background var(--openbot-duration-normal) var(--openbot-ease-out),
+    border-color var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.global-voice-search-input {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--openbot-radius-pill);
+}
+
+.global-voice-review-text {
+  padding: 8px 12px;
+  border-radius: var(--openbot-radius-lg);
+}
+
+.global-voice-search-input::placeholder,
+.global-voice-review-text::placeholder {
+  color: color-mix(in srgb, var(--openbot-island-fg) 38%, transparent);
+}
+
+.global-voice-search-input:focus,
+.global-voice-review-text:focus {
+  background: color-mix(in srgb, var(--openbot-island-fg) 10%, transparent);
+  border-color: color-mix(in srgb, var(--openbot-island-fg) 12%, transparent);
 }
 
 .global-voice-search-input:focus-visible,
@@ -134,24 +193,26 @@ body {
 }
 
 .global-voice-list {
-  --voice-row: 44px;
+  --voice-row: 48px;
   position: relative;
   box-sizing: border-box;
   margin: 0;
-  padding: 4px 0;
+  padding: 2px 0;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .global-voice-highlight {
   position: absolute;
   z-index: 0;
+  top: 2px;
   inset-inline: 8px;
   height: var(--voice-row);
   transform: translateY(calc(var(--voice-index, 0) * var(--voice-row)));
-  border-radius: var(--openbot-radius-md);
-  background: var(--openbot-hover);
+  border-radius: var(--openbot-radius-bubble);
+  background: color-mix(in srgb, var(--openbot-island-fg) 8%, transparent);
   transition: transform var(--openbot-duration-island-content) var(--openbot-ease-out);
   pointer-events: none;
 }
@@ -164,20 +225,36 @@ body {
   width: 100%;
   height: var(--voice-row);
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
+  gap: 12px;
+  padding: 0 22px;
   border: 0;
-  border-radius: var(--openbot-radius-md);
+  border-radius: var(--openbot-radius-bubble);
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
+  transition: opacity var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.global-voice-option:not([aria-current="true"]) {
+  opacity: 0.82;
+}
+
+.global-voice-option-name {
+  font-weight: 560;
 }
 
 .global-voice-option[data-current="true"] .global-voice-option-name::after {
-  content: " \2022";
-  color: var(--openbot-accent);
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: 7px;
+  vertical-align: middle;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+  box-shadow: 0 0 6px var(--openbot-accent);
 }
 
 .global-voice-avatar {
@@ -185,13 +262,24 @@ body {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-accent-soft);
   color: var(--openbot-accent-text);
-  font-size: var(--openbot-text-sm);
-  font-weight: 600;
+  font-size: var(--openbot-text-xs);
+  font-weight: 650;
+}
+
+.global-voice-avatar[data-size="large"] {
+  width: 40px;
+  height: 40px;
+  font-size: var(--openbot-text-md);
+}
+
+.global-voice-agent-avatar.agent-avatar {
+  width: var(--voice-avatar, 24px);
+  height: var(--voice-avatar, 24px);
 }
 
 .global-voice-option-text {
@@ -203,13 +291,28 @@ body {
 
 .global-voice-option-key {
   flex: none;
-  color: var(--openbot-text-muted);
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--openbot-radius-sm);
+  background: color-mix(in srgb, var(--openbot-island-fg) 6%, transparent);
+  color: color-mix(in srgb, var(--openbot-island-fg) 50%, transparent);
+  font-size: var(--openbot-text-sm);
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.global-voice-empty,
+.global-voice-empty {
+  margin: 10px 22px;
+}
+
+/* One quiet line, so the island stays short. */
 .global-voice-hint {
-  margin: 8px 12px;
+  overflow: hidden;
+  margin: 2px 22px 10px;
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--openbot-island-fg) 38%, transparent);
 }
 
 .global-voice-review-text {
@@ -219,12 +322,22 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .global-voice-highlight {
+  .global-voice-highlight,
+  .global-voice-option,
+  .global-voice-search-input {
     transition: none;
+  }
+
+  .global-voice-island > * {
+    animation-name: global-voice-content-fade;
   }
 }
 
-.global-voice-agent-avatar.agent-avatar {
-  width: 28px;
-  height: 28px;
+@keyframes global-voice-content-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
