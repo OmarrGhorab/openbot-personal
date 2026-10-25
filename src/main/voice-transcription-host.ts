@@ -10,6 +10,7 @@
 // the application database, or any module of the main bundle.
 
 import { join } from "node:path";
+import { detectedLanguage, splitAtPauses } from "./voice-phrase-split";
 import type {
   VoiceTranscriptionEngine,
   VoiceTranscriptionFailure,
@@ -63,7 +64,7 @@ interface SherpaOnnxAddon {
   offlineRecognizerSetConfig(recognizer: unknown, config: RecognizerConfig): void;
 }
 
-interface LoadedRecognizer {
+export interface LoadedRecognizer {
   key: string;
   addon: SherpaOnnxAddon;
   recognizer: unknown;
@@ -222,18 +223,138 @@ async function transcribe(request: VoiceTranscriptionRequest): Promise<string> {
   useLanguage(loaded, request.language);
   if (request.pcm.byteLength < 2) return "";
   const samples = toSamples(request.pcm, request.leadingSilenceSamples);
-  const parts = loaded.engine === "whisper" ? splitForWhisper(samples) : [samples];
-  let text = "";
-  for (const part of parts) text = joinText(text, await decode(loaded, part));
-  return text;
+  if (loaded.engine !== "whisper") return (await decode(loaded, samples)).text;
+  if (request.language !== "") return joinAll(await decodeAll(loaded, splitForWhisper(samples)));
+  return joinAll(await transcribeAutomatic(loaded, samples, request.fallbackLanguage ?? ""));
 }
 
-async function decode({ addon, recognizer }: LoadedRecognizer, samples: Float32Array): Promise<string> {
+async function decodeAll(loaded: LoadedRecognizer, parts: Float32Array[]): Promise<string[]> {
+  const texts: string[] = [];
+  for (const part of parts) texts.push((await decode(loaded, part)).text);
+  return texts;
+}
+
+function joinAll(texts: string[]): string {
+  return texts.reduce(joinText, "");
+}
+
+const ARABIC_LETTER = /\p{Script=Arabic}/u;
+const LATIN_LETTER = /\p{Script=Latin}/u;
+
+/** Decodes `samples` in `language`, then returns the loaded recognizer to automatic language. */
+async function decodeIn(loaded: LoadedRecognizer, samples: Float32Array, language: string): Promise<string> {
+  useLanguage(loaded, language);
+  try {
+    return (await decode(loaded, samples)).text;
+  } finally {
+    useLanguage(loaded, "");
+  }
+}
+
+/**
+ * Automatic language for Arabic and English speakers who mix the two.
+ *
+ * Whisper picks one language for all it reads, so each phrase between pauses gets its own. In
+ * Arabic mode Whisper keeps English words in Latin letters, but a phrase that mixes them is often
+ * detected as English and then translated. So in an utterance that has Arabic, an English phrase
+ * is decoded again in Arabic, and that text wins when it has both scripts: the phrase was mixed.
+ * A phrase detected as another language is decoded in the fallback language.
+ */
+export async function transcribeAutomatic(
+  loaded: LoadedRecognizer,
+  samples: Float32Array,
+  fallbackLanguage: string,
+): Promise<string[]> {
+  // Whisper pays a full 30 s window per pass, so a clip is read whole (in parts of up to 30 s), not
+  // phrase by phrase: one pass, and a second in Arabic only when the first heard English. A part
+  // whose whole reading looks wrong is read again phrase by phrase, which costs more but is right.
+  const results: string[] = [];
+  for (const part of splitForWhisper(samples)) {
+    const whole = await readWhole(loaded, part, fallbackLanguage);
+    if (!whole.suspect) {
+      results.push(whole.text);
+      continue;
+    }
+    const phrases = splitAtPauses(part);
+    if (phrases.length < 2) results.push(whole.text);
+    else results.push(...(await readByPhrase(loaded, phrases, fallbackLanguage)));
+  }
+  return results;
+}
+
+/**
+ * One pass over a part. It is suspect when Whisper repeated a sentence (it loops when a language
+ * changes after a pause), or when it heard English but the Arabic reading has only Arabic: then
+ * the part holds Arabic and English said separately, and one language was dropped.
+ */
+async function readWhole(
+  loaded: LoadedRecognizer,
+  part: Float32Array,
+  fallbackLanguage: string,
+): Promise<{ text: string; suspect: boolean }> {
+  let result = await decode(loaded, part);
+  if (result.language && !AUTOMATIC_LANGUAGES.has(result.language) && fallbackLanguage)
+    result = { text: await decodeIn(loaded, part, fallbackLanguage), language: fallbackLanguage };
+  let suspect = hasRepeatedSentence(result.text);
+  if (result.language === "en" && !ARABIC_LETTER.test(result.text)) {
+    // Arabic with English words mixed in is often detected as English and translated. Read in
+    // Arabic, Whisper keeps the English words in Latin letters; text in both scripts is that case.
+    const arabic = await decodeIn(loaded, part, "ar");
+    if (ARABIC_LETTER.test(arabic) && LATIN_LETTER.test(arabic)) return { text: arabic, suspect: false };
+    if (ARABIC_LETTER.test(arabic) && !hasRepeatedSentence(arabic) && splitAtPauses(part).length > 1) suspect = true;
+  }
+  return { text: result.text, suspect };
+}
+
+/** Reads each phrase in its own language: Arabic and English said apart each keep their script. */
+async function readByPhrase(
+  loaded: LoadedRecognizer,
+  phrases: Float32Array[],
+  fallbackLanguage: string,
+): Promise<string[]> {
+  const results: Array<{ text: string; language: string }> = [];
+  for (const phrase of phrases) {
+    let result = await decode(loaded, phrase);
+    if (result.language && !AUTOMATIC_LANGUAGES.has(result.language) && fallbackLanguage)
+      result = { text: await decodeIn(loaded, phrase, fallbackLanguage), language: fallbackLanguage };
+    results.push(result);
+  }
+  if (results.some((result) => result.language === "ar")) {
+    for (const [index, result] of results.entries()) {
+      const phrase = phrases[index];
+      if (result.language !== "en" || !phrase) continue;
+      const arabic = await decodeIn(loaded, phrase, "ar");
+      if (ARABIC_LETTER.test(arabic) && LATIN_LETTER.test(arabic)) results[index] = { text: arabic, language: "ar" };
+    }
+  }
+  return results.map((result) => result.text);
+}
+
+/** True when the same sentence (case and punctuation aside) appears twice: Whisper looping. */
+export function hasRepeatedSentence(text: string): boolean {
+  const seen = new Set<string>();
+  for (const sentence of text.split(/[.!?\u061F\u06D4]+/u)) {
+    const key = sentence
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+    if (key.split(" ").length < 3) continue;
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
+}
+
+async function decode(
+  { addon, recognizer }: LoadedRecognizer,
+  samples: Float32Array,
+): Promise<{ text: string; language: string }> {
   try {
     const stream = addon.createOfflineStream(recognizer);
     addon.acceptWaveformOffline(stream, { samples, sampleRate: SAMPLE_RATE });
     await addon.decodeOfflineStreamAsync(recognizer, stream);
-    return resultText(JSON.parse(addon.getOfflineStreamResultAsJson(stream))).trim();
+    const result = JSON.parse(addon.getOfflineStreamResultAsJson(stream));
+    return { text: resultText(result).trim(), language: detectedLanguage(result) };
   } catch (error) {
     if (error instanceof HostFailure) throw error;
     throw new HostFailure("inference-failed");
@@ -270,6 +391,9 @@ function splitForWhisper(samples: Float32Array): Float32Array[] {
   return parts;
 }
 
+/** The languages automatic detection may answer with; another one is decoded again in the fallback. */
+const AUTOMATIC_LANGUAGES = new Set(["ar", "en"]);
+
 /** Scripts that write no space between words. */
 const NO_SPACE_SCRIPT =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
@@ -302,6 +426,9 @@ function isRequest(value: unknown): value is VoiceTranscriptionRequest {
     (value.engine === "nemo-transducer" || value.engine === "whisper") &&
     "language" in value &&
     typeof value.language === "string" &&
+    (!("fallbackLanguage" in value) ||
+      value.fallbackLanguage === undefined ||
+      typeof value.fallbackLanguage === "string") &&
     "leadingSilenceSamples" in value &&
     typeof value.leadingSilenceSamples === "number" &&
     Number.isInteger(value.leadingSilenceSamples) &&

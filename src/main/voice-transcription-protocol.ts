@@ -14,6 +14,11 @@ export interface VoiceTranscriptionRequest {
   engine: VoiceTranscriptionEngine;
   /** A Whisper language code, or an empty string to let the model find the language. */
   language: string;
+  /**
+   * With automatic language, the Whisper language for a phrase detected as neither Arabic nor
+   * English. Empty or missing keeps what Whisper found.
+   */
+  fallbackLanguage?: string;
   /** The number of silent samples the host puts before the audio. */
   leadingSilenceSamples: number;
   /** Little-endian 16-bit mono PCM at 16 kHz: the data chunk of the validated WAV file. */

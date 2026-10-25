@@ -1,4 +1,11 @@
-import { DEFAULT_VOICE_SETTINGS, isVoiceLanguage, isVoiceModelId, type VoiceSettings } from "@openbot/contracts/ipc";
+import {
+  AUTOMATIC_VOICE_LANGUAGE,
+  DEFAULT_VOICE_SETTINGS,
+  isVoiceLanguage,
+  isVoiceModelId,
+  type VoiceSettings,
+  type WhisperLanguage,
+} from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { Effect, Result, Semaphore } from "effect";
 import { isMissingFileError } from "../backend/file-errors";
@@ -9,7 +16,8 @@ import { type PreferenceFileFailure, readPreferenceFile, writePreferenceFile } f
  * speaks, so it is held in memory after `load`.
  *
  * A file that is missing, unreadable as JSON or names an unknown model or language reads as
- * Parakeet with automatic language, which is what dictation did before the setting existed.
+ * the default: Whisper with automatic language. A saved fixed language stays fixed, and is also
+ * the fallback hint for automatic detection.
  */
 export class VoicePreferenceStore {
   readonly #path: string;
@@ -28,7 +36,11 @@ export class VoicePreferenceStore {
           parsed.version === 1 &&
           isVoiceModelId(parsed.modelId) &&
           isVoiceLanguage(parsed.language)
-            ? { modelId: parsed.modelId, language: parsed.language }
+            ? {
+                modelId: parsed.modelId,
+                language: parsed.language,
+                fallbackLanguage: fallbackFor(parsed.language, parsed.fallbackLanguage),
+              }
             : null,
         ),
       );
@@ -45,14 +57,19 @@ export class VoicePreferenceStore {
 
   readonly set = Effect.fn("VoicePreference.set")(function* (
     this: VoicePreferenceStore,
-    { modelId, language }: VoiceSettings,
+    { modelId, language, fallbackLanguage }: VoiceSettings,
   ) {
+    const settings: VoiceSettings = {
+      modelId,
+      language,
+      fallbackLanguage: fallbackFor(language, fallbackLanguage ?? this.#settings.fallbackLanguage),
+    };
     yield* this.#writes.withPermit(
       Effect.uninterruptible(
-        writePreferenceFile(this.#path, { version: 1, modelId, language }).pipe(
+        writePreferenceFile(this.#path, { version: 1, ...settings }).pipe(
           Effect.tap(() =>
             Effect.sync(() => {
-              this.#settings = { modelId, language };
+              this.#settings = settings;
             }),
           ),
         ),
@@ -60,4 +77,10 @@ export class VoicePreferenceStore {
     );
     return this.get();
   });
+}
+
+/** A fixed language is its own fallback; automatic keeps a saved Arabic or English hint, else Arabic. */
+export function fallbackFor(language: VoiceSettings["language"], saved: unknown): WhisperLanguage {
+  if (language !== AUTOMATIC_VOICE_LANGUAGE) return language;
+  return saved === "ar" || saved === "en" ? saved : "ar";
 }
