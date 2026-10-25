@@ -27,6 +27,10 @@ interface LocaleCatalogs {
 type LoadableLocale = Exclude<TranslatedLocale, "en">;
 
 const loaders: Record<LoadableLocale, () => Promise<LocaleCatalogs>> = {
+  ar: () =>
+    Promise.all([import("./messages/ar/index"), import("./messages/ar/source"), import("./messages/ar/format")]).then(
+      ([app, source, format]) => ({ app: app.ar, source: source.source, format: format.messages }),
+    ),
   de: () =>
     Promise.all([import("./messages/de/index"), import("./messages/de/source"), import("./messages/de/format")]).then(
       ([app, source, format]) => ({ app: app.de, source: source.source, format: format.messages }),
