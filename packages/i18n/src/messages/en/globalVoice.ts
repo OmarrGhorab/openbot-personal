@@ -8,7 +8,6 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.picker.list": "Agents",
   "globalVoice.picker.empty": "No agent matches.",
   "globalVoice.picker.noAgents": "No agent on this computer yet.",
-  "globalVoice.picker.shortcutKey": "Press {number} to choose",
   "globalVoice.picker.hintChoose": "Enter or a number chooses. Escape closes.",
   "globalVoice.picker.hintListening": "Press the shortcut again or Enter to send. Escape cancels.",
   "globalVoice.picker.hintReview": "Check the message. Enter sends it. Escape closes.",
@@ -22,11 +21,9 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.picker.noSpeech": "No speech was heard. Try again.",
   "globalVoice.picker.dictationFailed": "Dictation failed. Try again.",
   "globalVoice.picker.sendFailed": "The message was not sent. It is still here, so you can send it again.",
-  "globalVoice.picker.close": "Close",
 
   // Settings > Voice: the global shortcut of the picker and the send setting.
   "globalVoice.settings.title": "Global voice shortcut",
-  "globalVoice.settings.description": "Speak to an agent while OpenBot is in the background, from any app.",
   "globalVoice.settings.enabled.title": "Use the global shortcuts",
   "globalVoice.settings.enabled.description":
     "When off, no global voice shortcut works, including the agent shortcuts.",
@@ -43,9 +40,6 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.settings.recordHint": "Press the keys. Escape keeps the shortcut as it was.",
   "globalVoice.settings.reset": "Reset",
   "globalVoice.settings.turnOff": "Turn off",
-  "globalVoice.settings.status.active": "On",
-  "globalVoice.settings.status.taken": "Taken by another app",
-  "globalVoice.settings.status.disabled": "Off",
   "globalVoice.settings.needsModifier": "Hold Command, Control, Alt or Shift with the key.",
   "globalVoice.settings.keyNotAllowed": "This key cannot start a shortcut.",
   "globalVoice.settings.takenWarning":
@@ -56,7 +50,6 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.agent.title": "Global voice shortcut",
   "globalVoice.agent.description": "Starts dictation to this agent from any app, without the picker.",
   "globalVoice.agent.none": "None",
-  "globalVoice.agent.taken": "Taken by another app",
   "globalVoice.agent.saveFailed": "The shortcut was not saved. Try again.",
   "globalVoice.agent.disabledHint": "Turn on the global voice shortcuts in Settings > Voice to use it.",
 });

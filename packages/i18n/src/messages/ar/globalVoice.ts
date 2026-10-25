@@ -8,7 +8,6 @@ export const messages = {
   "globalVoice.picker.list": "الـ agents",
   "globalVoice.picker.empty": "مفيش agent بالاسم ده.",
   "globalVoice.picker.noAgents": "مفيش agent على الجهاز ده لسه.",
-  "globalVoice.picker.shortcutKey": "اضغط {number} عشان تختار",
   "globalVoice.picker.hintChoose": "Enter أو رقم بيختار. Escape بيقفل.",
   "globalVoice.picker.hintListening": "اضغط الاختصار تاني أو Enter عشان تبعت. Escape بيلغي.",
   "globalVoice.picker.hintReview": "راجع الرسالة. Enter بيبعتها. Escape بيقفل.",
@@ -22,10 +21,8 @@ export const messages = {
   "globalVoice.picker.noSpeech": "مسمعتش كلام. جرّب تاني.",
   "globalVoice.picker.dictationFailed": "الإملاء بالصوت فشل. جرّب تاني.",
   "globalVoice.picker.sendFailed": "الرسالة متبعتتش. هي لسه هنا، تقدر تبعتها تاني.",
-  "globalVoice.picker.close": "اقفل",
 
   "globalVoice.settings.title": "اختصار الصوت من أي مكان",
-  "globalVoice.settings.description": "كلّم agent وانت بره OpenBot، من أي برنامج.",
   "globalVoice.settings.enabled.title": "استخدم اختصارات الصوت",
   "globalVoice.settings.enabled.description": "لو مقفول، مفيش اختصار صوت هيشتغل، ومنهم اختصارات الـ agents.",
   "globalVoice.settings.dictation.title": "اختصار الإملاء",
@@ -41,9 +38,6 @@ export const messages = {
   "globalVoice.settings.recordHint": "اضغط الزراير. Escape بيسيب الاختصار زي ما هو.",
   "globalVoice.settings.reset": "رجّعه",
   "globalVoice.settings.turnOff": "اقفله",
-  "globalVoice.settings.status.active": "شغّال",
-  "globalVoice.settings.status.taken": "برنامج تاني واخده",
-  "globalVoice.settings.status.disabled": "مقفول",
   "globalVoice.settings.needsModifier": "لازم تمسك Command أو Control أو Alt أو Shift مع الزرار.",
   "globalVoice.settings.keyNotAllowed": "الزرار ده مينفعش يبقى اختصار.",
   "globalVoice.settings.takenWarning":
@@ -53,7 +47,6 @@ export const messages = {
   "globalVoice.agent.title": "اختصار الصوت من أي مكان",
   "globalVoice.agent.description": "بيبدأ الإملاء بالصوت للـ agent ده من أي برنامج، من غير القايمة.",
   "globalVoice.agent.none": "مفيش",
-  "globalVoice.agent.taken": "برنامج تاني واخده",
   "globalVoice.agent.saveFailed": "الاختصار متحفظش. جرّب تاني.",
   "globalVoice.agent.disabledHint": "شغّل اختصارات الصوت من الإعدادات > الصوت عشان تستخدمه.",
 } satisfies PartialTranslation<typeof source>;
