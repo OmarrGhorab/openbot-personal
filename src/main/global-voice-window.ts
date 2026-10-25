@@ -76,6 +76,8 @@ export interface GlobalVoiceControllerOptions {
   activateApp: () => void;
   /** Shows the main window on the agent's chat. */
   openAgentChat: (agentId: string) => void;
+  /** Called as the island shows and hides, so the idle Dynamic Island can give the notch to it. */
+  onVisibleChange?: (visible: boolean) => void;
 }
 
 export class GlobalVoiceController {
@@ -402,8 +404,10 @@ export class GlobalVoiceController {
     if (!window || window.isDestroyed()) return;
     if (state.view === "hidden") {
       window.hide();
+      this.#options.onVisibleChange?.(false);
       return;
     }
+    this.#options.onVisibleChange?.(true);
     this.#options.placeWindow(window, state.view);
     // The pill never takes the keyboard, so the app the user works in keeps it. The picker does,
     // for its search field, and takes it without activating OpenBot.

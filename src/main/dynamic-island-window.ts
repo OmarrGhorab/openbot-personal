@@ -124,6 +124,19 @@ export class DynamicIslandWindowController {
     );
   }
 
+  #yielding = false;
+
+  /**
+   * While the global voice island is up it is the one island at the notch: this idle pill fades out
+   * under it, so nothing shows through or beside it, and comes back when the voice island hides.
+   */
+  yieldToVoiceIsland(yielding: boolean): void {
+    this.#yielding = yielding;
+    for (const window of this.#windows.values()) {
+      if (!window.isDestroyed()) window.setOpacity(yielding ? 0 : 1);
+    }
+  }
+
   performHaptic(): void {
     if (!this.#preference.enabled || !this.#preference.hapticsEnabled) return;
     this.#options.performHaptic();
@@ -349,6 +362,7 @@ export class DynamicIslandWindowController {
     });
     window.once("ready-to-show", () => {
       if (this.#windows.get(display.id) !== window || window.isDestroyed()) return;
+      if (this.#yielding) window.setOpacity(0);
       window.showInactive();
     });
     window.on("blur", () => this.setInteractive(window.webContents.id, false));

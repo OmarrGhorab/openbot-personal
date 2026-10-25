@@ -25,7 +25,7 @@ body {
   overflow: hidden;
   pointer-events: auto;
   color: color-mix(in srgb, var(--openbot-island-fg) 94%, transparent);
-  /* Nearly opaque dark, so the top edge blends into the notch, with a little depth when blur is available. */
+  /* Fully opaque, as the iPhone island is: nothing behind it shows through, and the top edge blends into the notch. */
   background: var(--openbot-island-bg);
   /* The top edge stays square so the shape sits flush with the screen, like the notch. */
   border-radius: 0 0 var(--openbot-radius-modal) var(--openbot-radius-modal);
@@ -37,13 +37,6 @@ body {
   font-family: var(--openbot-font-sans);
   font-size: var(--openbot-text-md);
   will-change: width, height, border-radius;
-}
-
-@supports (backdrop-filter: blur(1px)) {
-  .global-voice-island {
-    background: var(--openbot-island-bg-glass);
-    backdrop-filter: blur(24px) saturate(160%);
-  }
 }
 
 /* Content cross-fades in after the shape starts to grow, so text never squeezes. */
@@ -339,5 +332,25 @@ body {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* The target's face springs in, and again when a name in the dictation switches the target. */
+.global-voice-pill-identity {
+  display: inline-flex;
+  flex: none;
+  animation: global-voice-identity-in var(--openbot-duration-overlay) var(--openbot-ease-out) both;
+}
+
+@keyframes global-voice-identity-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-voice-pill-identity {
+    animation: none;
   }
 }

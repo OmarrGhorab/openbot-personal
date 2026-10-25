@@ -6,3 +6,5 @@
 - The voice window no longer blocks clicks on the apps below it. Only the visible island takes clicks.
 - The voice picker shows each agent's own avatar, the same one as the sidebar, next to its name. Initials remain only for an agent without one.
 - Ctrl+K picker and voice island now open from the notch like a Dynamic Island: a spring morph of size and corners, a compact 3-row picker, and a pill with the agent's avatar and name.
+- The voice island is now solid black, so nothing behind it shows through, and the idle Dynamic Island steps aside while it is up, so there is one island at the notch.
+- Say an agent's name first when you dictate ("Software Engineer, check the PR", or in Arabic) and the message goes to that agent, without the name. Small mishearings are fine; an unclear name keeps the current agent.

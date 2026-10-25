@@ -8,6 +8,7 @@ import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, For, onSettled, Show } from "solid-js";
+import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
   GLOBAL_VOICE_ISLAND,
@@ -296,7 +297,13 @@ export function GlobalVoiceSurface() {
       return;
     }
     if (current !== generation) return;
-    set("transcript", text);
+    // "Software Engineer, check the PR" goes to Software Engineer, without the address.
+    const address = matchAgentAddress(text, state.agents);
+    if (address && address.agentId !== state.targetId) {
+      set("targetId", address.agentId);
+      void window.openbot.globalVoice.selectAgent({ agentId: address.agentId }).catch(() => undefined);
+    }
+    set("transcript", address ? address.text : text);
     if (state.sendAfterSpeaking) {
       await sendTranscript();
       return;
@@ -643,7 +650,14 @@ export function GlobalVoiceSurface() {
   function PillBody() {
     return (
       <div class="global-voice-pill-body">
-        <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="large" />}</Show>
+        {/* Keyed by agent, so a switch by name plays the entrance again. */}
+        <For each={targetAgent() ? [targetAgent()?.agentId] : []}>
+          {() => (
+            <span class="global-voice-pill-identity">
+              <Show when={targetAgent()}>{(agent) => <IslandAvatar agent={agent()} size="large" />}</Show>
+            </span>
+          )}
+        </For>
         <div class="global-voice-pill-copy">
           <Show when={targetName()}>
             <span class="global-voice-pill-name" dir={globalVoiceTextDirection(targetName())}>

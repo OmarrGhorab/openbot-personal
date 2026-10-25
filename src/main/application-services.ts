@@ -909,6 +909,7 @@ export async function createApplicationServices({
     createWindow: createGlobalVoiceWindow,
     loadWindow: loadGlobalVoiceRenderer,
     placeWindow: placeGlobalVoiceWindow,
+    onVisibleChange: (visible) => dynamicIsland.yieldToVoiceIsland(visible),
     listAgents: () => criticalActionTargets?.agents.listAgents() ?? [],
     sendTranscript: (agentId, text) =>
       Effect.suspend(() => {
