@@ -734,6 +734,70 @@ export function loadDynamicIslandRenderer(window: BrowserWindow, display: Displa
   return window.loadURL(url.toString());
 }
 
+const GLOBAL_VOICE_SIZES = {
+  pill: { width: 380, height: 68 },
+  picker: { width: 460, height: 420 },
+} as const;
+
+/**
+ * The window of the global voice shortcuts: the pill during a dictation and the picker of agents. It
+ * is hidden, not closed, between uses. It is a panel that never takes the keyboard unless the
+ * picker shows, so the app the user works in keeps its focus while the pill is up.
+ */
+export function createGlobalVoiceWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    ...GLOBAL_VOICE_SIZES.pill,
+    show: false,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hiddenInMissionControl: true,
+    hasShadow: false,
+    type: "panel",
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.cjs"),
+      contextIsolation: true,
+      devTools: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
+  });
+  window.setAlwaysOnTop(true, "floating");
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  // The fixed sizes fit the contents only at 100%, as the other fixed helper windows.
+  window.webContents.setZoomMode("isolated");
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!isTrustedRendererUrl(targetUrl)) event.preventDefault();
+  });
+  return window;
+}
+
+/** The pill sits at the bottom centre of the display the cursor is on; the picker in its upper part. */
+export function placeGlobalVoiceWindow(window: BrowserWindow, view: "pill" | "picker"): void {
+  const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const { width, height } = GLOBAL_VOICE_SIZES[view];
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y =
+    view === "pill"
+      ? workArea.y + workArea.height - height - 24
+      : workArea.y + Math.min(workArea.height - height, Math.max(48, workArea.height * 0.16));
+  window.setBounds({ x, y: Math.round(y), width, height });
+}
+
+export function loadGlobalVoiceRenderer(window: BrowserWindow): Promise<void> {
+  const url = helperRendererUrl(process.env.ELECTRON_RENDERER_URL);
+  url.searchParams.set("surface", "global-voice");
+  return window.loadURL(url.toString());
+}
+
 /**
  * A browser tab has its own session and keeps the page zoom that the default zoom roles gave it.
  * Any other focused contents is the app, so the step changes the saved interface size.

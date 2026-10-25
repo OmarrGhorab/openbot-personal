@@ -216,6 +216,12 @@ import {
   decodeDynamicIslandPreference,
   decodeDynamicIslandPresentation,
 } from "./dynamic-island-decoding";
+import {
+  decodeGlobalVoiceCommand,
+  decodeGlobalVoicePickerSnapshot,
+  decodeGlobalVoiceState,
+  decodeNullableGlobalVoicePickerSnapshot,
+} from "./global-voice-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
 import {
   decodeAddOrchestratorReply,
@@ -653,6 +659,16 @@ const openbotApi: OpenBotDesktopApi = {
     performHaptic: decodeVoid,
     action: decodeDynamicIslandAction,
     setInteractive: decodeVoid,
+  }),
+  globalVoice: bridgeGroup(IPC_ENDPOINTS.globalVoice, {
+    getState: decodeGlobalVoiceState,
+    setPreference: decodeGlobalVoiceState,
+    getPickerSnapshot: decodeNullableGlobalVoicePickerSnapshot,
+    pickerOpened: decodeGlobalVoicePickerSnapshot,
+    pickerShortcut: decodeGlobalVoiceCommand,
+    setView: decodeVoid,
+    sendTranscript: decodeVoid,
+    closePicker: decodeVoid,
   }),
   computerUse: bridgeGroup(IPC_ENDPOINTS.computerUse, {
     getState: decodeComputerUseState,

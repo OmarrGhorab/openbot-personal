@@ -65,6 +65,7 @@ import {
   DEFAULT_APPROVAL_AUTOMATION_PREFERENCE,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
+  DEFAULT_GLOBAL_VOICE_PREFERENCE,
   DEFAULT_PROMPT_CACHE_TTL,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   DEFAULT_PROVIDER_DETECTION_SETTINGS,
@@ -78,6 +79,8 @@ import {
   type DynamicIslandPresentation,
   defaultProviderModel,
   type FilePreview,
+  type GlobalVoicePreference,
+  type GlobalVoiceState,
   type HostedSiteSummary,
   type HostStatus,
   hostAgentMemoryLimit,
@@ -411,6 +414,23 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   const approvalAutomationListeners = new Set<(preference: ApprovalAutomationPreference) => void>();
   let dynamicIslandPreference: DynamicIslandPreference = { ...DEFAULT_DYNAMIC_ISLAND_PREFERENCE };
   let dynamicIslandPresentation: DynamicIslandPresentation = { serverId: "local", mode: "idle" };
+  let globalVoicePreference: GlobalVoicePreference = clone(DEFAULT_GLOBAL_VOICE_PREFERENCE);
+  const globalVoiceState = (): GlobalVoiceState => {
+    const status: GlobalVoiceState["shortcuts"][number]["status"] = globalVoicePreference.enabled
+      ? "active"
+      : "disabled";
+    return {
+      preference: clone(globalVoicePreference),
+      shortcuts: [
+        { target: { type: "picker" }, accelerator: globalVoicePreference.accelerator, status },
+        ...globalVoicePreference.agentShortcuts.map((shortcut) => ({
+          target: { type: "agent" as const, agentId: shortcut.agentId },
+          accelerator: shortcut.accelerator,
+          status,
+        })),
+      ],
+    };
+  };
   let agentStatus = clone(options.agentStatus ?? STORY_AGENT_STATUS);
   const changeProviderAccounts = (
     provider: AgentProviderId,
@@ -1054,6 +1074,19 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       performHaptic: async () => undefined,
       onAction: () => () => undefined,
       setInteractive: async () => undefined,
+    },
+    globalVoice: {
+      getState: async () => globalVoiceState(),
+      setPreference: async (preference) => {
+        globalVoicePreference = clone(preference);
+        return globalVoiceState();
+      },
+      getPickerSnapshot: async () => null,
+      setView: async () => undefined,
+      onPickerOpened: () => () => undefined,
+      onPickerShortcut: () => () => undefined,
+      sendTranscript: async () => undefined,
+      closePicker: async () => undefined,
     },
     computerUse: {
       getState: async () => computerUseState(),

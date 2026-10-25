@@ -67,6 +67,7 @@ import { registerIpcGroups } from "./ipc/define-ipc-group";
 import { dynamicIslandIpcHandlers } from "./ipc/dynamic-island-handlers";
 import { eventsIpcHandlers } from "./ipc/events-handlers";
 import { githubConnectorIpcHandlers } from "./ipc/github-connector-handlers";
+import { globalVoiceIpcHandlers } from "./ipc/global-voice-handlers";
 import { hostAdminIpcHandlers } from "./ipc/host-admin-handlers";
 import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
 import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
@@ -572,6 +573,7 @@ function registerIpcHandlers({
   voice,
   speech,
   dynamicIsland,
+  globalVoice,
   cuaDriver,
   computerUsePermissionHelp,
   analytics,
@@ -622,6 +624,7 @@ function registerIpcHandlers({
       resources: resourceMonitor,
     }),
     ...dynamicIslandIpcHandlers({ dynamicIsland }),
+    ...globalVoiceIpcHandlers({ globalVoice }),
     ...browserDockIpcHandlers({ browserDock }),
     ...computerUseIpcHandlers({
       cuaDriver,
@@ -1112,6 +1115,7 @@ if (!hasSingleInstanceLock) {
         remoteServers,
         updater,
         dynamicIsland,
+        globalVoice,
         teamStore,
         language,
         logoColor,
@@ -1280,6 +1284,10 @@ if (!hasSingleInstanceLock) {
       });
       await runCauseEffect(dynamicIsland.initialize()).catch((error) =>
         logger.error("Unable to initialize Dynamic Island:", toLogValue(error)),
+      );
+      // After the window loads: the shortcuts are registered only once the app can take them.
+      await runCauseEffect(globalVoice.initialize()).catch((error) =>
+        logger.error("Unable to initialize the global voice shortcuts:", toLogValue(error)),
       );
       await windows.loadRenderer(mainWindow);
       performance.mark("openbot:renderer-loaded");

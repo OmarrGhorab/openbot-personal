@@ -265,6 +265,14 @@ import type {
   WebhookTestResult,
 } from "./ipc-events";
 import type { GitHubConnectorRepositories, GitHubConnectorStatus } from "./ipc-github-connector";
+import type {
+  GlobalVoiceCommand,
+  GlobalVoicePickerSnapshot,
+  GlobalVoicePreference,
+  GlobalVoiceSendInput,
+  GlobalVoiceState,
+  GlobalVoiceViewState,
+} from "./ipc-global-voice";
 import type { ApplyHermesImportInput, HermesImportPreview } from "./ipc-hermes-import";
 import type { HiddenAgentsSnapshot, SetAgentHiddenInput } from "./ipc-hidden-agents";
 import type { HostAnalytics, HostAnalyticsInput } from "./ipc-host-analytics";
@@ -788,6 +796,23 @@ export const IPC_ENDPOINTS = {
     performHaptic: request<undefined, void>()("dynamic-island:perform-haptic"),
     action: event<DynamicIslandAction>()("dynamic-island:action"),
     setInteractive: request<SetDynamicIslandInteractiveInput, void>()("dynamic-island:set-interactive"),
+  },
+  /**
+   * The global voice shortcuts and their picker. The picker is a helper window: it asks for its
+   * snapshot and sends its transcript and close requests; main opens it and sends it shortcuts.
+   */
+  globalVoice: {
+    getState: request<undefined, GlobalVoiceState>()("global-voice:get-state"),
+    setPreference: request<GlobalVoicePreference, GlobalVoiceState>()("global-voice:set-preference"),
+    getPickerSnapshot: request<undefined, GlobalVoicePickerSnapshot | null>()("global-voice:get-picker-snapshot"),
+    pickerOpened: event<GlobalVoicePickerSnapshot>()("global-voice:picker-opened"),
+    /** A shortcut pressed while the picker is open. The picker decides what it does. */
+    /** A shortcut, Tab or Escape pressed while the window is open. The window decides what it does. */
+    pickerShortcut: event<GlobalVoiceCommand>()("global-voice:picker-shortcut"),
+    /** The window reports the view it shows and whether the dictation listens. */
+    setView: request<GlobalVoiceViewState, void>()("global-voice:set-view"),
+    sendTranscript: request<GlobalVoiceSendInput, void>()("global-voice:send-transcript"),
+    closePicker: request<undefined, void>()("global-voice:close-picker"),
   },
   /**
    * The dock over a local page. The main renderer publishes it and does its actions; the overlay view
@@ -1668,6 +1693,7 @@ export const IPC_GROUP_PATHS = {
   providerRuntimes: "providerRuntimes",
   voice: "voice",
   dynamicIsland: "dynamicIsland",
+  globalVoice: "globalVoice",
   browserDock: "browserDock",
   computerUse: "computerUse",
   skills: "skills",

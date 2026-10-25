@@ -1,5 +1,6 @@
 import {
   AUTOMATIC_VOICE_LANGUAGE,
+  DEFAULT_GLOBAL_VOICE_PREFERENCE,
   ELEVENLABS_VOICE_MODEL_ID,
   SPEECH_MODEL,
   SPEECH_VOICES,
@@ -36,6 +37,7 @@ import {
   Square,
   SwitchField,
 } from "@openbot/ui";
+import { GlobalVoiceShortcutField } from "@openbot/ui/features/global-voice/GlobalVoiceShortcutField";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createStore, For, Show } from "solid-js";
 import type { SettingsVoiceStore } from "./settings-voice-store";
@@ -125,6 +127,10 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
       return status?.phase === "ready" ? t("settings.voice.model.keySaved") : t("settings.voice.model.keyMissing");
     return downloadText(model.bytes, status);
   };
+
+  const globalVoice = () => props.store.state.globalVoice;
+  const shortcutStatus = (kind: "dictation" | "picker") =>
+    globalVoice()?.shortcuts.find((shortcut) => shortcut.target.type === kind)?.status;
 
   const speech = () => props.store.state.speech;
   const speechPhase = () => speech().status?.phase;
@@ -417,6 +423,62 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
               </Select>
             </ItemActions>
           </Item>
+        </ItemGroup>
+      </SettingsSection>
+      <SettingsSection data-settings-row="globalVoice.settings.title" title={t("globalVoice.settings.title")}>
+        <ItemGroup class="settings-modal-card">
+          <SwitchField
+            data-settings-row="globalVoice.settings.enabled.title"
+            checked={globalVoice()?.preference.enabled ?? false}
+            disabled={!globalVoice()}
+            onChange={(checked) => props.store.setGlobalVoiceEnabled(checked)}
+            label={t("globalVoice.settings.enabled.title")}
+            description={t("globalVoice.settings.enabled.description")}
+          />
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{t("globalVoice.settings.dictation.title")}</ItemTitle>
+              <ItemDescription>{t("globalVoice.settings.dictation.description")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <GlobalVoiceShortcutField
+                name={t("globalVoice.settings.dictation.title")}
+                accelerator={globalVoice()?.preference.accelerator ?? null}
+                status={shortcutStatus("dictation")}
+                defaultAccelerator={DEFAULT_GLOBAL_VOICE_PREFERENCE.accelerator}
+                disabled={!globalVoice()?.preference.enabled}
+                onChange={(accelerator) => {
+                  if (accelerator) props.store.setGlobalVoiceAccelerator(accelerator);
+                }}
+              />
+            </ItemActions>
+          </Item>
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{t("globalVoice.settings.picker.title")}</ItemTitle>
+              <ItemDescription>{t("globalVoice.settings.picker.description")}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <GlobalVoiceShortcutField
+                name={t("globalVoice.settings.picker.title")}
+                accelerator={globalVoice()?.preference.pickerAccelerator ?? null}
+                status={shortcutStatus("picker")}
+                defaultAccelerator={DEFAULT_GLOBAL_VOICE_PREFERENCE.pickerAccelerator}
+                disabled={!globalVoice()?.preference.enabled}
+                onChange={(accelerator) => {
+                  if (accelerator) props.store.setGlobalVoicePickerAccelerator(accelerator);
+                }}
+              />
+            </ItemActions>
+          </Item>
+          <SwitchField
+            data-settings-row="globalVoice.settings.sendAfterSpeaking.title"
+            checked={globalVoice()?.preference.sendAfterSpeaking ?? false}
+            disabled={!globalVoice()}
+            onChange={(checked) => props.store.setGlobalVoiceSendAfterSpeaking(checked)}
+            label={t("globalVoice.settings.sendAfterSpeaking.title")}
+            description={t("globalVoice.settings.sendAfterSpeaking.description")}
+          />
         </ItemGroup>
       </SettingsSection>
     </>

@@ -46,3 +46,18 @@
 - [ ] Marketplace shareUrl: change generator in scripts/build-plugin-catalog.ts (open)
 - [ ] Release scripts: keep four remote desktop targets or drop two (open, owner decision)
 - [x] Commit and push feat/own-backend, merged into main
+
+## 6. Global voice (branch feat/global-voice)
+- [x] Merge origin/main (43eb450: Arabic/English dictation, Whisper default)
+- [x] Contract: global voice preference, state, picker and command types, endpoints
+- [x] Main: preference store, GlobalVoiceController (shortcuts, last agent, view state)
+- [x] Main: picker window factory, IPC handlers with picker sender check, wiring, teardown ordinal 21
+- [x] Preload bridge and decoders; preview mock
+- [x] i18n globalVoice catalogs (en, ar) and error catalog
+- [x] Renderer: one helper window with pill and picker views, recorder, Tab/Escape while listening
+- [x] Settings > Voice: shortcut fields, send-after-speaking, registration status
+- [x] Agent settings: direct shortcut per agent
+- [ ] Hold-to-talk: NOT shipped (needs native key hook, Accessibility flow; not verifiable here)
+- [x] changelog.d/feat-global-voice.md
+- [x] Narrow checks: typecheck:node, typecheck:renderer, biome on changed files, sender-guard vitest
+- [ ] Commit, push feat/global-voice (no PR)
