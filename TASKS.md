@@ -54,7 +54,7 @@
 - [x] Wrangler env `omar`, no R2, workers.dev only, deploy script does not read `.env.production`
 - [x] Document D1, KV (none), rate limits, and the desktop `OPENBOT_ACCOUNT_URL`
 - [x] Onboarding step order unchanged; test locks language, then sign-in, then first run
-- [ ] Narrow checks passed here; pull request still to open
+- [x] Narrow checks passed here. Pull request: https://github.com/OmarrGhorab/openbot-personal/pull/14
 
 ## 6. Global voice (branch feat/global-voice)
 - [x] Merge origin/main (43eb450: Arabic/English dictation, Whisper default)
