@@ -35,7 +35,7 @@ export function StatusIcon(props: { status: MonitorStatus }): JSX.Element {
     <span class="monitor-status-icon" data-status={props.status} aria-hidden="true">
       <Switch>
         <Match when={props.status === "working"}>
-          <LoaderCircle />
+          <LoaderCircle class="monitor-spin" />
         </Match>
         <Match when={props.status === "waiting"}>
           <Clock3 />

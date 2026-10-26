@@ -9,7 +9,7 @@ import { Show } from "solid-js";
 import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
-import { monitorAvatarMood, type MonitorStatus } from "./monitor-status";
+import { MONITOR_STATUS_MOOD, type MonitorStatus } from "./monitor-status";
 import { monitorAgo } from "./monitor-time";
 import { ProgressBar, type ProgressBarProps } from "./ProgressBar";
 
@@ -42,7 +42,7 @@ export function FeedItem(props: FeedItemProps): JSX.Element {
           <AgentAvatar
             class="monitor-feed-avatar"
             agent={agent()}
-            mood={props.status ? monitorAvatarMood(props.status) : "idle"}
+            mood={props.status ? MONITOR_STATUS_MOOD[props.status] : "idle"}
           />
         )}
       </Show>

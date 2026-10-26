@@ -10,7 +10,7 @@ import { Show } from "solid-js";
 import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
-import { monitorAvatarMood, type MonitorStatus } from "./monitor-status";
+import { MONITOR_STATUS_MOOD, type MonitorStatus } from "./monitor-status";
 import { monitorSince } from "./monitor-time";
 import { ProgressBar, type ProgressBarProps } from "./ProgressBar";
 import { StatusLine } from "./StatusPill";
@@ -58,7 +58,7 @@ export function AgentNodeCard(props: AgentNodeCardProps): JSX.Element {
         )}
       </Show>
       <header class="monitor-node-header">
-        <AgentAvatar class="monitor-node-avatar" agent={props.agent} mood={monitorAvatarMood(props.status)} />
+        <AgentAvatar class="monitor-node-avatar" agent={props.agent} mood={MONITOR_STATUS_MOOD[props.status]} />
         <div class="monitor-node-title">
           <Show when={props.role}>
             <span class="monitor-node-role">{props.role}</span>

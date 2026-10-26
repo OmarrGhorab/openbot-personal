@@ -2,71 +2,71 @@
 
 /* One colour per status. Every part reads `--monitor-status` from its own `data-status`. */
 [data-status="working"]:is(
-    .monitor-status-dot,
-    .monitor-status-pill,
-    .monitor-status-icon,
-    .monitor-status-line,
-    .monitor-stat,
-    .monitor-progress,
-    .monitor-node,
-    .monitor-tool-row
-  ) {
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
   --monitor-status: var(--openbot-accent);
   --monitor-status-text: var(--openbot-accent-text);
 }
 
 [data-status="waiting"]:is(
-    .monitor-status-dot,
-    .monitor-status-pill,
-    .monitor-status-icon,
-    .monitor-status-line,
-    .monitor-stat,
-    .monitor-progress,
-    .monitor-node,
-    .monitor-tool-row
-  ) {
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
   --monitor-status: var(--openbot-warning);
   --monitor-status-text: var(--openbot-warning-text);
 }
 
 [data-status="error"]:is(
-    .monitor-status-dot,
-    .monitor-status-pill,
-    .monitor-status-icon,
-    .monitor-status-line,
-    .monitor-stat,
-    .monitor-progress,
-    .monitor-node,
-    .monitor-tool-row
-  ) {
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
   --monitor-status: var(--openbot-danger);
   --monitor-status-text: var(--openbot-danger-text);
 }
 
 [data-status="done"]:is(
-    .monitor-status-dot,
-    .monitor-status-pill,
-    .monitor-status-icon,
-    .monitor-status-line,
-    .monitor-stat,
-    .monitor-progress,
-    .monitor-node,
-    .monitor-tool-row
-  ) {
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
   --monitor-status: var(--openbot-success);
   --monitor-status-text: var(--openbot-success-text);
 }
 
 [data-status="idle"]:is(
-    .monitor-status-dot,
-    .monitor-status-pill,
-    .monitor-status-icon,
-    .monitor-status-line,
-    .monitor-stat,
-    .monitor-progress,
-    .monitor-node,
-    .monitor-tool-row
-  ) {
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
   --monitor-status: var(--openbot-text-dim);
   --monitor-status-text: var(--openbot-text-dim);
 }
@@ -105,7 +105,7 @@
   height: var(--openbot-icon-sm);
 }
 
-.monitor-status-icon[data-status="working"] svg {
+.monitor-spin {
   animation: monitor-spin 1.2s linear infinite;
 }
 
@@ -461,7 +461,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .monitor-status-icon[data-status="working"] svg {
+  .monitor-spin {
     animation: none;
   }
 }

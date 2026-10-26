@@ -34,12 +34,13 @@ export const MONITOR_TOOL_STATUS_LABEL = {
 } as const satisfies Record<MonitorToolCallStatus, AppTextKey>;
 
 /** The face of the agent icon for a status. It never changes the silhouette. */
-export function monitorAvatarMood(status: MonitorStatus): AvatarMood {
-  if (status === "working") return "working";
-  if (status === "waiting") return "waiting";
-  if (status === "error") return "failed";
-  return "idle";
-}
+export const MONITOR_STATUS_MOOD = {
+  working: "working",
+  waiting: "waiting",
+  error: "failed",
+  done: "idle",
+  idle: "idle",
+} as const satisfies Record<MonitorStatus, AvatarMood>;
 
 export type MonitorToolKind = "edit" | "read" | "command" | "search" | "web" | "other";
 

@@ -4,8 +4,8 @@
  * the main process. The whole row selects the call when `onSelect` is set.
  */
 
-import { Button, File, FilePen, Globe2, Search, Terminal, Wrench } from "@openbot/ui";
 import type { MonitorToolCallStatus } from "@openbot/contracts/ipc";
+import { Button, File, FilePen, Globe2, Search, Terminal, Wrench } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
@@ -42,10 +42,10 @@ export function ToolCallRow(props: ToolCallRowProps): JSX.Element {
   };
   const outcome = () => {
     const duration =
-      props.status !== "running" && props.durationMs != null
-        ? monitorDuration(props.durationMs, t, format)
-        : undefined;
-    const label = props.statusLabel ?? (props.status === "done" && duration ? undefined : t(MONITOR_TOOL_STATUS_LABEL[props.status]));
+      props.status !== "running" && props.durationMs != null ? monitorDuration(props.durationMs, t, format) : undefined;
+    const label =
+      props.statusLabel ??
+      (props.status === "done" && duration ? undefined : t(MONITOR_TOOL_STATUS_LABEL[props.status]));
     if (label && duration) return t("monitor.tool.outcome", { status: label, duration });
     return label ?? duration ?? "";
   };
