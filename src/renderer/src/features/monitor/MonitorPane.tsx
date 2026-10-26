@@ -1,13 +1,13 @@
-import { SlidingTabs } from "@openbot/ui";
+import { Button, Pause, Play, SlidingTabs } from "@openbot/ui";
 import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
 import { MONITOR_CHANNEL_TABS, MonitorChannelHeader } from "@openbot/ui/features/monitor/MonitorChannelHeader";
+import { MonitorPausedBanner } from "@openbot/ui/features/monitor/MonitorPausedBanner";
 import { useText } from "@openbot/ui/text";
 import { createMemo, For, Show } from "solid-js";
 import { MonitorCanvas } from "./MonitorCanvas";
+import { MonitorFeed } from "./MonitorFeed";
+import { MonitorTasks } from "./MonitorTasks";
 import { useMonitor } from "./monitor-context";
-
-/** The views of a channel that open now. Feed and Tasks come with #24. */
-const AVAILABLE_TABS = ["canvas"] as const;
 
 /**
  * The main area of the Monitor page: the open channel with its header and canvas, or every agent.
@@ -54,14 +54,41 @@ export function MonitorPane() {
               <MonitorChannelHeader
                 name={monitor.state.snapshot?.channelName ?? ""}
                 live={monitor.state.snapshot !== null}
+                paused={monitor.state.paused}
                 agents={headerAgents()}
-                availableTabs={AVAILABLE_TABS}
+                actions={
+                  <Show when={monitor.state.snapshot !== null}>
+                    <Show
+                      when={monitor.state.paused}
+                      fallback={
+                        <Button type="button" variant="outline" size="sm" onClick={() => monitor.pauseFeed()}>
+                          <Pause aria-hidden="true" />
+                          {t("monitor.pause.pause")}
+                        </Button>
+                      }
+                    >
+                      <Button type="button" variant="outline" size="sm" onClick={() => monitor.resumeFeed()}>
+                        <Play aria-hidden="true" />
+                        {t("monitor.pause.resume")}
+                      </Button>
+                    </Show>
+                  </Show>
+                }
               />
               <div class="monitor-channel-body">
                 {error()}
+                <Show when={monitor.state.paused}>
+                  <MonitorPausedBanner count={monitor.waitingEvents()} onResume={() => monitor.resumeFeed()} />
+                </Show>
                 <SlidingTabs.ContentSlot>
                   <SlidingTabs.Content value="canvas">
                     <MonitorCanvas />
+                  </SlidingTabs.Content>
+                  <SlidingTabs.Content value="feed">
+                    <MonitorFeed />
+                  </SlidingTabs.Content>
+                  <SlidingTabs.Content value="tasks">
+                    <MonitorTasks />
                   </SlidingTabs.Content>
                 </SlidingTabs.ContentSlot>
               </div>
