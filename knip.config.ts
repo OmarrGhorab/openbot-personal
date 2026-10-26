@@ -74,8 +74,9 @@ const config: KnipConfig = {
     },
     "apps/auth-api": {
       // The wrangler plugin of knip reads `main` (src/worker-entry.ts) from wrangler.jsonc.
-      entry: ["*.ts"],
-      project: ["src/**/*.{ts,tsx,css}", "test/**/*.ts", "*.ts"],
+      // Each file in scripts/ is a command that package.json or CI runs.
+      entry: ["*.ts", "scripts/**/*.ts"],
+      project: ["src/**/*.{ts,tsx,css}", "test/**/*.ts", "scripts/**/*.ts", "*.ts"],
       // `cloudflare:workers` is a runtime module of the Workers platform, not an npm package.
       ignoreDependencies: ["cloudflare"],
     },

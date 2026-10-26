@@ -88,7 +88,7 @@ const ARABIC_TO_LATIN: Readonly<Record<string, string>> = {
 };
 
 /** Lower case, no diacritics or tatweel, one form of alef, ya and ta marbuta, letters and digits only. */
-export function normalizeAddressWord(word: string): string {
+function normalizeAddressWord(word: string): string {
   return word
     .normalize("NFKD")
     .toLowerCase()
