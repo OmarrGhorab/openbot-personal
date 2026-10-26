@@ -77,7 +77,10 @@ try {
   const before = await identity(busy.agent.id);
 
   await page.getByRole("button", { name: en["app.rail.monitor"], exact: true }).click();
-  await page.getByRole("button", { name: new RegExp(name) }).first().click();
+  await page
+    .getByRole("button", { name: new RegExp(name) })
+    .first()
+    .click();
   const card = page.getByRole("button", { name: en["monitor.node.select"].replace("{name}", busy.agent.name) });
 
   // Open, then Escape.
