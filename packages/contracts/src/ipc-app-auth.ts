@@ -69,6 +69,11 @@ export interface UpdateStatus {
    * install, download and check actions but keeps showing the status; absent means unmanaged.
    */
   managedByHost?: boolean;
+  /**
+   * True when this build cannot install its own update (an unsigned macOS build). "available" is a
+   * notice then, and the download action opens the release page. Absent means normal updates.
+   */
+  manualInstall?: boolean;
   /** A restart that an admin of a joined server asked for. Absent when none waits. */
   scheduledRestart?: ScheduledUpdateRestart;
   /** A restart that the user of this computer asked for. Absent when none waits. */
