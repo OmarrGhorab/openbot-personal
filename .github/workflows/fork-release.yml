@@ -29,6 +29,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
       INPUT_VERSION: ${{ inputs.version }}
+      # The services the app talks to are fixed at build time (packages/contracts/src/own-backend.ts).
+      # Without them the build falls back to the *.openbot.invalid placeholders and hangs at
+      # "Starting the account service". They are public URLs, kept as repository variables.
+      OPENBOT_ACCOUNT_URL: ${{ vars.OPENBOT_ACCOUNT_URL }}
+      OPENBOT_SIGNAL_URL: ${{ vars.OPENBOT_SIGNAL_URL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,6 +42,12 @@ jobs:
         with:
           install: none
       - run: bun install --frozen-lockfile
+      - name: Require backend settings
+        shell: bash
+        run: |
+          for name in OPENBOT_ACCOUNT_URL OPENBOT_SIGNAL_URL; do
+            if [[ -z "${!name}" ]]; then echo "Repository variable $name is not set." >&2; exit 1; fi
+          done
       - name: Set version
         id: version
         shell: bash
@@ -80,6 +91,12 @@ jobs:
           cat "$feed"
           grep -F 'owner: OmarrGhorab' "$feed"
           grep -F 'repo: openbot-personal' "$feed"
+          asar=$(find dist -name app.asar -path '*Resources*' | head -1)
+          grep -a -c -F "$OPENBOT_ACCOUNT_URL" "$asar"
+          grep -a -c -F "$OPENBOT_SIGNAL_URL" "$asar"
+          if grep -a -q -F 'https://account.openbot.invalid' "$asar" && ! grep -a -q -F "$OPENBOT_ACCOUNT_URL" "$asar"; then
+            echo "The app still uses the placeholder account URL." >&2; exit 1
+          fi
       - name: Publish release
         shell: bash
         env:

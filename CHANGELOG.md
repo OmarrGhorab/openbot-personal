@@ -6,6 +6,12 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.49.2] - 2026-10-27
+
+### Fixed
+
+- Fork releases are built against the omar account service and Signal server, so the app no longer hangs at "Starting the account service" (0.49.1 was built without them).
+
 ## [0.49.0] - 2026-10-24
 
 ### Added
