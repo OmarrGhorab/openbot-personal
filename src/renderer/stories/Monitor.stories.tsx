@@ -4,11 +4,18 @@
  */
 
 import type { AvatarHue } from "@openbot/contracts/ipc";
-import { Heading } from "@openbot/ui";
+import { Heading, SlidingTabs } from "@openbot/ui";
 import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
 import { AgentRow } from "@openbot/ui/features/monitor/AgentRow";
 import { ChannelRow } from "@openbot/ui/features/monitor/ChannelRow";
 import { FeedItem } from "@openbot/ui/features/monitor/FeedItem";
+import {
+  MonitorCanvasBoard,
+  type MonitorCanvasEdge,
+  type MonitorCanvasNode,
+} from "@openbot/ui/features/monitor/MonitorCanvasBoard";
+import { MonitorCanvasFooter } from "@openbot/ui/features/monitor/MonitorCanvasFooter";
+import { MonitorChannelHeader } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { type MonitorLiveStatus, MonitorSidebar } from "@openbot/ui/features/monitor/MonitorSidebar";
 import { MONITOR_STATUSES } from "@openbot/ui/features/monitor/monitor-status";
 import { ProgressBar } from "@openbot/ui/features/monitor/ProgressBar";
@@ -391,6 +398,113 @@ export const Sidebar: Story = {
           allAgentsOpen={allAgents()}
           onOpenSearch={() => undefined}
         />
+      </div>
+    );
+  },
+};
+
+/** The five agents of the design, placed in columns by hand-off order as the app places them. */
+const CANVAS_NODES: MonitorCanvasNode[] = [
+  {
+    id: "chief",
+    position: { x: 0, y: 0 },
+    card: {
+      agent: chief,
+      name: "Chief",
+      kicker: "Channel lead",
+      task: "Posted the brief: redesign the pricing page and ship it by Friday.",
+      status: "done",
+      since: minutesAgo(21),
+    },
+  },
+  {
+    id: "researcher",
+    position: { x: 336, y: -120 },
+    card: {
+      agent: researcher,
+      name: "Researcher",
+      task: "Compare 12 competitor pricing layouts and recommend one.",
+      status: "waiting",
+      statusLabel: "Waiting on Chief",
+      since: minutesAgo(4),
+    },
+  },
+  {
+    id: "designer",
+    position: { x: 336, y: 120 },
+    card: {
+      agent: designer,
+      name: "Designer",
+      task: "Review the layouts and finalise the pricing cards.",
+      progress: { value: 0.4, step: { index: 2, total: 5 }, label: "Reviewing" },
+      status: "working",
+      since: minutesAgo(3),
+    },
+  },
+  {
+    id: "developer",
+    position: { x: 672, y: 0 },
+    card: {
+      agent: developer,
+      name: "Developer",
+      task: "Build pricing section: wire the pricing data into the new cards.",
+      progress: { value: 0.6, step: { index: 3, total: 5 }, label: "Wiring data" },
+      status: "working",
+      since: minutesAgo(14),
+    },
+  },
+  {
+    id: "tester",
+    position: { x: 1008, y: 0 },
+    card: {
+      agent: tester,
+      name: "QA Tester",
+      task: "Checkout flow failed at step 4: expected $29, got $0.",
+      status: "error",
+      since: minutesAgo(1),
+    },
+  },
+];
+
+const CANVAS_EDGES: MonitorCanvasEdge[] = [
+  { id: "chief|researcher", from: "chief", to: "researcher", label: "Assigned", state: "done" },
+  { id: "chief|designer", from: "chief", to: "designer", label: "Assigned", state: "done" },
+  { id: "designer|researcher", from: "researcher", to: "designer", label: "9 messages", state: "active" },
+  { id: "developer|researcher", from: "researcher", to: "developer", label: "12 messages", state: "done" },
+  { id: "designer|developer", from: "designer", to: "developer", label: "14 messages", state: "active" },
+  { id: "developer|tester", from: "developer", to: "tester", label: "Assigned", state: "done" },
+];
+
+export const Canvas: Story = {
+  render: () => {
+    const [selected, setSelected] = createSignal<string | null>("developer");
+    return (
+      <div style={{ display: "flex", width: "1080px", height: "820px" }}>
+        <section class="monitor-page" style={{ flex: "1" }}>
+          <SlidingTabs.Root class="monitor-channel" value="canvas">
+            <MonitorChannelHeader
+              name="website-redesign"
+              live
+              agents={CANVAS_NODES.map((node) => ({ id: node.id, name: node.card.name, avatar: node.card.agent }))}
+              onOpenMembers={() => undefined}
+              availableTabs={["canvas"]}
+            />
+            <div class="monitor-channel-body">
+              <MonitorCanvasBoard
+                label="website-redesign"
+                nodes={CANVAS_NODES}
+                edges={CANVAS_EDGES}
+                selectedId={selected()}
+                onSelectNode={setSelected}
+                onClearSelection={() => setSelected(null)}
+                onOpenEdge={() => undefined}
+                now={NOW}
+              >
+                <MonitorCanvasFooter onAsk={() => undefined} />
+              </MonitorCanvasBoard>
+            </div>
+          </SlidingTabs.Root>
+        </section>
       </div>
     );
   },

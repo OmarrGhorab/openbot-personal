@@ -9,8 +9,7 @@
  * every edit goes out through a callback, so the caller decides what an edit does.
  */
 
-import { Button, ContextMenu, Minus, Plus, Scan } from "@openbot/ui";
-import { prefersReducedMotion } from "@openbot/ui/utils";
+import { Button, ContextMenu, Minus } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, createStore, For, onSettled, Show } from "solid-js";
 import type { AgentProfile } from "../../data";
@@ -18,6 +17,8 @@ import { useText } from "../../text";
 import { DiagramCanvasMenu } from "./DiagramCanvasMenu";
 import { type DiagramModelChoice, DiagramNewAgentCard, type DiagramNewAgentDraft } from "./DiagramNewAgentCard";
 import { DiagramNodeCard, type DiagramPortTarget } from "./DiagramNodeCard";
+import { DiagramZoomControls } from "./DiagramZoomControls";
+import { createDiagramCamera, DIAGRAM_ZOOM_STEP } from "./diagram-camera";
 import {
   type DiagramConnectionProblem,
   diagramBounds,
@@ -37,12 +38,7 @@ import {
 } from "./diagram-graph";
 import type { Diagram, DiagramEdge, DiagramNode, DiagramPoint } from "./diagram-model";
 
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 2;
-const ZOOM_STEP = 1.2;
-const WHEEL_ZOOM_RATE = 0.01;
 const KEY_STEP = 48;
-const FIT_MARGIN = 64;
 /** A press that moves less than this is a click, not a drag. */
 const DRAG_THRESHOLD = 4;
 /** Cards land on this grid, so a row of them lines up without effort. */
@@ -108,12 +104,11 @@ export interface DiagramBoardProps {
 }
 
 export function DiagramBoard(props: DiagramBoardProps) {
-  const { t, format } = useText();
+  const { t } = useText();
   const editable = () => props.editable !== false;
   const connectable = () => editable() && props.connectable !== false;
   const nodeRemovable = (nodeId: string) => editable() && (props.canRemoveNode?.(nodeId) ?? true);
   const edgeRemovable = (edgeId: string) => editable() && (props.canRemoveEdge?.(edgeId) ?? true);
-  const [camera, setCamera] = createStore({ x: 0, y: 0, scale: 1, settling: false });
   const [interaction, setInteraction] = createStore<BoardInteraction>({
     source: null,
     pointer: null,
@@ -127,7 +122,6 @@ export function DiagramBoard(props: DiagramBoardProps) {
   let gesture: Gesture | undefined;
   /** The click that ends a drag must not also select or connect. */
   let suppressClick = false;
-  let cameraMoved = false;
 
   const nodeById = createMemo(() => new Map(props.diagram.nodes.map((node) => [node.id, node])));
   const agentById = createMemo(() => new Map(props.agents.map((agent) => [agent.id, agent])));
@@ -162,15 +156,11 @@ export function DiagramBoard(props: DiagramBoardProps) {
     return agentById().get(node.agentId)?.name ?? node.agentId;
   };
 
-  const view = () => ({ width: viewport?.clientWidth ?? 0, height: viewport?.clientHeight ?? 0 });
-  const local = (event: { clientX: number; clientY: number }): DiagramPoint => {
-    const rect = viewport?.getBoundingClientRect();
-    return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
-  };
-  const toWorld = (point: DiagramPoint): DiagramPoint => ({
-    x: (point.x - camera.x) / camera.scale,
-    y: (point.y - camera.y) / camera.scale,
+  const cameraControl = createDiagramCamera({
+    viewport: () => viewport,
+    bounds: () => diagramBounds(props.diagram.nodes),
   });
+  const { camera, local, toWorld, moveCamera, zoomBy, fitView } = cameraControl;
   const snapped = (point: DiagramPoint): DiagramPoint => ({
     x: Math.round(point.x / SNAP) * SNAP,
     y: Math.round(point.y / SNAP) * SNAP,
@@ -179,48 +169,6 @@ export function DiagramBoard(props: DiagramBoardProps) {
   let menuPoint: { screen: DiagramPoint; world: DiagramPoint } | null = null;
   const [newAgentAt, setNewAgentAt] = createSignal<{ screen: DiagramPoint; world: DiagramPoint } | null>(null);
   const canAddAgents = () => editable() && Boolean(props.onPlaceAgent);
-  const clampScale = (scale: number) => Math.min(Math.max(scale, MIN_SCALE), MAX_SCALE);
-  const moveCamera = (next: { x: number; y: number; scale: number }, animate: boolean, byUser = true) => {
-    cameraMoved ||= byUser;
-    setCamera((state) => {
-      state.x = next.x;
-      state.y = next.y;
-      state.scale = clampScale(next.scale);
-      // Buttons and keys glide to the new view; a drag, a scroll or a pinch follows at once.
-      state.settling = animate && !prefersReducedMotion();
-    });
-  };
-  const zoomAround = (scale: number, point: DiagramPoint) => {
-    const next = clampScale(scale);
-    return {
-      scale: next,
-      x: point.x - ((point.x - camera.x) * next) / camera.scale,
-      y: point.y - ((point.y - camera.y) * next) / camera.scale,
-    };
-  };
-  const zoomBy = (factor: number) =>
-    moveCamera(zoomAround(camera.scale * factor, { x: view().width / 2, y: view().height / 2 }), true);
-  const fitView = (animate: boolean) => {
-    const bounds = diagramBounds(props.diagram.nodes);
-    const { width, height } = view();
-    if (!width || !height) return;
-    if (!bounds.width) {
-      moveCamera({ x: width / 2, y: height / 2, scale: 1 }, animate, false);
-      return;
-    }
-    const scale = clampScale(
-      Math.min((width - FIT_MARGIN * 2) / bounds.width, (height - FIT_MARGIN * 2) / bounds.height, 1),
-    );
-    moveCamera(
-      {
-        scale,
-        x: (width - bounds.width * scale) / 2 - bounds.x * scale,
-        y: (height - bounds.height * scale) / 2 - bounds.y * scale,
-      },
-      animate,
-      false,
-    );
-  };
 
   const announce = (message: string, tone: "neutral" | "danger" = "neutral") =>
     setInteraction((state) => {
@@ -287,21 +235,8 @@ export function DiagramBoard(props: DiagramBoardProps) {
   onSettled(() => {
     const area = viewport;
     if (!area) return;
-    // The diagram stays fitted to the area while it resizes, until the user moves the camera.
-    const onResize = new ResizeObserver(() => {
-      if (!cameraMoved && area.clientWidth) fitView(false);
-    });
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      // A trackpad pinch arrives as a wheel event with Ctrl held.
-      if (event.ctrlKey || event.metaKey) {
-        moveCamera(zoomAround(camera.scale * Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), local(event)), false);
-        return;
-      }
-      const sideways = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
-      const down = event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY;
-      moveCamera({ x: camera.x - sideways, y: camera.y - down, scale: camera.scale }, false);
-    };
+    // The camera takes the wheel, and keeps the diagram fitted while the area resizes.
+    const detachCamera = cameraControl.attach();
     const onMove = (event: PointerEvent) => {
       const current = gesture;
       if (!current) return;
@@ -402,16 +337,13 @@ export function DiagramBoard(props: DiagramBoardProps) {
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     };
-    area.addEventListener("wheel", onWheel, { passive: false });
     area.addEventListener("pointerdown", onDown);
-    onResize.observe(area);
     return () => {
-      area.removeEventListener("wheel", onWheel);
+      detachCamera();
       area.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
-      onResize.disconnect();
     };
   });
 
@@ -451,11 +383,7 @@ export function DiagramBoard(props: DiagramBoardProps) {
           <div
             ref={(element) => (viewport = element)}
             class="diagram-board-viewport"
-            style={{
-              "--diagram-grid-size": `${GRID * camera.scale}px`,
-              "--diagram-grid-x": `${camera.x}px`,
-              "--diagram-grid-y": `${camera.y}px`,
-            }}
+            style={cameraControl.gridStyle(GRID)}
             data-connecting={interaction.source ? "" : undefined}
             data-dragging={interaction.dragging ? "" : undefined}
             // The canvas takes the arrow keys, so a screen reader passes them through to it.
@@ -472,8 +400,8 @@ export function DiagramBoard(props: DiagramBoardProps) {
               }[event.key];
               if (step)
                 moveCamera({ x: camera.x + (step[0] ?? 0), y: camera.y + (step[1] ?? 0), scale: camera.scale }, true);
-              else if (event.key === "+" || event.key === "=") zoomBy(ZOOM_STEP);
-              else if (event.key === "-") zoomBy(1 / ZOOM_STEP);
+              else if (event.key === "+" || event.key === "=") zoomBy(DIAGRAM_ZOOM_STEP);
+              else if (event.key === "-") zoomBy(1 / DIAGRAM_ZOOM_STEP);
               else if (event.key === "0") fitView(true);
               else if (event.key === "Escape" && interaction.source) cancelConnection();
               else if ((event.key === "Delete" || event.key === "Backspace") && editable()) {
@@ -488,7 +416,7 @@ export function DiagramBoard(props: DiagramBoardProps) {
               data-routine-color={
                 props.focusRoutineId ? diagramRoutineColor(props.diagram.nodes, props.focusRoutineId) : undefined
               }
-              style={{ transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})` }}
+              style={{ transform: cameraControl.worldTransform() }}
             >
               <svg class="diagram-edges" aria-hidden="true">
                 <For each={props.diagram.edges}>
@@ -673,38 +601,7 @@ export function DiagramBoard(props: DiagramBoardProps) {
         )}
       </Show>
 
-      <div class="diagram-board-zoom" role="toolbar" aria-label={t("diagram.zoom.label")} data-diagram-overlay="">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label={t("diagram.zoom.in")}
-          title={t("diagram.zoom.in")}
-          onClick={() => zoomBy(ZOOM_STEP)}
-        >
-          <Plus aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label={t("diagram.zoom.out")}
-          title={t("diagram.zoom.out")}
-          onClick={() => zoomBy(1 / ZOOM_STEP)}
-        >
-          <Minus aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label={t("diagram.zoom.fit", { zoom: format.percent(camera.scale, { maximumFractionDigits: 0 }) })}
-          title={t("diagram.zoom.fit", { zoom: format.percent(camera.scale, { maximumFractionDigits: 0 }) })}
-          onClick={() => fitView(true)}
-        >
-          <Scan aria-hidden="true" />
-        </Button>
-      </div>
+      <DiagramZoomControls camera={cameraControl} />
 
       <p class="diagram-board-status" data-tone={interaction.messageTone} role="status" aria-live="polite">
         {interaction.message}

@@ -709,3 +709,226 @@
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--openbot-space-8) * 7), 1fr));
   list-style: none;
 }
+
+/* The header of a channel: name, Live pill, agent icons, and the view switch at the end. */
+.monitor-channel-members.ui-button,
+.monitor-channel-members {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.monitor-channel-avatars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.monitor-channel-avatar.agent-avatar {
+  position: relative;
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-sm);
+  box-shadow: 0 0 0 2px var(--openbot-bg-canvas);
+}
+
+.monitor-channel-avatar.agent-avatar + .monitor-channel-avatar.agent-avatar {
+  margin-inline-start: calc(var(--openbot-space-1) * -1);
+}
+
+.monitor-channel-count {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.monitor-channel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  margin-inline-start: auto;
+}
+
+.monitor-channel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.monitor-channel-body > .monitor-page-note {
+  margin: 0;
+  padding: var(--openbot-space-3) var(--openbot-space-6) 0;
+}
+
+.monitor-canvas-note.monitor-page-note {
+  padding: var(--openbot-space-6);
+}
+
+.monitor-channel-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.monitor-channel-body > .ui-sliding-tabs-content-slot,
+.monitor-channel-body .ui-sliding-tabs-content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+/* The canvas of a channel. It reuses the board and the camera of the routine diagram. */
+.monitor-canvas.diagram-board {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.monitor-canvas-viewport.diagram-board-viewport {
+  cursor: grab;
+}
+
+.monitor-canvas-viewport.diagram-board-viewport[data-panning] {
+  cursor: grabbing;
+}
+
+.monitor-canvas-viewport.diagram-board-viewport:focus-visible {
+  box-shadow: inset var(--openbot-focus-ring);
+}
+
+.monitor-canvas-node {
+  position: absolute;
+  top: var(--monitor-node-y);
+  left: var(--monitor-node-x);
+  width: var(--monitor-node-width);
+  cursor: default;
+}
+
+.monitor-canvas-node .monitor-select.ui-button:focus-visible {
+  box-shadow: var(--openbot-focus-ring);
+}
+
+.monitor-canvas-edge-line {
+  fill: none;
+  stroke: var(--openbot-border-strong);
+  stroke-linecap: round;
+  stroke-width: 1.5px;
+}
+
+.monitor-canvas-edge-arrow {
+  fill: none;
+  stroke: var(--openbot-border-strong);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5px;
+}
+
+.monitor-canvas-edge[data-state="active"] :is(.monitor-canvas-edge-line, .monitor-canvas-edge-arrow) {
+  stroke: var(--openbot-accent);
+}
+
+.monitor-canvas-edge[data-state="active"] .monitor-canvas-edge-line {
+  stroke-dasharray: 4 4;
+  animation: diagram-edge-flow 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitor-canvas-edge[data-state="active"] .monitor-canvas-edge-line {
+    animation: none;
+  }
+}
+
+.monitor-canvas-edge-label.ui-button {
+  position: absolute;
+  top: var(--monitor-edge-y);
+  left: var(--monitor-edge-x);
+  z-index: 1;
+  height: auto;
+  min-height: 0;
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-canvas);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-regular);
+  line-height: var(--openbot-leading-sm);
+  translate: -50% -50%;
+  white-space: nowrap;
+}
+
+.monitor-canvas-edge-label.ui-button[data-state="active"] {
+  border-color: var(--openbot-accent-soft);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-canvas-edge-label.ui-button:hover {
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-canvas-zoom.diagram-board-zoom {
+  top: var(--openbot-space-4);
+  right: auto;
+  bottom: auto;
+  inset-inline-end: var(--openbot-space-4);
+}
+
+.monitor-canvas-ask.ui-button {
+  position: absolute;
+  bottom: var(--openbot-space-4);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding-inline: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-overlay);
+  box-shadow: var(--openbot-shadow-raised);
+  inset-inline-start: var(--openbot-space-6);
+}
+
+.monitor-canvas-ask-icon {
+  display: inline-grid;
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+  place-items: center;
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-accent-soft);
+  color: var(--openbot-accent-text);
+}
+
+.monitor-canvas-ask-icon svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.monitor-canvas-legend {
+  position: absolute;
+  bottom: var(--openbot-space-4);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  margin: 0;
+  padding: var(--openbot-space-1-5) var(--openbot-space-3);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-overlay);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  inset-inline-end: var(--openbot-space-6);
+  list-style: none;
+}
+
+.monitor-canvas-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  white-space: nowrap;
+}

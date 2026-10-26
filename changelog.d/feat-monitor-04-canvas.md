@@ -1,0 +1,3 @@
+### Added
+
+- A Monitor channel opens on a canvas: one card per agent, in columns by hand-off order, and a curved line between agents that work together. An active line is blue and dashed; a finished line is grey. Each line shows its message count or "Assigned". A click on a card selects the agent, and a click on a line label opens the conversation. The arrow keys move between cards, and Enter selects one. Cards keep their place when the channel changes. The header shows the Live pill, the agent icons and the Canvas / Feed / Tasks switch; the legend and "Ask an agent about this channel" sit at the bottom corners. Desktop and the web client.

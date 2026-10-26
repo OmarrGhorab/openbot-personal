@@ -1,5 +1,6 @@
 import type { MonitorAgentStatus, MonitorSnapshot } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
+import type { MonitorChannelTab } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
 import {
@@ -33,8 +34,12 @@ interface MonitorState {
   view: MonitorView;
   /** The channel the user picked. Null opens the first channel. */
   pickedChannelId: string | null;
-  /** The agent the user selected in the sidebar. The agent popup (#25) shows it. */
+  /** The agent the user selected in the sidebar or on the canvas. The agent popup (#25) shows it. */
   selectedAgentId: string | null;
+  /** The view of the open channel. */
+  tab: MonitorChannelTab;
+  /** The two agents whose conversation the drawer (#27) shows, from a line label of the canvas. */
+  conversation: [string, string] | null;
   /** The sidebar part of the newest snapshot of each listed channel, by channel id. */
   overview: Record<string, MonitorChannelOverview>;
 }
@@ -59,6 +64,8 @@ const context = createSimpleContext({
       view: "channel",
       pickedChannelId: null,
       selectedAgentId: null,
+      tab: "canvas",
+      conversation: null,
       overview: {},
     });
     /** Counts reads, so a slow read of an older channel or revision cannot replace a newer one. */
@@ -124,6 +131,7 @@ const context = createSimpleContext({
         draft.snapshot = null;
         draft.error = null;
         draft.filters = { ...EMPTY_MONITOR_FILTERS };
+        draft.conversation = null;
       });
       if (id === null) return;
       void load(id);
@@ -215,6 +223,24 @@ const context = createSimpleContext({
         setState((draft) => {
           draft.selectedAgentId = agentId;
           if (home !== null && draft.view === "channel") draft.pickedChannelId = home;
+        });
+      },
+      /** Shows the canvas, the feed or the tasks of the open channel. */
+      setTab(tab: MonitorChannelTab) {
+        setState((draft) => {
+          draft.tab = tab;
+        });
+      },
+      /** Opens the conversation between two agents of the open channel. */
+      openConversation(agentIds: [string, string]) {
+        setState((draft) => {
+          draft.conversation = agentIds;
+        });
+      },
+      /** Closes the conversation. */
+      closeConversation() {
+        setState((draft) => {
+          draft.conversation = null;
         });
       },
       /** Closes the agent selection. */
