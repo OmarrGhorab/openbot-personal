@@ -337,6 +337,10 @@ const context = createSimpleContext({
         });
         props.actions.openThread(agentId);
       },
+      /** Opens the routines view in place of the Monitor. */
+      openRoutines() {
+        props.actions.openRoutines?.();
+      },
       /** "Back to monitor": shows the Monitor with the channel and view it had. */
       returnToMonitor() {
         setState((draft) => {

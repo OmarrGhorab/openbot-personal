@@ -1872,3 +1872,72 @@ nav.monitor-return-bar {
   justify-content: flex-end;
   gap: var(--openbot-space-2);
 }
+
+/* Filter and empty channel (#28): dimmed cards and lines, the filter chip, the empty canvas. */
+.monitor-canvas [data-dimmed] {
+  opacity: 0.32;
+}
+
+.monitor-canvas-overlay {
+  position: absolute;
+  top: var(--openbot-space-3);
+  inset-inline-start: var(--openbot-space-3);
+  z-index: 1;
+  display: flex;
+  max-width: calc(100% - 2 * var(--openbot-space-3));
+}
+
+.monitor-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-1) var(--openbot-space-1) var(--openbot-space-1) var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-empty-channel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-6);
+  text-align: center;
+}
+
+.monitor-empty-channel-icon {
+  display: inline-flex;
+  width: var(--openbot-control-xl);
+  height: var(--openbot-control-xl);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-secondary);
+}
+
+.monitor-empty-channel-title {
+  margin: 0;
+  font-size: var(--openbot-font-size-md);
+  font-weight: 600;
+}
+
+.monitor-empty-channel-text {
+  max-width: 420px;
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-empty-channel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--openbot-space-2);
+}

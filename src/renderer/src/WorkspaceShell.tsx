@@ -103,6 +103,10 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
       selectAgent(agentId);
     },
     showMonitor: () => windowPage.openMonitor(),
+    openRoutines: () => {
+      windowPage.showAgents();
+      layout.setSidebarView("routines");
+    },
   };
   /** The Monitor reads the channels of this computer, so it shows on the local server only. */
   const monitorOpen = () => windowPage.page() === "monitor" && activeServer()?.kind === "local";

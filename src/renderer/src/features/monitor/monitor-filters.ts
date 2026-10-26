@@ -78,3 +78,21 @@ export function filterMonitorSnapshot(snapshot: MonitorSnapshot, filters: Monito
     ),
   };
 }
+
+/** The canvas chip of a status filter: "Showing errors · 1 agent". Each status has its own plural. */
+export const MONITOR_FILTER_CHIP_LABEL = {
+  working: "monitor.filter.showing.working",
+  waiting: "monitor.filter.showing.waiting",
+  error: "monitor.filter.showing.error",
+  idle: "monitor.filter.showing.idle",
+} as const;
+
+/**
+ * A channel with no activity: no agent works, waits or failed. The canvas shows its empty state,
+ * and the header says Idle.
+ */
+export function monitorChannelIdle(snapshot: MonitorSnapshot): boolean {
+  return snapshot.agents.every(
+    (agent) => agent.status !== "working" && agent.status !== "waiting" && agent.status !== "error",
+  );
+}
