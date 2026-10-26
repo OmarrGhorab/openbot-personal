@@ -1,0 +1,275 @@
+import type { GroupApi, IpcEndpoints, MonitorChange, MonitorEvent, MonitorSnapshot } from "@openbot/contracts/ipc";
+
+type MonitorDesktopApi = GroupApi<IpcEndpoints["monitor"]>;
+
+const minutesAgo = (now: number, minutes: number) => new Date(now - minutes * 60_000).toISOString();
+
+/**
+ * One busy channel: an agent in each status, a task in each state, a tool call in each status, two
+ * agent pairs and a feed event of each kind. Every field of the contract has a value somewhere, so a
+ * story of any Monitor view shows real rows.
+ */
+function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapshot {
+  const at = (minutes: number) => minutesAgo(now, minutes);
+  const events: MonitorEvent[] = [
+      {
+        id: "tool:turn-chief-2:3",
+        at: at(1),
+        agentId: "chief",
+        kind: "tool-call",
+        toolCallId: "turn-chief-2:3",
+        status: "running",
+      },
+      {
+        id: "exchange:message-4:research",
+        at: at(4),
+        agentId: "chief",
+        kind: "agent-message",
+        fromAgentId: "chief",
+        toAgentId: "research",
+      },
+      { id: "status:research:prompt", at: at(5), agentId: "research", kind: "agent-status", status: "waiting" },
+      {
+        id: "message:message-1",
+        at: at(8),
+        agentId: null,
+        kind: "message",
+        messageId: "message-1",
+        authorKind: "member",
+        preview: "Plan the launch for Friday. Chief leads.",
+      },
+      {
+        id: "message:message-2",
+        at: at(7),
+        agentId: "chief",
+        kind: "message",
+        messageId: "message-2",
+        authorKind: "agent",
+        preview: "I split the work into four tasks.",
+      },
+      {
+        id: "message:message-3",
+        at: at(7.5),
+        agentId: null,
+        kind: "message",
+        messageId: "message-3",
+        authorKind: "coordinator",
+        preview: "Chief took the task.",
+      },
+      { id: "task:task-logo", at: at(40), agentId: "designer", kind: "task", taskId: "task-logo", state: "completed" },
+      { id: "status:sales:error", at: at(11), agentId: "sales", kind: "agent-status", status: "error" },
+  ];
+  return {
+    channelId,
+    channelName: "Launch plan",
+    revision: 0,
+    generatedAt: at(0),
+    agents: [
+      {
+        id: "chief",
+        name: "Chief",
+        provider: "codex",
+        avatarSeed: "chief",
+        avatarHue: 245,
+        avatarUrl: null,
+        lead: true,
+        status: "working",
+        currentTaskId: "task-plan",
+        step: { index: 2, total: 4 },
+        startedAt: at(6),
+        error: null,
+      },
+      {
+        id: "research",
+        name: "Research",
+        provider: "claude",
+        avatarSeed: "research",
+        avatarHue: 185,
+        avatarUrl: null,
+        lead: false,
+        status: "waiting",
+        currentTaskId: "task-sources",
+        step: null,
+        startedAt: null,
+        error: null,
+      },
+      {
+        id: "sales",
+        name: "Sales Outbound",
+        provider: "codex",
+        avatarSeed: "sales-outbound",
+        avatarHue: 280,
+        avatarUrl: null,
+        lead: false,
+        status: "error",
+        currentTaskId: null,
+        step: null,
+        startedAt: null,
+        error: "The provider refused the turn: the usage limit is reached.",
+      },
+      {
+        id: "designer",
+        name: "Designer",
+        provider: "claude",
+        avatarSeed: "designer",
+        avatarHue: null,
+        avatarUrl: null,
+        lead: false,
+        status: "idle",
+        currentTaskId: null,
+        step: null,
+        startedAt: null,
+        error: null,
+      },
+    ],
+    tasks: [
+      {
+        id: "task-plan",
+        source: "channel",
+        agentId: "chief",
+        parentTaskId: null,
+        title: "Write the launch plan and split the work",
+        state: "running",
+        error: null,
+        updatedAt: null,
+      },
+      {
+        id: "task-sources",
+        source: "channel",
+        agentId: "research",
+        parentTaskId: "task-plan",
+        title: "Find three competitor launch posts",
+        state: "waiting",
+        error: null,
+        updatedAt: null,
+      },
+      {
+        id: "task-copy",
+        source: "channel",
+        agentId: null,
+        parentTaskId: "task-plan",
+        title: "Draft the announcement copy",
+        state: "queued",
+        error: null,
+        updatedAt: null,
+      },
+      {
+        id: "task-leads",
+        source: "channel",
+        agentId: "sales",
+        parentTaskId: "task-plan",
+        title: "List the first 20 leads",
+        state: "failed",
+        error: "The provider refused the turn: the usage limit is reached.",
+        updatedAt: null,
+      },
+      {
+        id: "task-logo",
+        source: "agent",
+        agentId: "designer",
+        parentTaskId: null,
+        title: "Export the logo in three sizes",
+        state: "completed",
+        error: null,
+        updatedAt: at(40),
+      },
+      {
+        id: "task-pricing",
+        source: "channel",
+        agentId: "chief",
+        parentTaskId: null,
+        title: "Check the pricing page",
+        state: "paused",
+        error: null,
+        updatedAt: null,
+      },
+      {
+        id: "task-old",
+        source: "agent",
+        agentId: "research",
+        parentTaskId: null,
+        title: "Summarize last week's feedback",
+        state: "cancelled",
+        error: null,
+        updatedAt: at(90),
+      },
+    ],
+    toolCalls: [
+      {
+        id: "turn-chief-2:3",
+        agentId: "chief",
+        taskId: "task-plan",
+        turnId: "turn-chief-2",
+        tool: "tool",
+        argument: "Gathering the relevant information…",
+        input: null,
+        output: null,
+        status: "running",
+        startedAt: at(1),
+        endedAt: null,
+        durationMs: null,
+      },
+      {
+        id: "turn-chief-2:2",
+        agentId: "chief",
+        taskId: "task-plan",
+        turnId: "turn-chief-2",
+        tool: "shell",
+        argument: "curl -H 'Authorization: Bearer [redacted]' https://api.example.com/launch",
+        input: "curl -H 'Authorization: Bearer [redacted]' https://api.example.com/launch",
+        output: '{"status":"ok","items":3}',
+        status: "done",
+        startedAt: at(3),
+        endedAt: at(2.5),
+        durationMs: 30_000,
+      },
+      {
+        id: "turn-chief-2:1",
+        agentId: "chief",
+        taskId: "task-plan",
+        turnId: "turn-chief-2",
+        tool: "send_message",
+        argument: "research, sales",
+        input: null,
+        output: null,
+        status: "done",
+        startedAt: at(5),
+        endedAt: at(4.9),
+        durationMs: 6_000,
+      },
+      {
+        id: "turn-sales-1:1",
+        agentId: "sales",
+        taskId: "task-leads",
+        turnId: "turn-sales-1",
+        tool: "shell",
+        argument: "bun scripts/export-leads.ts --limit 20",
+        input: "bun scripts/export-leads.ts --limit 20",
+        output: "error: usage limit reached",
+        status: "failed",
+        startedAt: at(12),
+        endedAt: at(11),
+        durationMs: 60_000,
+      },
+    ],
+    pairs: [
+      { agentIds: ["chief", "research"], count: 4, lastAt: at(4) },
+      { agentIds: ["chief", "sales"], count: 2, lastAt: at(10) },
+    ],
+    events: events.sort((left, right) => right.at.localeCompare(left.at)),
+  };
+}
+
+/** The preview Monitor. Each channel answers the same busy sample under its own id. */
+export function createMockMonitor(): MonitorDesktopApi {
+  const listeners = new Set<(change: MonitorChange) => void>();
+  return {
+    getSnapshot: async ({ channelId }) => mockMonitorSnapshot(channelId),
+    onChanged: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
