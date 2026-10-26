@@ -10,10 +10,14 @@ import type {
   ConversationMessage,
   MonitorAgentSource,
   MonitorChange,
+  MonitorConversation,
+  MonitorConversationEntry,
+  MonitorConversationInput,
   MonitorExchange,
   MonitorSnapshot,
 } from "@openbot/contracts/ipc";
 import {
+  buildMonitorConversation,
   buildMonitorSnapshot,
   MonitorLiveState,
   redactMonitorSnapshot as redactContractSnapshot,
@@ -43,6 +47,8 @@ export interface MonitorLocalSources {
   agentTasks(agentId: string): AgentTask[];
   taskMessages(agentId: string, taskId: string): ConversationMessage[];
   channelExchanges(channelId: string): MonitorExchange[];
+  /** The agent-to-agent messages of a channel, with their text. */
+  channelConversation(channelId: string): MonitorConversationEntry[];
   /** The channel whose member thread this is, or null. */
   channelForThread(threadId: string): string | null;
 }
@@ -55,6 +61,7 @@ export class MonitorDataSource extends Context.Service<
     agentTasks(agentId: string): Effect.Effect<AgentTask[], MonitorSourceFailed>;
     taskMessages(agentId: string, taskId: string): Effect.Effect<ConversationMessage[], MonitorSourceFailed>;
     channelExchanges(channelId: string): Effect.Effect<MonitorExchange[], MonitorSourceFailed>;
+    channelConversation(channelId: string): Effect.Effect<MonitorConversationEntry[], MonitorSourceFailed>;
   }
 >()("openbot/main/MonitorDataSource") {
   static make(sources: MonitorLocalSources) {
@@ -69,6 +76,7 @@ export class MonitorDataSource extends Context.Service<
       agentTasks: (agentId) => readSource(() => sources.agentTasks(agentId)),
       taskMessages: (agentId, taskId) => readSource(() => sources.taskMessages(agentId, taskId)),
       channelExchanges: (channelId) => readSource(() => sources.channelExchanges(channelId)),
+      channelConversation: (channelId) => readSource(() => sources.channelConversation(channelId)),
     });
   }
 }
@@ -115,6 +123,23 @@ export class MonitorService {
       taskIdForThread: (agentId, threadId) => this.#taskIdForThread(agentId, threadId),
     });
   }
+
+  /** The messages between two agents of a channel, redacted. Throws when the channel is missing. */
+  conversation(
+    input: MonitorConversationInput,
+  ): Effect.Effect<MonitorConversation, MonitorChannelMissing | MonitorSourceFailed> {
+    return this.#readConversation(input).pipe(Effect.provideService(MonitorDataSource, this.#dataSource));
+  }
+
+  readonly #readConversation = Effect.fn("MonitorService.conversation")(function* (
+    this: MonitorService,
+    input: MonitorConversationInput,
+  ) {
+    const data = yield* MonitorDataSource;
+    yield* data.channelPage(input.channelId);
+    const entries = yield* data.channelConversation(input.channelId);
+    return buildMonitorConversation(input, entries, this.#redact);
+  });
 
   /** The snapshot of one channel, redacted. Reading it also starts its change events. */
   snapshot(channelId: string): Effect.Effect<MonitorSnapshot, MonitorChannelMissing | MonitorSourceFailed> {

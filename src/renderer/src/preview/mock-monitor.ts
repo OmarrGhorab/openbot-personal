@@ -6,6 +6,12 @@ import type {
   MonitorEvent,
   MonitorSnapshot,
 } from "@openbot/contracts/ipc";
+import {
+  buildMonitorConversation,
+  type MonitorConversation,
+  type MonitorConversationEntry,
+  type MonitorConversationInput,
+} from "@openbot/contracts/ipc";
 
 type MonitorDesktopApi = GroupApi<IpcEndpoints["monitor"]>;
 
@@ -376,6 +382,7 @@ export function createMockMonitor(
   const listeners = new Set<(change: MonitorChange) => void>();
   return {
     getSnapshot: async ({ channelId }) => sampleSnapshot(channelId, channelName(channelId)),
+    getConversation: async (input) => sampleConversation(input),
     onChanged: (listener) => {
       listeners.add(listener);
       return () => {
@@ -383,4 +390,27 @@ export function createMockMonitor(
       };
     },
   };
+}
+
+/**
+ * The preview conversation of two agents of a sample channel. It has as many messages as the sample
+ * pair counts, so the drawer count and the line label agree.
+ */
+function sampleConversation(input: MonitorConversationInput): MonitorConversation {
+  const [left, right] = input.agentIds;
+  const pair = sampleSnapshot(input.channelId, undefined).pairs.find(
+    (entry) => entry.agentIds.includes(left) && entry.agentIds.includes(right),
+  );
+  const base = Date.UTC(2026, 9, 26, 9, 0);
+  const entries: MonitorConversationEntry[] = Array.from({ length: pair?.count ?? 0 }, (_, index) => {
+    const fromLeft = index % 2 === 0;
+    return {
+      messageId: `sample-${index}`,
+      senderAgentId: fromLeft ? left : right,
+      recipientAgentId: fromLeft ? right : left,
+      at: new Date(base + index * 60_000).toISOString(),
+      text: `Sample message ${index + 1}.`,
+    };
+  });
+  return buildMonitorConversation(input, entries, (text) => text);
 }

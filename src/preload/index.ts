@@ -232,7 +232,7 @@ import {
   decodeMessagingOverviewReply,
   decodeTelegramOverviewReply,
 } from "./messaging-decoding";
-import { decodeMonitorChange, decodeMonitorSnapshot } from "./monitor-decoding";
+import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
 import {
@@ -840,6 +840,7 @@ const openbotApi: OpenBotDesktopApi = {
   }),
   monitor: bridgeGroup(IPC_ENDPOINTS.monitor, {
     getSnapshot: decodeMonitorSnapshot,
+    getConversation: decodeMonitorConversation,
     changed: decodeMonitorChange,
   }),
   billing: bridgeGroup(IPC_ENDPOINTS.billing, {

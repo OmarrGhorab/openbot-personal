@@ -6,6 +6,7 @@ import { useText } from "@openbot/ui/text";
 import { createMemo, For, Show } from "solid-js";
 import { MonitorAgentPopup } from "./MonitorAgentPopup";
 import { MonitorCanvas } from "./MonitorCanvas";
+import { MonitorConversationDrawer } from "./MonitorConversationDrawer";
 import { MonitorFeed } from "./MonitorFeed";
 import { MonitorTasks } from "./MonitorTasks";
 import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
@@ -125,6 +126,7 @@ export function MonitorPane() {
       </Show>
       <MonitorAgentPopup />
       <MonitorToolCallsDialog />
+      <MonitorConversationDrawer />
     </section>
   );
 }

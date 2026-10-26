@@ -349,7 +349,13 @@ import type {
   TelegramChatInput,
   TelegramOverview,
 } from "./ipc-messaging";
-import type { MonitorChange, MonitorSnapshot, MonitorSnapshotInput } from "./ipc-monitor";
+import type {
+  MonitorChange,
+  MonitorConversation,
+  MonitorConversationInput,
+  MonitorSnapshot,
+  MonitorSnapshotInput,
+} from "./ipc-monitor";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
 import type {
   OnePasswordConnectInput,
@@ -1165,6 +1171,7 @@ export const IPC_ENDPOINTS = {
   // Only the main window may read it. A joined server has no monitor route.
   monitor: {
     getSnapshot: request<MonitorSnapshotInput, MonitorSnapshot>()("monitor:get-snapshot"),
+    getConversation: request<MonitorConversationInput, MonitorConversation>()("monitor:get-conversation"),
     changed: event<MonitorChange>()("monitor:changed"),
   },
   routineFeed: {

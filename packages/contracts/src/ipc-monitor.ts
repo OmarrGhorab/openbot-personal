@@ -174,6 +174,110 @@ export function parseMonitorSnapshotInput(value: unknown): MonitorSnapshotInput 
   return { channelId: value.channelId };
 }
 
+/** The newest messages the conversation drawer lists. The drawer's count still shows every message. */
+export const MONITOR_CONVERSATION_MESSAGE_LIMIT = 200;
+/** The text of one message in the conversation drawer. */
+export const MONITOR_MESSAGE_TEXT_LIMIT = 4_000;
+
+export interface MonitorConversationInput {
+  channelId: string;
+  agentIds: [string, string];
+}
+
+/** One message between two agents of a channel, from the mailbox. */
+export interface MonitorConversationMessage {
+  id: string;
+  senderAgentId: string;
+  recipientAgentId: string;
+  at: string;
+  /** Redacted. */
+  text: string;
+}
+
+/** The messages between two agents of a channel, oldest first. `total` counts all of them. */
+export interface MonitorConversation {
+  channelId: string;
+  agentIds: [string, string];
+  messages: MonitorConversationMessage[];
+  total: number;
+}
+
+/** One mailbox delivery of a channel message to an agent, with the message text. */
+export interface MonitorConversationEntry {
+  messageId: string;
+  senderAgentId: string;
+  recipientAgentId: string;
+  at: string;
+  text: string;
+}
+
+export function parseMonitorConversationInput(value: unknown): MonitorConversationInput {
+  const ids = isDynamicRecord(value) ? value.agentIds : undefined;
+  if (
+    !isDynamicRecord(value) ||
+    !isIdentifier(value.channelId) ||
+    !Array.isArray(ids) ||
+    ids.length !== 2 ||
+    !isIdentifier(ids[0]) ||
+    !isIdentifier(ids[1]) ||
+    ids[0] === ids[1]
+  ) {
+    throw new Error("Provide a valid channel and two different agents.");
+  }
+  return { channelId: value.channelId, agentIds: [ids[0], ids[1]] };
+}
+
+/**
+ * The conversation between two agents, from the mailbox entries of a channel. Only the entries
+ * between the two agents count, the same way the snapshot counts a pair. The text is redacted here.
+ */
+export function buildMonitorConversation(
+  input: MonitorConversationInput,
+  entries: readonly MonitorConversationEntry[],
+  redact: (text: string) => string,
+): MonitorConversation {
+  const [left, right] = input.agentIds;
+  const between = entries
+    .filter(
+      (entry) =>
+        (entry.senderAgentId === left && entry.recipientAgentId === right) ||
+        (entry.senderAgentId === right && entry.recipientAgentId === left),
+    )
+    .sort((first, second) => first.at.localeCompare(second.at));
+  const messages = between.slice(-MONITOR_CONVERSATION_MESSAGE_LIMIT).map((entry) => ({
+    id: `${entry.messageId}:${entry.recipientAgentId}`.slice(0, INPUT_LIMITS.identifier * 2 + 1),
+    senderAgentId: entry.senderAgentId,
+    recipientAgentId: entry.recipientAgentId,
+    at: entry.at,
+    text: truncate(redact(entry.text), MONITOR_MESSAGE_TEXT_LIMIT),
+  }));
+  return { channelId: input.channelId, agentIds: input.agentIds, messages, total: between.length };
+}
+
+function isMonitorConversationMessage(value: unknown): value is MonitorConversationMessage {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedString(value.id, INPUT_LIMITS.identifier * 2 + 1) &&
+    isIdentifier(value.senderAgentId) &&
+    isIdentifier(value.recipientAgentId) &&
+    isTime(value.at) &&
+    isBoundedString(value.text, MONITOR_MESSAGE_TEXT_LIMIT)
+  );
+}
+
+export function isMonitorConversation(value: unknown): value is MonitorConversation {
+  return (
+    isDynamicRecord(value) &&
+    isIdentifier(value.channelId) &&
+    Array.isArray(value.agentIds) &&
+    value.agentIds.length === 2 &&
+    isIdentifier(value.agentIds[0]) &&
+    isIdentifier(value.agentIds[1]) &&
+    isCount(value.total) &&
+    boundedList(value.messages, MONITOR_CONVERSATION_MESSAGE_LIMIT, isMonitorConversationMessage)
+  );
+}
+
 const isTime = (value: unknown): value is string => isBoundedString(value, TIME_LIMIT);
 const isCount = (value: unknown): value is number => integerInRange(value, 0, Number.MAX_SAFE_INTEGER);
 

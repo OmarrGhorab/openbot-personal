@@ -292,8 +292,15 @@ const context = createSimpleContext({
       /** Opens the conversation between two agents of the open channel. */
       openConversation(agentIds: [string, string]) {
         setState((draft) => {
+          draft.selectedAgentId = null;
           draft.conversation = agentIds;
         });
+      },
+      /** Reads the messages between two agents of the open channel. Rejects when the host refuses. */
+      loadConversation(agentIds: [string, string]) {
+        const channelId = state.channelId;
+        if (channelId === null) return Promise.reject(new Error("No channel is open."));
+        return props.source.conversation({ channelId, agentIds });
       },
       /** Closes the conversation. */
       closeConversation() {
@@ -325,6 +332,7 @@ const context = createSimpleContext({
         setState((draft) => {
           draft.selectedAgentId = null;
           draft.toolCallsAgentId = null;
+          draft.conversation = null;
           draft.threadAgentId = agentId;
         });
         props.actions.openThread(agentId);
