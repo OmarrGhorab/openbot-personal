@@ -18,8 +18,8 @@ import { StatusLine } from "./StatusPill";
 export interface AgentNodeCardProps {
   agent: Pick<AgentProfile, "avatarSeed" | "avatarHue" | "avatarUrl">;
   name: string;
-  /** What the agent is in the channel, such as "Engineer". */
-  role?: string | undefined;
+  /** The agent's role in the channel, such as "Engineer". */
+  kicker?: string | undefined;
   /** The task text. */
   task?: string | null | undefined;
   progress?: Omit<ProgressBarProps, "status" | "class"> | undefined;
@@ -60,8 +60,8 @@ export function AgentNodeCard(props: AgentNodeCardProps): JSX.Element {
       <header class="monitor-node-header">
         <AgentAvatar class="monitor-node-avatar" agent={props.agent} mood={MONITOR_STATUS_MOOD[props.status]} />
         <div class="monitor-node-title">
-          <Show when={props.role}>
-            <span class="monitor-node-role">{props.role}</span>
+          <Show when={props.kicker}>
+            <span class="monitor-node-role">{props.kicker}</span>
           </Show>
           <span class="monitor-node-name">{props.name}</span>
         </div>

@@ -1,0 +1,278 @@
+/**
+ * The shared Monitor parts in every visual state: each status, the selected state, progress, and
+ * each tool kind. The data is sample data; the clock is fixed so the times do not move.
+ */
+
+import type { AvatarHue } from "@openbot/contracts/ipc";
+import { Heading } from "@openbot/ui";
+import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
+import { FeedItem } from "@openbot/ui/features/monitor/FeedItem";
+import { MONITOR_STATUSES } from "@openbot/ui/features/monitor/monitor-status";
+import { ProgressBar } from "@openbot/ui/features/monitor/ProgressBar";
+import { StatChip } from "@openbot/ui/features/monitor/StatChip";
+import { StatusLine, StatusPill } from "@openbot/ui/features/monitor/StatusPill";
+import { ToolCallRow } from "@openbot/ui/features/monitor/ToolCallRow";
+import { createSignal, For } from "solid-js";
+import type { Meta, StoryObj } from "storybook-solidjs-vite";
+
+const NOW = new Date("2026-10-26T12:00:00Z");
+const minutesAgo = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
+
+function face(seed: string, hue: AvatarHue) {
+  return { avatarSeed: seed, avatarHue: hue, avatarUrl: null };
+}
+
+const developer = face("developer", 215);
+const designer = face("designer", 280);
+const researcher = face("researcher", 55);
+const tester = face("qa-tester", 0);
+const chief = face("chief", 150);
+
+const meta = {
+  title: "Monitor/Shared parts",
+  parameters: { layout: "fullscreen", a11y: { test: "error" } },
+} satisfies Meta;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Status: Story = {
+  render: () => (
+    <main class="foundation-story">
+      <Heading as="h1" size="lg">
+        Status pill
+      </Heading>
+      <div class="foundation-story-row">
+        <For each={MONITOR_STATUSES}>{(status) => <StatusPill status={status} />}</For>
+        <StatusPill status="done" label="Live" />
+      </div>
+      <Heading as="h2" size="md">
+        Status line
+      </Heading>
+      <div class="foundation-story-stack" style={{ width: "240px" }}>
+        <For each={MONITOR_STATUSES}>{(status) => <StatusLine status={status} meta="4m" />}</For>
+        <StatusLine status="waiting" label="Waiting on Chief" meta="4m" />
+      </div>
+    </main>
+  ),
+};
+
+export const Stats: Story = {
+  render: () => (
+    <main class="foundation-story">
+      <Heading as="h1" size="lg">
+        Stat chip
+      </Heading>
+      <div class="foundation-story-row">
+        <StatChip status="working" value={4} />
+        <StatChip status="waiting" value={2} />
+        <StatChip status="error" value={1} label="Errors" />
+        <StatChip status="done" value={12} />
+        <StatChip status="idle" value={3} />
+        <StatChip value={1248} label="Tool calls" />
+      </div>
+    </main>
+  ),
+};
+
+export const Progress: Story = {
+  render: () => (
+    <main class="foundation-story">
+      <Heading as="h1" size="lg">
+        Progress bar
+      </Heading>
+      <div class="foundation-story-stack" style={{ width: "560px" }}>
+        <ProgressBar value={0.6} step={{ index: 3, total: 5 }} label="Wiring data" />
+        <ProgressBar value={0.6} step={{ index: 3, total: 5 }} label="Wiring data" detail="started 14 min ago" />
+        <ProgressBar value={0.4} step={{ index: 2, total: 5 }} status="waiting" />
+        <ProgressBar value={0.8} step={{ index: 4, total: 5 }} status="error" />
+        <ProgressBar value={1} step={{ index: 5, total: 5 }} status="done" />
+        <ProgressBar value={0} label="Not started" status="idle" />
+      </div>
+    </main>
+  ),
+};
+
+export const AgentNodeCards: Story = {
+  render: () => {
+    const [selected, setSelected] = createSignal("developer");
+    const select = (id: string) => () => setSelected(id);
+    return (
+      <main class="foundation-story">
+        <Heading as="h1" size="lg">
+          Agent node card
+        </Heading>
+        <div class="foundation-story-grid" style={{ "grid-template-columns": "repeat(3, 216px)" }}>
+          <AgentNodeCard
+            agent={developer}
+            kicker="Engineer"
+            name="Developer"
+            task="Build pricing section: wire the pricing data into the new cards."
+            progress={{ value: 0.6, step: { index: 3, total: 5 }, label: "Wiring data" }}
+            status="working"
+            statusLabel="Running"
+            since={minutesAgo(14)}
+            now={NOW}
+            selected={selected() === "developer"}
+            onSelect={select("developer")}
+          />
+          <AgentNodeCard
+            agent={researcher}
+            kicker="Research partner"
+            name="Researcher"
+            task="Compare 12 competitor pricing layouts and recommend one."
+            status="waiting"
+            statusLabel="Waiting on Chief"
+            since={minutesAgo(4)}
+            now={NOW}
+            selected={selected() === "researcher"}
+            onSelect={select("researcher")}
+          />
+          <AgentNodeCard
+            agent={tester}
+            kicker="Quality checker"
+            name="QA Tester"
+            task="Checkout flow failed at step 4: expected $29, got $0."
+            status="error"
+            since={minutesAgo(1)}
+            now={NOW}
+            selected={selected() === "tester"}
+            onSelect={select("tester")}
+          />
+          <AgentNodeCard
+            agent={chief}
+            kicker="Channel owner"
+            name="Chief"
+            task="Posted the brief: redesign the pricing page and ship it by Friday."
+            status="done"
+            since={minutesAgo(21)}
+            now={NOW}
+            selected={selected() === "chief"}
+            onSelect={select("chief")}
+          />
+          <AgentNodeCard
+            agent={designer}
+            kicker="Product designer"
+            name="Designer"
+            status="idle"
+            since={minutesAgo(130)}
+            now={NOW}
+            selected={selected() === "designer"}
+            onSelect={select("designer")}
+          />
+          <AgentNodeCard
+            agent={designer}
+            kicker="Product designer"
+            name="Designer"
+            task="Review the layouts and finalise the pricing cards."
+            progress={{ value: 0.4, step: { index: 2, total: 5 }, label: "Reviewing" }}
+            status="working"
+            statusLabel="Running"
+            since={minutesAgo(3)}
+            now={NOW}
+            selected
+          />
+        </div>
+      </main>
+    );
+  },
+};
+
+export const FeedItems: Story = {
+  render: () => (
+    <main class="foundation-story">
+      <Heading as="h1" size="lg">
+        Feed item
+      </Heading>
+      <div class="foundation-story-stack" style={{ width: "640px" }}>
+        <FeedItem
+          agent={researcher}
+          actor="Researcher"
+          verb="handed off to"
+          target="Designer"
+          at={minutesAgo(2)}
+          now={NOW}
+          text="Shared 12 competitor screenshots and a summary of their pricing tiers."
+          progress={{ value: 0.6, step: { index: 3, total: 5 }, label: "Wiring data" }}
+          status="waiting"
+        />
+        <FeedItem
+          agent={developer}
+          actor="Developer"
+          verb="started"
+          target="Build pricing section"
+          at={minutesAgo(14)}
+          now={NOW}
+          status="working"
+        />
+        <FeedItem
+          agent={tester}
+          actor="QA Tester"
+          verb="failed"
+          target="Checkout test"
+          at={minutesAgo(61)}
+          now={NOW}
+          text="Checkout flow failed at step 4: expected $29, got $0."
+          status="error"
+        />
+        <FeedItem actor="Omar" verb="posted in" target="#website-redesign" at={minutesAgo(0)} now={NOW} />
+      </div>
+    </main>
+  ),
+};
+
+export const ToolCallRows: Story = {
+  render: () => {
+    const [selected, setSelected] = createSignal("edit");
+    const select = (id: string) => () => setSelected(id);
+    return (
+      <main class="foundation-story">
+        <Heading as="h1" size="lg">
+          Tool call row
+        </Heading>
+        <div class="foundation-story-stack" style={{ width: "500px" }}>
+          <ToolCallRow
+            tool="Edit"
+            argument="src/pricing/PricingCards.tsx"
+            status="running"
+            selected={selected() === "edit"}
+            onSelect={select("edit")}
+          />
+          <ToolCallRow
+            tool="Read"
+            argument="src/pricing/pricing-data.json"
+            status="done"
+            durationMs={300}
+            selected={selected() === "read"}
+            onSelect={select("read")}
+          />
+          <ToolCallRow
+            tool="Bash"
+            argument="bun run test --related pricing"
+            status="done"
+            durationMs={4200}
+            statusLabel="Passed"
+            selected={selected() === "bash"}
+            onSelect={select("bash")}
+          />
+          <ToolCallRow
+            tool="Grep"
+            argument={'"PriceTag" in src/'}
+            status="done"
+            durationMs={800}
+            selected={selected() === "grep"}
+            onSelect={select("grep")}
+          />
+          <ToolCallRow
+            tool="WebFetch"
+            argument="https://example.com/pricing"
+            status="failed"
+            durationMs={125_000}
+            selected={selected() === "web"}
+            onSelect={select("web")}
+          />
+          <ToolCallRow tool="mcp__linear__create_issue" argument="title: Pricing QA" status="done" durationMs={1500} />
+        </div>
+      </main>
+    );
+  },
+};
