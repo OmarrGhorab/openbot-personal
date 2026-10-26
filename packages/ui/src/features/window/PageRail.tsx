@@ -156,7 +156,15 @@ function CustomAgentUsageButton(props: { row: CustomAgentUsageRailRow; onOpen: (
 }
 
 /** The rail pages. Agents and Routines show the same page with a different sidebar list. */
-export type PageRailPage = "agents" | "monitor" | "routines" | "tasks" | "schedule" | "usage" | "marketplace" | "settings";
+export type PageRailPage =
+  | "agents"
+  | "monitor"
+  | "routines"
+  | "tasks"
+  | "schedule"
+  | "usage"
+  | "marketplace"
+  | "settings";
 
 export interface PageRailProps {
   hidden: boolean;
