@@ -10,8 +10,8 @@ import { useMonitor } from "./monitor-context";
 
 /**
  * The agent popup of the Monitor: the selected agent of the open channel, with its task, tool calls
- * and contacts. Stop asks for confirmation first. There is no Pause: an agent task has no pause in
- * main, so the popup does not show one. A channel task that Stop held can resume.
+ * and contacts. Stop asks for confirmation first. Pause holds the queue of an agent task; the running turn ends. Resume
+ * continues a held task, of either source.
  */
 export function MonitorAgentPopup() {
   const { t } = useText();
@@ -29,9 +29,10 @@ export function MonitorAgentPopup() {
   const [ui, setUi] = createStore<{
     confirming: boolean;
     resuming: boolean;
+    pausing: boolean;
     error: AppTextKey | null;
     stopError: AppTextKey | null;
-  }>({ confirming: false, resuming: false, error: null, stopError: null });
+  }>({ confirming: false, resuming: false, pausing: false, error: null, stopError: null });
   // Another agent, or none: the last action and its confirmation belong to the previous one.
   createEffect(
     () => monitor.state.selectedAgentId,
@@ -103,6 +104,8 @@ export function MonitorAgentPopup() {
             })
         : undefined,
       onResumeTask: current.resumable && task ? () => void resume() : undefined,
+      onPauseTask: current.pausable ? () => void pause() : undefined,
+      pausePending: ui.pausing,
       resumePending: ui.resuming,
       error: ui.error ? t(ui.error) : null,
     };
@@ -124,6 +127,26 @@ export function MonitorAgentPopup() {
     } finally {
       setUi((draft) => {
         draft.resuming = false;
+      });
+    }
+  }
+
+  async function pause() {
+    const task = shown()?.task;
+    if (!task || ui.pausing) return;
+    setUi((draft) => {
+      draft.pausing = true;
+      draft.error = null;
+    });
+    try {
+      await monitor.pauseTask(task);
+    } catch {
+      setUi((draft) => {
+        draft.error = "monitor.popup.error.pause";
+      });
+    } finally {
+      setUi((draft) => {
+        draft.pausing = false;
       });
     }
   }

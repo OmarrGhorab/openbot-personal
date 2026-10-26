@@ -136,18 +136,21 @@ export function MonitorPane() {
                   variant="ghost"
                   size="sm"
                   class="monitor-all-agents-filter"
-                  aria-pressed={(filter === "all" ? monitor.statusFilter() === null : monitor.statusFilter() === filter) ? "true" : "false"}
-                  onClick={() => (filter === "all" ? monitor.setFilters({ agentStatuses: [] }) : monitor.toggleStatusFilter(filter))}
+                  aria-pressed={
+                    (filter === "all" ? monitor.statusFilter() === null : monitor.statusFilter() === filter)
+                      ? "true"
+                      : "false"
+                  }
+                  onClick={() =>
+                    filter === "all" ? monitor.setFilters({ agentStatuses: [] }) : monitor.toggleStatusFilter(filter)
+                  }
                 >
                   {t(filter === "all" ? "monitor.allAgents.filter.all" : MONITOR_AGENT_STATUS_LABEL[filter])}
                 </Button>
               )}
             </For>
           </div>
-          <Show
-            when={agents().length > 0}
-            fallback={<p class="monitor-page-note">{t("monitor.allAgents.empty")}</p>}
-          >
+          <Show when={agents().length > 0} fallback={<p class="monitor-page-note">{t("monitor.allAgents.empty")}</p>}>
             <ul class="monitor-page-agents">
               <For each={agents()} keyed={(agent) => agent.id}>
                 {(agent) => (

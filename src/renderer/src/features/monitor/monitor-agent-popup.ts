@@ -9,6 +9,9 @@ import type {
 /** The task states that Stop ends: the task runs, waits, or waits in the queue. */
 const STOPPABLE: readonly MonitorTaskState[] = ["queued", "running", "waiting"];
 
+/** The task states that Pause holds: a live task that is not paused yet. */
+const PAUSABLE: readonly MonitorTaskState[] = ["queued", "running", "waiting"];
+
 /** The longest task title. The full text shows under it. */
 const TITLE_LIMIT = 80;
 
@@ -22,8 +25,10 @@ export interface MonitorAgentPopupModel {
   task: MonitorTask | null;
   /** The task runs or waits, so Stop applies. */
   stoppable: boolean;
-  /** A channel task that Stop held. Resume continues it. An agent task has no pause: Stop ends it. */
+  /** A paused task, of either source. Resume continues it. */
   resumable: boolean;
+  /** An agent task that runs or waits and is not paused. Pause holds its queue; the running turn ends. */
+  pausable: boolean;
   /** The tool calls of the task, or of the agent when it has no task. Newest first. */
   toolCalls: MonitorToolCall[];
   /** The agents this agent exchanged messages with, the most messages first. */
@@ -40,9 +45,7 @@ export function buildMonitorAgentPopup(snapshot: MonitorSnapshot, agentId: strin
   const current = agent.currentTaskId ? (snapshot.tasks.find((task) => task.id === agent.currentTaskId) ?? null) : null;
   const held =
     current === null
-      ? (snapshot.tasks.find(
-          (task) => task.agentId === agentId && task.source === "channel" && task.state === "paused",
-        ) ?? null)
+      ? (snapshot.tasks.find((task) => task.agentId === agentId && task.state === "paused") ?? null)
       : null;
   const task = current ?? held;
 
@@ -72,7 +75,8 @@ export function buildMonitorAgentPopup(snapshot: MonitorSnapshot, agentId: strin
     agent,
     task,
     stoppable: task !== null && STOPPABLE.includes(task.state),
-    resumable: task !== null && task.source === "channel" && task.state === "paused",
+    resumable: task !== null && task.state === "paused",
+    pausable: task !== null && task.source === "agent" && PAUSABLE.includes(task.state),
     toolCalls,
     contacts,
   };

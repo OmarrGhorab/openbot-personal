@@ -639,6 +639,15 @@ export function agentIpcHandlers({
         remote: (parsed, serverId) =>
           remoteTaskRequest(serverId, AGENT_TASKS_ROUTES.stop, acceptEmpty, agentTaskBody(parsed)),
       }),
+      // Local only: `agent-tasks-v1` has no pause route, so a joined server cannot pause a task.
+      pauseTask: scopedHandler(parseAgentTask, {
+        local: (parsed) => runCauseEffect(service.pauseTask(parsed)),
+        remote: taskRemoteUnsupported,
+      }),
+      resumeTask: scopedHandler(parseAgentTask, {
+        local: (parsed) => runCauseEffect(service.resumeTask(parsed)),
+        remote: taskRemoteUnsupported,
+      }),
       closeTask: scopedHandler(parseAgentTask, {
         local: (parsed) => runCauseEffect(service.closeTask(parsed)),
         remote: (parsed, serverId) =>

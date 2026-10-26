@@ -47,6 +47,8 @@ export interface MonitorLocalSources {
   agentTasks(agentId: string): AgentTask[];
   taskMessages(agentId: string, taskId: string): ConversationMessage[];
   channelExchanges(channelId: string): MonitorExchange[];
+  /** Whether `pauseTask` holds the queue of this task. */
+  taskPaused(agentId: string, taskId: string): boolean;
   /** The agent-to-agent messages of a channel, with their text. */
   channelConversation(channelId: string): MonitorConversationEntry[];
   /** The channel whose member thread this is, or null. */
@@ -152,10 +154,12 @@ export class MonitorService {
     const members = new Set(page.channel.members.map((member) => member.agentId));
     const agents = yield* data.agents();
     const agentTasks: AgentTask[] = [];
+    const pausedTaskIds = new Set<string>();
     const taskTraces: Array<{ agentId: string; taskId: string; messages: ConversationMessage[] }> = [];
     for (const agentId of members) {
       const tasks = yield* data.agentTasks(agentId);
       agentTasks.push(...tasks);
+      for (const task of tasks) if (this.#sources.taskPaused(agentId, task.id)) pausedTaskIds.add(task.id);
       // The open tasks only: a closed task's tool calls are old news for a live view.
       for (const task of tasks.filter((candidate) => candidate.state !== "closed")) {
         taskTraces.push({ agentId, taskId: task.id, messages: yield* data.taskMessages(agentId, task.id) });
@@ -175,6 +179,7 @@ export class MonitorService {
       liveTurns: this.#live.turns(members, channelId),
       exchanges,
       attention: this.#live.attention(members),
+      pausedTaskIds,
     });
     return redactMonitorSnapshot(snapshot, this.#redact);
   });

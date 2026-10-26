@@ -1752,6 +1752,7 @@ export async function createApplicationServices({
       agentTasks: (agentId) => service.listTasks(agentId).tasks,
       taskMessages: (agentId, taskId) => service.readTask(agentId, taskId).messages,
       channelExchanges: (channelId) => mailbox.channelAgentExchanges(channelId),
+      taskPaused: (agentId, taskId) => service.taskPaused(agentId, taskId),
       channelConversation: (channelId) => mailbox.channelAgentConversation(channelId),
       channelForThread: (threadId) => service.channels.store.channelForThread(threadId),
     },

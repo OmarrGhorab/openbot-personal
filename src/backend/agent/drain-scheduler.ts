@@ -174,6 +174,8 @@ export class DrainScheduler {
   readonly #settingsHolds = new Map<string, number>();
   /** The last hold `#reportHold` logged per lane, so a waiting queue logs once per reason. */
   readonly #reportedHolds = new Map<string, string>();
+  /** Task lanes whose queue `pauseLane` holds. Kept in memory: a restart clears the hold. */
+  readonly #pausedLanes = new Set<string>();
   /**
    * The model each lane's running turn was started with, by lane key. The agent record can be moved
    * to another model while that turn runs, but the CLI keeps the session it opened, so this is the
@@ -270,6 +272,8 @@ export class DrainScheduler {
     const { agentId, taskId } = lane;
     if (this.#settingsHolds.has(agentId)) return "session-settings";
     if (this.#laneTurnActive(lane)) return "active-turn";
+    // A paused task lets its running turn end. Its queued messages wait until `resumeLane`.
+    if (taskId !== null && this.#pausedLanes.has(laneKey(lane))) return "paused";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
@@ -327,6 +331,24 @@ export class DrainScheduler {
     const lane = { agentId, taskId };
     if (!this.#mailbox.nextQueued(agentId, taskId)) return null;
     return this.#heldBy(lane) ?? (this.#slotWaiters.has(laneKey(lane)) ? "machine" : null);
+  }
+
+  /**
+   * Holds the queue of a task. The running turn ends; the next queued message waits until
+   * `resumeLane`. The thread, the workspace and the queue stay as they are.
+   */
+  pauseLane(agentId: string, taskId: string): void {
+    this.#pausedLanes.add(laneKey({ agentId, taskId }));
+  }
+
+  /** Releases the hold of `pauseLane` and starts the queue again. */
+  resumeLane(agentId: string, taskId: string): void {
+    this.#pausedLanes.delete(laneKey({ agentId, taskId }));
+    this.scheduleDrain(agentId);
+  }
+
+  isLanePaused(agentId: string, taskId: string): boolean {
+    return this.#pausedLanes.has(laneKey({ agentId, taskId }));
   }
 
   /** `followUsageLimit` is false after a move that failed, so that the drain does not try it again. */

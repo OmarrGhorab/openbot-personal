@@ -390,10 +390,16 @@ const context = createSimpleContext({
         if (!target) throw new Error("The task has no owner to stop it.");
         await props.actions.stopTask(target);
       },
-      /** Continues a channel task that Stop held. Rejects when the host refuses. */
+      /** Holds the queue of an agent task. Rejects when the task is not an agent task or the host refuses. */
+      async pauseTask(task: MonitorTask): Promise<void> {
+        const target = taskTarget(task);
+        if (target?.source !== "agent") throw new Error("Only an agent task can pause.");
+        await props.actions.pauseTask(target);
+      },
+      /** Continues a held task of either source. Rejects when the host refuses. */
       async resumeTask(task: MonitorTask): Promise<void> {
         const target = taskTarget(task);
-        if (target?.source !== "channel") throw new Error("Only a held channel task can resume.");
+        if (target === null) throw new Error("The task has no owner to resume it.");
         await props.actions.resumeTask(target);
       },
       /** Pause feed: the views stop changing. New reads wait until `resumeFeed`. */

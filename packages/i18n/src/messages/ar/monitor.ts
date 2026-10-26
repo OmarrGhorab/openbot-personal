@@ -216,6 +216,7 @@ export const messages = {
   "monitor.popup.openContact": "افتح {name}، {messages}",
   "monitor.popup.openThread": "افتح المحادثة",
   "monitor.popup.stopTask": "وقّف المهمة",
+  "monitor.popup.pauseTask": "علّق المهمة",
   "monitor.popup.resumeTask": "كمّل المهمة",
   "monitor.popup.stopTitle": "توقف مهمة {name}؟",
   "monitor.popup.stopDescription":
@@ -224,6 +225,7 @@ export const messages = {
     "{name} هيوقف «{task}» عند خطوة {index} من {total}. التغييرات اللي عملها هتفضل في مساحة الشغل. المحادثة والإعدادات مش هتتغير، وتقدر تبدأ المهمة تاني بعدين.",
   "monitor.popup.stopping": "بيوقف…",
   "monitor.popup.error.stop": "المهمة موقفتش. جرّب تاني.",
+  "monitor.popup.error.pause": "المهمة معلقتش. جرّب تاني.",
   "monitor.popup.error.resume": "المهمة مكملتش. جرّب تاني.",
   "monitor.return.back": "ارجع للمراقبة",
 } as const satisfies PartialTranslation<typeof source>;

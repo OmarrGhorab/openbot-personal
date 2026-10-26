@@ -471,9 +471,13 @@ export interface MonitorSources {
   liveTurns: MonitorLiveTurn[];
   exchanges: MonitorExchange[];
   attention: MonitorAgentAttention[];
+  /** The agent tasks that `pauseTask` holds on this computer. Absent on a host that cannot pause. */
+  pausedTaskIds?: ReadonlySet<string>;
 }
 
-export function monitorAgentTaskState(task: AgentTask): MonitorTaskState {
+/** `paused` is the hold of `pauseTask`: an open task whose queue waits. A closed task is never paused. */
+export function monitorAgentTaskState(task: AgentTask, paused = false): MonitorTaskState {
+  if (paused && task.state !== "closed") return "paused";
   if (task.state === "running") return "running";
   if (task.state === "queued") return "queued";
   if (task.outcome === "failed") return "failed";
@@ -583,7 +587,7 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
           agentId: task.agentId,
           parentTaskId: null,
           title: truncate(task.title, MONITOR_TASK_TITLE_LIMIT),
-          state: monitorAgentTaskState(task),
+          state: monitorAgentTaskState(task, sources.pausedTaskIds?.has(task.id) === true),
           error: task.error === null ? null : truncate(task.error, MONITOR_ERROR_LIMIT),
           updatedAt: task.updatedAt,
         }),
@@ -724,7 +728,7 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
           agentId: task.agentId,
           kind: "task",
           taskId: task.id,
-          state: monitorAgentTaskState(task),
+          state: monitorAgentTaskState(task, sources.pausedTaskIds?.has(task.id) === true),
         }),
       ),
     ...uniqueToolCalls.map(

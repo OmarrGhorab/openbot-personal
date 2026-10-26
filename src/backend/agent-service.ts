@@ -3693,12 +3693,42 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#tasks.changed(task.agentId);
   }).bind(this);
 
+  /**
+   * Pauses the task's queue. The running turn is not stopped: it ends, and the next queued message
+   * waits until `resumeTask`. The thread, the workspace and the agent's identity do not change.
+   */
+  readonly pauseTask = Effect.fn("AgentService.pauseTask")(function* (
+    this: AgentService,
+    input: AgentTaskInput,
+  ): Effect.fn.Return<void, AgentLifecycleFailed> {
+    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    this.#drain.pauseLane(input.agentId, input.taskId);
+    this.#tasks.changed(input.agentId);
+  }).bind(this);
+
+  /** Releases the queue that `pauseTask` held, and starts the next queued message. */
+  readonly resumeTask = Effect.fn("AgentService.resumeTask")(function* (
+    this: AgentService,
+    input: AgentTaskInput,
+  ): Effect.fn.Return<void, AgentLifecycleFailed> {
+    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    this.#drain.resumeLane(input.agentId, input.taskId);
+    this.#tasks.changed(input.agentId);
+  }).bind(this);
+
+  /** Whether `pauseTask` holds the task's queue. */
+  taskPaused(agentId: string, taskId: string): boolean {
+    return this.#drain.isLanePaused(agentId, taskId);
+  }
+
   /** Stops the task and closes it. A closed task takes no message until it opens again. */
   readonly closeTask = Effect.fn("AgentService.closeTask")(function* (
     this: AgentService,
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
     yield* this.stopTask(input);
+    // A closed task holds nothing: its pause ends with it, so a reopened task starts unpaused.
+    this.#drain.resumeLane(input.agentId, input.taskId);
     const task = yield* lifecycleStep("find task", () => {
       const found = this.#tasks.require(input.agentId, input.taskId);
       // A turn that starts or ends after the Stop still counts toward the limits of its open task.
