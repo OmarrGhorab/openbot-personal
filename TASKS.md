@@ -71,3 +71,10 @@
 - [x] changelog.d/feat-global-voice.md
 - [x] Narrow checks: typecheck:node, typecheck:renderer, biome on changed files, sender-guard vitest
 - [ ] Commit, push feat/global-voice (no PR)
+
+## 8. Voice streaming (#51, #52)
+- [x] Inspect the assigned voice pipeline and current edits.
+- [x] Compare local candidates on the same synthetic clips.
+- [x] Keep Whisper as the Arabic default; warm models before capture and use 500 ms local preview chunks.
+- [x] Run focused tests, lint and type checks.
+- [x] Review the final diff and report the measured limits.

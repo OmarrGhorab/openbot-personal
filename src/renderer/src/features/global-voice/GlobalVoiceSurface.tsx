@@ -8,6 +8,7 @@ import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, For, flush, onSettled, Show } from "solid-js";
+import { desktopAnalytics } from "../../analytics";
 import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
@@ -310,6 +311,9 @@ export function GlobalVoiceSurface() {
   async function stopAndDeliver(): Promise<void> {
     if (state.phase !== "listening") return;
     const current = generation;
+    const analytics = desktopAnalytics.scope();
+    const audioDurationSeconds = dictation.elapsedSeconds;
+    const startedAt = performance.now();
     set("phase", "transcribing");
     showIsland("pill", false);
     let text: string;
@@ -317,12 +321,23 @@ export function GlobalVoiceSurface() {
       text = await dictation.stop();
     } catch (error) {
       if (current === generation) {
+        analytics.track("voice_transcription", {
+          result: "failed",
+          audio_duration_seconds: audioDurationSeconds,
+          duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+          failure_code: "transcription_failed",
+        });
         const failure = dictationFailure(error);
         failWith(failure.message, failure.action);
       }
       return;
     }
     if (current !== generation) return;
+    analytics.track("voice_transcription", {
+      result: "succeeded",
+      audio_duration_seconds: audioDurationSeconds,
+      duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+    });
     // "Software Engineer, check the PR" goes to Software Engineer, without the address.
     const address = matchAgentAddress(text, state.agents);
     if (address && address.agentId !== state.targetId) {

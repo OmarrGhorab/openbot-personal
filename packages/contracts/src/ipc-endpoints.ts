@@ -753,6 +753,11 @@ export const IPC_ENDPOINTS = {
     getSettings: request<undefined, VoiceSettings>()("voice:get-settings"),
     setSettings: request<VoiceSettings, VoiceSettings>()("voice:set-settings"),
     transcribe: request<VoiceTranscriptionInput, VoiceTranscriptionResult>()("voice:transcribe"),
+    /**
+     * Loads the local model in use before the first transcription, so its first pass does not wait
+     * for the load. It does nothing for a cloud model, a missing model, or a busy transcriber.
+     */
+    warmModel: request<undefined, void>()("voice:warm-model"),
     /** Saves or removes the ElevenLabs API key. Answers the status of the ElevenLabs model. */
     setApiKey: request<VoiceApiKeyInput, VoiceModelStatus>()("voice:set-api-key"),
     /**

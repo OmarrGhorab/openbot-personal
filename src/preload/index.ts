@@ -724,6 +724,7 @@ const openbotApi: OpenBotDesktopApi = {
     setSettings: decodeVoiceSettings,
     prepareModel: decodeVoiceModelStatus,
     transcribe: decodeVoiceTranscriptionResult,
+    warmModel: decodeVoid,
     setApiKey: decodeVoiceModelStatus,
     startStream: decodeVoiceStream,
     appendStream: decodeVoid,

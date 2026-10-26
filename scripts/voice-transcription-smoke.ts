@@ -3,9 +3,9 @@
 // with the pinned checksums. macOS `say` speaks the samples in Samantha, a voice that every Mac has;
 // the default voice can be a novelty voice that no model understands.
 //
-// The host runs in Electron as Node through `child_process.fork`, as in `voice-speech-smoke.ts`.
-// A Bun parent and an Electron child share only JSON messages, so the PCM bytes go as an array of
-// numbers, and a listener that runs before the host's listener makes them a `Uint8Array` again.
+// The host runs in Electron as Node. Bundle its one entry first so Node can resolve this repo's
+// extensionless TypeScript imports. The processes share JSON messages, so PCM bytes go as an array
+// of numbers, and a listener makes them a `Uint8Array` again.
 //
 // Writes `report.json` to `.openbot-build/voice-transcription-smoke/`.
 // Run `bun run voice:prepare-runtime` first. macOS only.
@@ -32,7 +32,8 @@ import { VoiceTranscriptionService } from "../src/main/voice-transcription-servi
 
 const RESOURCES_ROOT = resolve(".openbot-build/voice");
 const OUTPUT = resolve(".openbot-build/voice-transcription-smoke");
-const HOST = resolve("src/main/voice-transcription-host.ts");
+const HOST_SOURCE = resolve("src/main/voice-transcription-host.ts");
+const HOST = resolve(".openbot-build/voice-transcription-host-smoke.mjs");
 const ELECTRON = resolve("node_modules/electron/dist/Electron.app/Contents/MacOS/Electron");
 /** The same directories as the dev app in `application-services.ts`. */
 const MODEL_DIRECTORIES: Record<LocalVoiceModelId, string> = {
@@ -163,6 +164,15 @@ async function main(): Promise<void> {
   const unknown = modelIds.find((modelId) => !isLocalVoiceModelId(modelId));
   if (unknown) throw new Error(`Not a local dictation model: ${unknown}`);
   await mkdir(OUTPUT, { recursive: true });
+  const hostBundle = await Bun.build({
+    entrypoints: [HOST_SOURCE],
+    target: "node",
+    format: "esm",
+    outdir: resolve(".openbot-build"),
+    naming: "voice-transcription-host-smoke.mjs",
+  });
+  if (!hostBundle.success)
+    throw new Error(`Could not bundle the transcription host: ${hostBundle.logs.map((log) => log.message).join("\n")}`);
   const temporary = await mkdtemp(join(tmpdir(), "openbot-transcription-smoke-"));
   const voice = new VoiceTranscriptionService({
     resourcesRoot: RESOURCES_ROOT,
@@ -187,6 +197,9 @@ async function main(): Promise<void> {
       const status = await Effect.runPromise(voice.downloadModel(modelId));
       if (status.phase !== "ready") throw new Error(`${modelId} is not ready: ${status.phase} ${status.message ?? ""}`);
       const downloadMs = Date.now() - downloadStartedAt;
+      const warmStartedAt = Date.now();
+      await Effect.runPromise(voice.warmModel());
+      const warmMs = Date.now() - warmStartedAt;
       for (const sample of SAMPLES) {
         const wavBytes = audio.get(sample.name);
         if (!wavBytes) throw new Error(`No audio for ${sample.name}.`);
@@ -207,6 +220,7 @@ async function main(): Promise<void> {
           ok,
           transcriptionMs,
           downloadMs,
+          warmMs,
         });
         logger.info(`${modelId} ${sample.name}: "${text}" (WER ${(wer * 100).toFixed(1)} %, ${transcriptionMs} ms)`);
       }
