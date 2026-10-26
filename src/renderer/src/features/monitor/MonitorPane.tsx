@@ -1,3 +1,4 @@
+import { providerDisplayName } from "@openbot/contracts/ipc";
 import { Button, Pause, Play, SlidingTabs } from "@openbot/ui";
 import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
 import { MONITOR_CHANNEL_TABS, MonitorChannelHeader } from "@openbot/ui/features/monitor/MonitorChannelHeader";
@@ -14,7 +15,11 @@ import { MonitorMembersPopover } from "./MonitorMembersPopover";
 import { MonitorTasks } from "./MonitorTasks";
 import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
 import { useMonitor } from "./monitor-context";
-import { monitorChannelIdle } from "./monitor-filters";
+
+import { MONITOR_AGENT_STATUS_LABEL, monitorChannelIdle } from "./monitor-filters";
+
+/** The chips of the All agents view: all agents, then one agent status each. */
+const ALL_AGENTS_FILTERS = ["all", "working", "waiting", "error", "idle"] as const;
 
 /**
  * The main area of the Monitor page: the open channel with its header and canvas, or every agent.
@@ -123,23 +128,46 @@ export function MonitorPane() {
         </header>
         <div class="monitor-page-body">
           {error()}
-          <ul class="monitor-page-agents">
-            <For each={agents()} keyed={(agent) => agent.id}>
-              {(agent) => (
-                <li>
-                  <AgentNodeCard
-                    agent={agent()}
-                    name={agent().name}
-                    task={agent().detail}
-                    status={agent().status}
-                    since={agent().since}
-                    selected={monitor.state.selectedAgentId === agent().id}
-                    onSelect={() => monitor.selectAgent(agent().id)}
-                  />
-                </li>
+          <div class="monitor-all-agents-filters">
+            <For each={ALL_AGENTS_FILTERS}>
+              {(filter) => (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  class="monitor-all-agents-filter"
+                  aria-pressed={(filter === "all" ? monitor.statusFilter() === null : monitor.statusFilter() === filter) ? "true" : "false"}
+                  onClick={() => (filter === "all" ? monitor.setFilters({ agentStatuses: [] }) : monitor.toggleStatusFilter(filter))}
+                >
+                  {t(filter === "all" ? "monitor.allAgents.filter.all" : MONITOR_AGENT_STATUS_LABEL[filter])}
+                </Button>
               )}
             </For>
-          </ul>
+          </div>
+          <Show
+            when={agents().length > 0}
+            fallback={<p class="monitor-page-note">{t("monitor.allAgents.empty")}</p>}
+          >
+            <ul class="monitor-page-agents">
+              <For each={agents()} keyed={(agent) => agent.id}>
+                {(agent) => (
+                  <li>
+                    <AgentNodeCard
+                      agent={agent()}
+                      name={agent().name}
+                      kicker={agent().lead ? t("monitor.canvas.lead") : providerDisplayName(agent().provider)}
+                      task={agent().detail}
+                      status={agent().status}
+                      since={agent().since}
+                      channel={t("monitor.allAgents.channel", { name: agent().channelName })}
+                      selected={monitor.state.selectedAgentId === agent().id}
+                      onSelect={() => monitor.selectAgent(agent().id)}
+                    />
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
         </div>
       </Show>
       <MonitorAgentPopup />

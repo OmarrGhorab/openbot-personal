@@ -2256,3 +2256,26 @@ nav.monitor-return-bar {
   font: inherit;
   font-size: var(--openbot-font-size-sm);
 }
+
+/* All agents view (#31): status chips above the grid, and the channel line of a card. */
+.monitor-all-agents-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  margin-bottom: var(--openbot-space-3);
+}
+
+.monitor-all-agents-filter[aria-pressed="true"] {
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-node-channel {
+  display: block;
+  margin-top: var(--openbot-space-1);
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

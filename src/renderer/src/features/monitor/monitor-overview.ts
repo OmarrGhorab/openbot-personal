@@ -12,6 +12,12 @@ export interface MonitorOverviewAgent {
   detail: string | null;
   /** When the status started, as an ISO time. */
   since: string | null;
+  /** The channel the entry comes from. The All agents view shows it on the card. */
+  channelId: string;
+  channelName: string;
+  /** The channel lead. The card shows the lead role in place of the provider. */
+  lead: boolean;
+  provider: MonitorAgent["provider"];
 }
 
 /** What the sidebar keeps of the snapshot of one channel. */
@@ -53,6 +59,10 @@ export function summarizeMonitorSnapshot(snapshot: MonitorSnapshot): MonitorChan
         status: agent.status,
         detail: agent.status === "error" ? (agent.error ?? task) : task,
         since,
+        channelId: snapshot.channelId,
+        channelName: snapshot.channelName,
+        lead: agent.lead,
+        provider: agent.provider,
       };
     }),
   };
