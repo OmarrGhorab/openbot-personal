@@ -168,6 +168,36 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+linux:
+  category: Development
+  icon: build/icon-production.png
+  synopsis: A local-first multi-agent desktop workspace.
+  extraResources:
+    - from: build/linux/openbot.apparmor
+      to: linux/openbot.apparmor
+    # A hosted server installs the packages, scripts and units of the release that it updates to.
+    - from: scripts/hosting
+      to: hosting
+      filter:
+        - "**/*"
+        - "!*.ts"
+    # The sherpa-onnx addon and its libraries. The dictation and speech models are downloaded on demand.
+    - from: .openbot-build/voice/runtime
+      to: voice/runtime
+    # Only the x64 build installs this runtime. For arm64 the directory does not exist, and
+    # electron-builder skips a missing source with a warning.
+    - from: build/remote-desktop-runtime
+      to: remote-desktop-runtime
+    - from: build/cua-driver/linux/${arch}
+      to: cua-driver/linux/${arch}
+  # Electron takes its Linux app id from `desktopName` in package.json, and the window manager
+  # matches a running window to the launcher through `StartupWMClass`. Syncing the two from one
+  # value is what makes the taskbar icon group with the window it belongs to.
+  syncDesktopName: true
+  target:
+    - target: AppImage
+      arch:
+        - x64
 dmg:
   title: ${productName} ${version}
   background: build/dmg-background.png

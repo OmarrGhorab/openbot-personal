@@ -19,7 +19,7 @@
 set -euo pipefail
 export LC_ALL=C DEBIAN_FRONTEND=noninteractive
 
-RELEASES=https://github.com/nightly-labs/openbot/releases
+RELEASES=${OPENBOT_RELEASES_URL:-https://github.com/OmarrGhorab/openbot-personal/releases}
 service_user=""
 auth_api_url=""
 display_size=""
