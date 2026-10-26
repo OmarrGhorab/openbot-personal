@@ -69,7 +69,7 @@ jobs:
         run: |
           shopt -s nullglob
           ls -la dist
-          dmgs=(dist/*.dmg); zips=(dist/*-mac.zip); maps=(dist/*.blockmap)
+          dmgs=(dist/*.dmg); zips=(dist/*.zip); maps=(dist/*.blockmap)
           if (( ${#dmgs[@]} != 1 || ${#zips[@]} != 1 || ${#maps[@]} < 1 )) || [[ ! -f dist/latest-mac.yml ]]; then
             echo "Expected one DMG, one ZIP, blockmaps and latest-mac.yml." >&2; exit 1
           fi
@@ -88,4 +88,4 @@ jobs:
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
             --title "OpenBot $VERSION (Intel Mac, unsigned)" \
             --notes "Intel (x64) macOS build of $GITHUB_SHA. Not signed or notarized: on first open, right-click OpenBot.app and choose Open, or allow it in System Settings > Privacy & Security. Installed builds see this release as an update and open this page to download it. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
-            dist/*.dmg dist/*-mac.zip dist/*.blockmap dist/latest-mac.yml
+            dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml
