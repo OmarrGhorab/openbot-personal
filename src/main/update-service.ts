@@ -97,6 +97,12 @@ interface UpdateServiceOptions {
   /** The uid of this process. It tells a refusal in this account apart from another account. */
   currentUid?: number | undefined;
   platform?: NodeJS.Platform;
+  /**
+   * Set where this build cannot install its own update, such as an unsigned macOS build that
+   * Squirrel.Mac refuses. The service still checks and reports "available", never downloads, and
+   * the download action opens the release page for that version instead.
+   */
+  manualInstall?: { openReleasePage: (version: string) => void | Promise<void> } | undefined;
   logDirectory?: string;
   shipItDirectory?: string | undefined;
   /** electron-updater's cache directory, named by `updaterCacheDirName` in `app-update.yml`. */
@@ -183,6 +189,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
   > &
     Pick<
       UpdateServiceOptions,
+      | "manualInstall"
       | "beforeInstall"
       | "checkSiblingInstances"
       | "currentUid"
@@ -221,7 +228,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
   constructor(updater: UpdateAdapter, options: UpdateServiceOptions) {
     super();
     this.#updater = updater;
-    this.#autoDownload = options.autoDownload;
+    this.#autoDownload = options.manualInstall ? false : options.autoDownload;
     this.#options = {
       ...options,
       platform: options.platform ?? process.platform,
@@ -309,6 +316,7 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
   getStatus(): UpdateStatus {
     const status = { ...this.#status };
     if (this.#managedByHost) status.managedByHost = true;
+    if (this.#options.manualInstall) status.manualInstall = true;
     if (this.#scheduledRestart)
       status.scheduledRestart = { ...this.#scheduledRestart, waitingFor: [...this.#scheduledRestart.waitingFor] };
     if (this.#idleRestart) status.idleRestart = { ...this.#idleRestart, waitingFor: [...this.#idleRestart.waitingFor] };
@@ -342,6 +350,8 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
     this: UpdateService,
     enabled: boolean,
   ) {
+    // A build that cannot install its own update never downloads one.
+    if (this.#options.manualInstall) return;
     this.#autoDownload = enabled;
     if (enabled && this.#options.enabled && this.#status.phase === "available") {
       yield* Effect.forkIn(this.downloadUpdate(), this.#workScope, { startImmediately: true });
@@ -505,6 +515,20 @@ export class UpdateService extends EventEmitter<UpdateServiceEvents> {
   downloadUpdate(): Effect.Effect<UpdateStatus, UpdateOperationFailure> {
     return Effect.gen({ self: this }, function* () {
       if (this.#managedByHost) return this.getStatus();
+      const manual = this.#options.manualInstall;
+      if (manual) {
+        const version = this.#status.availableVersion;
+        if (this.#options.enabled && this.#status.phase === "available" && version) {
+          yield* Effect.promise(async () => {
+            try {
+              await manual.openReleasePage(version);
+            } catch {
+              // The notice stays, so the user can press it again.
+            }
+          });
+        }
+        return this.getStatus();
+      }
       if (!this.#options.enabled || this.#teardownCommitted || !this.#canDownload()) return this.getStatus();
       // Same deduplication applies to downloads, and starting a second attempt while the abandoned one
       // is still unsettled is also what would let its buffered events be read as the new attempt's.

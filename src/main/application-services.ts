@@ -306,6 +306,7 @@ import { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
 import type { TeardownRegistry } from "./teardown-registry";
 import { TraceFile } from "./trace-file";
+import { appBundlePath, needsManualInstall, readCodeSignature, releasePageUrl } from "./update-manual-install";
 import { readUpdatePreference, writeUpdatePreference } from "./update-preference-store";
 import { checkRestartReadiness, type RestartReadiness } from "./update-readiness";
 import {
@@ -2700,14 +2701,15 @@ export async function createApplicationServices({
       arch: process.arch,
       ...(containerInstaller ? { paths: CONTAINER_UPDATE_PATHS } : {}),
     });
-  } else if (updatesEnabled && ownBackend().updateFeedUrl === null) {
-    // This build has no update feed (OPENBOT_UPDATE_FEED_URL is unset), so no release feed is contacted.
-    updaterEnabled = false;
   } else if (updatesEnabled) {
+    // The feed is the GitHub releases of this fork, named by `publish` in electron-builder.yml and
+    // packaged as app-update.yml. OPENBOT_UPDATE_FEED_URL, when set, replaces it with a generic feed.
     try {
       const updaterModule = await import("electron-updater");
       const realAdapter = updaterModule.autoUpdater ?? updaterModule.default?.autoUpdater ?? updaterModule.default;
       if (realAdapter) {
+        const feedUrl = ownBackend().updateFeedUrl;
+        if (feedUrl !== null) realAdapter.setFeedURL({ provider: "generic", url: feedUrl });
         updateAdapter = realAdapter;
         updaterCacheDirectory = join(electronUpdaterCacheRoot(), "openbot-updater");
       } else {
@@ -2719,9 +2721,20 @@ export async function createApplicationServices({
       logger.warn("OpenBot updates are disabled: electron-updater failed to load");
     }
   }
+  // Squirrel.Mac installs only an update signed by the same Developer ID team. An unsigned or
+  // ad-hoc signed build checks the feed like any other, and its update notice opens the release page.
+  const bundle =
+    process.platform === "darwin" && updaterEnabled && !hostedInstaller ? appBundlePath(app.getPath("exe")) : null;
+  const manualInstall =
+    bundle !== null && needsManualInstall(process.platform, await readCodeSignature(bundle))
+      ? { openReleasePage: (version: string) => shell.openExternal(releasePageUrl(version)) }
+      : undefined;
+  if (manualInstall)
+    logger.info("OpenBot updates open the release page: this macOS build has no Developer ID signature");
   const updater = new UpdateService(updateAdapter, {
     currentVersion,
     enabled: updaterEnabled,
+    manualInstall,
     autoDownload: updatePreference.autoDownload,
     beforeInstall: prepareForUpdateInstall,
     // Packaged runs share one application bundle across macOS users. Installing while another
