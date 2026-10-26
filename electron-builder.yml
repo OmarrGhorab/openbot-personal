@@ -147,8 +147,13 @@ win:
   extraResources:
     - from: .openbot-build/voice/runtime
       to: voice/runtime
+    # A build machine that also made the macOS or Linux runtime holds it in the same folder.
     - from: build/remote-desktop-runtime
       to: remote-desktop-runtime
+      filter:
+        - "**/*"
+        - "!darwin/**/*"
+        - "!linux/**/*"
     - from: build/cua-driver/win32/x64
       to: cua-driver/win32/x64
   target:
