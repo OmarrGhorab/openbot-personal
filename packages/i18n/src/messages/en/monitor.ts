@@ -219,6 +219,7 @@ export const messages = defineMessages("monitor", {
   "monitor.popup.openContact": "Open {name}, {messages}",
   "monitor.popup.openThread": "Open thread",
   "monitor.popup.stopTask": "Stop task",
+  "monitor.popup.pauseTask": "Pause task",
   "monitor.popup.resumeTask": "Resume task",
   "monitor.popup.stopTitle": "Stop the task of {name}?",
   "monitor.popup.stopDescription":
@@ -227,6 +228,7 @@ export const messages = defineMessages("monitor", {
     "{name} stops “{task}” at step {index} of {total}. The changes it already made stay in the workspace. Its thread and settings do not change, and you can start the task again later.",
   "monitor.popup.stopping": "Stopping…",
   "monitor.popup.error.stop": "The task did not stop. Try again.",
+  "monitor.popup.error.pause": "The task did not pause. Try again.",
   "monitor.popup.error.resume": "The task did not resume. Try again.",
   "monitor.return.back": "Back to monitor",
 });

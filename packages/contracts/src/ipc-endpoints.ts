@@ -1338,6 +1338,8 @@ export const IPC_ENDPOINTS = {
     startTask: scopedRequest<StartAgentTaskInput, AgentTask>()("agent:tasks:start"),
     runQueuedMessageAsTask: scopedRequest<RunQueuedMessageAsTaskInput, AgentTask>()("agent:tasks:run-queued-message"),
     stopTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:stop"),
+    pauseTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:pause"),
+    resumeTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:resume"),
     closeTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:close"),
     reopenTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:reopen"),
     acknowledgeFailedTurn: scopedRequest<AcknowledgeFailedTurnInput, void>()("agent:acknowledge-failed-turn"),

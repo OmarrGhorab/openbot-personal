@@ -2534,6 +2534,14 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         });
         emitTasks(input.agentId);
       },
+      pauseTask: async (input) => {
+        findTask(input.agentId, input.taskId);
+        emitTasks(input.agentId);
+      },
+      resumeTask: async (input) => {
+        findTask(input.agentId, input.taskId);
+        emitTasks(input.agentId);
+      },
       closeTask: async (input) => {
         const task = findTask(input.agentId, input.taskId);
         const now = new Date().toISOString();

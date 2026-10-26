@@ -107,6 +107,7 @@ function register() {
       agentTasks: () => [],
       taskMessages: () => [],
       channelExchanges: () => [],
+      taskPaused: () => false,
       channelConversation: () => [],
       channelForThread: () => "channel-1",
     },

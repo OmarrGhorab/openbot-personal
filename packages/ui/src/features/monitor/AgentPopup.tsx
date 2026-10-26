@@ -8,7 +8,7 @@
  */
 
 import type { MonitorStep, MonitorToolCallStatus } from "@openbot/contracts/ipc";
-import { ArrowRight, Button, Dialog, IconButton, Play, Square, X } from "@openbot/ui";
+import { ArrowRight, Button, Dialog, IconButton, Pause, Play, Square, X } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 import type { AgentProfile } from "../../data";
@@ -75,6 +75,9 @@ export interface AgentPopupProps {
   onOpenThread: () => void;
   /** Shows "Stop task". The caller asks for confirmation. */
   onStopTask?: (() => void) | undefined;
+  /** Shows "Pause task" for an agent task that runs or waits. Pause holds its queue; the running turn ends. */
+  onPauseTask?: (() => void) | undefined;
+  pausePending?: boolean | undefined;
   /** Shows "Resume task" for a stopped task that can continue. */
   onResumeTask?: (() => void) | undefined;
   resumePending?: boolean | undefined;
@@ -266,6 +269,14 @@ export function AgentPopup(props: AgentPopupProps): JSX.Element {
                 {t("monitor.popup.openThread")}
                 <ArrowRight class="monitor-popup-arrow" aria-hidden="true" />
               </Button>
+              <Show when={props.onPauseTask}>
+                {(onPause) => (
+                  <Button type="button" variant="outline" loading={props.pausePending} onClick={() => onPause()()}>
+                    <Pause aria-hidden="true" />
+                    {t("monitor.popup.pauseTask")}
+                  </Button>
+                )}
+              </Show>
               <Show when={props.onResumeTask}>
                 {(onResume) => (
                   <Button type="button" variant="outline" loading={props.resumePending} onClick={() => onResume()()}>

@@ -30,8 +30,13 @@ export interface MonitorTaskActions {
    * command, which holds its run. The agent keeps its workspace, thread and identity.
    */
   stopTask(target: MonitorTaskTarget): Promise<void>;
-  /** Continues a channel task that Stop held, with the channel `resume` command. */
-  resumeTask(target: Extract<MonitorTaskTarget, { source: "channel" }>): Promise<void>;
+  /**
+   * Holds the queue of an agent task with `agent.pauseTask`. The running turn ends first, and the
+   * next queued message waits. The agent keeps its workspace, thread and identity.
+   */
+  pauseTask(target: Extract<MonitorTaskTarget, { source: "agent" }>): Promise<void>;
+  /** Continues a held task: an agent task with `agent.resumeTask`, a channel task with the channel `resume` command. */
+  resumeTask(target: MonitorTaskTarget): Promise<void>;
 }
 
 /** What the Monitor does outside its page: the task actions, and the move to and from a thread. */
@@ -80,7 +85,14 @@ export function desktopMonitorTaskActions(): MonitorTaskActions {
       }
       await window.openbot.agent.channelCommand(monitorChannelTaskCommand("stop", target));
     },
+    async pauseTask(target) {
+      await window.openbot.agent.pauseTask({ agentId: target.agentId, taskId: target.taskId });
+    },
     async resumeTask(target) {
+      if (target.source === "agent") {
+        await window.openbot.agent.resumeTask({ agentId: target.agentId, taskId: target.taskId });
+        return;
+      }
       await window.openbot.agent.channelCommand(monitorChannelTaskCommand("resume", target));
     },
   };
