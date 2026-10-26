@@ -8,6 +8,7 @@ import { MonitorAgentPopup } from "./MonitorAgentPopup";
 import { MonitorCanvas } from "./MonitorCanvas";
 import { MonitorFeed } from "./MonitorFeed";
 import { MonitorTasks } from "./MonitorTasks";
+import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
 import { useMonitor } from "./monitor-context";
 
 /**
@@ -123,6 +124,7 @@ export function MonitorPane() {
         </div>
       </Show>
       <MonitorAgentPopup />
+      <MonitorToolCallsDialog />
     </section>
   );
 }

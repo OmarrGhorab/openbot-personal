@@ -82,6 +82,7 @@ export function MonitorAgentPopup() {
         durationMs: call.durationMs,
       })),
       toolCallCount: task ? current.toolCalls.length : 0,
+      onViewAllToolCalls: task ? () => monitor.openToolCalls(agent.id) : undefined,
       contacts: current.contacts.map((contact) => ({
         id: contact.agent.id,
         name: contact.agent.name,
