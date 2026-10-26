@@ -1,4 +1,10 @@
-import type { MonitorAgent, MonitorSnapshot, MonitorTask, MonitorTaskState, MonitorToolCall } from "@openbot/contracts/ipc";
+import type {
+  MonitorAgent,
+  MonitorSnapshot,
+  MonitorTask,
+  MonitorTaskState,
+  MonitorToolCall,
+} from "@openbot/contracts/ipc";
 
 /** The task states that Stop ends: the task runs, waits, or waits in the queue. */
 const STOPPABLE: readonly MonitorTaskState[] = ["queued", "running", "waiting"];
@@ -34,8 +40,9 @@ export function buildMonitorAgentPopup(snapshot: MonitorSnapshot, agentId: strin
   const current = agent.currentTaskId ? (snapshot.tasks.find((task) => task.id === agent.currentTaskId) ?? null) : null;
   const held =
     current === null
-      ? (snapshot.tasks.find((task) => task.agentId === agentId && task.source === "channel" && task.state === "paused") ??
-        null)
+      ? (snapshot.tasks.find(
+          (task) => task.agentId === agentId && task.source === "channel" && task.state === "paused",
+        ) ?? null)
       : null;
   const task = current ?? held;
 

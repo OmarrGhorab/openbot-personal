@@ -276,7 +276,12 @@ export function AgentPopup(props: AgentPopupProps): JSX.Element {
               </Show>
               <Show when={props.onStopTask}>
                 {(onStop) => (
-                  <Button type="button" variant="destructive-ghost" class="monitor-popup-stop" onClick={() => onStop()()}>
+                  <Button
+                    type="button"
+                    variant="destructive-ghost"
+                    class="monitor-popup-stop"
+                    onClick={() => onStop()()}
+                  >
                     <Square aria-hidden="true" />
                     {t("monitor.popup.stopTask")}
                   </Button>

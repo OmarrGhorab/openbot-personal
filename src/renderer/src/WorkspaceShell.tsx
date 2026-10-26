@@ -20,8 +20,8 @@ import { WorkspaceDirectConversation } from "./features/conversation/WorkspaceDi
 import { useCustomAgentUsagePolling } from "./features/custom-agents/custom-agent-usage-polling";
 import { MonitorPane } from "./features/monitor/MonitorPane";
 import { MonitorSidebarPane } from "./features/monitor/MonitorSidebarPane";
-import { MonitorProvider } from "./features/monitor/monitor-context";
 import { MonitorThreadReturn } from "./features/monitor/MonitorThreadReturn";
+import { MonitorProvider } from "./features/monitor/monitor-context";
 import { desktopMonitorSource, desktopMonitorTaskActions, type MonitorActions } from "./features/monitor/monitor-port";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
