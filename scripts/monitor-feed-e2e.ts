@@ -24,7 +24,7 @@ interface Report {
   keptChannelOnTabs?: boolean;
   taskColumns?: string[];
   shownBeforePause?: number;
-  waitingWhilePaused?: number;
+  waitingWhilePaused?: number | undefined;
   expectedWaiting?: number;
   shownAfterResume?: number;
   duplicatesAfterResume?: number;

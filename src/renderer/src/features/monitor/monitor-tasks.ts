@@ -6,7 +6,7 @@ import type { MonitorStatus } from "@openbot/ui/features/monitor/monitor-status"
 /** The filter chips of the Tasks view, in their order. `all` shows every task. */
 export const MONITOR_TASK_FILTERS = ["all", "running", "waiting", "error", "done"] as const;
 export type MonitorTaskFilter = (typeof MONITOR_TASK_FILTERS)[number];
-export type MonitorTaskGroup = Exclude<MonitorTaskFilter, "all">;
+type MonitorTaskGroup = Exclude<MonitorTaskFilter, "all">;
 
 export const MONITOR_TASK_FILTER_LABEL = {
   all: "monitor.tasks.filter.all",
@@ -17,7 +17,7 @@ export const MONITOR_TASK_FILTER_LABEL = {
 } as const satisfies Record<MonitorTaskFilter, AppTextKey>;
 
 /** The chip a task state counts under. A cancelled task ended, so it is done. */
-export const MONITOR_TASK_GROUP = {
+const MONITOR_TASK_GROUP = {
   queued: "waiting",
   running: "running",
   waiting: "waiting",

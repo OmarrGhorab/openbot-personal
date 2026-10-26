@@ -51,7 +51,7 @@ export class GlobalVoiceFailed extends Schema.TaggedError<GlobalVoiceFailed>()("
 export const { rewrap: toGlobalVoiceFailed } = causeHelpers(GlobalVoiceFailed);
 
 /** The part of `globalShortcut` the controller uses. The tests pass a fake. */
-export interface GlobalVoiceShortcutRegistry {
+interface GlobalVoiceShortcutRegistry {
   register(accelerator: string, onPress: () => void): boolean;
   unregister(accelerator: string): void;
   unregisterAll(): void;

@@ -14,7 +14,7 @@ export interface MonitorIpcDependencies {
   mainRendererIds: () => ReadonlySet<number>;
 }
 
-export function requireMonitorSender(actualId: number, expectedIds: ReadonlySet<number>): void {
+function requireMonitorSender(actualId: number, expectedIds: ReadonlySet<number>): void {
   if (!expectedIds.has(actualId)) throw new Error("Rejected monitor IPC request outside the main renderer.");
 }
 
