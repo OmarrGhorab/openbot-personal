@@ -4,6 +4,7 @@ import { MONITOR_CHANNEL_TABS, MonitorChannelHeader } from "@openbot/ui/features
 import { MonitorPausedBanner } from "@openbot/ui/features/monitor/MonitorPausedBanner";
 import { useText } from "@openbot/ui/text";
 import { createMemo, For, Show } from "solid-js";
+import { MonitorAgentPopup } from "./MonitorAgentPopup";
 import { MonitorCanvas } from "./MonitorCanvas";
 import { MonitorFeed } from "./MonitorFeed";
 import { MonitorTasks } from "./MonitorTasks";
@@ -121,6 +122,7 @@ export function MonitorPane() {
           </ul>
         </div>
       </Show>
+      <MonitorAgentPopup />
     </section>
   );
 }

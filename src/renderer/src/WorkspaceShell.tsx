@@ -21,7 +21,8 @@ import { useCustomAgentUsagePolling } from "./features/custom-agents/custom-agen
 import { MonitorPane } from "./features/monitor/MonitorPane";
 import { MonitorSidebarPane } from "./features/monitor/MonitorSidebarPane";
 import { MonitorProvider } from "./features/monitor/monitor-context";
-import { desktopMonitorSource } from "./features/monitor/monitor-port";
+import { MonitorThreadReturn } from "./features/monitor/MonitorThreadReturn";
+import { desktopMonitorSource, desktopMonitorTaskActions, type MonitorActions } from "./features/monitor/monitor-port";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
@@ -94,7 +95,15 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const { conversations, retryConversation } = useConversation();
   const activeConversation = () => conversations[activeAgent()?.id ?? ""];
   const { activeDirectMember } = useDirectMessages();
-  const { setGlobalSearchVisibility } = useNavigation();
+  const { setGlobalSearchVisibility, selectAgent } = useNavigation();
+  /** The agent popup stops and resumes tasks on this computer, and opens an agent's thread. */
+  const monitorActions: MonitorActions = {
+    ...desktopMonitorTaskActions(),
+    openThread: (agentId) => {
+      selectAgent(agentId);
+    },
+    showMonitor: () => windowPage.openMonitor(),
+  };
   /** The Monitor reads the channels of this computer, so it shows on the local server only. */
   const monitorOpen = () => windowPage.page() === "monitor" && activeServer()?.kind === "local";
   /** The channels the Monitor lists: the channels of the sidebar, without the deleted ones. */
@@ -219,7 +228,12 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
       <div class="app-window">
         <WorkspacePageRail hidden={chatWindow || remoteDesktopWorkspaceVisible()} />
         {/* The Monitor sidebar and its main area read the same snapshots. */}
-        <MonitorProvider source={desktopMonitorSource()} active={monitorOpen} channelIds={monitorChannelIds}>
+        <MonitorProvider
+          source={desktopMonitorSource()}
+          actions={monitorActions}
+          active={monitorOpen}
+          channelIds={monitorChannelIds}
+        >
           <WorkspaceFrame
             class={chatWindow ? "app-frame-chat-window" : undefined}
             compact={layout.leftPanelCompact()}
@@ -330,6 +344,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
               <Show when={activeDirectMember()}>{(member) => <WorkspaceDirectConversation member={member()} />}</Show>
             </Show>
             <Show when={agentChatOpen()}>
+              <MonitorThreadReturn agentId={activeAgent()?.id} />
               <WorkspaceConversation account={props.account} />
             </Show>
             <Show when={middlePane() === "routines"}>

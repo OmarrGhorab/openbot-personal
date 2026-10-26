@@ -150,6 +150,7 @@ import { webEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import type { FilesPort } from "../files/files-port";
 import { MonitorPane } from "../monitor/MonitorPane";
 import { MonitorSidebarPane } from "../monitor/MonitorSidebarPane";
+import { MonitorThreadReturn } from "../monitor/MonitorThreadReturn";
 import { MonitorProvider } from "../monitor/monitor-context";
 import { hostSetupProviderProps } from "../onboarding/host-setup-provider-props";
 import { createRoutineTimezonePrompt } from "../schedule/routine-timezone-prompt";
@@ -204,7 +205,7 @@ import { webGitHubConnectorPort } from "./web-github-connector";
 import { createWebHostedServers } from "./web-hosted-server-state";
 import { createWebAgentTemplateCalls, createWebMarketplaceCalls } from "./web-marketplace";
 import { webHostMessaging } from "./web-messaging-connector";
-import { webMonitorSource } from "./web-monitor";
+import { webMonitorSource, webMonitorTaskActions } from "./web-monitor";
 import { createWebServerNotifications } from "./web-notification-preferences";
 import { createWebNotificationRouting } from "./web-notification-routing";
 import { requestWebNotificationPermission } from "./web-notifications";
@@ -800,6 +801,12 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     onHostEvent: workspace.onHostEvent,
   });
   onCleanup(monitorSource.dispose);
+  /** As on desktop: the agent popup stops and resumes tasks on the connected host. */
+  const monitorTaskActions = webMonitorTaskActions({
+    runtime: workspace.runtime,
+    tasks: tasksSource,
+    hostId: () => workspace.state.host?.hostId ?? null,
+  });
   const tasksSupported = () => workspace.state.capabilities.includes(AGENT_TASKS_CAPABILITY);
   const marketplaceCalls = createWebMarketplaceCalls(props.accountFetch, hostRequest);
   // The host's connectors, for an owner or admin. The web client has no computer of its own.
@@ -1550,7 +1557,19 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
             }
           />
           {/* As on desktop: the Monitor sidebar and its main area read the same snapshots. */}
-          <MonitorProvider source={monitorSource} active={monitorView} channelIds={monitorChannelIds}>
+          <MonitorProvider
+            source={monitorSource}
+            actions={{
+              ...monitorTaskActions,
+              openThread: (agentId) => {
+                setMobilePane("conversation");
+                void select(agentId);
+              },
+              showMonitor: openMonitor,
+            }}
+            active={monitorView}
+            channelIds={monitorChannelIds}
+          >
             <WorkspaceFrame
               class="web-app-frame"
               data-web-mobile-pane={mobilePane()}
@@ -2333,6 +2352,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                 </Show>
               </Show>
               <Show when={agentChatOpen()}>
+                <MonitorThreadReturn agentId={workspace.state.selectedId} />
                 <Conversation
                   runtime={runtime}
                   onOpenMarketplace={() => setMarketplaceOpen(true)}

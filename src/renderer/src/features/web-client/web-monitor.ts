@@ -18,7 +18,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
 import { currentText } from "@openbot/ui/text";
-import type { MonitorSource } from "../monitor/monitor-port";
+import { type MonitorSource, type MonitorTaskActions, monitorChannelTaskCommand } from "../monitor/monitor-port";
 import type { TasksSource } from "../tasks/tasks-port";
 import type { WebWorkspaceRuntime } from "./web-runtime";
 
@@ -147,6 +147,39 @@ export function webMonitorSource(dependencies: WebMonitorDependencies): WebMonit
       for (const timer of pending.values()) clearTimeout(timer);
       pending.clear();
       listeners.clear();
+    },
+  };
+}
+
+export interface WebMonitorTaskDependencies {
+  runtime: Pick<WebWorkspaceRuntime, "channels">;
+  tasks: Pick<TasksSource, "stop">;
+  /** The connected host, or null while none is. */
+  hostId: () => string | null;
+}
+
+/**
+ * The task actions of the agent popup in the browser client, on the connected host: an agent task
+ * through the Team API task route, a channel task through the channel command route.
+ */
+export function webMonitorTaskActions(dependencies: WebMonitorTaskDependencies): MonitorTaskActions {
+  const channels = () => {
+    const api = dependencies.runtime.channels;
+    if (!api) throw new Error(currentText().t("webClient.error.desktopOnly"));
+    return api;
+  };
+  return {
+    async stopTask(target) {
+      if (target.source === "agent") {
+        const hostId = dependencies.hostId();
+        if (hostId === null) throw new Error(currentText().t("webClient.error.desktopOnly"));
+        await dependencies.tasks.stop({ agentId: target.agentId, taskId: target.taskId }, hostId);
+        return;
+      }
+      await channels().channelCommand(monitorChannelTaskCommand("stop", target));
+    },
+    async resumeTask(target) {
+      await channels().channelCommand(monitorChannelTaskCommand("resume", target));
     },
   };
 }
