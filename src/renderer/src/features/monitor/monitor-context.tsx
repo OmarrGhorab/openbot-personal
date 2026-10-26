@@ -1,6 +1,6 @@
-import type { MonitorSnapshot } from "@openbot/contracts/ipc";
+import type { MonitorAgentStatus, MonitorSnapshot } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { createEffect, createMemo, createStore } from "solid-js";
+import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
 import {
   EMPTY_MONITOR_FILTERS,
@@ -10,7 +10,17 @@ import {
   MONITOR_TOOL_STATUS_LABEL,
   type MonitorFilters,
 } from "./monitor-filters";
+import {
+  countLiveAgents,
+  type MonitorChannelOverview,
+  mergeMonitorAgents,
+  newestMonitorUpdate,
+  summarizeMonitorSnapshot,
+} from "./monitor-overview";
 import type { MonitorSource } from "./monitor-port";
+
+/** What the main area of the Monitor shows: one channel, or every agent. */
+export type MonitorView = "channel" | "all-agents";
 
 interface MonitorState {
   channelId: string | null;
@@ -20,12 +30,21 @@ interface MonitorState {
   /** Set when the last read failed. The previous snapshot stays. */
   error: AppTextKey | null;
   filters: MonitorFilters;
+  view: MonitorView;
+  /** The channel the user picked. Null opens the first channel. */
+  pickedChannelId: string | null;
+  /** The agent the user selected in the sidebar. The agent popup (#25) shows it. */
+  selectedAgentId: string | null;
+  /** The sidebar part of the newest snapshot of each listed channel, by channel id. */
+  overview: Record<string, MonitorChannelOverview>;
 }
 
 export interface MonitorProviderProps {
   source: MonitorSource;
-  /** The channel the Monitor shows. Null shows nothing. */
-  channelId: () => string | null;
+  /** Whether the Monitor page is on screen. It reads nothing while it is not. */
+  active: () => boolean;
+  /** The channels the Monitor lists, in the order of the sidebar. */
+  channelIds: () => readonly string[];
 }
 
 const context = createSimpleContext({
@@ -37,9 +56,22 @@ const context = createSimpleContext({
       loading: false,
       error: null,
       filters: { ...EMPTY_MONITOR_FILTERS },
+      view: "channel",
+      pickedChannelId: null,
+      selectedAgentId: null,
+      overview: {},
     });
     /** Counts reads, so a slow read of an older channel or revision cannot replace a newer one. */
     let generation = 0;
+    /** The same, for each channel of the sidebar. */
+    const overviewGenerations = new Map<string, number>();
+
+    function keepOverview(snapshot: MonitorSnapshot) {
+      const overview = summarizeMonitorSnapshot(snapshot);
+      setState((draft) => {
+        draft.overview[snapshot.channelId] = overview;
+      });
+    }
 
     async function load(channelId: string, minimumRevision = 0) {
       generation += 1;
@@ -55,6 +87,7 @@ const context = createSimpleContext({
           draft.loading = false;
           draft.error = null;
         });
+        keepOverview(snapshot);
       } catch {
         if (read !== generation) return;
         setState((draft) => {
@@ -64,26 +97,77 @@ const context = createSimpleContext({
       }
     }
 
-    createEffect(props.channelId, (channelId) => {
+    /** Reads the sidebar part of one channel. A failed read keeps the previous counts. */
+    async function loadOverview(channelId: string) {
+      const read = (overviewGenerations.get(channelId) ?? 0) + 1;
+      overviewGenerations.set(channelId, read);
+      try {
+        const snapshot = await props.source.snapshot(channelId);
+        if (overviewGenerations.get(channelId) !== read) return;
+        keepOverview(snapshot);
+      } catch {
+        // The sidebar keeps the counts it has; the open channel shows the error.
+      }
+    }
+
+    /** The channel on screen: the one the user picked while it is listed, else the first one. */
+    const channelId = createMemo(() => {
+      if (!props.active()) return null;
+      const ids = props.channelIds();
+      const picked = state.pickedChannelId;
+      return picked !== null && ids.includes(picked) ? picked : (ids[0] ?? null);
+    });
+
+    createEffect(channelId, (id) => {
       setState((draft) => {
-        draft.channelId = channelId;
+        draft.channelId = id;
         draft.snapshot = null;
         draft.error = null;
         draft.filters = { ...EMPTY_MONITOR_FILTERS };
       });
-      if (channelId === null) return;
-      void load(channelId);
-      return props.source.onChange((change) => {
-        if (change.channelId === channelId) void load(channelId, change.revision);
-      });
+      if (id === null) return;
+      void load(id);
     });
+
+    // The sidebar counts of every listed channel, while the page is on screen. One subscription
+    // reads a channel again when it changed; the open channel reads its full snapshot instead.
+    createEffect(
+      () => (props.active() ? props.channelIds().join("\n") : null),
+      (joined) => {
+        if (joined === null) return;
+        const ids = joined === "" ? [] : joined.split("\n");
+        const listed = new Set(ids);
+        setState((draft) => {
+          for (const id of Object.keys(draft.overview)) if (!listed.has(id)) delete draft.overview[id];
+        });
+        for (const id of ids) if (id !== channelId()) void loadOverview(id);
+        return props.source.onChange((change) => {
+          if (!listed.has(change.channelId)) return;
+          if (change.channelId === state.channelId) void load(change.channelId, change.revision);
+          else void loadOverview(change.channelId);
+        });
+      },
+    );
+    onCleanup(() => overviewGenerations.clear());
 
     /** The snapshot with the filters applied. Null before the first read. */
     const filtered = createMemo(() => (state.snapshot ? filterMonitorSnapshot(state.snapshot, state.filters) : null));
+    const listedOverviews = () => props.channelIds().map((id) => state.overview[id]);
+    /** Each agent of the listed channels once, for the sidebar. */
+    const agents = createMemo(() => mergeMonitorAgents(listedOverviews()));
+    /** The "Live now" counts. They follow every new snapshot. */
+    const liveCounts = createMemo(() => countLiveAgents(agents()));
+    const updatedAt = createMemo(() => newestMonitorUpdate(listedOverviews()));
+    /** The status that the "Live now" filter shows, when the filter is one status alone. */
+    const statusFilter = () => (state.filters.agentStatuses.length === 1 ? state.filters.agentStatuses[0] : null);
 
     return {
       state,
       filtered,
+      agents,
+      liveCounts,
+      updatedAt,
+      statusFilter,
       /** The catalog keys of the statuses and filter choices that every Monitor view shows. */
       labels: {
         agentStatus: MONITOR_AGENT_STATUS_LABEL,
@@ -100,9 +184,48 @@ const context = createSimpleContext({
           draft.filters = { ...EMPTY_MONITOR_FILTERS };
         });
       },
+      /** Shows only the agents with `status`, or removes that filter when it is on. */
+      toggleStatusFilter(status: MonitorAgentStatus) {
+        setState((draft) => {
+          const on = draft.filters.agentStatuses.length === 1 && draft.filters.agentStatuses[0] === status;
+          draft.filters = { ...draft.filters, agentStatuses: on ? [] : [status] };
+        });
+      },
+      /** Opens a channel in the Monitor. */
+      selectChannel(id: string) {
+        setState((draft) => {
+          draft.pickedChannelId = id;
+          draft.view = "channel";
+        });
+      },
+      /** Opens the all-agents view. */
+      showAllAgents() {
+        setState((draft) => {
+          draft.view = "all-agents";
+        });
+      },
+      /**
+       * Selects an agent for the agent popup. When the open channel does not have the agent, the
+       * first listed channel that has it opens.
+       */
+      selectAgent(agentId: string) {
+        const hasAgent = (id: string) => state.overview[id]?.agents.some((agent) => agent.id === agentId) === true;
+        const open = state.channelId;
+        const home = open !== null && hasAgent(open) ? open : (props.channelIds().find(hasAgent) ?? null);
+        setState((draft) => {
+          draft.selectedAgentId = agentId;
+          if (home !== null && draft.view === "channel") draft.pickedChannelId = home;
+        });
+      },
+      /** Closes the agent selection. */
+      clearAgent() {
+        setState((draft) => {
+          draft.selectedAgentId = null;
+        });
+      },
       reload() {
-        const channelId = state.channelId;
-        if (channelId !== null) void load(channelId);
+        const id = state.channelId;
+        if (id !== null) void load(id);
       },
     };
   },
