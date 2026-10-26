@@ -21,6 +21,8 @@ export interface VoiceTranscriptionRequest {
   fallbackLanguage?: string;
   /** The number of silent samples the host puts before the audio. */
   leadingSilenceSamples: number;
+  /** Loads the model, without decoding anything, so the first real request starts at inference. */
+  warm?: boolean;
   /** Little-endian 16-bit mono PCM at 16 kHz: the data chunk of the validated WAV file. */
   pcm: Uint8Array;
 }

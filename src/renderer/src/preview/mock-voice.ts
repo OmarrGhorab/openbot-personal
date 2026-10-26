@@ -122,6 +122,7 @@ export function createMockVoice(options: MockVoiceOptions, { emit, schedule }: M
       return clone(settings);
     },
     transcribe: async () => ({ text: "Mock voice transcript" }),
+    warmModel: async () => undefined,
     setApiKey: async ({ key }) => {
       setStatus({
         modelId: ELEVENLABS_VOICE_MODEL_ID,

@@ -1,5 +1,6 @@
 import { VOICE_AUDIO_LIMITS, VOICE_MODELS } from "@openbot/contracts/ipc";
 import { recordingToWav } from "../../voice-recording";
+import { openWhileWarming } from "./voice-warm-start";
 
 /** How often the recording so far is transcribed again for the live text. */
 const LIVE_INTERVAL_MS = 1_500;
@@ -72,6 +73,7 @@ export class GlobalVoiceDictation {
   #limitTimer: ReturnType<typeof setTimeout> | undefined;
   #liveTimer: ReturnType<typeof setInterval> | undefined;
   #liveRequest: Promise<void> = Promise.resolve();
+  #startedAt = 0;
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
   #onLevel: (level: number) => void = () => {};
@@ -99,7 +101,11 @@ export class GlobalVoiceDictation {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
     if (session !== this.#session) throw new GlobalVoiceDictationError("failed", "");
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    // The model loads while the user speaks: the microphone opens now, not after the load.
+    const stream = await openWhileWarming(
+      () => window.openbot.voice.warmModel(),
+      () => navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+    );
     // The window gave up on this start while the microphone was opening: release it and stop.
     if (session !== this.#session) {
       for (const track of stream.getTracks()) track.stop();
@@ -114,6 +120,7 @@ export class GlobalVoiceDictation {
     });
     this.#startMeter(stream);
     recorder.start(1_000);
+    this.#startedAt = performance.now();
     this.#limitTimer = setTimeout(() => this.#onLimit(), VOICE_AUDIO_LIMITS.maximumSeconds * 1_000);
     if (livePreview) {
       this.#liveTimer = setInterval(() => {
@@ -128,6 +135,7 @@ export class GlobalVoiceDictation {
     if (!recorder) throw new GlobalVoiceDictationError("failed", "");
     // No live text arrives after Stop: the final text replaces it.
     this.#recorder = null;
+    this.#startedAt = 0;
     this.#clearTimers();
     if (recorder.state !== "inactive") {
       await new Promise<void>((resolve) => {
@@ -158,10 +166,16 @@ export class GlobalVoiceDictation {
     if (recorder && recorder.state !== "inactive") recorder.stop();
     this.#release();
     this.#chunks = [];
+    this.#startedAt = 0;
   }
 
   get active(): boolean {
     return this.#recorder !== null;
+  }
+
+  /** How long the recording has run, for the analytics of one dictation. */
+  get elapsedSeconds(): number {
+    return this.#startedAt === 0 ? 0 : Math.max(0, (performance.now() - this.#startedAt) / 1_000);
   }
 
   async #refreshLive(): Promise<void> {
