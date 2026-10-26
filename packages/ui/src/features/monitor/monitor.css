@@ -256,10 +256,14 @@
   padding: var(--openbot-space-3);
 }
 
+/* The rings of a working agent sit around the icon, so the icon is their containing block. One
+   track the size of the box keeps the Bloub centred, as in the diagram view. */
 .monitor-node-avatar.agent-avatar {
+  position: relative;
   width: var(--openbot-control-sm);
   height: var(--openbot-control-sm);
   flex: 0 0 auto;
+  grid-template: 100% / 100%;
 }
 
 .monitor-node-title {
@@ -318,10 +322,13 @@
   padding: var(--openbot-space-2) 0;
 }
 
-.monitor-feed-avatar {
+.monitor-feed-avatar,
+.monitor-feed-avatar.agent-avatar {
+  position: relative;
   width: var(--openbot-control-md);
   height: var(--openbot-control-md);
   flex: 0 0 auto;
+  grid-template: 100% / 100%;
 }
 
 .monitor-feed-body {
