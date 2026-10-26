@@ -52,6 +52,7 @@ import type {
   UpdateAgentTaskLimitInput,
 } from "./ipc-agent-admin";
 import type { AgentAnalytics, AgentAnalyticsInput } from "./ipc-agent-analytics";
+import type { MonitorChange, MonitorSnapshot, MonitorSnapshotInput } from "./ipc-monitor";
 import type { AgentIpcRequest, ScopedAgentEvent } from "./ipc-agent-events";
 import type { ClientAgentModelOption } from "./ipc-agent-identity";
 import type {
@@ -1159,6 +1160,13 @@ export const IPC_ENDPOINTS = {
   // The account's Stripe subscription. The main process gets the Checkout or Portal URL from the
   // account server and opens it in the browser, so the renderer never sends a URL.
   // The iCalendar feed of this computer's routines. `create` also replaces the URL of a feed that is on.
+  // The Monitor of one channel on this computer: one snapshot of its agents, tasks, tool calls,
+  // agent-to-agent messages and feed, and an event when it changed. Main redacts tool-call text.
+  // Only the main window may read it. A joined server has no monitor route.
+  monitor: {
+    getSnapshot: request<MonitorSnapshotInput, MonitorSnapshot>()("monitor:get-snapshot"),
+    changed: event<MonitorChange>()("monitor:changed"),
+  },
   routineFeed: {
     get: request<undefined, RoutineFeed>()("routine-feed:get"),
     create: request<undefined, RoutineFeed>()("routine-feed:create"),
@@ -1733,6 +1741,7 @@ export const IPC_GROUP_PATHS = {
   vault: "vault",
   hostedSites: "hostedSites",
   routineFeed: "routineFeed",
+  monitor: "monitor",
   routineFlows: "routineFlows",
   routineResults: "routineResults",
   billing: "billing",
