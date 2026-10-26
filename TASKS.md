@@ -71,3 +71,31 @@
 - [x] changelog.d/feat-global-voice.md
 - [x] Narrow checks: typecheck:node, typecheck:renderer, biome on changed files, sender-guard vitest
 - [ ] Commit, push feat/global-voice (no PR)
+
+## 8. Issues #50–#53 (local branches, no push)
+### #50 Dynamic Island drag (feat/dynamic-island-drag)
+- [x] Drag the island window by pointer, with a 4 px threshold so a click stays a click
+- [x] Persist the window position per display in `dynamic-island-positions.json`
+- [x] Clamp the saved position on display changes and keep the drawn island on screen
+- [x] Do not drag from a button, link, field, select or editable element; suppress the click after a drag
+- [x] Windows and Linux: start the island window and guard macOS-only calls
+- [x] Windows and Linux: island is opt-in (off by default, Settings switch); macOS stays on by default
+- [x] Expanded panel is lifted so it never runs off the bottom of the screen
+- [x] Clamp tests, typechecks and biome pass
+
+### #53 Voice send reliability (fix/voice-send-reliability)
+- [x] Send timeout in main (20 s) and in the window (25 s)
+- [x] Visible Send and Cancel in review and Send while listening
+- [x] Errors show in the review box and keep the text
+- [x] i18n keys in English and Arabic; tests and typechecks pass
+
+### #51 Dictation latency and model (not started)
+- [ ] Add end-to-end latency marks (speech end to text shown)
+- [ ] Warm the model when recording starts
+- [ ] Compare Parakeet and Whisper on the same clips (done: Parakeet 0.43–0.99 s, Whisper 4.9–16.8 s; WER 0–11.1 % vs 0 %)
+- [ ] Pick the default and keep the other model as fallback
+
+### #52 Live transcript (not started)
+- [ ] Stream PCM while recording and show partial text within 1 s
+- [ ] Replace the partial text with the final text, with no duplicates
+- [ ] Retry and replay the utterance after a dropped stream

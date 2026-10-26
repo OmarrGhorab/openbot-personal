@@ -339,7 +339,9 @@ function MonitorCanvasNodeSlot(props: {
     observer.observe(slot);
     return () => {
       observer.disconnect();
-      props.onHeight(null);
+      // The card is disposed inside the owned scope of the list; a store write there halts the
+      // reactive system (REACTIVE_WRITE_IN_OWNED_SCOPE). Forget the height after the disposal.
+      queueMicrotask(() => props.onHeight(null));
     };
   });
   return (

@@ -1077,6 +1077,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       performHaptic: async () => undefined,
       onAction: () => () => undefined,
       setInteractive: async () => undefined,
+      moveWindow: async () => undefined,
+      endWindowDrag: async () => undefined,
     },
     globalVoice: {
       getState: async () => globalVoiceState(),
