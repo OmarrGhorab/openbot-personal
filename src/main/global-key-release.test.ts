@@ -1,11 +1,15 @@
-import { UiohookKey } from "uiohook-napi";
-import { describe, expect, it } from "vitest";
+import { UiohookKey as PackageKeys } from "uiohook-napi";
+import { describe, expect, it, vi } from "vitest";
 import {
   acceleratorIsDown,
   acceleratorReleased,
+  createGlobalKeyRelease,
   type GlobalKeyEvent,
+  type KeyHook,
+  loadUiohook,
   parseGlobalVoiceAccelerator,
 } from "./global-key-release";
+import { UiohookKey } from "./uiohook-keys";
 
 function event(patch: Partial<GlobalKeyEvent> & Pick<GlobalKeyEvent, "type" | "keycode">): GlobalKeyEvent {
   return { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...patch };
@@ -41,5 +45,36 @@ describe("global voice key release", () => {
 
   it("has no code for a key the hook cannot see", () => {
     expect(parseGlobalVoiceAccelerator("Alt+VolumeUp", "darwin")).toBeNull();
+  });
+
+  it("keeps the copied key codes equal to the package", () => {
+    expect({ ...UiohookKey }).toEqual({ ...PackageKeys });
+  });
+
+  it("reports the hook unavailable instead of throwing when the native addon cannot load", () => {
+    const release = createGlobalKeyRelease(() =>
+      loadUiohook(() => {
+        throw new Error("\\?\\C:\\uiohook_napi.node is not a valid Win32 application.");
+      }),
+    );
+    expect(release.start()).toBe("unavailable");
+    expect(() => release.stop()).not.toThrow();
+  });
+
+  it("rejects a module without the uIOhook export", () => {
+    expect(() => loadUiohook(() => ({}))).toThrow(/no uIOhook export/u);
+  });
+
+  it("loads the hook only on start, and starts it once", () => {
+    const hook: KeyHook = { on: vi.fn(), start: vi.fn(), stop: vi.fn() };
+    const load = vi.fn(() => hook);
+    const release = createGlobalKeyRelease(load);
+    expect(load).not.toHaveBeenCalled();
+    expect(release.start()).toBe("ready");
+    expect(release.start()).toBe("ready");
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(hook.start).toHaveBeenCalledTimes(1);
+    release.stop();
+    expect(hook.stop).toHaveBeenCalledTimes(1);
   });
 });

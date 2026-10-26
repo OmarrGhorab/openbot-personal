@@ -55,7 +55,12 @@ const modelRoot = join(buildRoot, "model");
 // Beside the runtime, not in it: electron-builder copies the whole runtime directory.
 const runtimeMarker = join(buildRoot, "runtime-package.txt");
 const runtimeOnly = process.argv.includes("--runtime-only");
-const target = `${process.platform}-${process.arch}`;
+// `bun scripts/prepare-voice.ts --runtime-only win32 x64` prepares another target's runtime, for a
+// cross-build. Without a platform and arch it prepares the runtime of this machine.
+const [targetPlatform = process.platform, targetArch = process.arch] = process.argv
+  .slice(2)
+  .filter((argument) => !argument.startsWith("--"));
+const target = `${targetPlatform}-${targetArch}`;
 const runtimePackage = RUNTIME_PACKAGES[target];
 
 if (!runtimePackage) {
@@ -97,7 +102,7 @@ async function prepareRuntime(runtime: RuntimePackage): Promise<void> {
     await mkdir(runtimeRoot, { recursive: true });
     for (const file of runtime.files) {
       copyFileSync(join(extractRoot, "package", file), join(runtimeRoot, file));
-      if (process.platform === "linux") pinSearchPathToOrigin(join(runtimeRoot, file));
+      if (targetPlatform === "linux") pinSearchPathToOrigin(join(runtimeRoot, file));
     }
     await writeFile(runtimeMarker, `${marker}\n`);
   } finally {

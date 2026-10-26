@@ -7,6 +7,8 @@ protocols:
       - openbot
 asar: true
 artifactName: ${productName}-${version}-${arch}.${ext}
+# Fails a Windows build when a packaged native file is not PE for the target arch.
+afterPack: scripts/after-pack-native-check.mjs
 electronUpdaterCompatibility: ">=2.16"
 electronFuses:
   resetAdHocDarwinSignature: true
@@ -135,6 +137,13 @@ mac:
         - x64
 win:
   icon: build/icon-production.ico
+  # node-gyp-build prefers build/Release over prebuilds/. A build made on macOS holds the macOS addon
+  # there, so leave it out and let the win32-x64 prebuild load.
+  files:
+    - "!node_modules/uiohook-napi/build/**/*"
+    - "!node_modules/uiohook-napi/prebuilds/darwin-*/**/*"
+    - "!node_modules/uiohook-napi/prebuilds/linux-*/**/*"
+    - "!node_modules/uiohook-napi/prebuilds/win32-arm64/**/*"
   extraResources:
     - from: .openbot-build/voice/runtime
       to: voice/runtime
