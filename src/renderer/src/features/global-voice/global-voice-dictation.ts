@@ -75,6 +75,8 @@ export class GlobalVoiceDictation {
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
   #onLevel: (level: number) => void = () => {};
+  /** Changes on each start and cancel, so a start that resolves after either one opens nothing. */
+  #session = 0;
 
   /** Opens the microphone and starts recording. `onLimit` runs when the time limit is reached. */
   async start(callbacks: {
@@ -82,6 +84,7 @@ export class GlobalVoiceDictation {
     onLimit: () => void;
     onLevel?: (level: number) => void;
   }): Promise<void> {
+    const session = ++this.#session;
     this.#onLive = callbacks.onLive;
     this.#onLimit = callbacks.onLimit;
     this.#onLevel = callbacks.onLevel ?? (() => {});
@@ -95,7 +98,13 @@ export class GlobalVoiceDictation {
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
+    if (session !== this.#session) throw new GlobalVoiceDictationError("failed", "");
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    // The window gave up on this start while the microphone was opening: release it and stop.
+    if (session !== this.#session) {
+      for (const track of stream.getTracks()) track.stop();
+      throw new GlobalVoiceDictationError("failed", "");
+    }
     const recorder = new MediaRecorder(stream);
     this.#stream = stream;
     this.#recorder = recorder;
@@ -142,6 +151,7 @@ export class GlobalVoiceDictation {
 
   /** Stops the microphone and drops the recording. Nothing is transcribed. */
   cancel(): void {
+    this.#session += 1;
     this.#clearTimers();
     const recorder = this.#recorder;
     this.#recorder = null;

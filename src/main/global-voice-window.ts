@@ -34,6 +34,11 @@ import { sendToRenderer } from "./renderer-ipc";
 const logger = createOpenBotLogger("global-voice");
 const SNAPSHOT_RETRY_MS = 50;
 const SNAPSHOT_RETRY_LIMIT = 40;
+/**
+ * How long a dictation may take to reach the agent. The window waits a little longer, so a send
+ * that main gives up on comes back as an error there and never leaves the island in "sending".
+ */
+const SEND_TIMEOUT_MS = 20_000;
 
 /** Keys that work only while a dictation listens: Tab opens the picker, Escape cancels. */
 const LISTENING_KEYS = { choose: "Tab", cancel: "Escape" } as const;
@@ -179,7 +184,13 @@ export class GlobalVoiceController {
       if (!this.#options.listAgents().some((agent) => agent.id === input.agentId)) {
         return yield* new GlobalVoiceFailed({ cause: new Error(sourceText("error.globalVoice.agentUnavailable")) });
       }
-      yield* this.#options.sendTranscript(input.agentId, input.text);
+      yield* this.#options.sendTranscript(input.agentId, input.text).pipe(
+        Effect.timeoutOrElse({
+          duration: SEND_TIMEOUT_MS,
+          orElse: () =>
+            Effect.fail(new GlobalVoiceFailed({ cause: new Error(sourceText("error.globalVoice.sendTimedOut")) })),
+        }),
+      );
       this.#lastAgentId = input.agentId;
     });
   }
