@@ -188,6 +188,7 @@
     "check:staged": "biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched",
     "test": "bun run test:desktop && bun run test:api",
     "test:desktop": "vitest run",
+    "test:monitor-snapshot": "bun scripts/monitor-snapshot-e2e.ts",
     "test:onboarding-step-order": "bun scripts/onboarding-step-order-e2e.ts",
     "test:private-backend-env": "bun scripts/private-backend-env-e2e.ts",
     "test:smtp-username": "bun apps/auth-api/scripts/smtp-username-e2e.ts",
