@@ -2,8 +2,31 @@
 // hold-to-talk needs a hook that also reports the release. On macOS the hook needs Accessibility.
 // The numbers are the key codes of uiohook-napi 1.5.5.
 
+import { createRequire } from "node:module";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
-import { UiohookKey, type UiohookKeyboardEvent, uIOhook } from "uiohook-napi";
+import type { uIOhook as UiohookInstance, UiohookKeyboardEvent } from "uiohook-napi";
+import { UiohookKey } from "./uiohook-keys";
+
+/** The part of the uiohook instance this module uses. */
+export type KeyHook = Pick<typeof UiohookInstance, "on" | "start" | "stop">;
+
+const requireModule = createRequire(import.meta.url);
+
+/**
+ * Loads the native hook on first use, not at import. A missing or wrong-platform addon (for example a
+ * macOS build packaged into the Windows app) then only turns hold-to-talk off; the app still starts.
+ */
+export function loadUiohook(load: () => unknown = () => requireModule("uiohook-napi")): KeyHook {
+  const loaded = load();
+  if (!isUiohookModule(loaded)) throw new Error("uiohook-napi has no uIOhook export.");
+  return loaded.uIOhook;
+}
+
+function isUiohookModule(value: unknown): value is { uIOhook: KeyHook } {
+  if (typeof value !== "object" || value === null || !("uIOhook" in value)) return false;
+  const hook = value.uIOhook;
+  return typeof hook === "object" && hook !== null && "start" in hook && typeof hook.start === "function";
+}
 
 const logger = createOpenBotLogger("global-voice-keys");
 
@@ -181,7 +204,8 @@ export interface GlobalKeyRelease {
  * One process-wide key hook. uiohook allows one listener loop, so the voice controller is the only
  * caller. The hook does not prompt for Accessibility: the controller does that from Settings.
  */
-export function createGlobalKeyRelease(): GlobalKeyRelease {
+export function createGlobalKeyRelease(load: () => KeyHook = () => loadUiohook()): GlobalKeyRelease {
+  let hook: KeyHook | null = null;
   const held = new Set<string>();
   let parsed = new Map<string, ParsedAccelerator>();
   let platform: NodeJS.Platform = process.platform;
@@ -210,13 +234,14 @@ export function createGlobalKeyRelease(): GlobalKeyRelease {
   return {
     start() {
       try {
+        hook ??= load();
         if (!listening) {
           listening = true;
-          uIOhook.on("keydown", (event) => onEvent("down", event));
-          uIOhook.on("keyup", (event) => onEvent("up", event));
+          hook.on("keydown", (event) => onEvent("down", event));
+          hook.on("keyup", (event) => onEvent("up", event));
         }
         if (!running) {
-          uIOhook.start();
+          hook.start();
           running = true;
         }
         return "ready";
@@ -231,10 +256,10 @@ export function createGlobalKeyRelease(): GlobalKeyRelease {
     },
     stop() {
       held.clear();
-      if (!running) return;
+      if (!running || !hook) return;
       running = false;
       try {
-        uIOhook.stop();
+        hook.stop();
       } catch (error) {
         logger.warn("The key-release hook did not stop.", { error: toLogValue(error) });
       }
