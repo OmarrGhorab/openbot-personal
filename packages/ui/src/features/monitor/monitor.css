@@ -1941,3 +1941,194 @@ nav.monitor-return-bar {
   justify-content: center;
   gap: var(--openbot-space-2);
 }
+
+/* Members popover and add-agent dialog (#29). */
+.monitor-members-trigger {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.monitor-members-popover {
+  display: flex;
+  width: min(320px, 90vw);
+  max-height: min(420px, 70dvh);
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-sidebar);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-members-title {
+  margin: 0;
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-xs);
+  font-weight: 600;
+}
+
+.monitor-members-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.monitor-members-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+}
+
+.monitor-members-avatar.agent-avatar,
+.monitor-add-agent-avatar.agent-avatar {
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-md);
+}
+
+.monitor-members-text,
+.monitor-add-agent-text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.monitor-members-name,
+.monitor-add-agent-name {
+  overflow: hidden;
+  font-size: var(--openbot-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-members-role,
+.monitor-add-agent-role {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-xs);
+}
+
+.monitor-members-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  border: 0;
+  border-radius: var(--openbot-radius-md);
+  background: transparent;
+  color: var(--openbot-text-secondary);
+  cursor: pointer;
+}
+
+.monitor-members-error,
+.monitor-add-agent-error {
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-font-size-xs);
+}
+
+.monitor-members-add {
+  justify-content: flex-start;
+}
+
+.ui-dialog-content.monitor-add-agent {
+  display: flex;
+  width: min(480px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  flex-direction: column;
+  overflow: hidden;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-sidebar);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-add-agent-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-3) var(--openbot-space-6);
+}
+
+.monitor-add-agent-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.monitor-add-agent-title {
+  margin: 0;
+  font-size: var(--openbot-font-size-md);
+  font-weight: 600;
+}
+
+.monitor-add-agent-description {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-add-agent-search {
+  margin: 0 var(--openbot-space-6) var(--openbot-space-3);
+}
+
+.monitor-add-agent-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  overflow-y: auto;
+  padding: 0 var(--openbot-space-6);
+}
+
+.monitor-add-agent-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  list-style: none;
+}
+
+.monitor-add-agent-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.monitor-add-agent-empty {
+  margin: 0;
+  padding: var(--openbot-space-4) 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-add-agent-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--openbot-space-3) var(--openbot-space-6) var(--openbot-space-4);
+  border-top: 1px solid var(--openbot-glass-border);
+}
