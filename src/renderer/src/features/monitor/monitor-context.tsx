@@ -393,9 +393,12 @@ const context = createSimpleContext({
       /** Holds the queue of an agent task. Rejects when the task is not an agent task or the host refuses. */
       async pauseTask(task: MonitorTask): Promise<void> {
         const target = taskTarget(task);
-        if (target?.source !== "agent") throw new Error("Only an agent task can pause.");
-        await props.actions.pauseTask(target);
+        const pause = props.actions.pauseTask;
+        if (target?.source !== "agent" || !pause) throw new Error("Only an agent task can pause on this host.");
+        await pause(target);
       },
+      /** Whether this host can hold an agent task. The popup shows Pause only when it can. */
+      canPauseTask: () => props.actions.pauseTask !== undefined,
       /** Continues a held task of either source. Rejects when the host refuses. */
       async resumeTask(task: MonitorTask): Promise<void> {
         const target = taskTarget(task);

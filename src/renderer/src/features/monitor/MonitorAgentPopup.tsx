@@ -104,7 +104,7 @@ export function MonitorAgentPopup() {
             })
         : undefined,
       onResumeTask: current.resumable && task ? () => void resume() : undefined,
-      onPauseTask: current.pausable ? () => void pause() : undefined,
+      onPauseTask: current.pausable && monitor.canPauseTask() ? () => void pause() : undefined,
       pausePending: ui.pausing,
       resumePending: ui.resuming,
       error: ui.error ? t(ui.error) : null,

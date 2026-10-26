@@ -34,7 +34,8 @@ export interface MonitorTaskActions {
    * Holds the queue of an agent task with `agent.pauseTask`. The running turn ends first, and the
    * next queued message waits. The agent keeps its workspace, thread and identity.
    */
-  pauseTask(target: Extract<MonitorTaskTarget, { source: "agent" }>): Promise<void>;
+  // Optional: a host that cannot hold an agent task leaves it out, and the popup hides Pause.
+  pauseTask?(target: Extract<MonitorTaskTarget, { source: "agent" }>): Promise<void>;
   /** Continues a held task: an agent task with `agent.resumeTask`, a channel task with the channel `resume` command. */
   resumeTask(target: MonitorTaskTarget): Promise<void>;
 }

@@ -208,10 +208,6 @@ export function webMonitorTaskActions(dependencies: WebMonitorTaskDependencies):
       }
       await channels().channelCommand(monitorChannelTaskCommand("stop", target));
     },
-    async pauseTask() {
-      // The Team API has no pause route, so a joined server cannot hold an agent task.
-      throw new Error(currentText().t("webClient.error.desktopOnly"));
-    },
     async resumeTask(target) {
       if (target.source === "agent") throw new Error(currentText().t("webClient.error.desktopOnly"));
       await channels().channelCommand(monitorChannelTaskCommand("resume", target));
