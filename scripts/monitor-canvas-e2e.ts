@@ -56,7 +56,10 @@ try {
   const snapshot = await readSnapshot(channel.id);
 
   await page.getByRole("button", { name: en["app.rail.monitor"], exact: true }).click();
-  await page.getByRole("button", { name: new RegExp(name) }).first().click();
+  await page
+    .getByRole("button", { name: new RegExp(name) })
+    .first()
+    .click();
   const shown = await waitFor(
     page,
     "one canvas card per agent of the channel",
