@@ -12,8 +12,8 @@ type MonitorDesktopApi = GroupApi<IpcEndpoints["monitor"]>;
 const minutesAgo = (now: number, minutes: number) => new Date(now - minutes * 60_000).toISOString();
 
 /**
- * One busy channel: an agent in each status, a task in each state, a tool call in each status, two
- * agent pairs and a feed event of each kind. Every field of the contract has a value somewhere, so a
+ * One busy channel of five agents: an agent in each status, a task in each state, a tool call in each
+ * status, hand-offs over three columns, four agent pairs and a feed event of each kind. Every field of the contract has a value somewhere, so a
  * story of any Monitor view shows real rows.
  */
 function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapshot {
@@ -36,6 +36,22 @@ function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapsh
       toAgentId: "research",
     },
     { id: "status:research:prompt", at: at(5), agentId: "research", kind: "agent-status", status: "waiting" },
+    {
+      id: "exchange:message-5:developer",
+      at: at(3),
+      agentId: "designer",
+      kind: "agent-message",
+      fromAgentId: "designer",
+      toAgentId: "developer",
+    },
+    {
+      id: "exchange:message-6:designer",
+      at: at(9),
+      agentId: "research",
+      kind: "agent-message",
+      fromAgentId: "research",
+      toAgentId: "designer",
+    },
     {
       id: "message:message-1",
       at: at(8),
@@ -128,6 +144,20 @@ function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapsh
         startedAt: null,
         error: null,
       },
+      {
+        id: "developer",
+        name: "Developer",
+        provider: "codex",
+        avatarSeed: "developer",
+        avatarHue: 215,
+        avatarUrl: null,
+        lead: false,
+        status: "working",
+        currentTaskId: "task-build",
+        step: { index: 3, total: 5 },
+        startedAt: at(14),
+        error: null,
+      },
     ],
     tasks: [
       {
@@ -164,11 +194,31 @@ function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapsh
         id: "task-leads",
         source: "channel",
         agentId: "sales",
-        parentTaskId: "task-plan",
+        parentTaskId: "task-build",
         title: "List the first 20 leads",
         state: "failed",
         error: "The provider refused the turn: the usage limit is reached.",
         updatedAt: null,
+      },
+      {
+        id: "task-layouts",
+        source: "channel",
+        agentId: "designer",
+        parentTaskId: "task-plan",
+        title: "Draw two layouts for the launch page",
+        state: "completed",
+        error: null,
+        updatedAt: at(20),
+      },
+      {
+        id: "task-build",
+        source: "channel",
+        agentId: "developer",
+        parentTaskId: "task-sources",
+        title: "Build the launch page from the chosen layout",
+        state: "running",
+        error: null,
+        updatedAt: at(2),
       },
       {
         id: "task-logo",
@@ -261,7 +311,9 @@ function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapsh
     ],
     pairs: [
       { agentIds: ["chief", "research"], count: 4, lastAt: at(4) },
-      { agentIds: ["chief", "sales"], count: 2, lastAt: at(10) },
+      { agentIds: ["designer", "research"], count: 9, lastAt: at(9) },
+      { agentIds: ["designer", "developer"], count: 14, lastAt: at(3) },
+      { agentIds: ["developer", "sales"], count: 2, lastAt: at(10) },
     ],
     events: events.sort((left, right) => right.at.localeCompare(left.at)),
   };
