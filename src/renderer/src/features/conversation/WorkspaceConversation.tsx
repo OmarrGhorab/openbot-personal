@@ -74,6 +74,14 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
   const platform = usePlatform();
   const connectors = useConnectors();
   const { activeServer, activeServerSupportsCapability, joinServerOpen } = useServers();
+  // Memos owned by the component. An inline prop expression compiles to a memo created on first
+  // read, and Solid rc.18 throws when that read happens in an effect callback.
+  const browserEnabled = createMemo(
+    () => !platform.landingPreview && !platform.chatWindow && activeServerSupportsCapability("browser-control"),
+  );
+  const remoteDesktopEnabled = createMemo(
+    () => !platform.landingPreview && !platform.chatWindow && activeServerSupportsCapability("remote-desktop"),
+  );
   const { serverSettingsOpen, openServerSettings, openMcpSignIn, serverSettingsTargetId, serverSettingsMcpSignIns } =
     useServerSettings();
   const {
@@ -534,14 +542,10 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           });
         }}
         // The browser and the remote desktop show in the main window only.
-        browserEnabled={
-          !platform.landingPreview && !platform.chatWindow && activeServerSupportsCapability("browser-control")
-        }
+        browserEnabled={browserEnabled()}
         remoteDesktopSessionActive={Boolean(activeRemoteDesktopSession())}
         remoteDesktopVisible={remoteDesktopWorkspaceVisible()}
-        remoteDesktopEnabled={
-          !platform.landingPreview && !platform.chatWindow && activeServerSupportsCapability("remote-desktop")
-        }
+        remoteDesktopEnabled={remoteDesktopEnabled()}
         prompt={activePrompt()}
         promptUiBlock={activePromptUiBlock()}
         approval={activeApproval()}
