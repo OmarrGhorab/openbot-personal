@@ -62,7 +62,8 @@ export class MonitorDataSource extends Context.Service<
       channelPage: (channelId) =>
         Effect.try({
           try: () => sources.channelPage(channelId),
-          catch: () => new MonitorChannelMissing({ cause: new Error(sourceText("error.backend.monitorChannelMissing")) }),
+          catch: () =>
+            new MonitorChannelMissing({ cause: new Error(sourceText("error.backend.monitorChannelMissing")) }),
         }),
       agents: () => readSource(() => sources.agents()),
       agentTasks: (agentId) => readSource(() => sources.agentTasks(agentId)),

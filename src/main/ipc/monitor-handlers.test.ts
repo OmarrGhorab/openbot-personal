@@ -1,6 +1,12 @@
 // @vitest-environment node
 
-import type { ChannelPage, ConversationMessage, MonitorAgentSource, MonitorSnapshot } from "@openbot/contracts/ipc";
+import {
+  type ChannelPage,
+  type ConversationMessage,
+  isMonitorSnapshot,
+  type MonitorAgentSource,
+  type MonitorSnapshot,
+} from "@openbot/contracts/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MonitorService } from "../monitor-service";
 import { monitorIpcHandlers } from "./monitor-handlers";
@@ -111,7 +117,13 @@ function register() {
     if (!listener) throw new Error("No monitor handler.");
     return listener(event(senderId, url), payload);
   };
-  return { monitor, snapshot, call };
+  /** A read from the main window, checked with the contract guard the preload decoder uses. */
+  const read = async (channelId: string): Promise<MonitorSnapshot> => {
+    const result = await call(MAIN_ID, { channelId });
+    if (!isMonitorSnapshot(result)) throw new Error("The snapshot does not pass the contract guard.");
+    return result;
+  };
+  return { monitor, snapshot, call, read };
 }
 
 beforeEach(() => registrations.clear());
@@ -119,8 +131,8 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("monitor snapshot handler", () => {
   it("redacts a secret in a finished tool call before the snapshot leaves main", async () => {
-    const { call } = register();
-    const result = (await call(MAIN_ID, { channelId: "channel-1" })) as MonitorSnapshot;
+    const { read } = register();
+    const result = await read("channel-1");
     const [toolCall] = result.toolCalls;
     expect(toolCall?.tool).toBe("shell");
     expect(toolCall?.status).toBe("done");
@@ -130,7 +142,7 @@ describe("monitor snapshot handler", () => {
   });
 
   it("redacts a secret in a running tool call from the live agent events", async () => {
-    const { monitor, call } = register();
+    const { monitor, read } = register();
     monitor.observe({ type: "turn-started", agentId: "agent-qa", threadId: "thread-qa", turnId: "turn-live" });
     monitor.observe({
       type: "turn-progress",
@@ -139,7 +151,7 @@ describe("monitor snapshot handler", () => {
       turnId: "turn-live",
       detail: `Running export API_KEY=${SECRET}`,
     });
-    const result = (await call(MAIN_ID, { channelId: "channel-1" })) as MonitorSnapshot;
+    const result = await read("channel-1");
     const running = result.toolCalls.find((toolCall) => toolCall.status === "running");
     expect(running?.agentId).toBe("agent-qa");
     expect(running?.argument).toContain("[redacted]");

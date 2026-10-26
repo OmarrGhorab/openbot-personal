@@ -247,6 +247,7 @@ import {
 } from "./mcp-oauth-redirect-server";
 import { McpOAuthStore } from "./mcp-oauth-store";
 import { MessagingCredentialStore } from "./messaging-credential-store";
+import { MonitorService } from "./monitor-service";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
@@ -278,7 +279,6 @@ import {
   createRemoteSessionReusePreferenceStore,
   type RemoteSessionReusePreferenceStore,
 } from "./remote-session-reuse-preference-store";
-import { MonitorService } from "./monitor-service";
 import { sendToRenderer } from "./renderer-ipc";
 import { RequestedUpdate, RequestedUpdateRefusal } from "./requested-update";
 import { ResourceMonitor } from "./resource-monitor";

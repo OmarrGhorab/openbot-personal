@@ -6,8 +6,8 @@
 
 import { type AgentProviderRef, isAgentProviderRef } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
-import { type AvatarHue, isAvatarHue, isAvatarSeed } from "./ipc-agent-identity";
 import type { AgentEvent } from "./ipc-agent-events";
+import { type AvatarHue, isAvatarHue, isAvatarSeed } from "./ipc-agent-identity";
 import type { AgentTask } from "./ipc-agent-tasks";
 import { integerInRange, isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import type { ChannelMessage, ChannelPage, ChannelTaskState } from "./ipc-chat-channels";
@@ -390,17 +390,15 @@ const newestFirst = <T extends { at: string }>(left: T, right: T) => right.at.lo
  * The tool of a trace step. The trace keeps only the shell command and the recipients of an OpenBot
  * message, so every other step is a `tool` whose argument is its progress text.
  */
-function stepTool(step: Pick<ConversationTraceStep, "command" | "recipientAgentIds">): string {
+function stepTool(
+  step: Pick<ConversationTraceStep, "command" | "recipientAgentIds">,
+): "shell" | "send_message" | "tool" {
   if (step.command) return "shell";
   if (step.recipientAgentIds?.length) return "send_message";
   return "tool";
 }
 
-function traceToolCalls(
-  agentId: string,
-  taskId: string | null,
-  message: ChannelMessage["message"],
-): MonitorToolCall[] {
+function traceToolCalls(agentId: string, taskId: string | null, message: ChannelMessage["message"]): MonitorToolCall[] {
   const trace = message.trace;
   if (!trace) return [];
   return trace.steps
@@ -445,7 +443,7 @@ function liveToolCalls(turn: MonitorLiveTurn): MonitorToolCall[] {
 function planStep(messages: ChannelMessage[], agentId: string): MonitorStep | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const entry = messages[index];
-    if (!entry || entry.author.kind !== "agent" || entry.author.id !== agentId || !entry.message.plan) continue;
+    if (entry?.author.kind !== "agent" || entry.author.id !== agentId || !entry.message.plan) continue;
     const steps = entry.message.plan.steps;
     if (steps.length === 0) return null;
     const done = steps.filter((step) => step.status === "completed").length;
@@ -508,7 +506,7 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
   // in both; it counts once per recipient.
   const pageExchanges = page.messages.flatMap((entry): MonitorExchange[] => {
     const exchange = entry.message.exchange;
-    if (!exchange || exchange.direction !== "outgoing") return [];
+    if (exchange?.direction !== "outgoing") return [];
     return exchange.recipientAgentIds.map((recipientAgentId) => ({
       messageId: exchange.messageId,
       senderAgentId: exchange.senderAgentId,
@@ -532,7 +530,8 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
   );
   const pairs = new Map<string, MonitorAgentPair>();
   for (const exchange of exchanges) {
-    const agentIds = [exchange.senderAgentId, exchange.recipientAgentId].sort() as [string, string];
+    const { senderAgentId: sender, recipientAgentId: recipient } = exchange;
+    const agentIds: [string, string] = sender < recipient ? [sender, recipient] : [recipient, sender];
     const key = agentIds.join("\n");
     const pair = pairs.get(key);
     if (!pair) pairs.set(key, { agentIds, count: 1, lastAt: exchange.at });

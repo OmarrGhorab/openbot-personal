@@ -111,10 +111,10 @@ try {
   report.events = done.events.length;
   report.changes = changes;
   report.passed = true;
-  console.log(`Wrote ${writeSnapshot(done)}`);
+  process.stdout.write(`Wrote ${writeSnapshot(done)}\n`);
 } finally {
   await page.evaluate(() => window.monitorSnapshotE2e?.stop()).catch(() => undefined);
   await client.cleanup();
-  console.log(`Wrote ${writeReport("monitor-snapshot-e2e", report)}`);
+  process.stdout.write(`Wrote ${writeReport("monitor-snapshot-e2e", report)}\n`);
   await session.close();
 }

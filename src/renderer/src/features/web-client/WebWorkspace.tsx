@@ -201,6 +201,7 @@ import { webGitHubConnectorPort } from "./web-github-connector";
 import { createWebHostedServers } from "./web-hosted-server-state";
 import { createWebAgentTemplateCalls, createWebMarketplaceCalls } from "./web-marketplace";
 import { webHostMessaging } from "./web-messaging-connector";
+import { webMonitorSource } from "./web-monitor";
 import { createWebServerNotifications } from "./web-notification-preferences";
 import { createWebNotificationRouting } from "./web-notification-routing";
 import { requestWebNotificationPermission } from "./web-notifications";
@@ -209,7 +210,6 @@ import { createWebProviderSettings, openWebDestination } from "./web-provider-ad
 import { webRoutineFlowsHost } from "./web-routine-flows";
 import { webScheduleSource } from "./web-schedule";
 import { createWebServerSettings } from "./web-server-settings";
-import { webMonitorSource } from "./web-monitor";
 import { webTasksSource } from "./web-tasks";
 import { createWebUsagePort } from "./web-usage-port";
 

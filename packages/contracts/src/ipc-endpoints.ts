@@ -52,7 +52,6 @@ import type {
   UpdateAgentTaskLimitInput,
 } from "./ipc-agent-admin";
 import type { AgentAnalytics, AgentAnalyticsInput } from "./ipc-agent-analytics";
-import type { MonitorChange, MonitorSnapshot, MonitorSnapshotInput } from "./ipc-monitor";
 import type { AgentIpcRequest, ScopedAgentEvent } from "./ipc-agent-events";
 import type { ClientAgentModelOption } from "./ipc-agent-identity";
 import type {
@@ -350,6 +349,7 @@ import type {
   TelegramChatInput,
   TelegramOverview,
 } from "./ipc-messaging";
+import type { MonitorChange, MonitorSnapshot, MonitorSnapshotInput } from "./ipc-monitor";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
 import type {
   OnePasswordConnectInput,
