@@ -85,7 +85,12 @@ const GROUP_PHRASES = [
 
 /** Lower-case words of the text: letters, marks and digits. Everything else separates them. */
 function addressWords(text: string): string[] {
-  return text.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{M}\p{N}]+/gu) ?? [];
+  return (
+    text
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .match(/[\p{L}\p{M}\p{N}]+/gu) ?? []
+  );
 }
 
 /**
