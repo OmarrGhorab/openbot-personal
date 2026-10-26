@@ -8,7 +8,8 @@ import {
 import { MonitorCanvasFooter } from "@openbot/ui/features/monitor/MonitorCanvasFooter";
 import { MonitorEmptyChannel } from "@openbot/ui/features/monitor/MonitorEmptyChannel";
 import { useText } from "@openbot/ui/text";
-import { createEffect, createMemo, createStore, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createStore, Show } from "solid-js";
+import { MonitorAskPanel } from "./MonitorAskPanel";
 import {
   buildMonitorCanvasGraph,
   layoutMonitorCanvas,
@@ -155,34 +156,38 @@ export function MonitorCanvas() {
       </div>
     );
   };
+  const [asking, setAsking] = createSignal(false);
 
   return (
-    <Show
-      when={nodes().length > 0 || !monitor.state.snapshot}
-      fallback={<p class="monitor-page-note monitor-canvas-note">{t("monitor.canvas.empty")}</p>}
-    >
+    <>
       <Show
-        when={!idle()}
-        fallback={
-          <MonitorEmptyChannel
-            title={t("monitor.empty.title", { name: monitor.state.snapshot?.channelName ?? "" })}
-            onCreateRoutine={() => monitor.openRoutines()}
-          />
-        }
+        when={nodes().length > 0 || !monitor.state.snapshot}
+        fallback={<p class="monitor-page-note monitor-canvas-note">{t("monitor.canvas.empty")}</p>}
       >
-        <MonitorCanvasBoard
-          label={monitor.state.snapshot?.channelName ?? ""}
-          nodes={nodes()}
-          edges={edges()}
-          selectedId={monitor.state.selectedAgentId}
-          onSelectNode={monitor.selectAgent}
-          onClearSelection={monitor.clearAgent}
-          onOpenEdge={(edge) => monitor.openConversation([edge.from, edge.to])}
-          overlay={chip()}
+        <Show
+          when={!idle()}
+          fallback={
+            <MonitorEmptyChannel
+              title={t("monitor.empty.title", { name: monitor.state.snapshot?.channelName ?? "" })}
+              onCreateRoutine={() => monitor.openRoutines()}
+            />
+          }
         >
-          <MonitorCanvasFooter />
-        </MonitorCanvasBoard>
+          <MonitorCanvasBoard
+            label={monitor.state.snapshot?.channelName ?? ""}
+            nodes={nodes()}
+            edges={edges()}
+            selectedId={monitor.state.selectedAgentId}
+            onSelectNode={monitor.selectAgent}
+            onClearSelection={monitor.clearAgent}
+            onOpenEdge={(edge) => monitor.openConversation([edge.from, edge.to])}
+            overlay={chip()}
+          >
+            <MonitorCanvasFooter onAsk={() => setAsking(true)} />
+          </MonitorCanvasBoard>
+        </Show>
       </Show>
-    </Show>
+      <MonitorAskPanel open={asking()} onClose={() => setAsking(false)} />
+    </>
   );
 }
