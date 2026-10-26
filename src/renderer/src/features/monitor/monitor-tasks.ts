@@ -61,7 +61,7 @@ export interface MonitorTaskRow {
   toolCalls: number;
 }
 
-function taskProgress(state: MonitorTaskState, agent: MonitorAgent | null, taskId: string): number | null {
+function taskProgress(state: MonitorTaskState, agent: MonitorAgent | null, taskId: string) {
   if (state === "completed") return 1;
   const step = agent?.currentTaskId === taskId ? agent.step : null;
   if (!step) return null;

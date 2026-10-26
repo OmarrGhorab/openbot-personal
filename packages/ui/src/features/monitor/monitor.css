@@ -933,7 +933,7 @@
   white-space: nowrap;
 }
 
-/* The tone of a feed event: an error has a red card, a finished one a green target. */
+/* The tone of a feed event: an error takes the danger colour, a finished one the success colour. */
 .monitor-feed-item[data-tone="error"] .monitor-feed-card {
   border-color: var(--openbot-danger-border);
 }
@@ -1032,6 +1032,10 @@
 
 .monitor-tasks-filters {
   display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--openbot-space-1);

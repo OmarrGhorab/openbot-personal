@@ -3,6 +3,7 @@ import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorChannelTab } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
+import { countNewMonitorEvents } from "./monitor-feed";
 import {
   EMPTY_MONITOR_FILTERS,
   filterMonitorSnapshot,
@@ -18,7 +19,6 @@ import {
   newestMonitorUpdate,
   summarizeMonitorSnapshot,
 } from "./monitor-overview";
-import { countNewMonitorEvents } from "./monitor-feed";
 import type { MonitorSource } from "./monitor-port";
 import type { MonitorTaskFilter } from "./monitor-tasks";
 

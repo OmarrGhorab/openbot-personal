@@ -7,6 +7,7 @@ import {
 import { monitorDuration } from "@openbot/ui/features/monitor/monitor-time";
 import { useText } from "@openbot/ui/text";
 import { createMemo, For, Show } from "solid-js";
+import { useMonitor } from "./monitor-context";
 import {
   buildMonitorFeed,
   MONITOR_FEED_AUTHOR,
@@ -14,7 +15,6 @@ import {
   MONITOR_FEED_TASK_VERB,
   type MonitorFeedEntry,
 } from "./monitor-feed";
-import { useMonitor } from "./monitor-context";
 
 /**
  * The Feed view of the open channel: every event of the snapshot, newest first. It shows the
@@ -93,10 +93,7 @@ export function MonitorFeed() {
         <h2 class="monitor-feed-title">{t("monitor.feed.title")}</h2>
         <span class="monitor-feed-summary">{t("monitor.feed.summary", { count: entries().length })}</span>
       </header>
-      <Show
-        when={entries().length > 0}
-        fallback={<p class="monitor-page-note">{t("monitor.feed.empty")}</p>}
-      >
+      <Show when={entries().length > 0} fallback={<p class="monitor-page-note">{t("monitor.feed.empty")}</p>}>
         <ol class="monitor-feed-list">
           <For each={entries()} keyed={(entry) => entry.id}>
             {(entry) => (

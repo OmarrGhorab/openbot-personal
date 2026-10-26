@@ -60,7 +60,7 @@ export function MonitorTaskTable(props: MonitorTaskTableProps): JSX.Element {
   };
   return (
     <div class={["monitor-tasks", props.class]}>
-      <div class="monitor-tasks-filters" role="group" aria-label={t("monitor.tasks.filterLabel")}>
+      <fieldset class="monitor-tasks-filters" aria-label={t("monitor.tasks.filterLabel")}>
         <For each={props.filters} keyed={(chip) => chip.value}>
           {(chip) => (
             <Button
@@ -76,7 +76,7 @@ export function MonitorTaskTable(props: MonitorTaskTableProps): JSX.Element {
             </Button>
           )}
         </For>
-      </div>
+      </fieldset>
       <Show when={props.rows.length > 0} fallback={<p class="monitor-page-note">{props.empty}</p>}>
         <div class="monitor-tasks-frame">
           <table class="monitor-tasks-table">
@@ -124,10 +124,7 @@ export function MonitorTaskTable(props: MonitorTaskTableProps): JSX.Element {
                       <StatusPill status={row().status} label={row().statusLabel} />
                     </td>
                     <td>
-                      <Show
-                        when={row().progress !== null}
-                        fallback={<span class="monitor-tasks-muted">—</span>}
-                      >
+                      <Show when={row().progress !== null} fallback={<span class="monitor-tasks-muted">—</span>}>
                         <span class="monitor-progress monitor-tasks-progress" data-status={row().status}>
                           <Progress
                             class="monitor-progress-bar"
