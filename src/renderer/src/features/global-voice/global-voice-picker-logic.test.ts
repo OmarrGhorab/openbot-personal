@@ -1,5 +1,11 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GlobalVoiceTimeout, withTimeout } from "./global-voice-picker-logic";
+import {
+  GlobalVoiceTimeout,
+  MAIN_TRANSCRIPTION_TIMEOUT_MS,
+  TRANSCRIBE_TIMEOUT_MS,
+  withTimeout,
+} from "./global-voice-picker-logic";
 
 describe("withTimeout", () => {
   beforeEach(() => {
@@ -41,5 +47,15 @@ describe("withTimeout", () => {
     await expect(settled).resolves.toBeInstanceOf(GlobalVoiceTimeout);
     finish("too late");
     await expect(late).resolves.toBe("too late");
+  });
+});
+
+describe("transcription timeout", () => {
+  it("matches main's limit and waits a little longer, so main's error is shown first", () => {
+    const service = readFileSync(new URL("../../../../main/voice-transcription-service.ts", import.meta.url), "utf8");
+    const match = /const TRANSCRIPTION_TIMEOUT_MS = ([\d_]+);/.exec(service);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1]?.replaceAll("_", ""))).toBe(MAIN_TRANSCRIPTION_TIMEOUT_MS);
+    expect(TRANSCRIBE_TIMEOUT_MS).toBeGreaterThan(MAIN_TRANSCRIPTION_TIMEOUT_MS);
   });
 });

@@ -26,6 +26,7 @@ import {
   globalVoiceNumberKeyIndex,
   moveGlobalVoiceHighlight,
   pointInRect,
+  TRANSCRIBE_TIMEOUT_MS,
   withTimeout,
 } from "./global-voice-picker-logic";
 import "./global-voice.css";
@@ -39,10 +40,9 @@ const ERROR_VISIBLE_MS = 3_000;
  * the island in its phase with no way out, so each one ends in a message and an idle window.
  */
 const START_TIMEOUT_MS = 20_000;
-const TRANSCRIBE_TIMEOUT_MS = 60_000;
 /**
  * How long the window waits for main to deliver a dictation. Main has its own, shorter limit, so a
- * send that is slower than that is already reported as failed; this one keeps the window usable if
+ * send that is slower than that is reported as possibly still arriving; this one keeps the window usable if
  * main itself stops answering.
  */
 const SEND_TIMEOUT_MS = 25_000;

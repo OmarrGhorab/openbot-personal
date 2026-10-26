@@ -251,7 +251,7 @@ describe("global voice shortcut registration and dispatch", () => {
       expect(failure).not.toBeNull();
       if (failure === null) throw new Error("The send did not fail.");
       expect(failure.cause).toBeInstanceOf(Error);
-      expect(String(failure.cause)).toContain("did not reach");
+      expect(String(failure.cause)).toContain("may still arrive");
     } finally {
       vi.useRealTimers();
     }

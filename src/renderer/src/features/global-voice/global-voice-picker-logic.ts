@@ -76,3 +76,8 @@ export function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   });
   return Promise.race([work, expired]).finally(() => clearTimeout(timer));
 }
+
+/** How long main gives a transcription (`TRANSCRIPTION_TIMEOUT_MS` in `voice-transcription-service.ts`). */
+export const MAIN_TRANSCRIPTION_TIMEOUT_MS = 180_000;
+/** The window waits a little longer than main, so main's own error reaches the user first. */
+export const TRANSCRIBE_TIMEOUT_MS = MAIN_TRANSCRIPTION_TIMEOUT_MS + 5_000;
