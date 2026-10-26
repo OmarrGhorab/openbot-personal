@@ -27,6 +27,10 @@ export type MonitorView = "channel" | "all-agents";
 
 interface MonitorState {
   channelId: string | null;
+  /** The members popover of the channel header is open. */
+  membersOpen: boolean;
+  /** The add-agent dialog is open. */
+  addAgentOpen: boolean;
   /**
    * The snapshot of `channelId` that the views show, unfiltered: the newest one, or while the feed
    * is paused, the one from the moment of the pause.
@@ -88,6 +92,8 @@ const context = createSimpleContext({
       taskFilter: "all",
       conversation: null,
       toolCallsAgentId: null,
+      membersOpen: false,
+      addAgentOpen: false,
       overview: {},
     });
     /** Counts reads, so a slow read of an older channel or revision cannot replace a newer one. */
@@ -169,6 +175,8 @@ const context = createSimpleContext({
         draft.filters = { ...EMPTY_MONITOR_FILTERS };
         draft.conversation = null;
         draft.toolCallsAgentId = null;
+        draft.membersOpen = false;
+        draft.addAgentOpen = false;
       });
       if (id === null) return;
       void load(id);
@@ -325,6 +333,31 @@ const context = createSimpleContext({
       closeToolCalls() {
         setState((draft) => {
           draft.toolCallsAgentId = null;
+        });
+      },
+      /** Opens the members popover of the channel header. */
+      openMembers() {
+        setState((draft) => {
+          draft.membersOpen = true;
+        });
+      },
+      /** Closes the members popover. */
+      closeMembers() {
+        setState((draft) => {
+          draft.membersOpen = false;
+        });
+      },
+      /** Opens the add-agent dialog. The members popover closes. */
+      openAddAgent() {
+        setState((draft) => {
+          draft.membersOpen = false;
+          draft.addAgentOpen = true;
+        });
+      },
+      /** Closes the add-agent dialog. */
+      closeAddAgent() {
+        setState((draft) => {
+          draft.addAgentOpen = false;
         });
       },
       /** Opens the thread of the agent in place of the Monitor. Its thread shows "Back to monitor". */

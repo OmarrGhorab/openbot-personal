@@ -3,11 +3,14 @@ import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
 import { MONITOR_CHANNEL_TABS, MonitorChannelHeader } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { MonitorPausedBanner } from "@openbot/ui/features/monitor/MonitorPausedBanner";
 import { useText } from "@openbot/ui/text";
-import { createMemo, For, Show } from "solid-js";
+import { createEffect, createMemo, For, Show, untrack } from "solid-js";
+import { useChannels } from "../channels/channels-context";
+import { MonitorAddAgentDialog } from "./MonitorAddAgentDialog";
 import { MonitorAgentPopup } from "./MonitorAgentPopup";
 import { MonitorCanvas } from "./MonitorCanvas";
 import { MonitorConversationDrawer } from "./MonitorConversationDrawer";
 import { MonitorFeed } from "./MonitorFeed";
+import { MonitorMembersPopover } from "./MonitorMembersPopover";
 import { MonitorTasks } from "./MonitorTasks";
 import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
 import { useMonitor } from "./monitor-context";
@@ -31,6 +34,18 @@ export function MonitorPane() {
       name: agent.name,
       avatar: { avatarSeed: agent.avatarSeed, avatarHue: agent.avatarHue, avatarUrl: agent.avatarUrl },
     })),
+  );
+  // A channel that the sidebar creates while the Monitor is open is the one the Monitor shows. The
+  // selection that was there when the Monitor opened does not count.
+  const channels = useChannels();
+  let selectedChannel = untrack(() => channels.state.selectedId);
+  createEffect(
+    () => channels.state.selectedId,
+    (id) => {
+      if (id === selectedChannel) return;
+      selectedChannel = id;
+      if (id) monitor.selectChannel(id);
+    },
   );
   const error = () => <Show when={monitor.state.error}>{(key) => <p class="monitor-page-note">{t(key())}</p>}</Show>;
   return (
@@ -61,6 +76,7 @@ export function MonitorPane() {
                 idle={monitor.state.snapshot !== null && monitorChannelIdle(monitor.state.snapshot)}
                 paused={monitor.state.paused}
                 agents={headerAgents()}
+                renderMembers={(avatars) => <MonitorMembersPopover>{avatars}</MonitorMembersPopover>}
                 actions={
                   <Show when={monitor.state.snapshot !== null}>
                     <Show
@@ -129,6 +145,7 @@ export function MonitorPane() {
       <MonitorAgentPopup />
       <MonitorToolCallsDialog />
       <MonitorConversationDrawer />
+      <MonitorAddAgentDialog />
     </section>
   );
 }

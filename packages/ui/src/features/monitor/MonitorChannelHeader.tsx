@@ -43,6 +43,8 @@ export interface MonitorChannelHeaderProps {
   onOpenMembers?: (() => void) | undefined;
   /** The views that can open now. The others show, and are off. */
   availableTabs?: readonly MonitorChannelTab[] | undefined;
+  /** Wraps the agent icons in the members popover. Takes the place of `onOpenMembers` when given. */
+  renderMembers?: ((avatars: JSX.Element) => JSX.Element) | undefined;
   /** More controls at the end of the row, such as Pause feed. */
   actions?: JSX.Element;
 }
@@ -76,7 +78,16 @@ export function MonitorChannelHeader(props: MonitorChannelHeaderProps) {
           <StatusPill status="waiting" label={t("monitor.view.paused")} />
         </Show>
       </Show>
-      <Show when={props.onOpenMembers} fallback={<span class="monitor-channel-members">{avatars()}</span>}>
+      <Show
+        when={!props.renderMembers && props.onOpenMembers}
+        fallback={
+          props.renderMembers ? (
+            props.renderMembers(avatars())
+          ) : (
+            <span class="monitor-channel-members">{avatars()}</span>
+          )
+        }
+      >
         {(open) => (
           <Button
             type="button"
