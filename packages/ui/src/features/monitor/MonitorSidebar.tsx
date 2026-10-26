@@ -95,10 +95,10 @@ export function MonitorSidebar(props: MonitorSidebarProps): JSX.Element {
             <For each={MONITOR_LIVE_STATUSES}>
               {(status) => (
                 <StatChip
-                  status={status()}
-                  value={props.counts[status()]}
-                  pressed={props.filter === status()}
-                  onSelect={() => props.onFilter(status())}
+                  status={status}
+                  value={props.counts[status]}
+                  pressed={props.filter === status}
+                  onSelect={() => props.onFilter(status)}
                 />
               )}
             </For>
