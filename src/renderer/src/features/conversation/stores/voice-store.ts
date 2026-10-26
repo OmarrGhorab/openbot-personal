@@ -162,6 +162,13 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
         deps.setVoiceModelProgress(null);
         return;
       }
+      // Finish loading the local model before the microphone opens. The first live pass can then
+      // spend its time on speech, and the user's first words are not held behind model startup.
+      await voice.warmModel().catch(() => undefined);
+      if (resources.voiceDisposed || !deps.viewIsMounted() || resources.voiceRequestGeneration !== generation) {
+        if (!resources.voiceDisposed && resources.voiceRequestGeneration === generation) deps.setVoicePhase("idle");
+        return;
+      }
       deps.setVoicePhase("requesting");
       deps.setVoiceModelProgress(null);
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });

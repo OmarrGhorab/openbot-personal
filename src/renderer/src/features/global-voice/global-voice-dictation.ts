@@ -72,6 +72,7 @@ export class GlobalVoiceDictation {
   #limitTimer: ReturnType<typeof setTimeout> | undefined;
   #liveTimer: ReturnType<typeof setInterval> | undefined;
   #liveRequest: Promise<void> = Promise.resolve();
+  #startedAt = 0;
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
   #onLevel: (level: number) => void = () => {};
@@ -95,6 +96,9 @@ export class GlobalVoiceDictation {
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
+    // Load the local model while the user speaks, not when the first text is needed. A cloud model
+    // has nothing to load, and this answers at once.
+    await window.openbot.voice.warmModel().catch(() => undefined);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const recorder = new MediaRecorder(stream);
     this.#stream = stream;
@@ -105,6 +109,7 @@ export class GlobalVoiceDictation {
     });
     this.#startMeter(stream);
     recorder.start(1_000);
+    this.#startedAt = performance.now();
     this.#limitTimer = setTimeout(() => this.#onLimit(), VOICE_AUDIO_LIMITS.maximumSeconds * 1_000);
     if (livePreview) {
       this.#liveTimer = setInterval(() => {
@@ -119,6 +124,7 @@ export class GlobalVoiceDictation {
     if (!recorder) throw new GlobalVoiceDictationError("failed", "");
     // No live text arrives after Stop: the final text replaces it.
     this.#recorder = null;
+    this.#startedAt = 0;
     this.#clearTimers();
     if (recorder.state !== "inactive") {
       await new Promise<void>((resolve) => {
@@ -148,10 +154,16 @@ export class GlobalVoiceDictation {
     if (recorder && recorder.state !== "inactive") recorder.stop();
     this.#release();
     this.#chunks = [];
+    this.#startedAt = 0;
   }
 
   get active(): boolean {
     return this.#recorder !== null;
+  }
+
+  /** How long the recording has run, for the analytics of one dictation. */
+  get elapsedSeconds(): number {
+    return this.#startedAt === 0 ? 0 : Math.max(0, (performance.now() - this.#startedAt) / 1_000);
   }
 
   async #refreshLive(): Promise<void> {
