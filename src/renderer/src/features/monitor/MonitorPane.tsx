@@ -11,6 +11,7 @@ import { MonitorFeed } from "./MonitorFeed";
 import { MonitorTasks } from "./MonitorTasks";
 import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
 import { useMonitor } from "./monitor-context";
+import { monitorChannelIdle } from "./monitor-filters";
 
 /**
  * The main area of the Monitor page: the open channel with its header and canvas, or every agent.
@@ -57,6 +58,7 @@ export function MonitorPane() {
               <MonitorChannelHeader
                 name={monitor.state.snapshot?.channelName ?? ""}
                 live={monitor.state.snapshot !== null}
+                idle={monitor.state.snapshot !== null && monitorChannelIdle(monitor.state.snapshot)}
                 paused={monitor.state.paused}
                 agents={headerAgents()}
                 actions={

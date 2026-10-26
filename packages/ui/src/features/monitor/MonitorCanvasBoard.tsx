@@ -57,6 +57,8 @@ export interface MonitorCanvasNode {
   /** The top-left corner of the card, in left-to-right canvas units. */
   position: DiagramPoint;
   card: Omit<AgentNodeCardProps, "selected" | "onSelect" | "class">;
+  /** Dims the card: its status does not match the filter. The card stays where it is. */
+  dimmed?: boolean | undefined;
 }
 
 export type MonitorCanvasEdgeState = "active" | "done";
@@ -69,6 +71,8 @@ export interface MonitorCanvasEdge {
   /** "14 messages", or the hand-off. */
   label: string;
   state: MonitorCanvasEdgeState;
+  /** Dims the line: neither agent matches the filter. */
+  dimmed?: boolean | undefined;
 }
 
 export interface MonitorCanvasBoardProps {
@@ -85,6 +89,8 @@ export interface MonitorCanvasBoardProps {
   now?: Date | undefined;
   /** What floats over the bottom corners, such as the legend. */
   children?: JSX.Element;
+  /** Floats over the top left of the canvas, such as the filter chip. */
+  overlay?: JSX.Element;
 }
 
 export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
@@ -209,6 +215,9 @@ export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
 
   return (
     <div class="diagram-board monitor-canvas">
+      <Show when={props.overlay}>
+        <div class="monitor-canvas-overlay">{props.overlay}</div>
+      </Show>
       <div
         ref={(element) => (viewport = element)}
         class="diagram-board-viewport monitor-canvas-viewport"
@@ -235,7 +244,11 @@ export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
                 return (
                   <Show when={line()}>
                     {(current) => (
-                      <g class="monitor-canvas-edge" data-state={edge().state}>
+                      <g
+                        class="monitor-canvas-edge"
+                        data-state={edge().state}
+                        data-dimmed={edge().dimmed ? "" : undefined}
+                      >
                         <path class="monitor-canvas-edge-line" d={current().path} />
                         <path class="monitor-canvas-edge-arrow" d={current().arrow} />
                       </g>
@@ -262,6 +275,7 @@ export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
                       size="xs"
                       class="monitor-canvas-edge-label"
                       data-state={edge().state}
+                      data-dimmed={edge().dimmed ? "" : undefined}
                       style={{ "--monitor-edge-x": `${at().x}px`, "--monitor-edge-y": `${at().y}px` }}
                       aria-label={t("monitor.canvas.openConversation", {
                         label: edge().label,
@@ -282,7 +296,12 @@ export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
             {(node) => {
               const box = () => boxes().get(node().id);
               return (
-                <MonitorCanvasNodeSlot id={node().id} box={box()} onHeight={(height) => setHeight(node().id, height)}>
+                <MonitorCanvasNodeSlot
+                  id={node().id}
+                  box={box()}
+                  dimmed={node().dimmed}
+                  onHeight={(height) => setHeight(node().id, height)}
+                >
                   <AgentNodeCard
                     {...node().card}
                     now={props.now ?? node().card.now}
@@ -306,6 +325,7 @@ export function MonitorCanvasBoard(props: MonitorCanvasBoardProps) {
 function MonitorCanvasNodeSlot(props: {
   id: string;
   box: MonitorCanvasBox | undefined;
+  dimmed?: boolean | undefined;
   onHeight: (height: number | null) => void;
   children: JSX.Element;
 }) {
@@ -327,6 +347,7 @@ function MonitorCanvasNodeSlot(props: {
       ref={(slot) => (element = slot)}
       class="monitor-canvas-node"
       data-monitor-node={props.id}
+      data-dimmed={props.dimmed ? "" : undefined}
       style={{
         "--monitor-node-x": `${props.box?.x ?? 0}px`,
         "--monitor-node-y": `${props.box?.y ?? 0}px`,

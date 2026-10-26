@@ -65,6 +65,22 @@ export const messages = defineMessages("monitor", {
   "monitor.tab.tasks": "Tasks",
   "monitor.canvas.role": "agent canvas",
   "monitor.canvas.empty": "No agents in this channel yet.",
+  "monitor.filter.showing.working": {
+    one: "Showing working · {count} agent",
+    other: "Showing working · {count} agents",
+  },
+  "monitor.filter.showing.waiting": {
+    one: "Showing waiting · {count} agent",
+    other: "Showing waiting · {count} agents",
+  },
+  "monitor.filter.showing.error": { one: "Showing errors · {count} agent", other: "Showing errors · {count} agents" },
+  "monitor.filter.showing.idle": { one: "Showing idle · {count} agent", other: "Showing idle · {count} agents" },
+  "monitor.filter.clear": "Clear filter",
+  "monitor.empty.title": "Nothing running in #{name}",
+  "monitor.empty.text":
+    "Agents show up here as soon as they start working. Add an agent to the channel or start a routine.",
+  "monitor.empty.addAgent": "Add agent to channel",
+  "monitor.empty.createRoutine": "Create routine",
   "monitor.canvas.lead": "Channel lead",
   "monitor.canvas.waitingOn": "Waiting on {name}",
   "monitor.canvas.messages": { one: "{count} message", other: "{count} messages" },

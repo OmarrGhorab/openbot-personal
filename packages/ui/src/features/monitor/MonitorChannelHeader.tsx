@@ -36,6 +36,8 @@ export interface MonitorChannelHeaderProps {
   live: boolean;
   /** The feed is paused: the pill says Paused in place of Live. */
   paused?: boolean | undefined;
+  /** The channel has no activity: the pill says Idle in place of Live. */
+  idle?: boolean | undefined;
   agents: readonly MonitorChannelHeaderAgent[];
   /** Opens the members of the channel. Without it, the icons are not a button. */
   onOpenMembers?: (() => void) | undefined;
@@ -63,7 +65,14 @@ export function MonitorChannelHeader(props: MonitorChannelHeaderProps) {
       <Hash class="monitor-page-hash" aria-hidden="true" />
       <h1 class="monitor-page-title">{props.name}</h1>
       <Show when={props.live}>
-        <Show when={props.paused} fallback={<StatusPill status="working" label={t("monitor.view.live")} />}>
+        <Show
+          when={props.paused}
+          fallback={
+            <Show when={props.idle} fallback={<StatusPill status="working" label={t("monitor.view.live")} />}>
+              <StatusPill status="idle" label={t("monitor.agentStatus.idle")} />
+            </Show>
+          }
+        >
           <StatusPill status="waiting" label={t("monitor.view.paused")} />
         </Show>
       </Show>

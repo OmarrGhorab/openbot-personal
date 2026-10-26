@@ -40,6 +40,8 @@ export interface MonitorActions extends MonitorTaskActions {
   openThread(agentId: string): void;
   /** Shows the Monitor again. */
   showMonitor(): void;
+  /** Opens the routines view in place of the Monitor. Optional: a host without it leaves the button inert. */
+  openRoutines?: (() => void) | undefined;
 }
 
 /** The channel command that holds or continues a channel task and the run below it. */

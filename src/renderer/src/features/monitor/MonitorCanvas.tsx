@@ -1,10 +1,12 @@
 import type { MonitorAgentStatus } from "@openbot/contracts/ipc";
+import { IconButton, X } from "@openbot/ui";
 import {
   MonitorCanvasBoard,
   type MonitorCanvasEdge,
   type MonitorCanvasNode,
 } from "@openbot/ui/features/monitor/MonitorCanvasBoard";
 import { MonitorCanvasFooter } from "@openbot/ui/features/monitor/MonitorCanvasFooter";
+import { MonitorEmptyChannel } from "@openbot/ui/features/monitor/MonitorEmptyChannel";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, Show } from "solid-js";
 import {
@@ -14,6 +16,7 @@ import {
   placeMonitorAgents,
 } from "./monitor-canvas-graph";
 import { useMonitor } from "./monitor-context";
+import { MONITOR_FILTER_CHIP_LABEL, monitorChannelIdle } from "./monitor-filters";
 import { summarizeMonitorSnapshot } from "./monitor-overview";
 
 const BUSY: readonly MonitorAgentStatus[] = ["working", "waiting"];
@@ -59,12 +62,14 @@ export function MonitorCanvas() {
   );
 
   const agents = createMemo(() => {
-    const snapshot = monitor.filtered();
+    const snapshot = monitor.state.snapshot;
     return snapshot ? summarizeMonitorSnapshot(snapshot).agents : [];
   });
   const statusOf = createMemo(() => new Map(agents().map((agent) => [agent.id, agent.status])));
   const nameOf = (id: string) => monitor.state.snapshot?.agents.find((agent) => agent.id === id)?.name ?? "";
 
+  /** The status filter of the sidebar. The canvas dims the agents that do not match it; it hides none. */
+  const filterStatus = () => monitor.statusFilter();
   const nodes = createMemo((): MonitorCanvasNode[] => {
     const snapshot = monitor.state.snapshot;
     const givenBy = graph()?.givenBy;
@@ -77,6 +82,7 @@ export function MonitorCanvas() {
         {
           id: agent.id,
           position,
+          dimmed: filterStatus() !== null && agent.status !== filterStatus(),
           card: {
             agent: { avatarSeed: agent.avatarSeed, avatarHue: agent.avatarHue, avatarUrl: agent.avatarUrl },
             name: agent.name,
@@ -96,8 +102,17 @@ export function MonitorCanvas() {
     });
   });
 
+  const dimmedAgents = createMemo(
+    () =>
+      new Set(
+        nodes()
+          .filter((node) => node.dimmed)
+          .map((node) => node.id),
+      ),
+  );
   const edges = createMemo((): MonitorCanvasEdge[] => {
     const status = statusOf();
+    const dimmedIds = dimmedAgents();
     return (graph()?.links ?? []).flatMap((link) => {
       const to = status.get(link.to);
       const from = status.get(link.from);
@@ -111,27 +126,63 @@ export function MonitorCanvas() {
           label:
             link.messages > 0 ? t("monitor.canvas.messages", { count: link.messages }) : t("monitor.canvas.assigned"),
           state: active ? "active" : "done",
+          dimmed: dimmedIds.has(link.from) && dimmedIds.has(link.to),
         },
       ];
     });
   });
+
+  const idle = createMemo(() => {
+    const snapshot = monitor.state.snapshot;
+    return snapshot !== null && monitorChannelIdle(snapshot);
+  });
+  /** The chip that names the status the canvas shows, with the way to clear it. */
+  const chip = () => {
+    const status = filterStatus();
+    if (!status) return undefined;
+    const count = nodes().filter((node) => !node.dimmed).length;
+    return (
+      <div class="monitor-filter-chip" role="status">
+        <span>{t(MONITOR_FILTER_CHIP_LABEL[status], { count })}</span>
+        <IconButton
+          variant="ghost"
+          class="monitor-filter-chip-clear"
+          label={t("monitor.filter.clear")}
+          onClick={() => monitor.clearFilters()}
+        >
+          <X aria-hidden="true" />
+        </IconButton>
+      </div>
+    );
+  };
 
   return (
     <Show
       when={nodes().length > 0 || !monitor.state.snapshot}
       fallback={<p class="monitor-page-note monitor-canvas-note">{t("monitor.canvas.empty")}</p>}
     >
-      <MonitorCanvasBoard
-        label={monitor.state.snapshot?.channelName ?? ""}
-        nodes={nodes()}
-        edges={edges()}
-        selectedId={monitor.state.selectedAgentId}
-        onSelectNode={monitor.selectAgent}
-        onClearSelection={monitor.clearAgent}
-        onOpenEdge={(edge) => monitor.openConversation([edge.from, edge.to])}
+      <Show
+        when={!idle()}
+        fallback={
+          <MonitorEmptyChannel
+            title={t("monitor.empty.title", { name: monitor.state.snapshot?.channelName ?? "" })}
+            onCreateRoutine={() => monitor.openRoutines()}
+          />
+        }
       >
-        <MonitorCanvasFooter />
-      </MonitorCanvasBoard>
+        <MonitorCanvasBoard
+          label={monitor.state.snapshot?.channelName ?? ""}
+          nodes={nodes()}
+          edges={edges()}
+          selectedId={monitor.state.selectedAgentId}
+          onSelectNode={monitor.selectAgent}
+          onClearSelection={monitor.clearAgent}
+          onOpenEdge={(edge) => monitor.openConversation([edge.from, edge.to])}
+          overlay={chip()}
+        >
+          <MonitorCanvasFooter />
+        </MonitorCanvasBoard>
+      </Show>
     </Show>
   );
 }
