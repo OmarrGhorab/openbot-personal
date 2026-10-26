@@ -68,7 +68,9 @@ export function FeedItem(props: FeedItemProps): JSX.Element {
         <Show when={props.text || props.progress}>
           <div class="monitor-feed-card">
             <Show when={props.text}>
-              <p class="monitor-feed-text">{props.text}</p>
+              <p class="monitor-feed-text" dir="auto">
+                {props.text}
+              </p>
             </Show>
             <Show when={props.progress}>{(progress) => <ProgressBar {...progress()} />}</Show>
           </div>

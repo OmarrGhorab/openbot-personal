@@ -774,11 +774,16 @@
   flex-direction: column;
 }
 
-.monitor-channel-body > .ui-sliding-tabs-content-slot,
+/* The views share one grid cell, so only the selected one takes the space. */
+.monitor-channel-body > .ui-sliding-tabs-content-slot {
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
 .monitor-channel-body .ui-sliding-tabs-content {
   display: flex;
   min-height: 0;
-  flex: 1 1 auto;
   flex-direction: column;
 }
 
@@ -1070,6 +1075,8 @@
 
 .monitor-tasks-table {
   width: 100%;
+  min-width: calc(var(--openbot-space-8) * 22);
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--openbot-text-md);
   line-height: var(--openbot-leading-md);
@@ -1089,6 +1096,7 @@
 
 .monitor-tasks-table td {
   padding: var(--openbot-space-3) var(--openbot-space-4);
+  vertical-align: middle;
   border-bottom: 1px solid var(--openbot-glass-border);
   white-space: nowrap;
 }
@@ -1107,9 +1115,35 @@
   pointer-events: none;
 }
 
+/* The column widths of the design: a wide task, then the agent, status and progress. */
+.monitor-tasks-table th:nth-child(1) {
+  width: 32%;
+}
+
+.monitor-tasks-table th:nth-child(2) {
+  width: 16%;
+}
+
+.monitor-tasks-table th:nth-child(3) {
+  width: 16%;
+}
+
+.monitor-tasks-table th:nth-child(4) {
+  width: 16%;
+}
+
+.monitor-tasks-table th:nth-child(5),
+.monitor-tasks-table th:nth-child(6) {
+  width: 10%;
+}
+
+.monitor-tasks-table td > *,
+.monitor-tasks-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .monitor-tasks-title {
-  width: 40%;
-  max-width: 0;
   color: var(--openbot-text-primary);
   font-weight: var(--openbot-weight-medium);
 }
@@ -1129,7 +1163,8 @@
 }
 
 .monitor-tasks-agent {
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--openbot-space-2);
   color: var(--openbot-text-secondary);
@@ -1155,5 +1190,6 @@
 }
 
 .monitor-tasks-progress .monitor-progress-bar {
-  width: calc(var(--openbot-space-8) * 2.5);
+  min-width: 0;
+  flex: 1 1 auto;
 }
