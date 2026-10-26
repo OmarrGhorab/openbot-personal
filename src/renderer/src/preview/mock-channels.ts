@@ -1,3 +1,4 @@
+import { channelAddress } from "@openbot/contracts/channel-addressing";
 import type {
   AgentEvent,
   Channel,
@@ -20,7 +21,6 @@ import type {
   UpdateChannelMemoryInput,
   UpdateChannelRoutineInput,
 } from "@openbot/contracts/ipc";
-import { channelAddress } from "@openbot/contracts/channel-addressing";
 import { channelRoutingConversationEventItemType } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 
@@ -117,9 +117,10 @@ export function createMockChannels(
           !input.recipientAgentId && memberIds.length > 1
             ? channelAddress(
                 input.text,
-                (lead && memberIds.includes(lead) ? [lead, ...memberIds.filter((item) => item !== lead)] : memberIds).map(
-                  (agentId) => ({ agentId, name: agentName(agentId) }),
-                ),
+                (lead && memberIds.includes(lead)
+                  ? [lead, ...memberIds.filter((item) => item !== lead)]
+                  : memberIds
+                ).map((agentId) => ({ agentId, name: agentName(agentId) })),
               )
             : null;
         const addressed = address?.kind === "named" || address?.kind === "everyone" ? address.agentIds : [];
