@@ -53,6 +53,8 @@ interface MonitorState {
   taskFilter: MonitorTaskFilter;
   /** The two agents whose conversation the drawer (#27) shows, from a line label of the canvas. */
   conversation: [string, string] | null;
+  /** The agent whose tool calls the "Tool calls" view lists (#26). Null when it is closed. */
+  toolCallsAgentId: string | null;
   /** The sidebar part of the newest snapshot of each listed channel, by channel id. */
   overview: Record<string, MonitorChannelOverview>;
 }
@@ -85,6 +87,7 @@ const context = createSimpleContext({
       tab: "canvas",
       taskFilter: "all",
       conversation: null,
+      toolCallsAgentId: null,
       overview: {},
     });
     /** Counts reads, so a slow read of an older channel or revision cannot replace a newer one. */
@@ -165,6 +168,7 @@ const context = createSimpleContext({
         draft.error = null;
         draft.filters = { ...EMPTY_MONITOR_FILTERS };
         draft.conversation = null;
+        draft.toolCallsAgentId = null;
       });
       if (id === null) return;
       void load(id);
@@ -303,10 +307,24 @@ const context = createSimpleContext({
           draft.selectedAgentId = null;
         });
       },
+      /** Opens the tool calls of an agent's task. The agent popup closes: the list replaces it. */
+      openToolCalls(agentId: string) {
+        setState((draft) => {
+          draft.selectedAgentId = null;
+          draft.toolCallsAgentId = agentId;
+        });
+      },
+      /** Closes the tool calls. */
+      closeToolCalls() {
+        setState((draft) => {
+          draft.toolCallsAgentId = null;
+        });
+      },
       /** Opens the thread of the agent in place of the Monitor. Its thread shows "Back to monitor". */
       openThread(agentId: string) {
         setState((draft) => {
           draft.selectedAgentId = null;
+          draft.toolCallsAgentId = null;
           draft.threadAgentId = agentId;
         });
         props.actions.openThread(agentId);

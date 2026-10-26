@@ -1513,3 +1513,195 @@ nav.monitor-return-bar {
   padding: var(--openbot-space-1) var(--openbot-space-3);
   border-bottom: 1px solid var(--openbot-glass-border);
 }
+
+/* Tool calls (#26): a modal with the filter on top, the list on the left, the detail on the right. */
+.ui-dialog-content.monitor-tool-calls {
+  display: flex;
+  width: min(960px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  flex-direction: column;
+  overflow: hidden;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-sidebar);
+  color: var(--openbot-text-primary);
+  animation: monitor-popup-in var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.monitor-tool-calls-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-6);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
+
+.monitor-tool-calls-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.monitor-tool-calls-title {
+  margin: 0;
+  font-size: var(--openbot-font-size-md);
+  font-weight: 600;
+}
+
+.monitor-tool-calls-description {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-tool-calls-filters {
+  display: inline-flex;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-surface);
+}
+
+.monitor-tool-calls-filter[aria-pressed="true"] {
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-tool-calls-body {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
+}
+
+.monitor-tool-calls-list {
+  margin: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--openbot-space-3);
+  list-style: none;
+  border-right: 1px solid var(--openbot-glass-border);
+}
+
+.monitor-tool-calls-list > li + li {
+  margin-top: var(--openbot-space-1);
+}
+
+.monitor-tool-calls-empty,
+.monitor-tool-calls-error {
+  margin: 0;
+  padding: var(--openbot-space-4);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-font-size-sm);
+}
+
+.monitor-tool-calls-error {
+  color: var(--openbot-danger-text);
+}
+
+.monitor-tool-call-detail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  overflow-y: auto;
+  padding: var(--openbot-space-4) var(--openbot-space-6);
+}
+
+.monitor-tool-call-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  font-size: var(--openbot-font-size-md);
+  font-weight: 600;
+}
+
+.monitor-tool-call-subheading {
+  margin-top: var(--openbot-space-2);
+  font-size: var(--openbot-font-size-sm);
+  color: var(--openbot-text-secondary);
+}
+
+.monitor-tool-call-status[data-status="failed"] {
+  color: var(--openbot-danger-text);
+}
+
+.monitor-tool-call-status[data-status="running"] {
+  color: var(--openbot-accent);
+}
+
+.monitor-tool-call-facts {
+  display: grid;
+  gap: var(--openbot-space-2);
+  margin: 0;
+}
+
+.monitor-tool-call-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.monitor-tool-call-facts dt {
+  color: var(--openbot-text-muted);
+}
+
+.monitor-tool-call-facts dd {
+  margin: 0;
+  min-width: 0;
+  text-align: end;
+}
+
+.monitor-tool-call-text,
+.monitor-tool-call-output {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--openbot-space-3);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-font-size-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.monitor-tool-call-line[data-kind="added"] {
+  background: var(--openbot-success-soft);
+  color: var(--openbot-success-text);
+}
+
+.monitor-tool-call-line[data-kind="removed"] {
+  background: var(--openbot-danger-soft);
+  color: var(--openbot-danger-text);
+}
+
+.monitor-tool-call-more {
+  margin-top: var(--openbot-space-2);
+}
+
+.monitor-tool-call-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+  margin-top: auto;
+  padding-top: var(--openbot-space-3);
+}
+
+@media (max-width: 720px) {
+  .monitor-tool-calls-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .monitor-tool-calls-list {
+    max-height: 40dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--openbot-glass-border);
+  }
+}

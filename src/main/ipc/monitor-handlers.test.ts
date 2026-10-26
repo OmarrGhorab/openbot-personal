@@ -8,7 +8,7 @@ import {
   type MonitorSnapshot,
 } from "@openbot/contracts/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MonitorService } from "../monitor-service";
+import { MonitorService, redactMonitorSnapshot } from "../monitor-service";
 import { monitorIpcHandlers } from "./monitor-handlers";
 
 // Same reason as define-ipc-group.test.ts: electron cannot be imported outside an Electron process, so
@@ -139,6 +139,29 @@ describe("monitor snapshot handler", () => {
     expect(toolCall?.argument).toContain("[redacted]");
     expect(toolCall?.input).toContain("[redacted]");
     expect(JSON.stringify(result)).not.toContain(SECRET);
+  });
+
+  it("redacts a secret in the input and the output of a tool call, and keeps the diff lines", async () => {
+    const { read } = register();
+    const result = await read("channel-1");
+    const [toolCall] = result.toolCalls;
+    if (!toolCall) throw new Error("The fixture has no tool call.");
+    const withOutput = {
+      ...result,
+      toolCalls: [
+        {
+          ...toolCall,
+          input: `curl -H "Authorization: Bearer ${SECRET}" https://api.example.com/deploy`,
+          output: `Authorization: Bearer ${SECRET}\n+ deployed\n- stale`,
+        },
+      ],
+    };
+    const redacted = redactMonitorSnapshot(withOutput);
+    const [redactedCall] = redacted.toolCalls;
+    expect(redactedCall?.input).toContain("[redacted]");
+    expect(redactedCall?.output).toContain("[redacted]");
+    expect(redactedCall?.output).toContain("+ deployed");
+    expect(JSON.stringify(redacted)).not.toContain(SECRET);
   });
 
   it("redacts a secret in a running tool call from the live agent events", async () => {
