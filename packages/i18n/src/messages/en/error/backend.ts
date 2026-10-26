@@ -60,6 +60,7 @@ export const messages = defineMessages("error.backend", {
   "error.backend.channelUnconfirmedStart":
     "The channel has an unconfirmed assignment start. Check its outcome before deleting it.",
   "error.backend.channelNotFound": "Channel not found.",
+  "error.backend.monitorChannelMissing": "This channel is not on this computer.",
   "error.backend.channelMemberUnavailable": "A channel member is unavailable.",
   "error.backend.channelArchived": "Restore this channel before sending messages or changing tasks.",
   "error.backend.channelReferenceUnavailable": "The referenced channel message is unavailable.",

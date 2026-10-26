@@ -25,6 +25,7 @@ import { messages as mcp } from "./mcp";
 import { messages as memory } from "./memory";
 import { messages as menu } from "./menu";
 import { messages as messaging } from "./messaging";
+import { messages as monitor } from "./monitor";
 import { messages as notification } from "./notification";
 import { messages as onboarding } from "./onboarding";
 import { messages as plugin } from "./plugin";
@@ -96,6 +97,7 @@ export const en = {
   ...remoteDesktop,
   ...mcp,
   ...messaging,
+  ...monitor,
   ...webClient,
   ...account,
   ...onboarding,
