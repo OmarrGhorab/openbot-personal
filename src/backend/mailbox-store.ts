@@ -1130,6 +1130,29 @@ export class MailboxStore {
     return turnIds;
   }
 
+  /**
+   * The messages agents sent to other agents in one channel, one entry per recipient. The Monitor
+   * counts them per agent pair. A message an agent sends outside the channel carries no channel id,
+   * so it is not here.
+   */
+  channelAgentExchanges(
+    channelId: string,
+  ): Array<{ messageId: string; senderAgentId: string; recipientAgentId: string; at: string }> {
+    const messages = this.#messagesById();
+    const exchanges: Array<{ messageId: string; senderAgentId: string; recipientAgentId: string; at: string }> = [];
+    for (const delivery of this.#state.deliveries) {
+      const message = messages.get(delivery.messageId);
+      if (!message || message.channelId !== channelId || message.sender.kind !== "agent") continue;
+      exchanges.push({
+        messageId: message.id,
+        senderAgentId: message.sender.agentId,
+        recipientAgentId: delivery.recipientAgentId,
+        at: message.createdAt,
+      });
+    }
+    return exchanges;
+  }
+
   senderAgentIdsForRecipient(agentId: string): string[] {
     const result = new Set<string>();
     const messages = this.#messagesById();

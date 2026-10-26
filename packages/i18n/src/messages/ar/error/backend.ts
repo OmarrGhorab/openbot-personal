@@ -57,6 +57,7 @@ export const messages = {
   "error.backend.shuttingDown": "OpenBot بيقفل.",
   "error.backend.channelUnconfirmedStart": "القناة فيها بداية تكليف مش متأكدة. اتأكد من نتيجته قبل ما تمسحها.",
   "error.backend.channelNotFound": "القناة مش موجودة.",
+  "error.backend.monitorChannelMissing": "القناة دي مش موجودة على الجهاز ده.",
   "error.backend.channelMemberUnavailable": "فيه عضو في القناة مش متاح.",
   "error.backend.channelArchived": "رجّع القناة دي الأول قبل ما تبعت رسايل أو تغيّر مهام.",
   "error.backend.channelReferenceUnavailable": "رسالة القناة المشار إليها مش متاحة.",

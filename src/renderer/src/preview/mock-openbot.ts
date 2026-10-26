@@ -177,6 +177,7 @@ import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-up
 import { createMockHostedServers } from "./mock-hosted-servers";
 import { createMockLicense } from "./mock-license";
 import { createMockMessaging } from "./mock-messaging";
+import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
@@ -1292,6 +1293,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     billing: createMockBilling(billingPlans),
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
+    monitor: createMockMonitor(),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),

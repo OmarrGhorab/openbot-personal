@@ -78,6 +78,7 @@ import { marketplaceAgentIpcHandlers } from "./ipc/marketplace-agent-handlers";
 import { mcpServerIpcHandlers } from "./ipc/mcp-server-handlers";
 import { memoryIpcHandlers } from "./ipc/memory-handlers";
 import { messagingIpcHandlers } from "./ipc/messaging-handlers";
+import { monitorIpcHandlers } from "./ipc/monitor-handlers";
 import { notificationIpcHandlers } from "./ipc/notification-handlers";
 import { onePasswordConnectorIpcHandlers } from "./ipc/onepassword-connector-handlers";
 import { pluginIpcHandlers } from "./ipc/plugin-handlers";
@@ -566,6 +567,7 @@ function registerIpcHandlers({
   license,
   hostedServers,
   routineFeed,
+  monitor,
   events,
   customProviderChanges,
   customAgentChanges,
@@ -655,6 +657,13 @@ function registerIpcHandlers({
     ...billingIpcHandlers({ billing }),
     ...licenseIpcHandlers({ license }),
     ...routineFeedIpcHandlers({ routineFeed }),
+    ...monitorIpcHandlers({
+      monitor,
+      mainRendererIds: () => {
+        const window = windowHolder.current;
+        return new Set(window && !window.isDestroyed() ? [window.webContents.id] : []);
+      },
+    }),
     ...eventsIpcHandlers({ events, remoteServers }),
     ...hostedServerIpcHandlers({ hostedServers }),
     ...customProviderIpcHandlers(customProviderChanges),
@@ -1137,6 +1146,7 @@ if (!hasSingleInstanceLock) {
       setIpcCallObserver((call) => trace.record({ kind: "ipc", ...call }));
       service.on("event", (event) => trace.observeAgentEvent(event));
       service.on("event", (event) => forwardAgentEvent("local", event));
+      service.on("event", (event) => built.monitor.observe(event));
       // A routine or its owner can be deleted outside the events API. Its route is then revoked here.
       // Turns and channel messages also send these events, so only a deleted owner starts a sync.
       let webhookAgentIds = new Set(service.listAgents().map((agent) => agent.id));

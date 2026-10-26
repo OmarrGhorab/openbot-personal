@@ -247,6 +247,7 @@ import {
 } from "./mcp-oauth-redirect-server";
 import { McpOAuthStore } from "./mcp-oauth-store";
 import { MessagingCredentialStore } from "./messaging-credential-store";
+import { MonitorService } from "./monitor-service";
 import { NotificationPreferenceStore } from "./notification-preference-store";
 import { OnePasswordConnectorService } from "./onepassword-connector-service";
 import { OnePasswordConnectorStore } from "./onepassword-connector-store";
@@ -456,6 +457,8 @@ const TEARDOWN_ORDER = {
   // Before the agent service, so no script starts a run while the service stops.
   automation: 108,
   storageUsage: 109,
+  // Before the agent service, so no change event is sent while the service stops.
+  monitor: 109.5,
   service: 110,
   mcpOAuth: 111,
   analytics: 112,
@@ -576,6 +579,7 @@ export interface ApplicationServices {
   license: LicenseDesktopService;
   hostedServers: HostedServerDesktopService;
   routineFeed: RoutineFeedServer;
+  monitor: MonitorService;
   events: HostEventsService;
   eventsRuntime: HostEventsRuntime;
   /** The terminal control of a self-hosted server. Null in every other build. */
@@ -1741,6 +1745,18 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  const monitor = new MonitorService({
+    sources: {
+      channelPage: (channelId) => service.channels.store.page(channelId),
+      agents: () => service.listAgents(),
+      agentTasks: (agentId) => service.listTasks(agentId).tasks,
+      taskMessages: (agentId, taskId) => service.readTask(agentId, taskId).messages,
+      channelExchanges: (channelId) => mailbox.channelAgentExchanges(channelId),
+      channelForThread: (threadId) => service.channels.store.channelForThread(threadId),
+    },
+    onChange: (change) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.monitor.changed, change),
+  });
+  teardown.push(TEARDOWN_ORDER.monitor, "the monitor", () => monitor.dispose());
   const agentMemoryLimitSetting = reloadingAgentMemoryLimit(agentMemoryLimit, service);
   /** The answer an agent gave in one turn, for routine flows, routine results and local scripts. */
   const turnAnswer = (agentId: string, turnId: string): string | null => {
@@ -2969,6 +2985,7 @@ export async function createApplicationServices({
     license,
     hostedServers,
     routineFeed,
+    monitor,
     events,
     eventsRuntime,
     serverMode,
