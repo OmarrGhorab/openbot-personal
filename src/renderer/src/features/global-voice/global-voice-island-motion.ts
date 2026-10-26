@@ -9,7 +9,7 @@ export const GLOBAL_VOICE_ISLAND_MORPH_MS = 450;
 export const GLOBAL_VOICE_ISLAND = {
   notch: { width: 180, height: 32 },
   pill: { width: 420, height: 88 },
-  review: { width: 420, height: 176 },
+  review: { width: 420, height: 210 },
   picker: { width: 420, height: 222 },
 } as const;
 

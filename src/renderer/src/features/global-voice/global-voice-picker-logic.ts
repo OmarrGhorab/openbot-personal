@@ -56,3 +56,23 @@ export function pointInRect(
 export function globalVoiceHasAvatar(agent: Pick<GlobalVoicePickerAgent, "avatarSeed" | "avatarUrl">): boolean {
   return agent.avatarSeed.trim() !== "" || (agent.avatarUrl ?? "").trim() !== "";
 }
+
+/** A step of the voice flow that did not finish in time. The window shows its error and gets back to idle. */
+export class GlobalVoiceTimeout extends Error {
+  constructor() {
+    super("The global voice step timed out.");
+  }
+}
+
+/**
+ * Rejects with `GlobalVoiceTimeout` when `work` has not settled within `ms`. The work itself keeps
+ * running; the caller decides what a late result means. A step that never settles must not hold the
+ * window in its phase.
+ */
+export function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new GlobalVoiceTimeout()), ms);
+  });
+  return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+}
