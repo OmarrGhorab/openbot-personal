@@ -335,7 +335,7 @@ try {
       agents.createAgent({
         name,
         description: `${name} works in the Playerhub channel.`,
-        avatarSeed: name.toLowerCase(),
+        avatarSeed: `${name.toLowerCase().replace(/[^a-z]+/g, "-")}-${randomUUID().slice(0, 8)}`,
         avatarHue: null,
         initialMessage: "Hello.",
       }),
@@ -349,7 +349,7 @@ try {
   };
   const worker = await create("Worker Engineer");
   const software = await create("Software Engineer");
-  const threadsBefore = agents.listAgents().map((agent) => [agent.id, agent.threadId ?? null]);
+  const threadsBefore = [worker, software].map((agent) => [agent.id, store.ensureThreadIdNow(agent.id)] as const);
   const channelId = randomUUID();
   await command({
     type: "save",
@@ -536,11 +536,10 @@ try {
   );
 
   // 9. No agent was reset: each keeps its thread.
-  const threadsAfter = new Map(agents.listAgents().map((agent) => [agent.id, agent.threadId ?? null]));
   check(
-    "No agent was reset",
+    "No agent was reset: each keeps its thread",
     null,
-    threadsBefore.every(([id, threadId]) => threadsAfter.get(id as string) === threadId),
+    threadsBefore.every(([id, threadId]) => store.ensureThreadIdNow(id) === threadId),
   );
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);
