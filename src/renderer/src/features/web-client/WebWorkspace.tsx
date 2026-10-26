@@ -209,6 +209,7 @@ import { createWebProviderSettings, openWebDestination } from "./web-provider-ad
 import { webRoutineFlowsHost } from "./web-routine-flows";
 import { webScheduleSource } from "./web-schedule";
 import { createWebServerSettings } from "./web-server-settings";
+import { webMonitorSource } from "./web-monitor";
 import { webTasksSource } from "./web-tasks";
 import { createWebUsagePort } from "./web-usage-port";
 
@@ -782,6 +783,16 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   }
   const scheduleSource = webScheduleSource(workspace, hostRequest);
   const tasksSource = webTasksSource(workspace, hostRequest);
+  // The Monitor of the host's channels: the same snapshot as desktop, built here from the Team API and
+  // redacted. It keeps the live turns from the host's events from now on, so it starts with the
+  // workspace. The Monitor view (#22) mounts `MonitorProvider` with it.
+  const monitorSource = webMonitorSource({
+    runtime: workspace.runtime,
+    tasks: tasksSource,
+    hostId: () => workspace.state.host?.hostId ?? null,
+    onHostEvent: workspace.onHostEvent,
+  });
+  onCleanup(monitorSource.dispose);
   const tasksSupported = () => workspace.state.capabilities.includes(AGENT_TASKS_CAPABILITY);
   const marketplaceCalls = createWebMarketplaceCalls(props.accountFetch, hostRequest);
   // The host's connectors, for an owner or admin. The web client has no computer of its own.
