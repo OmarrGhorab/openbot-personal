@@ -313,6 +313,8 @@
     "./features/monitor/MonitorCanvasBoard": "./src/features/monitor/MonitorCanvasBoard.tsx",
     "./features/monitor/MonitorCanvasFooter": "./src/features/monitor/MonitorCanvasFooter.tsx",
     "./features/monitor/MonitorChannelHeader": "./src/features/monitor/MonitorChannelHeader.tsx",
+    "./features/monitor/MonitorPausedBanner": "./src/features/monitor/MonitorPausedBanner.tsx",
+    "./features/monitor/MonitorTaskTable": "./src/features/monitor/MonitorTaskTable.tsx",
     "./features/monitor/MonitorSidebar": "./src/features/monitor/MonitorSidebar.tsx",
     "./features/monitor/ProgressBar": "./src/features/monitor/ProgressBar.tsx",
     "./features/monitor/StatChip": "./src/features/monitor/StatChip.tsx",

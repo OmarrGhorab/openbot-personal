@@ -189,6 +189,7 @@
     "test": "bun run test:desktop && bun run test:api",
     "test:desktop": "vitest run",
     "test:monitor-canvas": "bun scripts/monitor-canvas-e2e.ts",
+    "test:monitor-feed": "bun scripts/monitor-feed-e2e.ts",
     "test:monitor-snapshot": "bun scripts/monitor-snapshot-e2e.ts",
     "test:onboarding-step-order": "bun scripts/onboarding-step-order-e2e.ts",
     "test:private-backend-env": "bun scripts/private-backend-env-e2e.ts",

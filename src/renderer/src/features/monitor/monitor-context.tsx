@@ -3,6 +3,7 @@ import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorChannelTab } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
+import { countNewMonitorEvents } from "./monitor-feed";
 import {
   EMPTY_MONITOR_FILTERS,
   filterMonitorSnapshot,
@@ -19,14 +20,22 @@ import {
   summarizeMonitorSnapshot,
 } from "./monitor-overview";
 import type { MonitorSource } from "./monitor-port";
+import type { MonitorTaskFilter } from "./monitor-tasks";
 
 /** What the main area of the Monitor shows: one channel, or every agent. */
 export type MonitorView = "channel" | "all-agents";
 
 interface MonitorState {
   channelId: string | null;
-  /** The newest snapshot of `channelId`, unfiltered. */
+  /**
+   * The snapshot of `channelId` that the views show, unfiltered: the newest one, or while the feed
+   * is paused, the one from the moment of the pause.
+   */
   snapshot: MonitorSnapshot | null;
+  /** Pause feed: the views keep `snapshot` and do not change. The agents keep working. */
+  paused: boolean;
+  /** The newest snapshot read while the feed is paused. Resume shows it. */
+  pending: MonitorSnapshot | null;
   loading: boolean;
   /** Set when the last read failed. The previous snapshot stays. */
   error: AppTextKey | null;
@@ -38,6 +47,8 @@ interface MonitorState {
   selectedAgentId: string | null;
   /** The view of the open channel. */
   tab: MonitorChannelTab;
+  /** The filter chip of the Tasks view. */
+  taskFilter: MonitorTaskFilter;
   /** The two agents whose conversation the drawer (#27) shows, from a line label of the canvas. */
   conversation: [string, string] | null;
   /** The sidebar part of the newest snapshot of each listed channel, by channel id. */
@@ -58,6 +69,8 @@ const context = createSimpleContext({
     const [state, setState] = createStore<MonitorState>({
       channelId: null,
       snapshot: null,
+      paused: false,
+      pending: null,
       loading: false,
       error: null,
       filters: { ...EMPTY_MONITOR_FILTERS },
@@ -65,6 +78,7 @@ const context = createSimpleContext({
       pickedChannelId: null,
       selectedAgentId: null,
       tab: "canvas",
+      taskFilter: "all",
       conversation: null,
       overview: {},
     });
@@ -90,9 +104,12 @@ const context = createSimpleContext({
         const snapshot = await props.source.snapshot(channelId);
         if (read !== generation || snapshot.revision < minimumRevision) return;
         setState((draft) => {
-          draft.snapshot = snapshot;
           draft.loading = false;
           draft.error = null;
+          // While paused, the view keeps its snapshot and the read waits. A newer read replaces the
+          // waiting one, so Resume applies every event once.
+          if (draft.paused && draft.snapshot) draft.pending = snapshot;
+          else draft.snapshot = snapshot;
         });
         keepOverview(snapshot);
       } catch {
@@ -129,6 +146,9 @@ const context = createSimpleContext({
       setState((draft) => {
         draft.channelId = id;
         draft.snapshot = null;
+        // Leaving the channel ends a pause: the next channel, or this one again, opens live.
+        draft.paused = false;
+        draft.pending = null;
         draft.error = null;
         draft.filters = { ...EMPTY_MONITOR_FILTERS };
         draft.conversation = null;
@@ -167,6 +187,10 @@ const context = createSimpleContext({
     const liveCounts = createMemo(() => countLiveAgents(agents()));
     const updatedAt = createMemo(() => newestMonitorUpdate(listedOverviews()));
     /** The status that the "Live now" filter shows, when the filter is one status alone. */
+    /** The events of the newest read that the paused view does not show yet. */
+    const waitingEvents = createMemo(() =>
+      state.paused && state.snapshot && state.pending ? countNewMonitorEvents(state.snapshot, state.pending) : 0,
+    );
     const statusFilter = () => (state.filters.agentStatuses.length === 1 ? state.filters.agentStatuses[0] : null);
 
     return {
@@ -176,6 +200,7 @@ const context = createSimpleContext({
       liveCounts,
       updatedAt,
       statusFilter,
+      waitingEvents,
       /** The catalog keys of the statuses and filter choices that every Monitor view shows. */
       labels: {
         agentStatus: MONITOR_AGENT_STATUS_LABEL,
@@ -231,6 +256,12 @@ const context = createSimpleContext({
           draft.tab = tab;
         });
       },
+      /** Shows the tasks of one chip in the Tasks view. */
+      setTaskFilter(filter: MonitorTaskFilter) {
+        setState((draft) => {
+          draft.taskFilter = filter;
+        });
+      },
       /** Opens the conversation between two agents of the open channel. */
       openConversation(agentIds: [string, string]) {
         setState((draft) => {
@@ -247,6 +278,20 @@ const context = createSimpleContext({
       clearAgent() {
         setState((draft) => {
           draft.selectedAgentId = null;
+        });
+      },
+      /** Pause feed: the views stop changing. New reads wait until `resumeFeed`. */
+      pauseFeed() {
+        setState((draft) => {
+          draft.paused = true;
+        });
+      },
+      /** Resume feed: the views show the newest read, with every event that waited. */
+      resumeFeed() {
+        setState((draft) => {
+          if (draft.pending) draft.snapshot = draft.pending;
+          draft.pending = null;
+          draft.paused = false;
         });
       },
       reload() {

@@ -29,6 +29,8 @@ export interface FeedItemProps {
   progress?: Omit<ProgressBarProps, "class"> | undefined;
   /** The actor's status. It sets the face of the agent icon. */
   status?: MonitorStatus | undefined;
+  /** The tone of the event. `error` gives the card a red border and the target red text; `done` gives the target the done colour. */
+  tone?: MonitorStatus | null | undefined;
   class?: string | undefined;
 }
 
@@ -36,7 +38,7 @@ export function FeedItem(props: FeedItemProps): JSX.Element {
   const { t } = useText();
   const at = () => (props.at ? monitorAgo(props.at, props.now ?? new Date(), t) : undefined);
   return (
-    <article class={["monitor-feed-item", props.class]}>
+    <article class={["monitor-feed-item", props.class]} data-tone={props.tone ?? undefined}>
       <Show when={props.agent} fallback={<span class="monitor-feed-avatar" aria-hidden="true" />}>
         {(agent) => (
           <AgentAvatar
@@ -66,7 +68,9 @@ export function FeedItem(props: FeedItemProps): JSX.Element {
         <Show when={props.text || props.progress}>
           <div class="monitor-feed-card">
             <Show when={props.text}>
-              <p class="monitor-feed-text">{props.text}</p>
+              <p class="monitor-feed-text" dir="auto">
+                {props.text}
+              </p>
             </Show>
             <Show when={props.progress}>{(progress) => <ProgressBar {...progress()} />}</Show>
           </div>
