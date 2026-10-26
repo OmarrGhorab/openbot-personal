@@ -9,6 +9,7 @@ import {
   parseDynamicIslandInteractive,
   parseDynamicIslandPreference,
   parseDynamicIslandPresentation,
+  parseDynamicIslandWindowPosition,
 } from "./app-inputs";
 import { authorizedHandler, eventHandler, type IpcGroupHandlers } from "./define-ipc-group";
 
@@ -58,6 +59,13 @@ export function dynamicIslandIpcHandlers({
       setInteractive: authorizedHandler(fromOverlayRenderer, parseDynamicIslandInteractive, (event, state) =>
         dynamicIsland.setInteractive(event.sender.id, state.interactive, state.keyboard),
       ),
+      moveWindow: authorizedHandler(fromOverlayRenderer, parseDynamicIslandWindowPosition, (event, position) => {
+        dynamicIsland.moveWindow(event.sender.id, position);
+      }),
+      endWindowDrag: eventHandler((event) => {
+        fromOverlayRenderer(event);
+        return runCauseEffect(dynamicIsland.endWindowDrag(event.sender.id));
+      }),
     },
   };
 }

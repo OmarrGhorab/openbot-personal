@@ -36,17 +36,15 @@ export interface FeedItemProps {
 
 export function FeedItem(props: FeedItemProps): JSX.Element {
   const { t } = useText();
+  // A plain getter, not a conditional in JSX: the compiler wraps a conditional prop in a memo, and
+  // the avatar's Bloub engine first reads the mood inside its tracked effect, where creating that
+  // memo halts the reactive system (PRIMITIVE_IN_FORBIDDEN_SCOPE).
+  const mood = () => (props.status ? MONITOR_STATUS_MOOD[props.status] : "idle");
   const at = () => (props.at ? monitorAgo(props.at, props.now ?? new Date(), t) : undefined);
   return (
     <article class={["monitor-feed-item", props.class]} data-tone={props.tone ?? undefined}>
       <Show when={props.agent} fallback={<span class="monitor-feed-avatar" aria-hidden="true" />}>
-        {(agent) => (
-          <AgentAvatar
-            class="monitor-feed-avatar"
-            agent={agent()}
-            mood={props.status ? MONITOR_STATUS_MOOD[props.status] : "idle"}
-          />
-        )}
+        {(agent) => <AgentAvatar class="monitor-feed-avatar" agent={agent()} mood={mood()} />}
       </Show>
       <div class="monitor-feed-body">
         <div class="monitor-feed-head">

@@ -1,5 +1,7 @@
 import { VOICE_AUDIO_LIMITS, VOICE_MODELS, VOICE_STREAM_LIMITS } from "@openbot/contracts/ipc";
 import { encodePcm16, recordingToSamples, recordingToWav } from "../../voice-recording";
+import { finalTextWithRetries, PcmBuffer, SkipWhileBusy } from "./global-voice-stream-audio";
+import { openWhileWarming } from "./voice-warm-start";
 
 /** How often the recording so far is transcribed again for the live text of a local model. */
 const LIVE_INTERVAL_MS = 500;
@@ -91,7 +93,11 @@ export class GlobalVoiceDictation {
   #loudestAboveNoiseDb = 0;
   #limitTimer: ReturnType<typeof setTimeout> | undefined;
   #liveTimer: ReturnType<typeof setInterval> | undefined;
-  #liveRequest: Promise<void> = Promise.resolve();
+  /** The live pass of a local model. A tick while one runs is skipped. */
+  #live = new SkipWhileBusy();
+  /** The 16 kHz samples of a cloud recording, taken from the microphone as they arrive. */
+  #pcm = new PcmBuffer();
+  #capture: { context: AudioContext; node: ScriptProcessorNode } | null = null;
   #cloud: CloudDictation | null = null;
   /** True for a model that streams to a provider instead of transcribing the recording here. */
   #cloudModel = false;
@@ -99,7 +105,6 @@ export class GlobalVoiceDictation {
   #cloudRetries = 0;
   #streamRequest: Promise<void> = Promise.resolve();
   #streamQueued = false;
-  #lastLiveText = "";
   #startedAt = 0;
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
@@ -118,7 +123,6 @@ export class GlobalVoiceDictation {
     this.#onLimit = callbacks.onLimit;
     this.#onLevel = callbacks.onLevel ?? (() => {});
     this.#cloudModel = false;
-    this.#lastLiveText = "";
     const [status, settings] = await Promise.all([
       window.openbot.voice.prepareModel(),
       window.openbot.voice.getSettings(),
@@ -132,10 +136,13 @@ export class GlobalVoiceDictation {
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
-    // Load the local model while the user speaks, not when the first text is needed. A cloud model
-    // has nothing to load, and this answers at once.
-    await window.openbot.voice.warmModel().catch(() => undefined);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    if (session !== this.#session) throw new GlobalVoiceDictationError("failed", "");
+    // The model loads while the user speaks: the microphone opens now, not after the load.
+    const stream = await openWhileWarming(
+      () => window.openbot.voice.warmModel(),
+      () => navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+    );
+    // The window gave up on this start while the microphone was opening: release it and stop.
     if (session !== this.#session) {
       for (const track of stream.getTracks()) track.stop();
       throw new GlobalVoiceDictationError("failed", "");
@@ -160,7 +167,6 @@ export class GlobalVoiceDictation {
       this.#recorder = recorder;
       this.#chunks = [];
       this.#mimeType = recorder.mimeType;
-      this.#lastLiveText = "";
       this.#cloudRetries = 0;
       recorder.addEventListener("dataavailable", (event) => {
         if (event.data.size > 0) this.#chunks.push(event.data);
@@ -168,13 +174,12 @@ export class GlobalVoiceDictation {
         if (this.#cloudModel && this.#recorder === recorder) this.#queueStreamAudio();
       });
       this.#startMeter(stream);
+      if (this.#cloudModel) this.#startCapture(stream);
       recorder.start(STREAM_INTERVAL_MS);
       this.#startedAt = performance.now();
       this.#limitTimer = setTimeout(() => this.#onLimit(), VOICE_AUDIO_LIMITS.maximumSeconds * 1_000);
       if (!this.#cloudModel && livePreview) {
-        this.#liveTimer = setInterval(() => {
-          this.#liveRequest = this.#liveRequest.then(() => this.#refreshLive());
-        }, LIVE_INTERVAL_MS);
+        this.#liveTimer = setInterval(() => this.#live.run(() => this.#refreshLive()), LIVE_INTERVAL_MS);
       }
     } catch (error) {
       this.#discardCloud();
@@ -199,7 +204,7 @@ export class GlobalVoiceDictation {
     this.#release();
     try {
       // The live pass and the final pass cannot run at once: main takes one transcription at a time.
-      await this.#liveRequest;
+      await this.#live.idle();
       if (this.#chunks.length === 0) throw new GlobalVoiceDictationError("noSpeech", "");
       // A recording that never rose above the room holds no speech; Whisper would invent a line.
       if (this.#metered && this.#loudestAboveNoiseDb < SPEECH_ABOVE_NOISE_DB)
@@ -227,7 +232,7 @@ export class GlobalVoiceDictation {
     this.#discardCloud();
     this.#release();
     this.#chunks = [];
-    this.#lastLiveText = "";
+    this.#pcm.clear();
     this.#cloudModel = false;
     this.#startedAt = 0;
   }
@@ -266,7 +271,6 @@ export class GlobalVoiceDictation {
     const stopTranscript = window.openbot.voice.onStreamTranscript((event) => {
       if (event.streamId !== streamId) return;
       const text = withoutWhisperFiller(event.text);
-      this.#lastLiveText = text;
       this.#onLive(text);
     });
     const cloud = { streamId, sentSamples: 0, stopTranscript };
@@ -274,7 +278,23 @@ export class GlobalVoiceDictation {
     return cloud;
   }
 
-  /** Sends the audio that main does not have yet. Each pass decodes the whole recording again. */
+  /**
+   * The 16 kHz samples recorded so far. They come from the microphone capture; only when the capture
+   * could not start is the recording decoded again.
+   */
+  async #samples(): Promise<Float32Array | null> {
+    if (this.#capture || this.#pcm.length > 0) return null;
+    return recordingToSamples(this.#recording());
+  }
+
+  /** The samples after `offset`, and the new total, without decoding the recording when it can. */
+  async #samplesAfter(offset: number): Promise<{ samples: Float32Array; total: number }> {
+    const decoded = await this.#samples();
+    if (decoded) return { samples: decoded.subarray(Math.min(offset, decoded.length)), total: decoded.length };
+    return { samples: this.#pcm.from(offset), total: this.#pcm.length };
+  }
+
+  /** Sends the audio that main does not have yet. */
   async #sendNewAudio(): Promise<void> {
     if (!this.#cloudModel) return;
     if (!this.#cloud) {
@@ -283,17 +303,17 @@ export class GlobalVoiceDictation {
     }
     const cloud = this.#cloud;
     if (!cloud || this.#chunks.length === 0) return;
-    let samples: Float32Array;
+    let next: { samples: Float32Array; total: number };
     try {
-      samples = await recordingToSamples(this.#recording());
+      next = await this.#samplesAfter(cloud.sentSamples);
     } catch {
-      // The next pass, or the final one, decodes the recording again.
+      // The next pass, or the final one, tries again.
       return;
     }
-    if (samples.length <= cloud.sentSamples || this.#cloud !== cloud) return;
+    if (next.total <= cloud.sentSamples || this.#cloud !== cloud) return;
     try {
-      await this.#appendAudio(cloud.streamId, encodePcm16(samples.subarray(cloud.sentSamples)));
-      cloud.sentSamples = samples.length;
+      await this.#appendAudio(cloud.streamId, encodePcm16(next.samples));
+      cloud.sentSamples = next.total;
     } catch {
       if (this.#cloud === cloud) await this.#reconnectCloud();
     }
@@ -336,9 +356,9 @@ export class GlobalVoiceDictation {
     try {
       const cloud = await this.#openCloud();
       if (this.#chunks.length > 0) {
-        const samples = await recordingToSamples(this.#recording());
-        await this.#appendAudio(cloud.streamId, encodePcm16(samples));
-        cloud.sentSamples = samples.length;
+        const all = await this.#samplesAfter(0);
+        await this.#appendAudio(cloud.streamId, encodePcm16(all.samples));
+        cloud.sentSamples = all.total;
       }
       return true;
     } catch {
@@ -359,29 +379,30 @@ export class GlobalVoiceDictation {
   /**
    * Sends the last audio and ends the stream. A stream that fails is replaced and the whole
    * utterance is replayed, so a drop near the end does not lose the text. If every attempt fails,
-   * the live text stands for the utterance instead of an error that throws it away.
+   * this throws: the live text may be cut short, so it is never sent as the final message.
    */
   async #finishCloud(): Promise<string> {
     await this.#streamRequest;
     // The last chunk arrives with Stop, after the pass that was running.
     if (this.#cloud) await this.#sendNewAudio();
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= STREAM_RETRY_LIMIT; attempt += 1) {
-      if (!this.#cloud && !(await this.#openAndReplayCloud())) continue;
-      const cloud = this.#cloud;
-      if (!cloud) continue;
-      try {
-        const result = await window.openbot.voice.finishStream({ streamId: cloud.streamId });
-        this.#cloud = null;
-        cloud.stopTranscript();
-        return result.text;
-      } catch (error) {
-        lastError = error;
-        this.#discardCloud();
-      }
-    }
-    if (this.#lastLiveText.trim()) return this.#lastLiveText;
-    throw lastError ?? new GlobalVoiceDictationError("failed", "");
+    return finalTextWithRetries(
+      STREAM_RETRY_LIMIT + 1,
+      async () => {
+        if (!this.#cloud && !(await this.#openAndReplayCloud())) return undefined;
+        const cloud = this.#cloud;
+        if (!cloud) return undefined;
+        try {
+          const result = await window.openbot.voice.finishStream({ streamId: cloud.streamId });
+          this.#cloud = null;
+          cloud.stopTranscript();
+          return result.text;
+        } catch (error) {
+          this.#discardCloud();
+          throw error;
+        }
+      },
+      () => new GlobalVoiceDictationError("failed", ""),
+    );
   }
 
   async #refreshLive(): Promise<void> {
@@ -392,7 +413,6 @@ export class GlobalVoiceDictation {
       const result = await window.openbot.voice.transcribe({ audio });
       if (this.#recorder === recorder) {
         const text = withoutWhisperFiller(result.text);
-        this.#lastLiveText = text;
         this.#onLive(text);
       }
     } catch {
@@ -409,6 +429,7 @@ export class GlobalVoiceDictation {
 
   #release(): void {
     this.#stopMeter();
+    this.#stopCapture();
     for (const track of this.#stream?.getTracks() ?? []) track.stop();
     this.#stream = null;
   }
@@ -448,6 +469,38 @@ export class GlobalVoiceDictation {
       this.#onLevel(Math.max(0, Math.min(1, above / 24)));
     }, LEVEL_INTERVAL_MS);
     this.#meter = { context, timer };
+  }
+
+  /**
+   * Takes 16 kHz samples straight from the microphone for a cloud recording, so a send adds only the
+   * new audio. Without an AudioContext the recording is decoded instead.
+   */
+  #startCapture(stream: MediaStream): void {
+    this.#pcm.clear();
+    let context: AudioContext | undefined;
+    try {
+      context = new AudioContext({ sampleRate: VOICE_AUDIO_LIMITS.sampleRate });
+      const node = context.createScriptProcessor(4_096, 1, 1);
+      const mute = context.createGain();
+      mute.gain.value = 0;
+      node.addEventListener("audioprocess", (event) => this.#pcm.append(event.inputBuffer.getChannelData(0)));
+      context.createMediaStreamSource(stream).connect(node);
+      // A processor runs only when it reaches the output; the muted gain keeps it silent.
+      node.connect(mute);
+      mute.connect(context.destination);
+      this.#capture = { context, node };
+    } catch {
+      void context?.close();
+      this.#capture = null;
+    }
+  }
+
+  #stopCapture(): void {
+    const capture = this.#capture;
+    this.#capture = null;
+    if (!capture) return;
+    capture.node.disconnect();
+    void capture.context.close();
   }
 
   #stopMeter(): void {
