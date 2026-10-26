@@ -481,7 +481,7 @@ export function createDynamicIslandWindow(bounds: Rectangle, _display: Display):
     enableLargerThanScreen: true,
     hasShadow: false,
     skipTaskbar: true,
-    type: "panel",
+    ...(process.platform === "darwin" ? { type: "panel" as const } : {}),
     backgroundColor: "#00000000",
     webPreferences: {
       preload: join(__dirname, "../preload/index.cjs"),

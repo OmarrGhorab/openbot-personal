@@ -51,6 +51,17 @@ export function dynamicIslandCompactHeight(notchHeight: number | undefined, heig
 
 export type SetDynamicIslandPreferenceInput = DynamicIslandPreference;
 
+/** One requested top-left corner of the island window, in screen points. */
+export interface DynamicIslandWindowPosition {
+  x: number;
+  y: number;
+  /**
+   * The width of the drawn island. The window is wider than the island, and the rest is
+   * transparent, so main can let the window pass the screen edge until the island itself reaches it.
+   */
+  islandWidth?: number;
+}
+
 export const DEFAULT_DYNAMIC_ISLAND_PREFERENCE = {
   enabled: true,
   hapticsEnabled: true,
@@ -247,6 +258,26 @@ export function isDynamicIslandInteractive(value: unknown): value is SetDynamicI
     isDynamicRecord(value) &&
     isBoolean(value.interactive) &&
     (value.keyboard === undefined || isBoolean(value.keyboard))
+  );
+}
+
+/** The largest screen coordinate that a display arrangement can name. */
+export const DYNAMIC_ISLAND_POSITION_LIMIT = 10_000_000;
+
+export function isDynamicIslandWindowPosition(value: unknown): value is DynamicIslandWindowPosition {
+  return (
+    isDynamicRecord(value) &&
+    isNumber(value.x) &&
+    isNumber(value.y) &&
+    Number.isSafeInteger(value.x) &&
+    Number.isSafeInteger(value.y) &&
+    Math.abs(value.x) <= DYNAMIC_ISLAND_POSITION_LIMIT &&
+    Math.abs(value.y) <= DYNAMIC_ISLAND_POSITION_LIMIT &&
+    (value.islandWidth === undefined ||
+      (isNumber(value.islandWidth) &&
+        Number.isFinite(value.islandWidth) &&
+        value.islandWidth > 0 &&
+        value.islandWidth <= DYNAMIC_ISLAND_POSITION_LIMIT))
   );
 }
 

@@ -54,7 +54,8 @@ export const messages = {
   "settings.showAgentSteps.description":
     "افتح التفكير وخطوات الأدوات وتغييرات الذاكرة بتاعة كل دور بشكل افتراضي على الجهاز والمتصفح ده.",
   "settings.busyMessage.title": "وجّه الإيجنتات وهما شغّالين",
-  "settings.busyMessage.description": "الرسائل الجديدة بتنضم لشغل الإيجنت الحالي، مش للطابور. شغّال مع ChatGPT وClaude.",
+  "settings.busyMessage.description":
+    "الرسائل الجديدة بتنضم لشغل الإيجنت الحالي، مش للطابور. شغّال مع ChatGPT وClaude وGrok وPi وMuse وInception. الإيجنتات التانية بتفضّل الرسايل الجديدة في الطابور.",
   "settings.agentDefaults.title": "الإعدادات الافتراضية",
   "settings.agentDefaults.description": "الإيجنتات بتتبع الإعدادات دي، إلا لو غيّرتها لإيجنت معيّن.",
   "settings.agentDefaults.value": "الافتراضي: {value}",
