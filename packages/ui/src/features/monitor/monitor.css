@@ -1,0 +1,472 @@
+/* The shared Monitor parts in features/monitor: status, counts, agent cards, feed items, tool calls. */
+
+/* One colour per status. Every part reads `--monitor-status` from its own `data-status`. */
+[data-status="working"]:is(
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
+  --monitor-status: var(--openbot-accent);
+  --monitor-status-text: var(--openbot-accent-text);
+}
+
+[data-status="waiting"]:is(
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
+  --monitor-status: var(--openbot-warning);
+  --monitor-status-text: var(--openbot-warning-text);
+}
+
+[data-status="error"]:is(
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
+  --monitor-status: var(--openbot-danger);
+  --monitor-status-text: var(--openbot-danger-text);
+}
+
+[data-status="done"]:is(
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
+  --monitor-status: var(--openbot-success);
+  --monitor-status-text: var(--openbot-success-text);
+}
+
+[data-status="idle"]:is(
+  .monitor-status-dot,
+  .monitor-status-pill,
+  .monitor-status-icon,
+  .monitor-status-line,
+  .monitor-stat,
+  .monitor-progress,
+  .monitor-node,
+  .monitor-tool-row
+) {
+  --monitor-status: var(--openbot-text-dim);
+  --monitor-status-text: var(--openbot-text-dim);
+}
+
+.monitor-status-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--monitor-status);
+}
+
+.monitor-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-sm);
+  white-space: nowrap;
+}
+
+.monitor-status-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--monitor-status-text);
+}
+
+.monitor-status-icon svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.monitor-spin {
+  animation: monitor-spin 1.2s linear infinite;
+}
+
+@keyframes monitor-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.monitor-status-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+}
+
+.monitor-status-line-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--monitor-status-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-status-line-meta {
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+/* A count in the summary. */
+.monitor-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.monitor-stat-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  white-space: nowrap;
+}
+
+.monitor-stat-value {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-3xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-3xl);
+}
+
+/* Step, percentage and bar. */
+.monitor-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+.monitor-progress-text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.monitor-progress-caption {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-progress-value {
+  margin-inline-start: auto;
+  color: var(--openbot-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--openbot-weight-medium);
+  white-space: nowrap;
+}
+
+.monitor-progress-bar .ui-progress-track {
+  height: var(--openbot-space-1);
+  background: var(--openbot-bg-surface-raised);
+}
+
+.monitor-progress-bar .ui-progress-fill {
+  background: var(--monitor-status);
+}
+
+/* The whole card or row is the hit area of its select button; the content stays readable on top. */
+.monitor-select.ui-button {
+  position: absolute;
+  z-index: 0;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: inherit;
+  inset: 0;
+}
+
+.monitor-select.ui-button:hover {
+  background: var(--openbot-hover);
+}
+
+.monitor-node > :not(.monitor-select),
+.monitor-tool-row > :not(.monitor-select) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* An agent on the canvas. */
+.monitor-node {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-primary);
+}
+
+.monitor-node[data-selected] {
+  border-color: var(--openbot-accent);
+  box-shadow: 0 0 0 1px var(--openbot-accent);
+}
+
+.monitor-node-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+}
+
+/* The rings of a working agent sit around the icon, so the icon is their containing block. One
+   track the size of the box keeps the Bloub centred, as in the diagram view. */
+.monitor-node-avatar.agent-avatar {
+  position: relative;
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  flex: 0 0 auto;
+  grid-template: 100% / 100%;
+}
+
+.monitor-node-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.monitor-node-role {
+  overflow: hidden;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-node-name {
+  overflow: hidden;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-node-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+.monitor-node-task {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  line-height: var(--openbot-leading-md);
+}
+
+.monitor-node-footer {
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+/* An event in the feed. */
+.monitor-feed-item {
+  display: flex;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) 0;
+}
+
+.monitor-feed-avatar,
+.monitor-feed-avatar.agent-avatar {
+  position: relative;
+  width: var(--openbot-control-md);
+  height: var(--openbot-control-md);
+  flex: 0 0 auto;
+  grid-template: 100% / 100%;
+}
+
+.monitor-feed-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+.monitor-feed-head {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--openbot-space-1-5);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+}
+
+.monitor-feed-actor,
+.monitor-feed-target {
+  font-weight: var(--openbot-weight-semibold);
+  white-space: nowrap;
+}
+
+.monitor-feed-actor {
+  color: var(--openbot-text-primary);
+}
+
+.monitor-feed-verb {
+  color: var(--openbot-text-muted);
+  white-space: nowrap;
+}
+
+.monitor-feed-target {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-accent-text);
+  text-overflow: ellipsis;
+}
+
+.monitor-feed-time {
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.monitor-feed-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.monitor-feed-text {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+  overflow-wrap: anywhere;
+}
+
+/* A tool call. */
+.monitor-tool-row {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid var(--openbot-transparent);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.monitor-tool-row[data-selected] {
+  border-color: var(--openbot-accent);
+  background: var(--openbot-accent-soft);
+}
+
+.monitor-tool-icon {
+  display: inline-flex;
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-secondary);
+}
+
+.monitor-tool-icon svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.monitor-tool-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.monitor-tool-title {
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-tool-argument {
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-tool-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--monitor-status-text);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitor-spin {
+    animation: none;
+  }
+}
