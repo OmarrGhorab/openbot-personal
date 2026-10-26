@@ -4,6 +4,7 @@ import type {
   DynamicIslandNotchSize,
   DynamicIslandPreference,
   DynamicIslandPresentation,
+  DynamicIslandWindowPosition,
 } from "@openbot/contracts/ipc";
 import {
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
@@ -17,6 +18,11 @@ import { Deferred, Effect, Schema, Semaphore } from "effect";
 import type { BrowserWindow, Display, Rectangle } from "electron";
 import { causeHelpers } from "../backend/effect-boundary";
 import type { CriticalAction } from "./dynamic-island-actions";
+import {
+  type DynamicIslandPositions,
+  readDynamicIslandPositions,
+  writeDynamicIslandPositions,
+} from "./dynamic-island-position-store";
 import { readDynamicIslandPreference, writeDynamicIslandPreference } from "./dynamic-island-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
 
@@ -54,9 +60,14 @@ export const { rewrap: toDynamicIslandFailed } = causeHelpers(DynamicIslandFaile
 export interface DynamicIslandWindowControllerOptions {
   platform: NodeJS.Platform;
   preferencePath: string;
+  /** Where each display's last dragged window position is remembered. */
+  positionPath: string;
   createWindow: (bounds: Rectangle, display: Display) => BrowserWindow;
   loadWindow: (window: BrowserWindow, display: Display) => Promise<void>;
   getDisplays: () => Display[];
+  /** The display that shows the island when additional displays are off on a computer with no
+   *  built-in-display flag, such as Windows. */
+  getPrimaryDisplayId: () => number;
   getMainWindow: () => BrowserWindow | null;
   ensureMainWindow?: () => Promise<BrowserWindow>;
   presentMainWindow: (window: BrowserWindow) => void;
@@ -71,11 +82,16 @@ export class DynamicIslandWindowController {
   #presentation = IDLE_DYNAMIC_ISLAND_PRESENTATION;
   readonly #windows = new Map<number, BrowserWindow>();
   readonly #interactiveDisplays = new Set<number>();
+  /** Where each window is while the user drags it, before the drag ends and the move is saved. */
+  readonly #dragPositions = new Map<number, DynamicIslandWindowPosition>();
+  readonly #draggingDisplays = new Set<number>();
+  #positions: DynamicIslandPositions = new Map();
   /** One run per critical action, shared by the overlays and IPC retries that send it again. */
   readonly #criticalActions = new Map<string, Deferred.Deferred<void, DynamicIslandFailed>>();
   readonly #notchSizes = new Map<number, { width: number; height: number }>();
   readonly #collapseTimers = new Map<number, ReturnType<typeof setTimeout>>();
   readonly #preferenceMutation = Semaphore.makeUnsafe(1);
+  readonly #positionWrites = Semaphore.makeUnsafe(1);
   readonly #windowReconciliation = Semaphore.makeUnsafe(1);
   #destroyed = false;
 
@@ -85,6 +101,7 @@ export class DynamicIslandWindowController {
 
   readonly initialize = Effect.fn("DynamicIsland.initialize")(function* (this: DynamicIslandWindowController) {
     this.#preference = yield* readDynamicIslandPreference(this.#options.preferencePath);
+    this.#positions = yield* readDynamicIslandPositions(this.#options.positionPath);
     yield* this.reconcileWindow();
   }).bind(this);
 
@@ -159,6 +176,7 @@ export class DynamicIslandWindowController {
   }
 
   performHaptic(): void {
+    if (this.#options.platform !== "darwin") return;
     if (!this.#preference.enabled || !this.#preference.hapticsEnabled) return;
     this.#options.performHaptic();
   }
@@ -172,15 +190,16 @@ export class DynamicIslandWindowController {
   }
 
   setInteractive(rendererId: number, interactive: boolean, keyboard = false): void {
-    const entry = [...this.#windows].find(
-      ([, candidate]) => !candidate.isDestroyed() && candidate.webContents.id === rendererId,
-    );
+    const entry = this.#windowEntry(rendererId);
     if (!entry) return;
     const [displayId, window] = entry;
+    // A drag keeps the pointer on the window even when it leaves the drawn island, or the
+    // pointerup that ends the drag would go to the app under the pointer.
+    if (this.#draggingDisplays.has(displayId)) return;
     if (interactive) this.#interactiveDisplays.add(displayId);
     else this.#interactiveDisplays.delete(displayId);
     const display = this.#options.getDisplays().find((candidate) => candidate.id === displayId);
-    const bounds = display ? dynamicIslandWindowBounds(display) : undefined;
+    const bounds = display ? this.#boundsForDisplay(display, interactive) : undefined;
     this.#cancelCollapse(displayId);
     if (interactive && bounds) window.setBounds(bounds, false);
     window.setIgnoreMouseEvents(!interactive, { forward: true });
@@ -201,9 +220,85 @@ export class DynamicIslandWindowController {
         // rather than replaying the rectangle captured when the pointer left.
         const current = this.#options.getDisplays().find((candidate) => candidate.id === displayId);
         if (!current) return;
-        window.setBounds(this.#windowBounds(current, dynamicIslandWindowBounds(current), false), false);
+        window.setBounds(this.#boundsForDisplay(current, false), false);
       }, DYNAMIC_ISLAND_COLLAPSE_SETTLE_MS),
     );
+  }
+
+  /** Moves the window to the pointer during a drag. Main keeps the window on its display. */
+  moveWindow(rendererId: number, position: DynamicIslandWindowPosition): void {
+    if (this.#destroyed) return;
+    const entry = this.#windowEntry(rendererId);
+    if (!entry) return;
+    const [displayId, window] = entry;
+    if (window.isDestroyed()) return;
+    const display = this.#options.getDisplays().find((candidate) => candidate.id === displayId);
+    if (!display) return;
+    this.#draggingDisplays.add(displayId);
+    this.#interactiveDisplays.add(displayId);
+    this.#cancelCollapse(displayId);
+    const current = window.getBounds();
+    // The island is compact while it is dragged, so the room below it counts from that height:
+    // the taller panel that a hover shows can pass the screen edge and is cut at the edge.
+    const clamped = clampDynamicIslandPosition(
+      position,
+      display,
+      DYNAMIC_ISLAND_WINDOW_SIZE.width,
+      DYNAMIC_ISLAND_COMPACT_WINDOW_HEIGHT,
+    );
+    this.#dragPositions.set(displayId, {
+      ...clamped,
+      ...(position.islandWidth === undefined ? {} : { islandWidth: position.islandWidth }),
+    });
+    window.setBounds({ ...current, x: clamped.x, y: clamped.y }, false);
+  }
+
+  /** Ends a drag and saves the window position for this display. A failed write is only logged. */
+  endWindowDrag(rendererId: number): Effect.Effect<void> {
+    return Effect.suspend(() => {
+      const entry = this.#windowEntry(rendererId);
+      if (!entry) return Effect.void;
+      const [displayId, window] = entry;
+      this.#draggingDisplays.delete(displayId);
+      this.#cancelCollapse(displayId);
+      const islandWidth =
+        this.#dragPositions.get(displayId)?.islandWidth ?? this.#positions.get(displayId)?.islandWidth;
+      this.#dragPositions.delete(displayId);
+      if (!window.isDestroyed()) {
+        const bounds = window.getBounds();
+        this.#positions = new Map(this.#positions).set(displayId, {
+          x: bounds.x,
+          y: bounds.y,
+          ...(islandWidth === undefined ? {} : { islandWidth }),
+        });
+      }
+      return this.#positionWrites.withPermit(
+        writeDynamicIslandPositions(this.#options.positionPath, this.#positions).pipe(
+          Effect.catch((error) =>
+            Effect.sync(() =>
+              (this.#options.logger ?? logger).error(
+                "Unable to save the Dynamic Island position:",
+                toLogValue(error.cause),
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  #windowEntry(rendererId: number): [number, BrowserWindow] | undefined {
+    return [...this.#windows].find(
+      ([, candidate]) => !candidate.isDestroyed() && candidate.webContents.id === rendererId,
+    );
+  }
+
+  #boundsForDisplay(display: Display, interactive: boolean): Rectangle {
+    const base = this.#windowBounds(display, dynamicIslandWindowBounds(display), interactive);
+    const position = this.#dragPositions.get(display.id) ?? this.#positions.get(display.id);
+    if (!position) return base;
+    const clamped = clampDynamicIslandPosition(position, display, base.width, DYNAMIC_ISLAND_COMPACT_WINDOW_HEIGHT);
+    return { ...base, x: clamped.x, y: clamped.y };
   }
 
   #windowBounds(display: Pick<Display, "bounds" | "internal">, bounds: Rectangle, interactive: boolean): Rectangle {
@@ -295,14 +390,19 @@ export class DynamicIslandWindowController {
   readonly #reconcileWindows = Effect.fn("DynamicIsland.reconcileWindows")(function* (
     this: DynamicIslandWindowController,
   ) {
-    if (this.#destroyed || this.#options.platform !== "darwin" || !this.#preference.enabled) {
+    if (this.#destroyed || !this.#preference.enabled) {
       this.destroyWindows();
       return;
     }
 
     const displays = this.#options
       .getDisplays()
-      .filter((display) => this.#preference.additionalDisplaysEnabled || display.internal);
+      .filter(
+        (display) =>
+          this.#preference.additionalDisplaysEnabled ||
+          display.internal ||
+          display.id === this.#options.getPrimaryDisplayId(),
+      );
     const displayIds = new Set(displays.map((display) => display.id));
     for (const [displayId, window] of this.#windows) {
       if (displayIds.has(displayId) && !window.isDestroyed()) continue;
@@ -315,14 +415,12 @@ export class DynamicIslandWindowController {
 
     for (const display of displays) {
       if (this.#destroyed) return;
-      const bounds = dynamicIslandWindowBounds(display);
       const notchSize = notchSizeForDisplay(display);
       const current = this.#windows.get(display.id);
       if (current && !current.isDestroyed()) {
         current.setBounds(
-          this.#windowBounds(
+          this.#boundsForDisplay(
             display,
-            bounds,
             this.#interactiveDisplays.has(display.id) || this.#collapseTimers.has(display.id),
           ),
           false,
@@ -335,7 +433,7 @@ export class DynamicIslandWindowController {
         current.showInactive();
         continue;
       }
-      yield* this.#createDisplayWindow(display, bounds).pipe(
+      yield* this.#createDisplayWindow(display, this.#boundsForDisplay(display, false)).pipe(
         Effect.catch((error) =>
           Effect.sync(() =>
             (this.#options.logger ?? logger).error(
@@ -359,16 +457,23 @@ export class DynamicIslandWindowController {
   /** Creates the window now and returns its load. */
   #openDisplayWindow(display: Display, bounds: Rectangle): Effect.Effect<void, DynamicIslandFailed> {
     const window = this.#options.createWindow(this.#windowBounds(display, bounds, false), display);
-    window.excludedFromShownWindowsMenu = true;
+    const onMac = this.#options.platform === "darwin";
+    if (onMac) window.excludedFromShownWindowsMenu = true;
     this.#windows.set(display.id, window);
     window.setHasShadow(false);
-    window.setWindowButtonVisibility(false);
-    window.setAlwaysOnTop(true, "status");
-    window.setVisibleOnAllWorkspaces(true, {
-      visibleOnFullScreen: true,
-      skipTransformProcessType: true,
-    });
-    window.setHiddenInMissionControl(true);
+    if (onMac) {
+      window.setWindowButtonVisibility(false);
+      window.setAlwaysOnTop(true, "status");
+      window.setVisibleOnAllWorkspaces(true, {
+        visibleOnFullScreen: true,
+        skipTransformProcessType: true,
+      });
+      window.setHiddenInMissionControl(true);
+    } else {
+      // Windows and Linux keep an always-on-top window above other apps. Their window manager
+      // has no panel level or Mission Control flag to set.
+      window.setAlwaysOnTop(true);
+    }
     window.setFocusable(false);
     window.setIgnoreMouseEvents(true, { forward: true });
     window.webContents.on("did-finish-load", () => {
@@ -392,6 +497,8 @@ export class DynamicIslandWindowController {
         this.#windows.delete(display.id);
         this.#interactiveDisplays.delete(display.id);
         this.#notchSizes.delete(display.id);
+        this.#draggingDisplays.delete(display.id);
+        this.#dragPositions.delete(display.id);
         this.#cancelCollapse(display.id);
       }
     });
@@ -485,6 +592,34 @@ export function dynamicIslandWindowBounds(
     x: Math.round(display.bounds.x + (display.bounds.width - DYNAMIC_ISLAND_WINDOW_SIZE.width) / 2),
     y: notched ? display.bounds.y : top,
     ...DYNAMIC_ISLAND_WINDOW_SIZE,
+  };
+}
+
+/**
+ * Keeps a dragged window on its display. The window is mostly transparent and only its compact
+ * island is visible, so the room below it counts from `minimumVisibleHeight`, not from the tall
+ * panel that a hover draws. `islandWidth` is the visible width; the transparent sides may pass the
+ * screen edge, so the island itself can reach it.
+ */
+export function clampDynamicIslandPosition(
+  position: DynamicIslandWindowPosition,
+  display: Pick<Display, "bounds" | "workArea">,
+  windowWidth: number,
+  minimumVisibleHeight: number,
+): DynamicIslandWindowPosition {
+  const area = display.workArea ?? display.bounds;
+  const right = area.x + area.width;
+  const bottom = area.y + area.height;
+  const islandWidth = position.islandWidth ?? windowWidth;
+  const overhang = Math.max(0, Math.min(windowWidth, Math.round((windowWidth - islandWidth) / 2)));
+  // A display smaller than the window keeps the window at the top-left corner, where the
+  // island's own top edge is still on screen.
+  const minX = area.x - overhang;
+  const maxX = Math.max(minX, right - windowWidth + overhang);
+  const maxY = Math.max(area.y, bottom - minimumVisibleHeight);
+  return {
+    x: Math.round(Math.min(Math.max(position.x, minX), maxX)),
+    y: Math.round(Math.min(Math.max(position.y, area.y), maxY)),
   };
 }
 

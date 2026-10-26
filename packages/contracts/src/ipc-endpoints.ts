@@ -247,6 +247,7 @@ import type {
   DynamicIslandGeometry,
   DynamicIslandPreference,
   DynamicIslandPresentation,
+  DynamicIslandWindowPosition,
   SetDynamicIslandInteractiveInput,
   SetDynamicIslandPreferenceInput,
 } from "./ipc-dynamic-island";
@@ -806,6 +807,10 @@ export const IPC_ENDPOINTS = {
     performHaptic: request<undefined, void>()("dynamic-island:perform-haptic"),
     action: event<DynamicIslandAction>()("dynamic-island:action"),
     setInteractive: request<SetDynamicIslandInteractiveInput, void>()("dynamic-island:set-interactive"),
+    /** Moves the island window while the user drags it. Main keeps it on its display. */
+    moveWindow: request<DynamicIslandWindowPosition, void>()("dynamic-island:move-window"),
+    /** Ends a drag and saves where the window is, so it comes back there after a restart. */
+    endWindowDrag: request<undefined, void>()("dynamic-island:end-window-drag"),
   },
   /**
    * The global voice shortcuts and their picker. The picker is a helper window: it asks for its
