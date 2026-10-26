@@ -147,16 +147,32 @@ thread is never replaced. Provider sessions, turns, questions, approvals, attach
 and restart recovery use the explicit execution thread. These internal execution records do not
 create extra navigation entries. The per-agent drain scheduler remains the authority for work.
 
-`ChannelService` selects one owner. A selected recipient has priority, followed by the task attached
-to a reply, a reply to a member message that has no task, a clear follow-up to the sole open task,
-and a channel with one available member. These selections use no model. Other requests use the
+`ChannelService` selects the owners of a request. A selected recipient (a leading
+`@[Name](agent:id)` mention) has priority, followed by the task attached to a reply, a clear
+follow-up to the sole open task, and a channel with one available member. Then the text of the
+request is read with `channelAddress` (`@openbot/contracts/channel-addressing`): member names match
+case-insensitively as whole words, a longer name wins over a shorter name inside it, and chat tags,
+quoted lines, quoted strings and code do not address anyone. A name also wins over the reply target,
+so a reply to a member message that has no task goes to that member only when the text names no
+member. A request that names members goes to each of them. A general request ("hey guys",
+"everyone", "team, …", "hi all", a greeting alone, "يا شباب") goes to the eligible members, the lead
+first, at most `CHANNEL_GENERAL_ANSWER_LIMIT` (3). The task schema has one owner, so each further
+member gets its own root task for the same request message in the shared channel. Each task gets
+the files of the request and has its own Stop, Continue and Reassign. A name that two members share
+is not a choice the service makes: the lead (or the Coordinator, when the channel has no lead that
+can speak) asks which member, as a normal message (`channelMemberNameAmbiguous`), and the request
+completes. These selections use no model. Other requests use the
 lead's provider, model, and reasoning setting in a separate session with no work tools. The request
 supplies the accepted result schema and the channel summary in place of the transcript. Invalid or
 stale routing cannot broadcast a request. Routing can select an existing task, ask a question, or
-indicate that no work is needed. A selected owner or existing task adds one channel message from the
-lead, so the selection is visible and the user can correct it. Deterministic selection adds no
-message. A request that needs routing in a channel with no lead stops with the reason
-`channelLeadRequired`. A save that sets a new lead queues these requests again, and the lead routes
+indicate that no work is needed. A question is the lead's normal channel message: the request
+completes and is not paused, and the user's answer routes again. A selected owner or existing task
+adds one channel message from the lead, so the selection is visible and the user can correct it.
+Deterministic selection adds no message. Only real failures pause the request with a Coordinator
+notice and Continue and Reassign: a failed or invalid routing turn, a request that needs routing in
+a channel with no lead (`channelLeadRequired`), or a request that is too long. A hidden lead, or a
+lead whose plan is spent, holds an unaddressed request queued until it is back.
+`scripts/channel-name-routing-e2e.ts` checks these cases. A save that sets a new lead queues these requests again, and the lead routes
 them. A lead change does not move a task that already has an owner. The member packet names the lead
 (`leadAgentId`).
 
