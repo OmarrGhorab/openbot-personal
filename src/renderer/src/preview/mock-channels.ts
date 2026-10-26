@@ -1,3 +1,4 @@
+import { channelAddress } from "@openbot/contracts/channel-addressing";
 import type {
   AgentEvent,
   Channel,
@@ -104,28 +105,47 @@ export function createMockChannels(
         const list = messages.get(channel.id) ?? [];
         const id = crypto.randomUUID();
         const taskId = crypto.randomUUID();
-        // The real service routes a request with no recipient through the lead's model and posts the
-        // choice as a channel message. It skips both when the answer is already known: a named
-        // recipient, or a channel with one member. The preview has no model, so it keeps assigning
-        // the lead, but it reproduces which requests get a visible dispatch row and which do not.
-        const routed = !input.recipientAgentId && channel.members.length > 1 && channel.leadAgentId !== null;
-        work.push({
-          id: taskId,
-          channelId: channel.id,
-          rootTaskId: taskId,
-          parentTaskId: null,
-          ownerAgentId: input.recipientAgentId ?? channel.leadAgentId,
-          requestMessageId: id,
-          instruction: input.text,
-          attachmentDraftIds: input.attachmentDraftIds,
-          expectedResult: "Complete the requested work and report the result.",
-          sourceMessageIds: [id],
-          dependencies: [],
-          resources: ["host"],
-          state: "queued",
-          revision: 0,
-          assignmentCount: 0,
-          error: null,
+        // The real service gives a request that names members, or speaks to the whole channel, to
+        // those members with no routing turn, one task each. Other requests with no recipient go
+        // through the lead's model, which posts its choice as a channel message. It skips both when
+        // the answer is already known: a named recipient, or a channel with one member. The preview
+        // has no model, so it assigns the lead, but it reproduces which requests get a visible
+        // dispatch row and which do not.
+        const lead = channel.leadAgentId;
+        const memberIds = channel.members.map((member) => member.agentId);
+        const address =
+          !input.recipientAgentId && memberIds.length > 1
+            ? channelAddress(
+                input.text,
+                (lead && memberIds.includes(lead)
+                  ? [lead, ...memberIds.filter((item) => item !== lead)]
+                  : memberIds
+                ).map((agentId) => ({ agentId, name: agentName(agentId) })),
+              )
+            : null;
+        const addressed = address?.kind === "named" || address?.kind === "everyone" ? address.agentIds : [];
+        const routed = !input.recipientAgentId && !addressed.length && memberIds.length > 1 && lead !== null;
+        const owners = addressed.length ? addressed : [input.recipientAgentId ?? lead];
+        owners.forEach((ownerAgentId, index) => {
+          const ownTaskId = index === 0 ? taskId : crypto.randomUUID();
+          work.push({
+            id: ownTaskId,
+            channelId: channel.id,
+            rootTaskId: ownTaskId,
+            parentTaskId: null,
+            ownerAgentId,
+            requestMessageId: id,
+            instruction: input.text,
+            attachmentDraftIds: index === 0 ? input.attachmentDraftIds : [],
+            expectedResult: "Complete the requested work and report the result.",
+            sourceMessageIds: [id],
+            dependencies: [],
+            resources: ["host"],
+            state: "queued",
+            revision: 0,
+            assignmentCount: 0,
+            error: null,
+          });
         });
         list.push({
           id,

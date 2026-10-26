@@ -74,6 +74,8 @@ export const messages = defineMessages("error.backend", {
   "error.backend.channelLeadTimedOut": "The channel lead did not answer in time. Choose a member or try again.",
   "error.backend.channelLeadFailed": "The channel lead could not route this message. Choose a member or try again.",
   "error.backend.channelRequestMemberRequired": "Choose a member for this request.",
+  "error.backend.channelMemberNameAmbiguous":
+    "More than one member is named {name}. Which one do you mean? Mention that member to choose.",
   "error.backend.channelDeliveryNotCreated": "Channel delivery was not created.",
   "error.backend.channelAssignmentStopped": "This channel assignment has been stopped or replaced.",
   "error.backend.channelAssigneeUnavailable": "The assigned agent is unavailable.",
