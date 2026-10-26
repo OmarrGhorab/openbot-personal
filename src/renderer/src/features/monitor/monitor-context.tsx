@@ -1,4 +1,4 @@
-import type { MonitorAgentStatus, MonitorSnapshot } from "@openbot/contracts/ipc";
+import type { MonitorAgentStatus, MonitorSnapshot, MonitorTask } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorChannelTab } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
@@ -19,7 +19,7 @@ import {
   newestMonitorUpdate,
   summarizeMonitorSnapshot,
 } from "./monitor-overview";
-import type { MonitorSource } from "./monitor-port";
+import type { MonitorActions, MonitorSource, MonitorTaskTarget } from "./monitor-port";
 import type { MonitorTaskFilter } from "./monitor-tasks";
 
 /** What the main area of the Monitor shows: one channel, or every agent. */
@@ -43,8 +43,10 @@ interface MonitorState {
   view: MonitorView;
   /** The channel the user picked. Null opens the first channel. */
   pickedChannelId: string | null;
-  /** The agent the user selected in the sidebar or on the canvas. The agent popup (#25) shows it. */
+  /** The agent the user selected in the sidebar, on the canvas or in the Tasks view. The agent popup shows it. */
   selectedAgentId: string | null;
+  /** The agent whose thread "Open thread" opened. Its thread shows "Back to monitor". */
+  threadAgentId: string | null;
   /** The view of the open channel. */
   tab: MonitorChannelTab;
   /** The filter chip of the Tasks view. */
@@ -57,6 +59,8 @@ interface MonitorState {
 
 export interface MonitorProviderProps {
   source: MonitorSource;
+  /** The task actions of the agent popup, and the move to and from a thread. */
+  actions: MonitorActions;
   /** Whether the Monitor page is on screen. It reads nothing while it is not. */
   active: () => boolean;
   /** The channels the Monitor lists, in the order of the sidebar. */
@@ -77,6 +81,7 @@ const context = createSimpleContext({
       view: "channel",
       pickedChannelId: null,
       selectedAgentId: null,
+      threadAgentId: null,
       tab: "canvas",
       taskFilter: "all",
       conversation: null,
@@ -142,6 +147,14 @@ const context = createSimpleContext({
       return picked !== null && ids.includes(picked) ? picked : (ids[0] ?? null);
     });
 
+    // The Monitor is on screen again: the thread that it opened is behind it.
+    createEffect(props.active, (active) => {
+      if (!active) return;
+      setState((draft) => {
+        draft.threadAgentId = null;
+      });
+    });
+
     createEffect(channelId, (id) => {
       setState((draft) => {
         draft.channelId = id;
@@ -191,6 +204,14 @@ const context = createSimpleContext({
     const waitingEvents = createMemo(() =>
       state.paused && state.snapshot && state.pending ? countNewMonitorEvents(state.snapshot, state.pending) : 0,
     );
+    /** Where a task of the open channel is stopped or resumed. */
+    function taskTarget(task: MonitorTask): MonitorTaskTarget | null {
+      if (task.source === "agent") {
+        return task.agentId === null ? null : { source: "agent", agentId: task.agentId, taskId: task.id };
+      }
+      const channel = state.channelId;
+      return channel === null ? null : { source: "channel", channelId: channel, taskId: task.id };
+    }
     const statusFilter = () => (state.filters.agentStatuses.length === 1 ? state.filters.agentStatuses[0] : null);
 
     return {
@@ -245,9 +266,11 @@ const context = createSimpleContext({
         const hasAgent = (id: string) => state.overview[id]?.agents.some((agent) => agent.id === agentId) === true;
         const open = state.channelId;
         const home = open !== null && hasAgent(open) ? open : (props.channelIds().find(hasAgent) ?? null);
+        // The popup reads the snapshot of the open channel, so the agent's channel opens in the
+        // all-agents view too. The view stays.
         setState((draft) => {
           draft.selectedAgentId = agentId;
-          if (home !== null && draft.view === "channel") draft.pickedChannelId = home;
+          if (home !== null) draft.pickedChannelId = home;
         });
       },
       /** Shows the canvas, the feed or the tasks of the open channel. */
@@ -279,6 +302,36 @@ const context = createSimpleContext({
         setState((draft) => {
           draft.selectedAgentId = null;
         });
+      },
+      /** Opens the thread of the agent in place of the Monitor. Its thread shows "Back to monitor". */
+      openThread(agentId: string) {
+        setState((draft) => {
+          draft.selectedAgentId = null;
+          draft.threadAgentId = agentId;
+        });
+        props.actions.openThread(agentId);
+      },
+      /** "Back to monitor": shows the Monitor with the channel and view it had. */
+      returnToMonitor() {
+        setState((draft) => {
+          draft.threadAgentId = null;
+        });
+        props.actions.showMonitor();
+      },
+      /**
+       * Stops a task of the open channel. The agent keeps its workspace, thread and identity. The next
+       * snapshot shows the change. Rejects when the host refuses.
+       */
+      async stopTask(task: MonitorTask): Promise<void> {
+        const target = taskTarget(task);
+        if (!target) throw new Error("The task has no owner to stop it.");
+        await props.actions.stopTask(target);
+      },
+      /** Continues a channel task that Stop held. Rejects when the host refuses. */
+      async resumeTask(task: MonitorTask): Promise<void> {
+        const target = taskTarget(task);
+        if (target?.source !== "channel") throw new Error("Only a held channel task can resume.");
+        await props.actions.resumeTask(target);
       },
       /** Pause feed: the views stop changing. New reads wait until `resumeFeed`. */
       pauseFeed() {

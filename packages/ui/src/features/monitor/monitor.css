@@ -1193,3 +1193,323 @@
   min-width: 0;
   flex: 1 1 auto;
 }
+
+/* The agent popup: a modal with the agent's task, tool calls and contacts. It opens and closes with a
+ * short fade and scale. */
+.ui-dialog-overlay.monitor-popup-overlay {
+  animation-duration: var(--openbot-duration-normal);
+}
+
+.monitor-popup-overlay[data-closed] {
+  animation: monitor-popup-fade-out var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.ui-dialog-content.monitor-popup {
+  display: flex;
+  width: min(540px, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  flex-direction: column;
+  overflow: hidden;
+  outline: 0;
+  border: 1px solid var(--openbot-dialog-ring);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-sidebar);
+  box-shadow: none;
+  color: var(--openbot-text-primary);
+  animation: monitor-popup-in var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.ui-dialog-content.monitor-popup[data-closed] {
+  animation: monitor-popup-out var(--openbot-duration-normal) var(--openbot-ease-out);
+}
+
+.monitor-popup-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-6);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
+
+.monitor-popup-avatar.agent-avatar {
+  position: relative;
+  width: var(--openbot-control-xl);
+  height: var(--openbot-control-xl);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-md);
+}
+
+.monitor-popup-identity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+}
+
+.monitor-popup-name-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.monitor-popup-name {
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-popup-meta {
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-popup-close {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.monitor-popup-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-6);
+  overflow-y: auto;
+  padding: var(--openbot-space-6);
+}
+
+.monitor-popup-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+}
+
+.monitor-popup-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.monitor-popup-heading {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+  letter-spacing: var(--openbot-tracking-wide);
+  line-height: var(--openbot-leading-sm);
+  text-transform: uppercase;
+}
+
+.monitor-popup-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.monitor-popup-link.ui-button {
+  height: auto;
+  padding: 0;
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.monitor-popup-task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.monitor-popup-task-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-lg);
+  overflow-wrap: anywhere;
+}
+
+.monitor-popup-task-text {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.monitor-popup-task[data-empty] .monitor-popup-task-title {
+  color: var(--openbot-text-secondary);
+}
+
+.monitor-popup-tools,
+.monitor-popup-contacts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.monitor-popup-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.monitor-popup-contacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--openbot-space-2);
+}
+
+.monitor-popup-contact,
+.monitor-popup-contact.ui-button {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  text-align: start;
+}
+
+.monitor-popup-contact.ui-button:hover {
+  background: var(--openbot-bg-control-hover);
+}
+
+.monitor-popup-contact-avatar.agent-avatar {
+  position: relative;
+  width: var(--openbot-control-sm);
+  height: var(--openbot-control-sm);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-sm);
+}
+
+.monitor-popup-contact-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.monitor-popup-contact-name,
+.monitor-popup-contact-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-popup-contact-name {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-md);
+}
+
+.monitor-popup-contact-count {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  line-height: var(--openbot-leading-sm);
+}
+
+.monitor-popup-empty {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-md);
+}
+
+.monitor-popup-error {
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.monitor-popup-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-6);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+.monitor-popup-stop.ui-button {
+  margin-inline-start: auto;
+}
+
+.monitor-popup-arrow:dir(rtl),
+.monitor-return-arrow:dir(rtl) {
+  transform: scaleX(-1);
+}
+
+@keyframes monitor-popup-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes monitor-popup-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes monitor-popup-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: a fade only, no scale. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog-content.monitor-popup {
+    animation-name: ui-dialog-overlay-in;
+  }
+
+  .ui-dialog-content.monitor-popup[data-closed] {
+    animation-name: monitor-popup-fade-out;
+  }
+}
+
+@media (max-width: 560px) {
+  .monitor-popup-header,
+  .monitor-popup-body,
+  .monitor-popup-footer {
+    padding-inline: var(--openbot-space-4);
+  }
+
+  .monitor-popup-footer {
+    flex-wrap: wrap;
+  }
+}
+
+/* "Back to monitor" above an agent thread that the agent popup opened. The pane gives each child the
+ * full height; this bar keeps its own. */
+nav.monitor-return-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: var(--openbot-space-1) var(--openbot-space-3);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
