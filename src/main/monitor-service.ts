@@ -8,18 +8,15 @@ import type {
   AgentTask,
   ChannelPage,
   ConversationMessage,
-  MonitorAgentAttention,
   MonitorAgentSource,
   MonitorChange,
   MonitorExchange,
-  MonitorLiveTurn,
   MonitorSnapshot,
 } from "@openbot/contracts/ipc";
 import {
   buildMonitorSnapshot,
-  MONITOR_ERROR_LIMIT,
-  MONITOR_TOOL_ARGUMENT_LIMIT,
-  MONITOR_TOOL_TEXT_LIMIT,
+  MonitorLiveState,
+  redactMonitorSnapshot as redactContractSnapshot,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { redactText } from "@openbot/logging";
@@ -75,39 +72,15 @@ export class MonitorDataSource extends Context.Service<
   }
 }
 
-/** The steps of one live turn that a snapshot keeps. Older steps are in the turn's trace when it ends. */
-const LIVE_STEP_LIMIT = 50;
 /** Changes that arrive within this time reach the window as one. A streaming reply sends many events. */
 const CHANGE_COALESCE_MS = 200;
 
-const bounded = (text: string, limit: number) => (text.length > limit ? `${text.slice(0, limit - 1)}…` : text);
-
-/**
- * Removes secrets from every tool-call text and error of a snapshot. The redaction marker can make
- * a text longer, so each text is cut to its bound again after it.
- */
+/** Removes secrets from every tool-call text and error of a snapshot, with the log redaction by default. */
 export function redactMonitorSnapshot(
   snapshot: MonitorSnapshot,
   redact: (text: string) => string = redactText,
 ): MonitorSnapshot {
-  const nullable = (text: string | null, limit: number) => (text === null ? null : bounded(redact(text), limit));
-  return {
-    ...snapshot,
-    agents: snapshot.agents.map((agent) => ({ ...agent, error: nullable(agent.error, MONITOR_ERROR_LIMIT) })),
-    tasks: snapshot.tasks.map((task) => ({ ...task, error: nullable(task.error, MONITOR_ERROR_LIMIT) })),
-    toolCalls: snapshot.toolCalls.map((call) => ({
-      ...call,
-      argument: bounded(redact(call.argument), MONITOR_TOOL_ARGUMENT_LIMIT),
-      input: nullable(call.input, MONITOR_TOOL_TEXT_LIMIT),
-      output: nullable(call.output, MONITOR_TOOL_TEXT_LIMIT),
-    })),
-  };
-}
-
-interface LiveTurn extends MonitorLiveTurn {
-  threadId: string;
-  /** The channel of a member thread. Null for an agent task or the agent's own chat. */
-  channelId: string | null;
+  return redactContractSnapshot(snapshot, redact);
 }
 
 export interface MonitorServiceOptions {
@@ -124,10 +97,8 @@ export class MonitorService {
   readonly #onChange: (change: MonitorChange) => void;
   readonly #now: () => Date;
   readonly #redact: (text: string) => string;
-  /** The turns that run now, by turn id. */
-  readonly #liveTurns = new Map<string, LiveTurn>();
-  /** The newest prompt, approval or error of each agent. */
-  readonly #attention = new Map<string, MonitorAgentAttention>();
+  /** The turns that run now, and the newest prompt, approval or error of each agent. */
+  readonly #live: MonitorLiveState;
   /** The channels a window read, with their members at that read, and their revision. */
   readonly #watched = new Map<string, { members: Set<string>; revision: number }>();
   readonly #pending = new Map<string, ReturnType<typeof setTimeout>>();
@@ -138,6 +109,10 @@ export class MonitorService {
     this.#onChange = options.onChange;
     this.#now = options.now ?? (() => new Date());
     this.#redact = options.redact ?? redactText;
+    this.#live = new MonitorLiveState({
+      channelForThread: (threadId) => this.#sources.channelForThread(threadId),
+      taskIdForThread: (agentId, threadId) => this.#taskIdForThread(agentId, threadId),
+    });
   }
 
   /** The snapshot of one channel, redacted. Reading it also starts its change events. */
@@ -171,91 +146,20 @@ export class MonitorService {
       agents,
       agentTasks,
       taskTraces,
-      liveTurns: [...this.#liveTurns.values()].filter(
-        (turn) => members.has(turn.agentId) && (turn.channelId === null || turn.channelId === channelId),
-      ),
+      liveTurns: this.#live.turns(members, channelId),
       exchanges,
-      attention: [...this.#attention.values()].filter((entry) => members.has(entry.agentId)),
+      attention: this.#live.attention(members),
     });
     return redactMonitorSnapshot(snapshot, this.#redact);
   });
 
   /** Keeps the live state from one agent event, and sends a change for each watched channel it touches. */
   observe(event: AgentEvent): void {
-    const at = this.#now().toISOString();
-    switch (event.type) {
-      case "turn-started": {
-        const channelId = this.#sources.channelForThread(event.threadId);
-        const taskId = this.#taskIdForThread(event.agentId, event.threadId);
-        this.#liveTurns.set(event.turnId, {
-          agentId: event.agentId,
-          threadId: event.threadId,
-          turnId: event.turnId,
-          taskId,
-          channelId,
-          startedAt: at,
-          steps: [],
-        });
-        if (this.#attention.get(event.agentId)?.kind === "error") this.#attention.delete(event.agentId);
-        this.#changedForAgent(event.agentId, channelId);
-        return;
-      }
-      case "turn-progress": {
-        const turn = this.#liveTurns.get(event.turnId);
-        if (!turn) return;
-        const running = turn.steps.at(-1);
-        if (running && running.endedAt === null) running.endedAt = at;
-        turn.steps.push({ id: String(turn.steps.length + 1), text: event.detail, startedAt: at, endedAt: null });
-        if (turn.steps.length > LIVE_STEP_LIMIT) turn.steps.shift();
-        this.#changedForAgent(turn.agentId, turn.channelId);
-        return;
-      }
-      case "turn-completed": {
-        const turn = this.#liveTurns.get(event.turnId);
-        this.#liveTurns.delete(event.turnId);
-        if (event.status === "failed") {
-          this.#attention.set(event.agentId, { agentId: event.agentId, kind: "error", detail: null, at });
-        }
-        this.#changedForAgent(event.agentId, turn?.channelId ?? null);
-        return;
-      }
-      case "error":
-        if (!event.agentId) return;
-        this.#attention.set(event.agentId, { agentId: event.agentId, kind: "error", detail: event.message, at });
-        this.#changedForAgent(event.agentId, null);
-        return;
-      case "prompt":
-        this.#attention.set(event.agentId, { agentId: event.agentId, kind: "waiting", detail: null, at });
-        this.#changedForAgent(event.agentId, null);
-        return;
-      case "approval":
-        this.#attention.set(event.approval.agentId, {
-          agentId: event.approval.agentId,
-          kind: "waiting",
-          detail: null,
-          at,
-        });
-        this.#changedForAgent(event.approval.agentId, null);
-        return;
-      case "agent-input-resolved":
-        if (this.#attention.get(event.agentId)?.kind === "waiting") this.#attention.delete(event.agentId);
-        this.#changedForAgent(event.agentId, null);
-        return;
-      case "channels-changed":
-        this.#changed(event.channelId);
-        return;
-      case "agent-tasks-changed":
-        this.#changedForAgent(event.snapshot.agentId, null);
-        return;
-      case "queue-changed":
-        this.#changedForAgent(event.snapshot.agentId, null);
-        return;
-      case "agents-changed":
-        for (const channelId of this.#watched.keys()) this.#changed(channelId);
-        return;
-      default:
-        return;
-    }
+    const change = this.#live.observe(event, this.#now().toISOString());
+    if (!change) return;
+    if (change.kind === "agent") this.#changedForAgent(change.agentId, change.channelId);
+    else if (change.kind === "channel") this.#changed(change.channelId);
+    else for (const channelId of this.#watched.keys()) this.#changed(channelId);
   }
 
   /** Stops the change timers. The live state goes with the process. */

@@ -7,6 +7,7 @@
 import { type AgentProviderRef, isAgentProviderRef } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
 import { type AvatarHue, isAvatarHue, isAvatarSeed } from "./ipc-agent-identity";
+import type { AgentEvent } from "./ipc-agent-events";
 import type { AgentTask } from "./ipc-agent-tasks";
 import { integerInRange, isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import type { ChannelMessage, ChannelPage, ChannelTaskState } from "./ipc-chat-channels";
@@ -659,4 +660,151 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
     pairs: [...pairs.values()].sort((left, right) => right.lastAt.localeCompare(left.lastAt)),
     events,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Redaction and the live state. Both surfaces use them: main on the local agent events, the web
+// client on the host's events. The redactor is a parameter, because contracts import no logging.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Removes secrets from every tool-call text and error of a snapshot. The redaction marker can make
+ * a text longer, so each text is cut to its bound again after it.
+ */
+export function redactMonitorSnapshot(snapshot: MonitorSnapshot, redact: (text: string) => string): MonitorSnapshot {
+  const nullable = (text: string | null, limit: number) => (text === null ? null : truncate(redact(text), limit));
+  return {
+    ...snapshot,
+    agents: snapshot.agents.map((agent) => ({ ...agent, error: nullable(agent.error, MONITOR_ERROR_LIMIT) })),
+    tasks: snapshot.tasks.map((task) => ({ ...task, error: nullable(task.error, MONITOR_ERROR_LIMIT) })),
+    toolCalls: snapshot.toolCalls.map((call) => ({
+      ...call,
+      argument: truncate(redact(call.argument), MONITOR_TOOL_ARGUMENT_LIMIT),
+      input: nullable(call.input, MONITOR_TOOL_TEXT_LIMIT),
+      output: nullable(call.output, MONITOR_TOOL_TEXT_LIMIT),
+    })),
+  };
+}
+
+/** The steps of one live turn that a snapshot keeps. Older steps are in the turn's trace when it ends. */
+const LIVE_STEP_LIMIT = 50;
+
+/** A live turn with the thread it runs in. */
+export interface MonitorLiveThreadTurn extends MonitorLiveTurn {
+  threadId: string;
+  /** The channel of a member thread. Null for an agent task, the agent's own chat, or when unknown. */
+  channelId: string | null;
+}
+
+/** What the live state asks its surface about a thread. */
+export interface MonitorThreadLookup {
+  /** The channel whose member thread this is, or null. */
+  channelForThread(threadId: string): string | null;
+  /** The agent task that runs in this thread, or null. */
+  taskIdForThread(agentId: string, threadId: string): string | null;
+}
+
+/**
+ * What an agent event changed, so the surface knows which channel to read again. `agent`: the
+ * channels the agent is a member of, or only `channelId` when it is known. `all`: every channel.
+ */
+export type MonitorLiveChange =
+  | { kind: "agent"; agentId: string; channelId: string | null }
+  | { kind: "channel"; channelId: string }
+  | { kind: "all" };
+
+/**
+ * The turns that run now and the newest prompt, approval or error of each agent, kept from the
+ * agent events. It lives as long as its process or tab; nothing is stored.
+ */
+export class MonitorLiveState {
+  readonly #lookup: MonitorThreadLookup;
+  readonly #turns = new Map<string, MonitorLiveThreadTurn>();
+  readonly #attention = new Map<string, MonitorAgentAttention>();
+
+  constructor(lookup: MonitorThreadLookup) {
+    this.#lookup = lookup;
+  }
+
+  /** The live turns of the members, in the channel or outside any channel. */
+  turns(members: ReadonlySet<string>, channelId: string): MonitorLiveTurn[] {
+    return [...this.#turns.values()].filter(
+      (turn) => members.has(turn.agentId) && (turn.channelId === null || turn.channelId === channelId),
+    );
+  }
+
+  attention(members: ReadonlySet<string>): MonitorAgentAttention[] {
+    return [...this.#attention.values()].filter((entry) => members.has(entry.agentId));
+  }
+
+  /** Forgets every turn, such as when the web client connects to another host. */
+  clear(): void {
+    this.#turns.clear();
+    this.#attention.clear();
+  }
+
+  /** Keeps the live state from one event. Returns what changed, or null when the Monitor does not care. */
+  observe(event: AgentEvent, at: string): MonitorLiveChange | null {
+    switch (event.type) {
+      case "turn-started": {
+        const channelId = this.#lookup.channelForThread(event.threadId);
+        this.#turns.set(event.turnId, {
+          agentId: event.agentId,
+          threadId: event.threadId,
+          turnId: event.turnId,
+          taskId: this.#lookup.taskIdForThread(event.agentId, event.threadId),
+          channelId,
+          startedAt: at,
+          steps: [],
+        });
+        if (this.#attention.get(event.agentId)?.kind === "error") this.#attention.delete(event.agentId);
+        return { kind: "agent", agentId: event.agentId, channelId };
+      }
+      case "turn-progress": {
+        const turn = this.#turns.get(event.turnId);
+        if (!turn) return null;
+        const running = turn.steps.at(-1);
+        if (running && running.endedAt === null) running.endedAt = at;
+        turn.steps.push({ id: String(turn.steps.length + 1), text: event.detail, startedAt: at, endedAt: null });
+        if (turn.steps.length > LIVE_STEP_LIMIT) turn.steps.shift();
+        return { kind: "agent", agentId: turn.agentId, channelId: turn.channelId };
+      }
+      case "turn-completed": {
+        const turn = this.#turns.get(event.turnId);
+        this.#turns.delete(event.turnId);
+        if (event.status === "failed") {
+          this.#attention.set(event.agentId, { agentId: event.agentId, kind: "error", detail: null, at });
+        }
+        return { kind: "agent", agentId: event.agentId, channelId: turn?.channelId ?? null };
+      }
+      case "error":
+        if (!event.agentId) return null;
+        this.#attention.set(event.agentId, { agentId: event.agentId, kind: "error", detail: event.message, at });
+        return { kind: "agent", agentId: event.agentId, channelId: null };
+      case "prompt":
+        this.#attention.set(event.agentId, { agentId: event.agentId, kind: "waiting", detail: null, at });
+        return { kind: "agent", agentId: event.agentId, channelId: null };
+      case "approval":
+        this.#attention.set(event.approval.agentId, {
+          agentId: event.approval.agentId,
+          kind: "waiting",
+          detail: null,
+          at,
+        });
+        return { kind: "agent", agentId: event.approval.agentId, channelId: null };
+      case "agent-input-resolved":
+        if (this.#attention.get(event.agentId)?.kind === "waiting") this.#attention.delete(event.agentId);
+        return { kind: "agent", agentId: event.agentId, channelId: null };
+      case "channels-changed":
+        return { kind: "channel", channelId: event.channelId };
+      case "agent-tasks-changed":
+        return { kind: "agent", agentId: event.snapshot.agentId, channelId: null };
+      case "queue-changed":
+        return { kind: "agent", agentId: event.snapshot.agentId, channelId: null };
+      case "agents-changed":
+        return { kind: "all" };
+      default:
+        return null;
+    }
+  }
 }
