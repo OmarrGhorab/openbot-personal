@@ -291,9 +291,7 @@ export class QueueControls {
     // The provider took the message into the running turn, and the sender sees that at once: a
     // reaction on the message, whichever provider steered it. The steer has happened, so a failed
     // reaction must not report it as refused.
-    yield* this.#mailbox
-      .setReaction(agent.id, input.deliveryId, { kind: "agent", agentId: agent.id }, STEER_ACKNOWLEDGMENT)
-      .pipe(Effect.ignore);
+    yield* acknowledgeSteer(this.#mailbox, agent.id, input.deliveryId);
     yield* this.#mailbox.markRunning(input.deliveryId, turnId).pipe(toQueueOperationFailed);
     yield* queueStep(() => {
       this.#mailboxSync.syncMailboxMessages(snapshot);
@@ -304,7 +302,19 @@ export class QueueControls {
 }
 
 /** The reaction the agent puts on a message it took into the running turn. */
-const STEER_ACKNOWLEDGMENT: MessageReaction = "👍";
+export const STEER_ACKNOWLEDGMENT: MessageReaction = "👍";
+
+/**
+ * Puts the agent's reaction on a message the provider took into the running turn. The steer has
+ * already happened, so a failed write is ignored rather than reported as a refused steer.
+ */
+export function acknowledgeSteer(
+  mailbox: Pick<MailboxStore, "setReaction">,
+  agentId: string,
+  deliveryId: string,
+): Effect.Effect<void> {
+  return mailbox.setReaction(agentId, deliveryId, { kind: "agent", agentId }, STEER_ACKNOWLEDGMENT).pipe(Effect.ignore);
+}
 
 /** The message cannot steer the running turn, so it stays queued. A refusal, not a failure. */
 export class SteerUnsupportedError extends Error {
