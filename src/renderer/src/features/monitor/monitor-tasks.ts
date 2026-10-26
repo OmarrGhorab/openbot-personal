@@ -1,4 +1,5 @@
 import type { MonitorAgent, MonitorSnapshot, MonitorTaskState } from "@openbot/contracts/ipc";
+import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorStatus } from "@openbot/ui/features/monitor/monitor-status";
 
@@ -91,7 +92,7 @@ export function buildMonitorTaskRows(snapshot: MonitorSnapshot): MonitorTaskRow[
       const called = calls.get(task.id);
       return {
         id: task.id,
-        title: task.title,
+        title: markdownPreviewText(task.title),
         state: task.state,
         group,
         status: GROUP_STATUS[group],
