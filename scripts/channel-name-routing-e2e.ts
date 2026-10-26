@@ -41,12 +41,12 @@ const QUESTION = "Who should fix the deploy: Worker Engineer or Software Enginee
 /**
  * A Codex app-server with the methods that the service calls. A routing turn of the lead (its prompt
  * starts with "Select one responsible channel member") is answered from a marker in the task:
- * ROUTE-ASK returns a question, ROUTE-BAD returns prose (a real failure), ROUTE-FLAKY fails once and
- * then picks the first agent, and any other task picks the first agent. Each routing turn is logged.
+ * ROUTE-ASK returns a question, ROUTE-BAD returns prose (a real failure), ROUTE-FLAKY fails on its first
+ * routing turn and then picks the first agent, and any other task picks the first agent. Each routing turn is logged.
  * Member turns answer "Done." and are logged too.
  */
 const FAKE_CODEX = `#!/usr/bin/env node
-const { appendFileSync } = require("node:fs");
+const { appendFileSync, readFileSync } = require("node:fs");
 if (process.argv.includes("--version")) {
   process.stdout.write("codex-cli 0.160.1\\n");
   process.exit(0);
@@ -57,7 +57,6 @@ const config = { config: { mcp_servers: {} }, layers: [{ name: { type: "user", f
 let buffer = "";
 let threads = 0;
 let turns = 0;
-const flaky = new Map();
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") process.exit(0);
   throw error;
@@ -74,13 +73,16 @@ const route = (text) => {
   try { data = JSON.parse(text.split("\\n")[1] || "{}"); } catch {}
   const instruction = (data.task && data.task.instruction) || "";
   const first = (data.agents && data.agents[0] && data.agents[0].id) || "unknown";
+  // Each routing turn can run in a new process, so earlier turns are counted from the log.
+  let earlier = 0;
+  try {
+    earlier = readFileSync(LOG, "utf8").split("\\n").filter(Boolean).map((line) => JSON.parse(line)).filter((entry) => entry.kind === "route" && entry.instruction === instruction).length;
+  } catch {}
   log({ kind: "route", instruction });
   if (instruction.includes("ROUTE-ASK")) return JSON.stringify({ question: QUESTION });
   if (instruction.includes("ROUTE-BAD")) return "I cannot decide who should do this.";
   if (instruction.includes("ROUTE-FLAKY")) {
-    const count = (flaky.get(instruction) || 0) + 1;
-    flaky.set(instruction, count);
-    if (count === 1) return "I cannot decide who should do this.";
+    if (earlier === 0) return "I cannot decide who should do this.";
   }
   return JSON.stringify({ agentId: first });
 };
