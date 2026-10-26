@@ -26,6 +26,8 @@ export interface AgentNodeCardProps {
   status: MonitorStatus;
   /** Text in place of the status word, such as "Waiting on Chief". */
   statusLabel?: string | undefined;
+  /** The channel the agent is in, such as "In website-redesign". Shown under the status in the footer. */
+  channel?: string | undefined;
   /** When the status started, as an ISO time. The footer shows how long ago. */
   since?: string | null | undefined;
   /** The clock for `since`. Defaults to the time of the render. */
@@ -76,6 +78,7 @@ export function AgentNodeCard(props: AgentNodeCardProps): JSX.Element {
       </Show>
       <footer class="monitor-node-footer">
         <StatusLine status={props.status} label={props.statusLabel} meta={since()} />
+        <Show when={props.channel}>{(channel) => <span class="monitor-node-channel">{channel()}</span>}</Show>
       </footer>
     </article>
   );
