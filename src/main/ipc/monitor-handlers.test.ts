@@ -1,12 +1,15 @@
 // @vitest-environment node
 
 import {
+  buildMonitorConversation,
   type ChannelPage,
   type ConversationMessage,
   isMonitorSnapshot,
   type MonitorAgentSource,
+  type MonitorConversationEntry,
   type MonitorSnapshot,
 } from "@openbot/contracts/ipc";
+import { redactText } from "@openbot/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MonitorService, redactMonitorSnapshot } from "../monitor-service";
 import { monitorIpcHandlers } from "./monitor-handlers";
@@ -104,6 +107,7 @@ function register() {
       agentTasks: () => [],
       taskMessages: () => [],
       channelExchanges: () => [],
+      channelConversation: () => [],
       channelForThread: () => "channel-1",
     },
     onChange: () => {},
@@ -195,5 +199,32 @@ describe("monitor snapshot handler", () => {
     expect(() => call(MAIN_ID, { channelId: "channel-1" }, "https://evil.example/")).toThrow("untrusted renderer");
     expect(() => call(MAIN_ID, { channelId: "" })).toThrow("Provide a valid channel.");
     expect(snapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe("monitor conversation", () => {
+  const entry = (
+    messageId: string,
+    senderAgentId: string,
+    recipientAgentId: string,
+    at: string,
+    text: string,
+  ): MonitorConversationEntry => ({ messageId, senderAgentId, recipientAgentId, at, text });
+
+  it("counts and lists only the messages between the two agents, and redacts their text", () => {
+    const entries = [
+      entry("m1", "agent-dev", "agent-qa", "2026-10-26T09:00:00.000Z", `ship with ${SECRET}`),
+      entry("m2", "agent-qa", "agent-dev", "2026-10-26T09:01:00.000Z", "ok"),
+      entry("m3", "agent-dev", "agent-chief", "2026-10-26T09:02:00.000Z", "other pair"),
+    ];
+    const conversation = buildMonitorConversation(
+      { channelId: "channel-1", agentIds: ["agent-qa", "agent-dev"] },
+      entries,
+      redactText,
+    );
+    expect(conversation.total).toBe(2);
+    expect(conversation.messages.map((message) => message.id)).toEqual(["m1:agent-qa", "m2:agent-dev"]);
+    expect(conversation.messages[0]?.text).toContain("[redacted]");
+    expect(JSON.stringify(conversation)).not.toContain(SECRET);
   });
 });

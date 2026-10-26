@@ -309,6 +309,7 @@
     "./features/monitor/AgentNodeCard": "./src/features/monitor/AgentNodeCard.tsx",
     "./features/monitor/AgentPopup": "./src/features/monitor/AgentPopup.tsx",
     "./features/monitor/ToolCallsDialog": "./src/features/monitor/ToolCallsDialog.tsx",
+    "./features/monitor/ConversationDrawer": "./src/features/monitor/ConversationDrawer.tsx",
     "./features/monitor/AgentRow": "./src/features/monitor/AgentRow.tsx",
     "./features/monitor/ChannelRow": "./src/features/monitor/ChannelRow.tsx",
     "./features/monitor/FeedItem": "./src/features/monitor/FeedItem.tsx",

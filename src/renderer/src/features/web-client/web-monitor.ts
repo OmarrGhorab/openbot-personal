@@ -8,8 +8,17 @@
 // finished tool call is missing; the running ones come from the turn-progress events). The thread of
 // a live turn has no channel here, so a member's running turn counts for every channel it is in.
 
-import type { AgentEvent, MonitorChange, MonitorSnapshot, TeamRealtimeEvent } from "@openbot/contracts/ipc";
+import type {
+  AgentEvent,
+  MonitorChange,
+  MonitorConversation,
+  MonitorConversationEntry,
+  MonitorConversationInput,
+  MonitorSnapshot,
+  TeamRealtimeEvent,
+} from "@openbot/contracts/ipc";
 import {
+  buildMonitorConversation,
   buildMonitorSnapshot,
   isTeamRealtimeEvent,
   MonitorLiveState,
@@ -136,8 +145,29 @@ export function webMonitorSource(dependencies: WebMonitorDependencies): WebMonit
     return redactMonitorSnapshot(built, redact);
   }
 
+  /** The messages between two agents, from the channel page the host serves. The web client has no mailbox, so it lists only the page. */
+  async function conversation(input: MonitorConversationInput): Promise<MonitorConversation> {
+    const hostId = dependencies.hostId();
+    const channels = dependencies.runtime.channels;
+    if (hostId === null || !channels) throw new Error(currentText().t("webClient.error.desktopOnly"));
+    const page = await channels.readChannel({ channelId: input.channelId });
+    const entries = page.messages.flatMap((entry): MonitorConversationEntry[] => {
+      const exchange = entry.message.exchange;
+      if (exchange?.direction !== "outgoing") return [];
+      return exchange.recipientAgentIds.map((recipientAgentId) => ({
+        messageId: exchange.messageId,
+        senderAgentId: exchange.senderAgentId,
+        recipientAgentId,
+        at: entry.message.createdAt,
+        text: entry.message.text,
+      }));
+    });
+    return buildMonitorConversation(input, entries, redact);
+  }
+
   return {
     snapshot,
+    conversation,
     onChange(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

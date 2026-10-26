@@ -1,8 +1,16 @@
-import type { ChannelCommand, MonitorChange, MonitorSnapshot } from "@openbot/contracts/ipc";
+import type {
+  ChannelCommand,
+  MonitorChange,
+  MonitorConversation,
+  MonitorConversationInput,
+  MonitorSnapshot,
+} from "@openbot/contracts/ipc";
 
 /** What the Monitor reads: the snapshot of one channel, and the change that asks for a new read. */
 export interface MonitorSource {
   snapshot(channelId: string): Promise<MonitorSnapshot>;
+  /** The messages between two agents of a channel, oldest first. */
+  conversation(input: MonitorConversationInput): Promise<MonitorConversation>;
   /** Calls `listener` when the snapshot of a channel changed. Returns the unsubscribe. */
   onChange(listener: (change: MonitorChange) => void): () => void;
 }
@@ -55,6 +63,7 @@ export function monitorChannelTaskCommand(
 export function desktopMonitorSource(): MonitorSource {
   return {
     snapshot: (channelId) => window.openbot.monitor.getSnapshot({ channelId }),
+    conversation: (input) => window.openbot.monitor.getConversation(input),
     onChange: (listener) => window.openbot.monitor.onChanged(listener),
   };
 }

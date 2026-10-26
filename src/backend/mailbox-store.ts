@@ -1153,6 +1153,36 @@ export class MailboxStore {
     return exchanges;
   }
 
+  /** The agent-to-agent deliveries of a channel, with the text, for the Monitor conversation drawer. */
+  channelAgentConversation(channelId: string): Array<{
+    messageId: string;
+    senderAgentId: string;
+    recipientAgentId: string;
+    at: string;
+    text: string;
+  }> {
+    const messages = this.#messagesById();
+    const entries: Array<{
+      messageId: string;
+      senderAgentId: string;
+      recipientAgentId: string;
+      at: string;
+      text: string;
+    }> = [];
+    for (const delivery of this.#state.deliveries) {
+      const message = messages.get(delivery.messageId);
+      if (!message || message.channelId !== channelId || message.sender.kind !== "agent") continue;
+      entries.push({
+        messageId: message.id,
+        senderAgentId: message.sender.agentId,
+        recipientAgentId: delivery.recipientAgentId,
+        at: message.createdAt,
+        text: message.text,
+      });
+    }
+    return entries;
+  }
+
   senderAgentIdsForRecipient(agentId: string): string[] {
     const result = new Set<string>();
     const messages = this.#messagesById();

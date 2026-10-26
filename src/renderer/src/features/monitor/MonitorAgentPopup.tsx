@@ -93,7 +93,7 @@ export function MonitorAgentPopup() {
         },
         count: contact.count,
       })),
-      onSelectContact: (agentId) => monitor.selectAgent(agentId),
+      onSelectContact: (contactId) => monitor.openConversation([agent.id, contactId]),
       onOpenThread: () => monitor.openThread(agent.id),
       onStopTask: current.stoppable
         ? () =>

@@ -2,14 +2,14 @@
 // one origin, so the trusted-URL gate alone would also let a chat window, the Dynamic Island or the
 // browser dock overlay read every agent's tool calls.
 
-import { parseMonitorSnapshotInput } from "@openbot/contracts/ipc";
+import { parseMonitorConversationInput, parseMonitorSnapshotInput } from "@openbot/contracts/ipc";
 import type { IpcMainInvokeEvent } from "electron";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { MonitorService } from "../monitor-service";
 import { authorizedHandler, type IpcGroupHandlers } from "./define-ipc-group";
 
 export interface MonitorIpcDependencies {
-  monitor: Pick<MonitorService, "snapshot">;
+  monitor: Pick<MonitorService, "snapshot" | "conversation">;
   /** The web contents ids of the main window, read on each call. */
   mainRendererIds: () => ReadonlySet<number>;
 }
@@ -27,6 +27,9 @@ export function monitorIpcHandlers({
     monitor: {
       getSnapshot: authorizedHandler(fromMainRenderer, parseMonitorSnapshotInput, (_event, input) =>
         runCauseEffect(monitor.snapshot(input.channelId)),
+      ),
+      getConversation: authorizedHandler(fromMainRenderer, parseMonitorConversationInput, (_event, input) =>
+        runCauseEffect(monitor.conversation(input)),
       ),
     },
   };
