@@ -375,6 +375,7 @@
   "trustedDependencies": [
     "esbuild",
     "electron-winstaller",
+    "uiohook-napi",
     "workerd",
   ],
   "patchedDependencies": {
@@ -399,7 +400,7 @@
     "@noble/hashes": "2.4.0",
     "@norbert_bodziony/bloub": "0.4.1",
     "@openpanel/web": "1.4.2",
-    "@paper-design/shaders": "0.0.82",
+    "@paper-design/shaders": "0.0.80",
     "@solidjs/signals": "2.0.0-rc.0",
     "@solidjs/testing-library": "1.0.0-beta.2",
     "@solidjs/vite-plugin": "3.0.0-next.28",
@@ -1147,7 +1148,7 @@
 
     "@oxc-resolver/binding-win32-x64-msvc": ["@oxc-resolver/binding-win32-x64-msvc@11.24.2", "", { "os": "win32", "cpu": "x64" }, "sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw=="],
 
-    "@paper-design/shaders": ["@paper-design/shaders@0.0.82", "", {}, "sha512-eCxYQrrCxRVc4KG8sLSQecsq8Ymstbaq/FqZjq/fhOa6UiR1ZZfdMO5IJpHmwL0GYmfzvZVQ4l8ZOLux0uLVdg=="],
+    "@paper-design/shaders": ["@paper-design/shaders@0.0.80", "", {}, "sha512-pcabvt5xDlFoEhpjUj4b1tGJMfqb0i5mXifWMNQf6z7FoOJYxYDo7F8R6k0JAh5D/7ouxjX5+N0cIq5WURyQ1Q=="],
 
     "@peculiar/asn1-schema": ["@peculiar/asn1-schema@2.8.0", "", { "dependencies": { "@peculiar/utils": "^2.0.2", "asn1js": "^3.0.10", "tslib": "^2.8.1" } }, "sha512-7YT0U/ze0tF2QOBbE15gKZwy5tvgGyLRiRHLzhlbOpf7BT032oBSd0haZqXn5W6l26WLlu3dyxzjM+2638/z2Q=="],
 

@@ -23,7 +23,7 @@ import type { MonitorActions, MonitorSource, MonitorTaskTarget } from "./monitor
 import type { MonitorTaskFilter } from "./monitor-tasks";
 
 /** What the main area of the Monitor shows: one channel, or every agent. */
-export type MonitorView = "channel" | "all-agents";
+type MonitorView = "channel" | "all-agents";
 
 interface MonitorState {
   channelId: string | null;
@@ -63,7 +63,7 @@ interface MonitorState {
   overview: Record<string, MonitorChannelOverview>;
 }
 
-export interface MonitorProviderProps {
+interface MonitorProviderProps {
   source: MonitorSource;
   /** The task actions of the agent popup, and the move to and from a thread. */
   actions: MonitorActions;

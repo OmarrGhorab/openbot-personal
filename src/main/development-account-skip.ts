@@ -19,7 +19,7 @@ export const DEVELOPMENT_SKIP_ACCOUNT: CentralAuthUser = {
  * A packaged build honors it. The variable is the opt-in, and a start without it is unchanged.
  * Any other value, including `true`, stays off.
  */
-export function developmentSkipAccountOptIn(value: string | undefined): boolean {
+function developmentSkipAccountOptIn(value: string | undefined): boolean {
   return value === "1";
 }
 

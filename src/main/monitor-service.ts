@@ -55,7 +55,7 @@ export interface MonitorLocalSources {
   channelForThread(threadId: string): string | null;
 }
 
-export class MonitorDataSource extends Context.Service<
+class MonitorDataSource extends Context.Service<
   MonitorDataSource,
   {
     channelPage(channelId: string): Effect.Effect<ChannelPage, MonitorChannelMissing>;

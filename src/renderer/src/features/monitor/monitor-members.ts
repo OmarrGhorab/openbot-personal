@@ -7,7 +7,7 @@ import { toggleChannelMember } from "../channels/channels-draft";
  * and lead of the channel, because a save writes the whole draft. The lead moves to a current
  * member when the lead leaves.
  */
-export function draftWithMember(channel: Channel, agentId: string, present: boolean): ChannelDraft {
+function draftWithMember(channel: Channel, agentId: string, present: boolean): ChannelDraft {
   const draft: ChannelDraft = {
     name: channel.name,
     title: channel.title,

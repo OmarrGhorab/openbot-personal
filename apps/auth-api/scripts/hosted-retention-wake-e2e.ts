@@ -103,6 +103,7 @@ async function run() {
   const analytics = createAccountAnalytics({
     clientId: "client",
     clientSecret: "secret",
+    apiUrl: "https://analytics.test/api",
     fetch: async (_input, init) => {
       const body = JSON.parse(String(init.body));
       events.push({ name: body.payload.name, properties: body.payload.properties });

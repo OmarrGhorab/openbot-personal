@@ -138,7 +138,7 @@ const KEY_CODES: Readonly<Record<string, number>> = {
 };
 
 /** The key code of an Electron accelerator key, or null when this hook has no code for it. */
-export function globalVoiceKeyCode(key: string): number | null {
+function globalVoiceKeyCode(key: string): number | null {
   return KEY_CODES[key] ?? null;
 }
 

@@ -55,8 +55,8 @@ function manager(options: {
     startupRetryWindowMs: 300,
     startupRequestTimeoutMs: 100,
     startupRetryDelaysMs: [10],
-    skipAccountService: options.skipAccountService,
-    allowContinueWithoutAccount: options.allowContinueWithoutAccount,
+    skipAccountService: options.skipAccountService === true,
+    allowContinueWithoutAccount: options.allowContinueWithoutAccount === true,
   });
 }
 

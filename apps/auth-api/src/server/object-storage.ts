@@ -8,7 +8,7 @@ export function isObjectBucket(value: unknown): value is R2Bucket {
 }
 
 /** A bucket whose operations fail. Sign-in does not need it. Avatar and file routes answer 503. */
-export function unavailableObjectBucket(): R2Bucket {
+function unavailableObjectBucket(): R2Bucket {
   const fail = () => Promise.reject(new Error(OBJECT_STORAGE_UNAVAILABLE));
   const bucket = new Proxy(Object.create(null), {
     get(_target, property) {

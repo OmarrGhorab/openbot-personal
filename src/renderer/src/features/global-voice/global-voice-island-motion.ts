@@ -2,7 +2,7 @@ import { springProgress } from "@openbot/ui/spring-motion";
 
 /** A spring of about 300 ms with a small overshoot, like the Dynamic Island. */
 /** One spring for width, height and corner radius: about 0.8 damping, settled in about 450 ms. */
-export const GLOBAL_VOICE_ISLAND_SPRING = { response: 0.4, dampingFraction: 0.8 } as const;
+const GLOBAL_VOICE_ISLAND_SPRING = { response: 0.4, dampingFraction: 0.8 } as const;
 /** How long the morph runs. The spring is within half a percent of rest by then. */
 export const GLOBAL_VOICE_ISLAND_MORPH_MS = 450;
 
@@ -14,7 +14,7 @@ export const GLOBAL_VOICE_ISLAND = {
 } as const;
 
 /** The picker shows at most this many rows. More agents scroll inside the island. */
-export const GLOBAL_VOICE_PICKER_ROWS = 3;
+const GLOBAL_VOICE_PICKER_ROWS = 3;
 /** Matches `--voice-row` in global-voice.css. */
 export const GLOBAL_VOICE_PICKER_ROW = 48;
 /** The search field, the hint line and the padding around them, in pixels. */

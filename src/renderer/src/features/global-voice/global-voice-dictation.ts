@@ -37,7 +37,7 @@ const WHISPER_FILLER_LINES = [
 ];
 
 /** The text without Whisper filler lines. A text that was only filler becomes empty. */
-export function withoutWhisperFiller(text: string): string {
+function withoutWhisperFiller(text: string): string {
   let cleaned = text;
   let filler = false;
   for (const line of WHISPER_FILLER_LINES) {
