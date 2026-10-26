@@ -94,6 +94,10 @@ Channel history keeps its existing membership and task checks. Messaging history
 current link. The full conversation stays in local SQLite storage. No history text is sent to the
 account service or analytics by these tools.
 
+## Monitor ask panel
+
+When you ask an agent about a channel in the Monitor, OpenBot sends your question and a redacted summary of that channel to the channel's lead agent, through the provider the lead agent already uses. The summary holds the agents, their status, their current tasks and their newest tool calls. Secrets are removed before the summary leaves the computer. The question and the answer appear in the lead agent's own chat. Nothing else is sent.
+
 ## Local scripts
 
 Local scripts is off by default for each agent. When enabled, scripts that run as the same OS user
