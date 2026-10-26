@@ -449,10 +449,8 @@
 .monitor-tool-argument {
   overflow: hidden;
   color: var(--openbot-text-muted);
-  direction: ltr;
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
-  text-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

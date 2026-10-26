@@ -88,7 +88,9 @@ export function ToolCallRow(props: ToolCallRowProps): JSX.Element {
       </span>
       <div class="monitor-tool-text">
         <span class="monitor-tool-title">{title()}</span>
-        <span class="monitor-tool-argument">{props.argument}</span>
+        <span class="monitor-tool-argument">
+          <bdi>{props.argument}</bdi>
+        </span>
       </div>
       <span class="monitor-tool-status">
         <StatusIcon status={MONITOR_TOOL_STATUS_TONE[props.status]} />
