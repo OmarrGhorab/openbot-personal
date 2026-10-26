@@ -41,16 +41,19 @@ export function MonitorCanvas() {
     () => {
       const snapshot = monitor.state.snapshot;
       const current = graph();
-      return snapshot && current ? { snapshot, current } : null;
+      if (!snapshot || !current) return null;
+      return {
+        channelId: snapshot.channelId,
+        ids: snapshot.agents.map((agent) => agent.id),
+        columns: current.columns,
+      };
     },
     (next) => {
       if (!next) return;
-      const { snapshot, current } = next;
-      const ids = snapshot.agents.map((agent) => agent.id);
       setLayout((draft) => {
-        const previous = draft.channelId === snapshot.channelId ? { ...draft.positions } : {};
-        draft.channelId = snapshot.channelId;
-        draft.positions = placeMonitorAgents(previous, layoutMonitorCanvas(ids, current.columns));
+        const previous = draft.channelId === next.channelId ? { ...draft.positions } : {};
+        draft.channelId = next.channelId;
+        draft.positions = placeMonitorAgents(previous, layoutMonitorCanvas(next.ids, next.columns));
       });
     },
   );

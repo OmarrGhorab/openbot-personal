@@ -77,11 +77,20 @@ export function buildMonitorCanvasGraph(snapshot: MonitorSnapshot): MonitorCanva
     if (!writer) unoriented.push(link);
   }
 
-  const columns = monitorColumns(
-    snapshot.agents.map((agent) => agent.id),
-    [...links.values()].filter((link) => !unoriented.includes(link)),
-    snapshot.agents.find((agent) => agent.lead)?.id ?? null,
-  );
+  const ids = snapshot.agents.map((agent) => agent.id);
+  const handoffs = [...links.values()].filter((link) => link.handoff);
+  const columns = monitorColumns(ids, handoffs, snapshot.agents.find((agent) => agent.lead)?.id ?? null);
+  // Only hand-offs set the columns. An agent with no hand-off sits one column after the agent it
+  // talks to, so it is near its line; with no line, it stays in the first column.
+  const inHandoff = new Set(handoffs.flatMap((link) => [link.from, link.to]));
+  for (const id of ids) {
+    if (inHandoff.has(id)) continue;
+    const partner = [...links.values()].find(
+      (link) => (link.from === id && inHandoff.has(link.to)) || (link.to === id && inHandoff.has(link.from)),
+    );
+    const other = partner ? (partner.from === id ? partner.to : partner.from) : null;
+    columns.set(id, other ? (columns.get(other) ?? 0) + 1 : 0);
+  }
   // A pair that only has a count points from the earlier column, so it never runs backwards.
   for (const link of unoriented) {
     if ((columns.get(link.from) ?? 0) > (columns.get(link.to) ?? 0)) [link.from, link.to] = [link.to, link.from];

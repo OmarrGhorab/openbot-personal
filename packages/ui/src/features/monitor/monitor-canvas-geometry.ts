@@ -9,12 +9,12 @@ import { diagramEdgeMidpoint, diagramEdgePath } from "../diagrams/diagram-graph"
 import type { DiagramPoint } from "../diagrams/diagram-model";
 
 /** The width of an agent card on the canvas. Its height comes from its content. */
-export const MONITOR_CANVAS_CARD_WIDTH = 232;
+export const MONITOR_CANVAS_CARD_WIDTH = 216;
 /** The height a card has before it is measured. */
 export const MONITOR_CANVAS_CARD_HEIGHT = 168;
 /** The space between two columns, and between two cards of one column. */
-export const MONITOR_CANVAS_COLUMN_GAP = 104;
-export const MONITOR_CANVAS_ROW_GAP = 72;
+export const MONITOR_CANVAS_COLUMN_GAP = 72;
+export const MONITOR_CANVAS_ROW_GAP = 56;
 
 export interface MonitorCanvasBox {
   x: number;
