@@ -6,6 +6,7 @@ import { desktopAnalytics } from "../../../analytics";
 import { unlockCompletionSound } from "../../../completion-sound";
 import { playVoiceLimitStop, playVoiceLimitWarning } from "../../../voice-limit-sound";
 import { appendVoiceTranscript, encodePcm16, recordingToSamples, recordingToWav } from "../../../voice-recording";
+import { openWhileWarming } from "../../global-voice/voice-warm-start";
 import { forgetDictatedMessage, noteDictatedMessage, stopSpokenReply } from "../../speech/speech-replies";
 import { EMPTY_DRAFT } from "../composer-draft";
 import { composerDraftKey } from "../conversation-keys";
@@ -18,7 +19,7 @@ import { voiceCaptureError, voiceTranscriptionError } from "../voice-status";
  * audio in about a second, so the whole recording is sent each time rather than a sliding window,
  * and a pass that is still running makes the next tick wait instead of queueing behind it.
  */
-const LIVE_TRANSCRIPT_INTERVAL_MS = 1_000;
+const LIVE_TRANSCRIPT_INTERVAL_MS = 500;
 /** How often a streamed dictation sends the new audio to ElevenLabs. */
 const STREAM_INTERVAL_MS = 250;
 
@@ -164,7 +165,11 @@ export function createVoiceStore(deps: VoiceStoreDeps) {
       }
       deps.setVoicePhase("requesting");
       deps.setVoiceModelProgress(null);
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      // The local model loads while the user speaks: the microphone opens now, not after the load.
+      stream = await openWhileWarming(
+        () => voice.warmModel(),
+        () => navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+      );
       if (resources.voiceDisposed || !deps.viewIsMounted() || resources.voiceRequestGeneration !== generation) {
         for (const track of stream.getTracks()) track.stop();
         if (!resources.voiceDisposed && resources.voiceRequestGeneration === generation) deps.setVoicePhase("idle");

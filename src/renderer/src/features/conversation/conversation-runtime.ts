@@ -55,6 +55,7 @@ export interface ConversationRuntime {
     | "onModelStatus"
     | "prepareModel"
     | "transcribe"
+    | "warmModel"
     | "startStream"
     | "appendStream"
     | "finishStream"

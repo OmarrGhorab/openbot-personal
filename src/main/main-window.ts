@@ -481,7 +481,7 @@ export function createDynamicIslandWindow(bounds: Rectangle, _display: Display):
     enableLargerThanScreen: true,
     hasShadow: false,
     skipTaskbar: true,
-    type: "panel",
+    ...(process.platform === "darwin" ? { type: "panel" as const } : {}),
     backgroundColor: "#00000000",
     webPreferences: {
       preload: join(__dirname, "../preload/index.cjs"),
@@ -796,9 +796,7 @@ export function placeGlobalVoiceWindow(window: BrowserWindow, _view: "pill" | "p
  * The island hangs from the notch on a display that has one. Elsewhere the window starts below the
  * menu bar, and the island floats a few points lower as a detached pill.
  */
-export function globalVoiceWindowBounds(
-  display: Pick<Display, "bounds" | "internal"> & Partial<Pick<Display, "workArea">>,
-) {
+function globalVoiceWindowBounds(display: Pick<Display, "bounds" | "internal"> & Partial<Pick<Display, "workArea">>) {
   const { bounds } = display;
   const notched = dynamicIslandNotchSizeForDisplay(display) !== undefined;
   return {

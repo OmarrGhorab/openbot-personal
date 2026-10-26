@@ -208,6 +208,7 @@ export function createWebConversationRuntime(
       onModelStatus: () => () => {},
       prepareModel: unavailable,
       transcribe: unavailable,
+      warmModel: unavailable,
       startStream: unavailable,
       appendStream: unavailable,
       finishStream: unavailable,

@@ -10,6 +10,7 @@ export interface DynamicIslandPort {
     OpenBotDesktopApi["dynamicIsland"],
     | "getPreference"
     | "getPresentation"
+    | "moveWindow"
     | "onAction"
     | "onGeometry"
     | "onPreference"
@@ -18,6 +19,7 @@ export interface DynamicIslandPort {
     | "performHaptic"
     | "publishPresentation"
     | "setInteractive"
+    | "endWindowDrag"
   >;
 }
 

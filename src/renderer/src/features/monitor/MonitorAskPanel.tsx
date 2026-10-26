@@ -21,7 +21,7 @@ const SUGGESTIONS = [
  * The text the lead agent gets with a question: the channel as the Monitor shows it. The snapshot
  * already redacts tool-call text and errors. The whole prompt is redacted again before it is sent.
  */
-export function monitorAskPrompt(snapshot: MonitorSnapshot, question: string): string {
+function monitorAskPrompt(snapshot: MonitorSnapshot, question: string): string {
   const lines = snapshot.agents.map((agent) => {
     const task = snapshot.tasks.find((entry) => entry.id === agent.currentTaskId);
     const step = agent.step ? `, step ${agent.step.index} of ${agent.step.total}` : "";

@@ -71,6 +71,7 @@ function registerVoice(transcribe: (input: VoiceTranscriptionInput) => VoiceTran
     getSettings: handler(() => SETTINGS),
     setSettings: payloadHandler(parseVoiceSettings, (settings) => settings),
     transcribe: payloadHandler(decodeNote, transcribe),
+    warmModel: handler(() => undefined),
     setApiKey: payloadHandler(parseVoiceApiKey, () => READY),
     startStream: handler(() => ({ streamId: "stream-1" })),
     appendStream: payloadHandler(parseVoiceStreamAudio, () => undefined),

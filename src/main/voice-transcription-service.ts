@@ -21,7 +21,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
-import { Effect, Exit, Fiber, Scope } from "effect";
+import { Effect, Exit, Fiber, Scope, Semaphore } from "effect";
 import type { VoiceApiKeyStore } from "./voice-api-key-store";
 import {
   type OpenVoiceStreamSocket,
@@ -41,6 +41,8 @@ import type {
 const logger = createOpenBotLogger("voice-transcription-service");
 
 const TRANSCRIPTION_TIMEOUT_MS = 180_000;
+/** Loading a model takes seconds; a load that takes this long is not worth waiting for. */
+const WARM_TIMEOUT_MS = 30_000;
 const MODEL_ENGINES: Record<LocalVoiceModelId, VoiceTranscriptionEngine> = {
   "parakeet-tdt-0.6b-v3": "nemo-transducer",
   "bark-3.0-plus": "nemo-transducer",
@@ -111,6 +113,8 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
   readonly #apiKeys: VoiceApiKeyStore;
   readonly #spawnHost: () => VoiceTranscriptionHostProcess;
   readonly #openStreamSocket: OpenVoiceStreamSocket;
+  /** One local request at a time: a warm load and a transcription must not share the host slot. */
+  readonly #requests = Semaphore.makeUnsafe(1);
   #host: VoiceTranscriptionHostProcess | null = null;
   /** The model the running host loaded. The host holds one model, so another one starts a new host. */
   #hostModelId: LocalVoiceModelId | null = null;
@@ -234,7 +238,9 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
               const pcm = audio.slice(WAV_HEADER_BYTES);
               const audioSeconds = (pcm.byteLength / BYTES_PER_SECOND).toFixed(1);
               return yield* Effect.gen({ self: this }, function* () {
-                const text = yield* this.#request(pcm, modelId, settings.language, settings.fallbackLanguage);
+                const text = yield* this.#requests.withPermit(
+                  this.#request(pcm, modelId, settings.language, settings.fallbackLanguage),
+                );
                 if (text.length > INPUT_LIMITS.messageText)
                   return yield* new VoiceOperationError({ cause: new Error("The voice transcript is too long.") });
                 logger.info(`Voice transcription of ${audioSeconds}s completed in ${Date.now() - startedAt}ms.`);
@@ -256,6 +262,37 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
         );
       }).pipe(Effect.forkIn(this.#scope, { startImmediately: true }), Effect.flatMap(Fiber.join)),
   );
+
+  /**
+   * Loads the model in use before the first pass. It shares the one host slot with transcription, so
+   * a warm load that is still running makes the first pass wait for it, not load the model twice.
+   */
+  readonly warmModel = Effect.fn("VoiceTranscription.warmModel")(function* (this: VoiceTranscriptionService) {
+    const settings = this.#preferences.get();
+    const { modelId } = settings;
+    if (!isLocalVoiceModelId(modelId)) return;
+    yield* this.#requests.withPermit(
+      Effect.gen({ self: this }, function* () {
+        // A real request that just ran left the model loaded; a live pass owns the slot until it ends.
+        if (this.#busy || this.#pending || (this.#host && this.#hostModelId === modelId)) return;
+        const status = yield* this.#models[modelId].getStatus();
+        if (status.phase !== "ready") return;
+        const startedAt = Date.now();
+        yield* this.#request(new Uint8Array(0), modelId, settings.language, settings.fallbackLanguage, true).pipe(
+          Effect.timeoutOrElse({
+            duration: WARM_TIMEOUT_MS,
+            orElse: () => Effect.fail(new VoiceOperationError({ cause: new Error("The voice model load timed out.") })),
+          }),
+          Effect.tap(() =>
+            Effect.sync(() => logger.info(`Voice model ${modelId} loaded in ${Date.now() - startedAt}ms.`)),
+          ),
+          Effect.catch((error) =>
+            Effect.sync(() => logger.warn("Could not load the voice model in advance.", errorCategory(error.cause))),
+          ),
+        );
+      }),
+    );
+  }).bind(this);
 
   /** Saves or removes the ElevenLabs key, and answers the status of its model. */
   readonly setApiKey = Effect.fn("VoiceTranscription.setApiKey")(function* (
@@ -384,6 +421,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
     modelId: LocalVoiceModelId,
     language: VoiceSettings["language"],
     fallbackLanguage: VoiceSettings["fallbackLanguage"],
+    warm = false,
   ): Effect.Effect<string, VoiceOperationError> {
     return Effect.callback<string, VoiceOperationError>((resume) => {
       this.#cancelIdleStop();
@@ -408,6 +446,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
         language: engine === "whisper" && language !== AUTOMATIC_VOICE_LANGUAGE ? language : "",
         fallbackLanguage: engine === "whisper" ? (fallbackLanguage ?? "") : "",
         leadingSilenceSamples: LEADING_SILENCE_SAMPLES[modelId],
+        ...(warm ? { warm: true } : {}),
         pcm,
       });
       return Effect.sync(() => {

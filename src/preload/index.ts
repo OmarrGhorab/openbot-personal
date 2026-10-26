@@ -664,6 +664,8 @@ const openbotApi: OpenBotDesktopApi = {
     performHaptic: decodeVoid,
     action: decodeDynamicIslandAction,
     setInteractive: decodeVoid,
+    moveWindow: decodeVoid,
+    endWindowDrag: decodeVoid,
   }),
   globalVoice: bridgeGroup(IPC_ENDPOINTS.globalVoice, {
     getState: decodeGlobalVoiceState,
@@ -724,6 +726,7 @@ const openbotApi: OpenBotDesktopApi = {
     setSettings: decodeVoiceSettings,
     prepareModel: decodeVoiceModelStatus,
     transcribe: decodeVoiceTranscriptionResult,
+    warmModel: decodeVoid,
     setApiKey: decodeVoiceModelStatus,
     startStream: decodeVoiceStream,
     appendStream: decodeVoid,

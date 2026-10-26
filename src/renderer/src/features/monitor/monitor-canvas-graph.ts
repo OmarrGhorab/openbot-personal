@@ -12,7 +12,7 @@ export interface MonitorCanvasPoint {
 }
 
 /** One line of the canvas: the hand-off and the messages between two agents. */
-export interface MonitorCanvasLink {
+interface MonitorCanvasLink {
   /** The two agent ids in ascending order, joined. One line per pair. */
   id: string;
   /** The agent that gave the work, or else wrote first. */

@@ -143,6 +143,8 @@ export interface AccountAnalyticsOptions {
   fetch: (input: string, init: RequestInit) => Promise<Response>;
   /** Keeps the Worker alive until the send ends (`waitUntil`). */
   schedule: (send: Effect.Effect<void>) => void;
+  /** The OpenPanel API URL. Defaults to the own backend setting; tests pass one directly. */
+  apiUrl?: string;
 }
 
 class AnalyticsDeliveryError extends Schema.TaggedError<AnalyticsDeliveryError>()("AnalyticsDeliveryError", {}) {}
@@ -150,7 +152,7 @@ class AnalyticsDeliveryError extends Schema.TaggedError<AnalyticsDeliveryError>(
 export function createAccountAnalytics(options: AccountAnalyticsOptions): AccountAnalytics {
   const clientId = options.clientId?.trim();
   const clientSecret = options.clientSecret?.trim();
-  const apiUrl = ownBackend().analytics?.apiUrl;
+  const apiUrl = options.apiUrl ?? ownBackend().analytics?.apiUrl;
   if (!clientId || !clientSecret || !apiUrl) return NO_ACCOUNT_ANALYTICS;
   const send = Effect.fn("AccountAnalytics.send")(function* (
     accountId: string,
