@@ -17,7 +17,7 @@ export interface MonitorPausedBannerProps {
 export function MonitorPausedBanner(props: MonitorPausedBannerProps): JSX.Element {
   const { t } = useText();
   return (
-    <div class={["monitor-paused-banner", props.class]} role="status">
+    <div class={["monitor-paused-banner", props.class]} role="status" data-monitor-waiting={props.count}>
       <Pause class="monitor-paused-banner-icon" aria-hidden="true" />
       <span class="monitor-paused-banner-text">{t("monitor.pause.banner", { count: props.count })}</span>
       <Button type="button" variant="default" size="sm" class="monitor-paused-banner-resume" onClick={props.onResume}>
