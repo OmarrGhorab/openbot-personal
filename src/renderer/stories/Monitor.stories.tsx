@@ -10,8 +10,8 @@ import { AgentRow } from "@openbot/ui/features/monitor/AgentRow";
 import { ChannelRow } from "@openbot/ui/features/monitor/ChannelRow";
 import { FeedItem } from "@openbot/ui/features/monitor/FeedItem";
 import {
-  type MonitorCanvasEdge,
   MonitorCanvasBoard,
+  type MonitorCanvasEdge,
   type MonitorCanvasNode,
 } from "@openbot/ui/features/monitor/MonitorCanvasBoard";
 import { MonitorCanvasFooter } from "@openbot/ui/features/monitor/MonitorCanvasFooter";
