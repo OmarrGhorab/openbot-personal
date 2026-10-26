@@ -14,6 +14,8 @@ import { dynamicIslandPort } from "./dynamic-island-port";
 
 const DEFAULT_NOTCH_WIDTH = 192;
 const DEFAULT_NOTCH_HEIGHT = 32;
+/** A press that moves less than this stays a click, so a reply option still opens. */
+const DRAG_THRESHOLD_PX = 4;
 
 export function DynamicIslandSurface() {
   const { t } = useText();
@@ -48,6 +50,22 @@ export function DynamicIslandSurface() {
   // being key, its blur collapses the island before a click on an option lands.
   let keyboardInside = false;
   let queuedPresentation: DynamicIslandPresentation | undefined;
+  /** The pointer drag that moves the island window. `active` starts after a small movement. */
+  let drag:
+    | {
+        pointerId: number;
+        startX: number;
+        startY: number;
+        windowX: number;
+        windowY: number;
+        islandWidth: number;
+        active: boolean;
+      }
+    | undefined;
+  let dragFrame = 0;
+  let dragPosition: { x: number; y: number } | undefined;
+  /** A click that ends a drag must not also open the island or press what is under the pointer. */
+  let dragged = false;
 
   function applyPresentation(next: DynamicIslandPresentation): void {
     if (
@@ -163,6 +181,84 @@ export function DynamicIslandSurface() {
     if (keyboardInside && document.activeElement !== field) field.focus();
   }
 
+  /** Starts a possible drag. A press on a control acts on it instead. */
+  function startDrag(event: PointerEvent & { currentTarget: HTMLFieldSetElement }): void {
+    if (event.button !== 0 || isDragBlocked(event.target)) return;
+    drag = {
+      pointerId: event.pointerId,
+      startX: event.screenX,
+      startY: event.screenY,
+      windowX: window.screenX,
+      windowY: window.screenY,
+      islandWidth: Math.max(1, Math.round(event.currentTarget.getBoundingClientRect().width)),
+      active: false,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  /**
+   * Moves the window with the pointer. The move starts after a few points, so a click stays a
+   * click, and it is sent once per frame: one window placement for one drawn frame.
+   */
+  function moveDrag(event: PointerEvent & { currentTarget: HTMLFieldSetElement }): void {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const x = drag.windowX + (event.screenX - drag.startX);
+    const y = drag.windowY + (event.screenY - drag.startY);
+    if (!drag.active) {
+      if (Math.hypot(event.screenX - drag.startX, event.screenY - drag.startY) < DRAG_THRESHOLD_PX) return;
+      drag.active = true;
+      dragged = true;
+      pointerInside = true;
+      event.currentTarget.dataset.dragging = "";
+      void syncInteractive();
+    }
+    event.preventDefault();
+    dragPosition = { x: Math.round(x), y: Math.round(y) };
+    if (dragFrame !== 0) return;
+    dragFrame = requestAnimationFrame(() => {
+      dragFrame = 0;
+      const position = dragPosition;
+      if (!drag?.active || !position) return;
+      void dynamicIslandPort()
+        .dynamicIsland.moveWindow({ ...position, islandWidth: drag.islandWidth })
+        .catch(() => undefined);
+    });
+  }
+
+  async function endDrag(event: PointerEvent & { currentTarget: HTMLFieldSetElement }): Promise<void> {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const active = drag.active;
+    const islandWidth = drag.islandWidth;
+    const finalPosition = dragPosition;
+    drag = undefined;
+    dragPosition = undefined;
+    if (dragFrame !== 0) {
+      cancelAnimationFrame(dragFrame);
+      dragFrame = 0;
+    }
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    delete event.currentTarget.dataset.dragging;
+    if (!active) return;
+    try {
+      if (finalPosition) await dynamicIslandPort().dynamicIsland.moveWindow({ ...finalPosition, islandWidth });
+      await dynamicIslandPort().dynamicIsland.endWindowDrag();
+    } catch {
+      // The window stays where main put it; saving the position is the only lost step.
+    }
+    // A click follows pointerup. Suppress it, then let the next press work as usual.
+    setTimeout(() => {
+      dragged = false;
+    }, 0);
+    // The pointer may have left the island while the window followed it; settle that now.
+    void syncInteractive();
+  }
+
+  function suppressDragClick(event: MouseEvent): void {
+    if (!dragged) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   function clearActionError(): number {
     setActionError(undefined);
     return ++actionGeneration;
@@ -210,17 +306,33 @@ export function DynamicIslandSurface() {
       pointerInside = false;
       focusInside = false;
       keyboardInside = false;
+      // A lost pointer can leave a drag open in main. End it, so the next hover is not ignored.
+      if (drag?.active)
+        void dynamicIslandPort()
+          .dynamicIsland.endWindowDrag()
+          .catch(() => undefined);
+      drag = undefined;
+      dragPosition = undefined;
+      dragged = false;
+      if (dragFrame !== 0) {
+        cancelAnimationFrame(dragFrame);
+        dragFrame = 0;
+      }
       setViewState("compact");
       clearActionError();
       applyQueuedPresentation();
       void dynamicIslandPort().dynamicIsland.setInteractive({ interactive: false });
     };
     window.addEventListener("blur", close);
+    // A click follows a pointerup in the same task. Capture it before the island sees it, so the
+    // end of a drag does not also press a button or open the island.
+    document.addEventListener("click", suppressDragClick, true);
     return () => {
       stopPreference();
       stopPresentation();
       stopGeometry();
       window.removeEventListener("blur", close);
+      document.removeEventListener("click", suppressDragClick, true);
     };
   });
   return (
@@ -235,7 +347,13 @@ export function DynamicIslandSurface() {
           onFocusIn={beginFocusInteraction}
           onBlur={leaveFocusInteraction}
           onFocusOut={leaveFocusInteraction}
-          onPointerDown={(event) => void requestKeyboard(event)}
+          onPointerDown={(event) => {
+            void requestKeyboard(event);
+            startDrag(event);
+          }}
+          onPointerMove={moveDrag}
+          onPointerUp={(event) => void endDrag(event)}
+          onPointerCancel={(event) => void endDrag(event)}
         >
           <OpenBotDynamicIsland
             presentation={presentation()}
@@ -260,6 +378,12 @@ export function DynamicIslandSurface() {
 
 function isTextField(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
+/** A press on a control acts on the control, never on the window under it. */
+function isDragBlocked(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest('button, a, input, textarea, select, [contenteditable="true"]') !== null;
 }
 
 function readAppVariant(value: string | null): AppVariant {

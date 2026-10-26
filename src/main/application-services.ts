@@ -883,9 +883,11 @@ export async function createApplicationServices({
   const dynamicIsland = new DynamicIslandWindowController({
     platform: process.platform,
     preferencePath: join(app.getPath("userData"), DYNAMIC_ISLAND_PREFERENCE_FILE),
+    positionPath: join(app.getPath("userData"), "dynamic-island-positions.json"),
     createWindow: createDynamicIslandWindow,
     loadWindow: (window, display) => loadDynamicIslandRenderer(window, display, appVariant),
     getDisplays: () => screen.getAllDisplays(),
+    getPrimaryDisplayId: () => screen.getPrimaryDisplay().id,
     getMainWindow: windows.getMainWindow,
     ensureMainWindow: windows.ensureMainWindow,
     presentMainWindow: showMainWindow,

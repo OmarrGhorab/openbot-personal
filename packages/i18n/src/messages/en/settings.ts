@@ -61,7 +61,7 @@ export const messages = defineMessages("settings", {
     "Open the thinking, tool steps and memory changes of each turn by default on this device and browser.",
   "settings.busyMessage.title": "Steer agents while they work",
   "settings.busyMessage.description":
-    "New messages join the agent’s current work, not the queue. Works with ChatGPT and Claude.",
+    "New messages join the agent’s current work, not the queue. Works with ChatGPT, Claude, Grok, Pi, Muse and Inception. Other agents keep new messages in the queue.",
   // The Agents tab: the defaults of the agents on this computer.
   "settings.agentDefaults.title": "Defaults",
   "settings.agentDefaults.description": "Agents follow these defaults, unless you change them for an agent.",

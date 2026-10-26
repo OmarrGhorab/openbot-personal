@@ -1,5 +1,6 @@
 import { VOICE_AUDIO_LIMITS, VOICE_MODELS } from "@openbot/contracts/ipc";
 import { recordingToWav } from "../../voice-recording";
+import { openWhileWarming } from "./voice-warm-start";
 
 /** How often the recording so far is transcribed again for the live text. */
 const LIVE_INTERVAL_MS = 1_500;
@@ -76,6 +77,8 @@ export class GlobalVoiceDictation {
   #onLimit: () => void = () => {};
   #onLive: (text: string) => void = () => {};
   #onLevel: (level: number) => void = () => {};
+  /** Changes on each start and cancel, so a start that resolves after either one opens nothing. */
+  #session = 0;
 
   /** Opens the microphone and starts recording. `onLimit` runs when the time limit is reached. */
   async start(callbacks: {
@@ -83,6 +86,7 @@ export class GlobalVoiceDictation {
     onLimit: () => void;
     onLevel?: (level: number) => void;
   }): Promise<void> {
+    const session = ++this.#session;
     this.#onLive = callbacks.onLive;
     this.#onLimit = callbacks.onLimit;
     this.#onLevel = callbacks.onLevel ?? (() => {});
@@ -96,10 +100,17 @@ export class GlobalVoiceDictation {
     if (status.phase !== "ready") {
       throw new GlobalVoiceDictationError("unavailable", status.message ?? "");
     }
-    // Load the local model while the user speaks, not when the first text is needed. A cloud model
-    // has nothing to load, and this answers at once.
-    await window.openbot.voice.warmModel().catch(() => undefined);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    if (session !== this.#session) throw new GlobalVoiceDictationError("failed", "");
+    // The model loads while the user speaks: the microphone opens now, not after the load.
+    const stream = await openWhileWarming(
+      () => window.openbot.voice.warmModel(),
+      () => navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+    );
+    // The window gave up on this start while the microphone was opening: release it and stop.
+    if (session !== this.#session) {
+      for (const track of stream.getTracks()) track.stop();
+      throw new GlobalVoiceDictationError("failed", "");
+    }
     const recorder = new MediaRecorder(stream);
     this.#stream = stream;
     this.#recorder = recorder;
@@ -148,6 +159,7 @@ export class GlobalVoiceDictation {
 
   /** Stops the microphone and drops the recording. Nothing is transcribed. */
   cancel(): void {
+    this.#session += 1;
     this.#clearTimers();
     const recorder = this.#recorder;
     this.#recorder = null;
