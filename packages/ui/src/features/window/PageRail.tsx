@@ -1,5 +1,6 @@
 import { AppLogo, type AppLogoVariant, ProviderLogo } from "@openbot/brand";
 import {
+  Activity,
   Bot,
   Button,
   CalendarClock,
@@ -155,7 +156,7 @@ function CustomAgentUsageButton(props: { row: CustomAgentUsageRailRow; onOpen: (
 }
 
 /** The rail pages. Agents and Routines show the same page with a different sidebar list. */
-export type PageRailPage = "agents" | "routines" | "tasks" | "schedule" | "usage" | "marketplace" | "settings";
+export type PageRailPage = "agents" | "monitor" | "routines" | "tasks" | "schedule" | "usage" | "marketplace" | "settings";
 
 export interface PageRailProps {
   hidden: boolean;
@@ -166,6 +167,8 @@ export interface PageRailProps {
   /** The answers of the custom agents on this computer that have a usage prompt. Absent on the web. */
   customAgentUsage?: readonly CustomAgentUsageRailRow[] | undefined;
   onAgents: () => void;
+  /** Absent where the server has no Monitor. */
+  onMonitor?: (() => void) | undefined;
   /** Absent when the server has no routines. */
   onRoutines?: (() => void) | undefined;
   /** Absent where the server keeps no tasks. */
@@ -224,6 +227,17 @@ export function PageRail(props: PageRailProps) {
         <RailButton label={t("app.rail.agents")} current={props.current === "agents"} onClick={props.onAgents}>
           <Bot aria-hidden="true" />
         </RailButton>
+        <Show when={props.onMonitor}>
+          {(onMonitor) => (
+            <RailButton
+              label={t("app.rail.monitor")}
+              current={props.current === "monitor"}
+              onClick={() => onMonitor()()}
+            >
+              <Activity aria-hidden="true" />
+            </RailButton>
+          )}
+        </Show>
         <Show when={props.onRoutines}>
           {(onRoutines) => (
             <RailButton
