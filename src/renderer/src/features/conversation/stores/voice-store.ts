@@ -19,7 +19,7 @@ import { voiceCaptureError, voiceTranscriptionError } from "../voice-status";
  * audio in about a second, so the whole recording is sent each time rather than a sliding window,
  * and a pass that is still running makes the next tick wait instead of queueing behind it.
  */
-const LIVE_TRANSCRIPT_INTERVAL_MS = 1_000;
+const LIVE_TRANSCRIPT_INTERVAL_MS = 500;
 /** How often a streamed dictation sends the new audio to ElevenLabs. */
 const STREAM_INTERVAL_MS = 250;
 
