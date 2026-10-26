@@ -6,7 +6,10 @@
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { Heading } from "@openbot/ui";
 import { AgentNodeCard } from "@openbot/ui/features/monitor/AgentNodeCard";
+import { AgentRow } from "@openbot/ui/features/monitor/AgentRow";
+import { ChannelRow } from "@openbot/ui/features/monitor/ChannelRow";
 import { FeedItem } from "@openbot/ui/features/monitor/FeedItem";
+import { type MonitorLiveStatus, MonitorSidebar } from "@openbot/ui/features/monitor/MonitorSidebar";
 import { MONITOR_STATUSES } from "@openbot/ui/features/monitor/monitor-status";
 import { ProgressBar } from "@openbot/ui/features/monitor/ProgressBar";
 import { StatChip } from "@openbot/ui/features/monitor/StatChip";
@@ -273,6 +276,122 @@ export const ToolCallRows: Story = {
           <ToolCallRow tool="mcp__linear__create_issue" argument="title: Pricing QA" status="done" durationMs={1500} />
         </div>
       </main>
+    );
+  },
+};
+
+const CHANNELS = [
+  { id: "website-redesign", name: "website-redesign", agents: 5, working: 2, waiting: 1, errors: 1, unreadCount: 12 },
+  { id: "launch-q4", name: "launch-q4", agents: 3, working: 0, waiting: 0, errors: 0, unreadCount: 0 },
+  { id: "support-triage", name: "support-triage", agents: 4, working: 0, waiting: 1, errors: 0, unreadCount: 3 },
+  { id: "infra-oncall", name: "infra-oncall", agents: 2, working: 0, waiting: 0, errors: 1, unreadCount: 1 },
+];
+
+const AGENTS = [
+  {
+    id: "developer",
+    name: "Developer",
+    avatar: developer,
+    status: "working" as const,
+    detail: "Building pricing section",
+    since: minutesAgo(14),
+  },
+  {
+    id: "designer",
+    name: "Designer",
+    avatar: designer,
+    status: "working" as const,
+    detail: "Reviewing layouts",
+    since: minutesAgo(3),
+  },
+  {
+    id: "researcher",
+    name: "Researcher",
+    avatar: researcher,
+    status: "waiting" as const,
+    detail: "Waiting on Chief",
+    since: null,
+  },
+  {
+    id: "qa-tester",
+    name: "QA Tester",
+    avatar: tester,
+    status: "error" as const,
+    detail: "Checkout test failed",
+    since: null,
+  },
+  { id: "chief", name: "Chief", avatar: chief, status: "idle" as const, detail: null, since: minutesAgo(21) },
+];
+
+/** Agent Row and Channel Row in each state, with the selected row. */
+export const SidebarRows: Story = {
+  render: () => {
+    const [selected, setSelected] = createSignal("developer");
+    return (
+      <main class="foundation-story">
+        <Heading as="h1" size="lg">
+          Channel row
+        </Heading>
+        <div class="foundation-story-stack" style={{ width: "272px" }}>
+          <For each={CHANNELS}>
+            {(channel, index) => <ChannelRow channel={channel} selected={index() === 0} onSelect={() => undefined} />}
+          </For>
+        </div>
+        <Heading as="h2" size="md">
+          Agent row
+        </Heading>
+        <div class="foundation-story-stack" style={{ width: "272px" }}>
+          <For each={AGENTS}>
+            {(agent) => (
+              <AgentRow
+                agent={agent.avatar}
+                name={agent.name}
+                status={agent.status}
+                detail={agent.detail}
+                since={agent.since}
+                now={NOW}
+                selected={selected() === agent.id}
+                onSelect={() => setSelected(agent.id)}
+              />
+            )}
+          </For>
+        </div>
+      </main>
+    );
+  },
+};
+
+/** The whole Monitor sidebar. A count toggles its filter; a row selects its channel or agent. */
+export const Sidebar: Story = {
+  render: () => {
+    const [filter, setFilter] = createSignal<MonitorLiveStatus | null>(null);
+    const [channel, setChannel] = createSignal<string | null>("website-redesign");
+    const [agent, setAgent] = createSignal<string | null>(null);
+    const [allAgents, setAllAgents] = createSignal(false);
+    return (
+      <div style={{ display: "flex", width: "296px", height: "820px" }}>
+        <MonitorSidebar
+          counts={{ working: 4, waiting: 2, error: 1 }}
+          filter={filter()}
+          onFilter={(status) => setFilter((current) => (current === status ? null : status))}
+          updatedAt={NOW.toISOString()}
+          now={NOW}
+          channels={CHANNELS}
+          activeChannelId={channel()}
+          onSelectChannel={(id) => {
+            setAllAgents(false);
+            setChannel(id);
+          }}
+          onCreateChannel={() => undefined}
+          agents={AGENTS}
+          agentTotal={8}
+          selectedAgentId={agent()}
+          onSelectAgent={setAgent}
+          onAllAgents={() => setAllAgents(true)}
+          allAgentsOpen={allAgents()}
+          onOpenSearch={() => undefined}
+        />
+      </div>
     );
   },
 };

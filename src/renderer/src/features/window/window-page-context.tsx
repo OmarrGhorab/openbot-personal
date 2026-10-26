@@ -7,10 +7,18 @@ import { useSettings } from "../settings/settings-context";
 import { useUsage } from "../usage/usage-context";
 
 /** The pages of the window rail. Each one fills the card below the top row. */
-export type WindowPage = "agents" | "tasks" | "schedule" | "usage" | "marketplace" | "settings" | "server-settings";
+export type WindowPage =
+  | "agents"
+  | "monitor"
+  | "tasks"
+  | "schedule"
+  | "usage"
+  | "marketplace"
+  | "settings"
+  | "server-settings";
 
 /**
- * How a page sits in the window. The tasks page shows in the middle pane, as the agents do. The agent
+ * How a page sits in the window. The Monitor and the tasks page show in the middle pane, as the agents do. The agent
  * list beside it is hidden until the user shows it. A settings page starts below the top row. The title of a schedule, usage or Marketplace
  * page goes in the top row after the server menu.
  */
@@ -18,7 +26,7 @@ export type WindowPageKind = "agents" | "settings" | "titled";
 
 export function windowPageKind(page: WindowPage): WindowPageKind {
   if (page === "settings" || page === "server-settings") return "settings";
-  return page === "agents" || page === "tasks" ? "agents" : "titled";
+  return page === "agents" || page === "monitor" || page === "tasks" ? "agents" : "titled";
 }
 
 /** The settings pages: the settings of the user, or the settings of one server. */
@@ -44,11 +52,14 @@ const context = createSimpleContext({
     /** The elements of the settings page that the settings panel shows in. The page sets them. */
     const [settingsMounts, setSettingsMounts] = createSignal<{ nav: HTMLElement; content: HTMLElement } | undefined>();
 
+    /** Whether the Monitor shows in place of the agents. A page over it keeps it, so Back returns to it. */
+    const [monitorOpen, setMonitorOpen] = createSignal(false);
     const page = createMemo<WindowPage>(() => {
       if (serverSettings.serverSettingsOpen()) return "server-settings";
       if (settings.appSettingsOpen()) return "settings";
       if (settings.skillsMarketplaceOpen()) return "marketplace";
-      return usage.state.serverId ? usage.state.view : "agents";
+      if (usage.state.serverId) return usage.state.view;
+      return monitorOpen() ? "monitor" : "agents";
     });
 
     /** Whether the agent list shows beside the Tasks page. Each time the page opens, the list is hidden. */
@@ -92,6 +103,11 @@ const context = createSimpleContext({
       if (untrack(serverSettings.serverSettingsOpen)) serverSettings.setServerSettingsOpen(false);
     });
 
+    // The Monitor reads the channels of this computer. Another server closes it.
+    createEffect(activeServerId, (serverId, previous) => {
+      if (previous !== undefined && serverId !== previous) setMonitorOpen(false);
+    });
+
     // The server settings page follows the server that the user selects.
     createEffect(activeServerId, (serverId, previous) => {
       if (previous === undefined || serverId === previous || !serverId) return;
@@ -114,12 +130,21 @@ const context = createSimpleContext({
       setTasksAgentsOpen: (open: boolean) => setTasksAgentsOpen(open),
       setSettingsMounts,
       settingsPlacement,
-      /** Shows the agents and closes the other pages. */
+      /** Shows the agents and closes the other pages, the Monitor too. */
       showAgents() {
+        setMonitorOpen(false);
         settings.setAppSettingsOpen(false);
         serverSettings.setServerSettingsOpen(false);
         settings.setSkillsMarketplaceOpen(false);
         usage.dismissUsage();
+      },
+      /** Shows the Monitor and closes the other pages. */
+      openMonitor() {
+        settings.setAppSettingsOpen(false);
+        serverSettings.setServerSettingsOpen(false);
+        settings.setSkillsMarketplaceOpen(false);
+        usage.dismissUsage();
+        setMonitorOpen(true);
       },
       openTasks(source: HTMLElement | null) {
         const serverId = activeServerId();

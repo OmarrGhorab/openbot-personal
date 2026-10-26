@@ -18,8 +18,8 @@ import { RailHelpMenu } from "./RailHelpMenu";
 import { useWindowPage } from "./window-page-context";
 
 /**
- * The page rail of the desktop window. Agents, Routines, Schedule, Usage, Marketplace and Settings
- * change the page in the card.
+ * The page rail of the desktop window. Agents, Monitor, Routines, Schedule, Usage, Marketplace and
+ * Settings change the page in the card. The Monitor reads the channels of this computer only.
  */
 export function WorkspacePageRail(props: { hidden: boolean }) {
   const text = useText();
@@ -70,6 +70,7 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
       usageRows={usageRows()}
       customAgentUsage={localAgentUsage()}
       onAgents={() => showSidebarView("agents")}
+      onMonitor={activeServer()?.kind === "local" ? windowPage.openMonitor : undefined}
       onRoutines={() => showSidebarView("routines")}
       onSchedule={windowPage.openSchedule}
       onTasks={tasksAvailable() ? windowPage.openTasks : undefined}

@@ -148,6 +148,9 @@ import { composerDraftKey } from "../conversation/conversation-keys";
 import type { AgentSettingsRequest } from "../conversation/conversation-types";
 import { webEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import type { FilesPort } from "../files/files-port";
+import { MonitorPane } from "../monitor/MonitorPane";
+import { MonitorSidebarPane } from "../monitor/MonitorSidebarPane";
+import { MonitorProvider } from "../monitor/monitor-context";
 import { hostSetupProviderProps } from "../onboarding/host-setup-provider-props";
 import { createRoutineTimezonePrompt } from "../schedule/routine-timezone-prompt";
 import type { ScheduleRoutine } from "../schedule/SchedulePanel";
@@ -732,12 +735,15 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     refreshHosts: () => workspace.refreshHosts(),
     relaySupported: () => workspace.state.capabilities.includes(SIGN_IN_RELAY_CAPABILITY),
   });
+  /** As on desktop: whether the Monitor shows in place of the agents. A host page over it keeps it. */
+  const [monitorOpen, setMonitorOpen] = createSignal(false);
   /** The page in the card, as on desktop. The compatibility screen wins over the host pages, so its Retry stays in reach. */
   const page = createMemo<WindowPage>(() => {
     if (serverSettings.state.open && server()) return "server-settings";
     if (accountSettingsOpen()) return "settings";
     const host = hostPage();
-    return host && server() && !blockedServer() ? host.view : "agents";
+    if (host && server() && !blockedServer()) return host.view;
+    return monitorOpen() ? "monitor" : "agents";
   });
   /** Whether a page other than the agents covers the conversation. A message there is not seen. */
   const pageCovered = () => page() !== "agents";
@@ -759,8 +765,9 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     !workspace.state.panelsFailed &&
     !hostOffline() &&
     !blockedServer();
-  /** Shows the agents and closes the other pages. */
+  /** Shows the agents and closes the other pages, the Monitor too. */
   function showAgents() {
+    setMonitorOpen(false);
     setAccountSettingsOpen(false);
     serverSettings.setOpen(false);
     setHostPage(null);
@@ -785,7 +792,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const tasksSource = webTasksSource(workspace, hostRequest);
   // The Monitor of the host's channels: the same snapshot as desktop, built here from the Team API and
   // redacted. It keeps the live turns from the host's events from now on, so it starts with the
-  // workspace. The Monitor view (#22) mounts `MonitorProvider` with it.
+  // workspace. The Monitor page mounts `MonitorProvider` with it.
   const monitorSource = webMonitorSource({
     runtime: workspace.runtime,
     tasks: tasksSource,
@@ -1071,6 +1078,24 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const routinesView = () => routinesSupported() && layout.sidebarView() === "routines";
   /** The Routines view lists only agents: a channel has no routine canvas. */
   const channelsListed = () => channelsSupported() && !routinesView();
+  /** As on desktop: the Monitor of the host's channels takes the sidebar and the middle pane. */
+  const monitorView = () => page() === "monitor" && channelsSupported();
+  /** The channels the Monitor lists: the channels of the sidebar, without the deleted ones. */
+  const monitorChannels = createMemo(() =>
+    channelsSupported() ? channels.state.channels.filter((channel) => !channel.archived) : [],
+  );
+  const monitorChannelIds = createMemo(() => monitorChannels().map((channel) => channel.id), {
+    equals: (previous, next) => previous.length === next.length && previous.every((id, index) => id === next[index]),
+  });
+  /** A page that takes the middle pane in place of the chats: Tasks or the Monitor. */
+  const middleCovered = () => tasksOpen() || monitorView();
+  function openMonitor() {
+    setMobilePane("workspace");
+    setAccountSettingsOpen(false);
+    serverSettings.setOpen(false);
+    setHostPage(null);
+    setMonitorOpen(true);
+  }
   const savedChannelId = () => {
     const hostId = workspace.state.host?.hostId;
     return hostId ? (readChannelSelection()[props.accountId]?.[hostId] ?? null) : null;
@@ -1140,7 +1165,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   /** An open channel still takes the pane, as a channel closes the desktop form. */
   const agentFormOpen = () => creating() || (firstAgent() && !channelOpen());
   const agentChatOpen = () =>
-    !tasksOpen() && !agentFormOpen() && !channelOpen() && !noHost() && !hostOffline() && !routinesView();
+    !middleCovered() && !agentFormOpen() && !channelOpen() && !noHost() && !hostOffline() && !routinesView();
   /**
    * The provider that a server's provider step chose, by server. In memory only, as on desktop: the
    * saved setup choice is of the desktop computer, not of the server.
@@ -1496,6 +1521,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
             current={railPage()}
             usageRows={usageRows()}
             onAgents={() => showSidebarView("agents")}
+            onMonitor={channelsSupported() ? openMonitor : undefined}
             onRoutines={routinesSupported() ? () => showSidebarView("routines") : undefined}
             onTasks={
               tasksSupported()
@@ -1523,901 +1549,930 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
               />
             }
           />
-          <WorkspaceFrame
-            class="web-app-frame"
-            data-web-mobile-pane={mobilePane()}
-            compact={compact()}
-            blockedServer={blockedServer()}
-            initialLoading={hostOffline()}
-            connection={
-              <>
-                <Show when={!noHost() && workspace.state.status !== "online" && !blockedServer()}>
-                  <ServerConnectionNotice
-                    name={workspace.state.host?.name ?? t("webClient.notice.findingHosts")}
-                    initial={!workspace.state.workspaceLoaded}
-                    issue={workspace.state.hostedIssue}
-                    start={workspace.state.hostedStart}
-                    updateVersion={workspace.state.hostRestart?.version ?? null}
-                    detail={
-                      workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
-                        ? (workspace.state.connectionError?.message ?? null)
-                        : null
-                    }
-                    reference={
-                      workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
-                        ? (workspace.state.connectionError?.reference ?? null)
-                        : null
-                    }
-                    phase={serverWorkspacePhase({
-                      hostedSleep: workspace.state.hostedSleep,
-                      updating: hostUpdating(),
-                      blocked: workspace.state.recovery?.phase === "suspended",
-                      loading: workspace.state.status === "connecting",
-                      hasContent: workspace.state.workspaceLoaded,
-                    })}
-                    remainingSeconds={
-                      workspace.state.recovery?.phase === "waiting" || workspace.state.recovery?.phase === "cooldown"
-                        ? workspace.state.recovery.remainingSeconds
-                        : 0
-                    }
-                    busy={workspace.state.status === "connecting" || !workspace.state.host}
-                    onRetry={() => void workspace.run(workspace.reconnect)}
-                    onManage={() => setBillingOpen(true)}
-                    upsell={offlineUpsell()}
-                  />
+          {/* As on desktop: the Monitor sidebar and its main area read the same snapshots. */}
+          <MonitorProvider source={monitorSource} active={monitorView} channelIds={monitorChannelIds}>
+            <WorkspaceFrame
+              class="web-app-frame"
+              data-web-mobile-pane={mobilePane()}
+              compact={compact()}
+              blockedServer={blockedServer()}
+              initialLoading={hostOffline()}
+              connection={
+                <>
+                  <Show when={!noHost() && workspace.state.status !== "online" && !blockedServer()}>
+                    <ServerConnectionNotice
+                      name={workspace.state.host?.name ?? t("webClient.notice.findingHosts")}
+                      initial={!workspace.state.workspaceLoaded}
+                      issue={workspace.state.hostedIssue}
+                      start={workspace.state.hostedStart}
+                      updateVersion={workspace.state.hostRestart?.version ?? null}
+                      detail={
+                        workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
+                          ? (workspace.state.connectionError?.message ?? null)
+                          : null
+                      }
+                      reference={
+                        workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
+                          ? (workspace.state.connectionError?.reference ?? null)
+                          : null
+                      }
+                      phase={serverWorkspacePhase({
+                        hostedSleep: workspace.state.hostedSleep,
+                        updating: hostUpdating(),
+                        blocked: workspace.state.recovery?.phase === "suspended",
+                        loading: workspace.state.status === "connecting",
+                        hasContent: workspace.state.workspaceLoaded,
+                      })}
+                      remainingSeconds={
+                        workspace.state.recovery?.phase === "waiting" || workspace.state.recovery?.phase === "cooldown"
+                          ? workspace.state.recovery.remainingSeconds
+                          : 0
+                      }
+                      busy={workspace.state.status === "connecting" || !workspace.state.host}
+                      onRetry={() => void workspace.run(workspace.reconnect)}
+                      onManage={() => setBillingOpen(true)}
+                      upsell={offlineUpsell()}
+                    />
+                  </Show>
+                  <Show when={workspace.state.status === "online" && workspace.state.panelsFailed}>
+                    <ServerPanelLoadNotice
+                      busy={workspace.state.panelsLoading}
+                      onRetry={() => void workspace.retryPanels()}
+                    />
+                  </Show>
+                  <Show when={workspace.state.status === "online" && agentChatOpen()}>
+                    <ConversationLoadNotice
+                      name={workspace.selected()?.name ?? ""}
+                      loading={!workspace.conversation()?.page && workspace.conversation()?.loading === true}
+                      error={workspace.conversation()?.error ?? null}
+                      onRetry={() => {
+                        const id = workspace.state.selectedId;
+                        if (id) void workspace.select(id);
+                      }}
+                    />
+                  </Show>
+                </>
+              }
+              onRetryServer={(serverId) =>
+                workspace.run(async () => {
+                  const host = workspace.state.hosts.find((item) => item.hostId === serverId);
+                  if (host) await workspace.connect(host);
+                })
+              }
+              windowPage={page()}
+              sidebarHidden={tasksAgentsHidden()}
+              page={
+                <Show
+                  when={page() === "usage" || page() === "schedule" ? server() : undefined}
+                  fallback={
+                    <Show when={settingsKind()} keyed>
+                      {(kind) => (
+                        <SettingsPageFrame
+                          heading={
+                            kind === "personal" ? (
+                              <h1 class="settings-page-title" tabindex={-1}>
+                                {t("app.settingsPage.title")}
+                              </h1>
+                            ) : (
+                              <Show when={server()}>{(target) => <ServerSettingsPageTitle server={target()} />}</Show>
+                            )
+                          }
+                          onMounts={setSettingsMounts}
+                          onEscape={showAgents}
+                        />
+                      )}
+                    </Show>
+                  }
+                >
+                  {(target) => (
+                    <Switch
+                      fallback={
+                        <Loading>
+                          <AgentUsagePanel
+                            port={usageCalls}
+                            serverId={target().id}
+                            hostName={target().name}
+                            onBack={closeHostPage}
+                          />
+                        </Loading>
+                      }
+                    >
+                      <Match when={page() === "schedule"}>
+                        <Loading>
+                          <ScheduleView
+                            serverId={target().id}
+                            hostName={target().name}
+                            onBack={closeHostPage}
+                            source={scheduleSource}
+                            agents={workspace.profiles()}
+                            channels={channels.state.channels}
+                            channelsSupported={channels.supported()}
+                            onOpenAgent={(agentId) => {
+                              setMobilePane("conversation");
+                              void select(agentId);
+                            }}
+                            onOpenRoutine={openRoutine}
+                            onCreateRoutine={createRoutine}
+                          />
+                        </Loading>
+                      </Match>
+                    </Switch>
+                  )}
                 </Show>
-                <Show when={workspace.state.status === "online" && workspace.state.panelsFailed}>
-                  <ServerPanelLoadNotice
-                    busy={workspace.state.panelsLoading}
-                    onRetry={() => void workspace.retryPanels()}
+              }
+              left={
+                <>
+                  <Show when={layout.serverRailVisible()}>
+                    <ServerRail
+                      servers={servers()}
+                      onSelect={selectServer}
+                      onReorder={workspace.reorderHosts}
+                      onAdd={() => hostedServers.openAddServer("server_rail")}
+                      addCreatesServer={hostedServers.available()}
+                      {...serverActionCallbacks}
+                    />
+                  </Show>
+                  <Show
+                    when={monitorView()}
+                    fallback={
+                      <Sidebar
+                        agentsConnecting={!noHost() && !workspace.state.agentsLoaded}
+                        channels={
+                          channelsListed() ? channels.state.channels.filter((channel) => !channel.archived) : []
+                        }
+                        deletedChannels={
+                          channelsListed() ? channels.state.channels.filter((channel) => channel.archived) : []
+                        }
+                        activeChannelId={tasksOpen() ? null : channels.state.selectedId}
+                        onSelectChannel={openChannel}
+                        onEditChannel={(id) => openChannel(id, true)}
+                        onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
+                        onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}
+                        showingArchivedChannels={channelsListed() && channels.state.archived}
+                        onToggleArchivedChannels={channelsListed() ? channels.toggleArchived : undefined}
+                        onCreateChannel={channelsListed() ? channels.create : undefined}
+                        onMarkAllRead={
+                          workspace.state.status === "online"
+                            ? () => {
+                                void workspace.markAllRead().catch(() =>
+                                  actionToast.error(t("chat.unread.markReadFailed"), {
+                                    report: { operation: "other", source: "action", cause_code: "unknown" },
+                                  }),
+                                );
+                                if (channelsSupported()) void channels.markAllRead();
+                              }
+                            : undefined
+                        }
+                        // The browser client does not know the unread counts of agent chats it has not opened.
+                        hasUnread
+                        view={layout.sidebarView()}
+                        serverName={workspace.state.host?.name ?? "OpenBot"}
+                        serverUpdate={(() => {
+                          const id = server()?.id;
+                          const badge = id ? serverUpdateBadge(id) : null;
+                          return id && badge ? { ...badge, onOpen: () => void showServerUpdate(id) } : undefined;
+                        })()}
+                        serverMenu={{
+                          servers: servers(),
+                          view: layout.serverView(),
+                          onViewChange: layout.setServerView,
+                          onSelect: selectServer,
+                          onAdd: () => hostedServers.openAddServer("server_rail"),
+                          addCreatesServer: hostedServers.available(),
+                          ...serverActionCallbacks,
+                        }}
+                        agents={workspace.profiles()}
+                        activeAgentId={tasksOpen() || channelOpen() ? "" : (workspace.state.selectedId ?? "")}
+                        people={[]}
+                        directThreads={[]}
+                        activeDirectMemberId={null}
+                        agentStates={sidebarAgentStates()}
+                        agentMoods={sidebarAgentMoods()}
+                        layout={workspace.state.sidebarLayout}
+                        layoutMutable={
+                          workspace.state.status === "online" && workspace.state.capabilities.includes("sidebar-layout")
+                        }
+                        collapsedSectionIds={workspace.preferences.collapsedSidebarSectionIds()}
+                        onMutateLayout={workspace.mutateSidebarLayout}
+                        sectionDuplicateSupported={
+                          workspace.state.status === "online" &&
+                          workspace.state.capabilities.includes("agent-duplication") &&
+                          workspace.state.capabilities.includes("sidebar-layout")
+                        }
+                        duplicatingSectionIds={workspace.duplicatingSectionIds()}
+                        onDuplicateSection={workspace.duplicateSection}
+                        onToggleSection={workspace.preferences.toggleSidebarSection}
+                        pinnedItems={workspace.preferences.pinnedSidebarItems()}
+                        peopleOrder={[]}
+                        onPin={workspace.preferences.pinSidebarItem}
+                        onUnpin={workspace.preferences.unpinSidebarItem}
+                        onReorderPinned={workspace.preferences.reorderPinnedSidebarItems}
+                        onReorderPeople={() => {}}
+                        onSelectAgent={(id) => {
+                          setMobilePane("conversation");
+                          void select(id);
+                        }}
+                        onSelectPerson={() => {}}
+                        onCreateAgent={startCreate}
+                        createSupported={createSupported()}
+                        onEditAgent={(id) => {
+                          setMobilePane("conversation");
+                          void select(id);
+                          setSettingsRequest({ agentId: id, nonce: Date.now() });
+                        }}
+                        duplicateSupported={
+                          workspace.state.status === "online" &&
+                          workspace.state.capabilities.includes("agent-duplication")
+                        }
+                        duplicatingAgentIds={new Set(workspace.state.duplicatingAgentIds)}
+                        onDuplicateAgent={workspace.duplicateAgent}
+                        deleteSupported={
+                          workspace.state.status === "online" && canAdministerServer(workspace.state.host?.role)
+                        }
+                        marketplaceSupported={workspace.state.status === "online"}
+                        onDeleteAgent={workspace.deleteAgent}
+                        userHiddenAgents={workspace.state.userHiddenAgents}
+                        onHideAgent={hideSupported() ? (agentId) => setAgentHidden(agentId, true) : undefined}
+                        onRestoreAgent={hideSupported() ? (agentId) => setAgentHidden(agentId, false) : undefined}
+                        compact={compact()}
+                        onExpand={layout.expandSidebar}
+                        onOpenSearch={() => setSearchOpen(true)}
+                        onOpenMarketplace={() => setMarketplaceOpen(true)}
+                        footer={
+                          <Show when={!communityCard.dismissed()}>
+                            <SidebarCommunityCard
+                              onJoinDiscord={() => void openWebDestination("discord")}
+                              onFollowX={() => void openWebDestination("x")}
+                              onDismiss={communityCard.dismiss}
+                            />
+                          </Show>
+                        }
+                        emptyAction={
+                          firstAgent()
+                            ? {
+                                label: t("sidebar.empty.firstAgent"),
+                                avatarSeed: agentAvatar().avatarSeed,
+                                avatarHue: agentAvatar().avatarHue,
+                                onSelect: startCreate,
+                              }
+                            : undefined
+                        }
+                      />
+                    }
+                  >
+                    <MonitorSidebarPane
+                      channels={monitorChannels()}
+                      onCreateChannel={channels.create}
+                      onOpenSearch={() => setSearchOpen(true)}
+                    />
+                  </Show>
+                  <WebMobileNavigation activePane={mobilePane()} routines={routinesView()} onChange={setMobilePane} />
+                </>
+              }
+              after={
+                <>
+                  <ServerUpdateDialogHost hosts={workspace.hostViews()} />
+                  <HostedServerUpsell
+                    accountId={props.accountId}
+                    canOffer={
+                      hostedServers.available() &&
+                      hostedServers.loaded() &&
+                      !hostedServers.ownsHostedServer() &&
+                      server()?.role === "owner" &&
+                      server()?.hosted !== true
+                    }
+                    serverId={server()?.id ?? ""}
+                    host={{ name: server()?.name ?? "" }}
+                    busy={(agentId) => Boolean(workspace.state.conversations[agentId]?.page?.activeTurnId)}
+                    openPlans={() => hostedServers.openAddServer("upsell")}
+                    track={(action, entryPoint) =>
+                      desktopAnalytics.track("hosted_server_upsell", { action, entry_point: entryPoint })
+                    }
                   />
-                </Show>
-                <Show when={workspace.state.status === "online" && agentChatOpen()}>
-                  <ConversationLoadNotice
-                    name={workspace.selected()?.name ?? ""}
-                    loading={!workspace.conversation()?.page && workspace.conversation()?.loading === true}
-                    error={workspace.conversation()?.error ?? null}
-                    onRetry={() => {
-                      const id = workspace.state.selectedId;
-                      if (id) void workspace.select(id);
+                  <AddServerOverlay
+                    open={hostedServers.addServer() !== null}
+                    entryPoint={hostedServers.addServer()?.entryPoint}
+                    calls={hostedServers.calls}
+                    servers={servers()}
+                    onRefreshServers={workspace.retryHosts}
+                    resume={hostedServers.addServer()?.resume}
+                    onClose={hostedServers.closeAddServer}
+                    onOpenServer={(serverId) => {
+                      hostedServers.closeAddServer();
+                      selectServer(serverId);
+                    }}
+                    onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
+                    onJoinWithInvite={() => {
+                      hostedServers.closeAddServer();
+                      setJoinOpen(true);
+                    }}
+                    onManageServers={() => setBillingOpen(true)}
+                  />
+                  <JoinServerOverlay
+                    open={joinOpen()}
+                    inviteUrl={props.inviteUrl ?? ""}
+                    accountEmail={props.accountEmail ?? ""}
+                    onClose={() => {
+                      setJoinOpen(false);
+                      props.onInviteClose?.();
+                    }}
+                    onPreview={({ inviteUrl }) => workspace.runtime.previewInvite(inviteUrl)}
+                    onJoin={({ inviteUrl }) => workspace.joinInvite(inviteUrl)}
+                  />
+                  <MarketplaceOverlay
+                    open={marketplaceOpen()}
+                    onOpenChange={setMarketplaceOpen}
+                    calls={marketplaceCalls}
+                    connectors={connectors}
+                    server={server()}
+                    agents={workspace.state.agents}
+                    activeAgentId={workspace.state.selectedId ?? ""}
+                    composerAvailable={status().phase === "ready" && !agentFormOpen()}
+                    onOpenAgent={(agentId) => {
+                      setMobilePane("conversation");
+                      if (agentId !== workspace.state.selectedId) void select(agentId);
+                      else {
+                        // The agent is already loaded; only what covers its conversation closes.
+                        setCreating(false);
+                        showAgents();
+                        channels.close();
+                      }
+                    }}
+                    onAgentInstalled={async (agent) => {
+                      setMarketplaceOpen(false);
+                      await openAddedAgent(agent);
+                    }}
+                    pluginSlug={suggestedApp()?.appId ?? props.pluginSlug}
+                    pluginConnect={suggestedApp()?.connect ?? false}
+                    onPluginSlugConsumed={() => {
+                      if (suggestedApp()) setSuggestedApp(null);
+                      else props.onPluginSlugConsumed?.();
                     }}
                   />
-                </Show>
-              </>
-            }
-            onRetryServer={(serverId) =>
-              workspace.run(async () => {
-                const host = workspace.state.hosts.find((item) => item.hostId === serverId);
-                if (host) await workspace.connect(host);
-              })
-            }
-            windowPage={page()}
-            sidebarHidden={tasksAgentsHidden()}
-            page={
-              <Show
-                when={page() === "usage" || page() === "schedule" ? server() : undefined}
-                fallback={
-                  <Show when={settingsKind()} keyed>
-                    {(kind) => (
-                      <SettingsPageFrame
-                        heading={
-                          kind === "personal" ? (
-                            <h1 class="settings-page-title" tabindex={-1}>
-                              {t("app.settingsPage.title")}
-                            </h1>
-                          ) : (
-                            <Show when={server()}>{(target) => <ServerSettingsPageTitle server={target()} />}</Show>
-                          )
+                  <Show when={accountSettingsLoaded()}>
+                    <Loading>
+                      <WebAccountSettings
+                        open={accountSettingsOpen() && settingsPlacement("personal") !== undefined}
+                        page={settingsPlacement("personal")}
+                        onOpenChange={setAccountSettingsOpen}
+                        account={account()}
+                        calls={accountCalls}
+                        language={props.language}
+                        onChangeLanguage={props.onChangeLanguage}
+                        appearance={props.appearance}
+                        onChangeAppearance={props.onChangeAppearance}
+                        onOpenBilling={() => setBillingOpen(true)}
+                        onSignOut={signOut}
+                      />
+                    </Loading>
+                  </Show>
+                  <SharedAgentInstallOverlay
+                    templateId={props.agentTemplateId}
+                    server={server()}
+                    calls={agentTemplateCalls}
+                    onOpenLink={(url) => void openWebLink(url)}
+                    onClose={() => props.onAgentTemplateClose?.()}
+                    onInstalled={openAddedAgent}
+                  />
+                  <Show when={serverSettingsLoaded() && server()}>
+                    {(target) => (
+                      <ServerSettingsOverlay
+                        open={serverSettings.state.open && settingsPlacement("server") !== undefined}
+                        page={settingsPlacement("server")}
+                        restoreFocusTarget={serverSettings.restoreTarget()}
+                        initialSection={serverSettingsSection()}
+                        platform="darwin"
+                        remoteDesktopSupported={false}
+                        server={target()}
+                        hostStatus={null}
+                        connectors={connectors}
+                        members={serverSettings.state.members}
+                        invites={serverSettings.state.invites}
+                        loading={serverSettings.state.loading}
+                        loadError={serverSettings.state.error}
+                        onRetry={serverSettings.refresh}
+                        onSaveIdentity={serverSettings.saveIdentity}
+                        onSetMuted={async (muted) => setMuted(target().id, muted)}
+                        onSetNotificationLevel={async (level) => setNotificationLevel(target().id, level)}
+                        // Publication and screen recording belong to the computer that runs the server.
+                        onSetPublished={unavailable}
+                        onCreateInvite={serverSettings.createInvite}
+                        license={licenseCalls}
+                        onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
+                        onUpdateMember={serverSettings.updateMember}
+                        onRemoveMember={serverSettings.removeMember}
+                        onRevokeInvite={serverSettings.revokeInvite}
+                        onOpenScreenRecordingSettings={unavailable}
+                        onRecheckScreenRecording={unavailable}
+                        mcpServers={serverSettings.state.mcp}
+                        mcpLoadError={serverSettings.state.mcpError}
+                        onMcpSectionShown={() => {
+                          void serverSettings.refreshMcp();
+                          if (mcpSignInSupported()) void serverSettings.refreshMcpSignIns().catch(() => undefined);
+                        }}
+                        onRetryMcpServers={() => void serverSettings.refreshMcp()}
+                        onSaveMcpServer={async (config) => {
+                          await serverSettings.saveMcpServer(config);
+                          // A saved row can name an address the host is already signed in to.
+                          if (mcpSignInSupported()) void serverSettings.refreshMcpSignIns().catch(() => undefined);
+                        }}
+                        onRemoveMcpServer={serverSettings.removeMcpServer}
+                        onSetMcpServerEnabled={serverSettings.setMcpServerEnabled}
+                        onTestMcpServer={serverSettings.testMcpServer}
+                        // A host with `sign-in-relay-v1` signs in through this browser and a pasted address.
+                        // An older host opens the page in its own browser, and the live view shows it here.
+                        mcpSignIn={
+                          mcpSignInSupported()
+                            ? {
+                                states: serverSettings.state.mcpSignIns,
+                                remote: {
+                                  hostName: target().name,
+                                  runtime: workspace.runtime.browser,
+                                  clipboard: workspace.state.capabilities.includes("browser-view-clipboard"),
+                                  pages: serverSettings.state.mcpSignInPages,
+                                  relay: workspace.state.capabilities.includes(SIGN_IN_RELAY_CAPABILITY)
+                                    ? {
+                                        pages: serverSettings.state.mcpSignInRelays,
+                                        paste: serverSettings.pasteMcpSignInRelay,
+                                        open: serverSettings.openMcpSignInRelay,
+                                      }
+                                    : undefined,
+                                },
+                                start: serverSettings.signInMcpServer,
+                                cancel: serverSettings.cancelMcpSignIn,
+                                signOut: serverSettings.signOutMcpServer,
+                                app: workspace.state.capabilities.includes("mcp-sign-in-app-v1")
+                                  ? {
+                                      load: serverSettings.mcpSignInApp,
+                                      save: serverSettings.saveMcpSignInApp,
+                                      remove: serverSettings.removeMcpSignInApp,
+                                    }
+                                  : undefined,
+                              }
+                            : undefined
                         }
-                        onMounts={setSettingsMounts}
-                        onEscape={showAgents}
+                        storage={{
+                          hostName: target().name,
+                          calls: storageCalls,
+                          onOpenAgent: (agentId) => {
+                            serverSettings.setOpen(false);
+                            setMobilePane("conversation");
+                            void select(agentId);
+                          },
+                          onShowMessage: (agentId, messageId) => {
+                            serverSettings.setOpen(false);
+                            void openMessage(agentId, messageId);
+                          },
+                        }}
+                        // Every member lists; the host deletes only for an owner or admin.
+                        hostedSites={
+                          workspace.state.capabilities.includes(HOSTED_SITES_CAPABILITY)
+                            ? { api: hostedSiteCalls, onOpenSite: (url) => void openWebLink(url) }
+                            : undefined
+                        }
+                        providers={providerSettings()}
+                        hostUpdate={{ calls: hostUpdateCalls }}
+                        hostTimezone={{ calls: hostTimezoneCalls }}
+                        hostMemoryLimit={{ calls: hostMemoryLimitCalls }}
+                        hostPromptCacheTtl={{ calls: hostPromptCacheTtlCalls }}
+                        agentAccess={{ calls: hostAgentAccessCalls, listAgents: () => workspace.runtime.listAgents() }}
+                        browserProfiles={browserProfileSettings()}
+                        // Any member imports into a host with `agent-import-v1`.
+                        agentImport={
+                          workspace.state.capabilities.includes(AGENT_IMPORT_CAPABILITY)
+                            ? {
+                                calls: agentImportCalls,
+                                onOpenAgent: (agentId) => {
+                                  serverSettings.setOpen(false);
+                                  setMobilePane("conversation");
+                                  void select(agentId);
+                                },
+                                onClose: () => serverSettings.setOpen(false),
+                              }
+                            : undefined
+                        }
                       />
                     )}
                   </Show>
-                }
-              >
-                {(target) => (
-                  <Switch
-                    fallback={
-                      <Loading>
-                        <AgentUsagePanel
-                          port={usageCalls}
-                          serverId={target().id}
-                          hostName={target().name}
-                          onBack={closeHostPage}
-                        />
-                      </Loading>
-                    }
-                  >
-                    <Match when={page() === "schedule"}>
-                      <Loading>
-                        <ScheduleView
-                          serverId={target().id}
-                          hostName={target().name}
-                          onBack={closeHostPage}
-                          source={scheduleSource}
-                          agents={workspace.profiles()}
-                          channels={channels.state.channels}
-                          channelsSupported={channels.supported()}
-                          onOpenAgent={(agentId) => {
-                            setMobilePane("conversation");
-                            void select(agentId);
-                          }}
-                          onOpenRoutine={openRoutine}
-                          onCreateRoutine={createRoutine}
-                        />
-                      </Loading>
-                    </Match>
-                  </Switch>
-                )}
-              </Show>
-            }
-            left={
-              <>
-                <Show when={layout.serverRailVisible()}>
-                  <ServerRail
-                    servers={servers()}
-                    onSelect={selectServer}
-                    onReorder={workspace.reorderHosts}
-                    onAdd={() => hostedServers.openAddServer("server_rail")}
-                    addCreatesServer={hostedServers.available()}
-                    {...serverActionCallbacks}
+                  <LeaveServerDialog
+                    server={leaveServer()}
+                    removeOwned={leaveRequest()?.removeOwned ?? false}
+                    onClose={() => setLeaveRequest(null)}
+                    onLeave={leaveHost}
+                    restoreFocusTarget={leaveRequest()?.trigger}
                   />
-                </Show>
-                <Sidebar
-                  agentsConnecting={!noHost() && !workspace.state.agentsLoaded}
-                  channels={channelsListed() ? channels.state.channels.filter((channel) => !channel.archived) : []}
-                  deletedChannels={
-                    channelsListed() ? channels.state.channels.filter((channel) => channel.archived) : []
-                  }
-                  activeChannelId={tasksOpen() ? null : channels.state.selectedId}
-                  onSelectChannel={openChannel}
-                  onEditChannel={(id) => openChannel(id, true)}
-                  onDeleteChannel={channels.deletionSupported() ? channels.remove : undefined}
-                  onRestoreChannel={channels.deletionSupported() ? channels.restore : undefined}
-                  showingArchivedChannels={channelsListed() && channels.state.archived}
-                  onToggleArchivedChannels={channelsListed() ? channels.toggleArchived : undefined}
-                  onCreateChannel={channelsListed() ? channels.create : undefined}
-                  onMarkAllRead={
-                    workspace.state.status === "online"
-                      ? () => {
-                          void workspace.markAllRead().catch(() =>
-                            actionToast.error(t("chat.unread.markReadFailed"), {
-                              report: { operation: "other", source: "action", cause_code: "unknown" },
-                            }),
-                          );
-                          if (channelsSupported()) void channels.markAllRead();
-                        }
-                      : undefined
-                  }
-                  // The browser client does not know the unread counts of agent chats it has not opened.
-                  hasUnread
-                  view={layout.sidebarView()}
-                  serverName={workspace.state.host?.name ?? "OpenBot"}
-                  serverUpdate={(() => {
-                    const id = server()?.id;
-                    const badge = id ? serverUpdateBadge(id) : null;
-                    return id && badge ? { ...badge, onOpen: () => void showServerUpdate(id) } : undefined;
-                  })()}
-                  serverMenu={{
-                    servers: servers(),
-                    view: layout.serverView(),
-                    onViewChange: layout.setServerView,
-                    onSelect: selectServer,
-                    onAdd: () => hostedServers.openAddServer("server_rail"),
-                    addCreatesServer: hostedServers.available(),
-                    ...serverActionCallbacks,
-                  }}
-                  agents={workspace.profiles()}
-                  activeAgentId={tasksOpen() || channelOpen() ? "" : (workspace.state.selectedId ?? "")}
-                  people={[]}
-                  directThreads={[]}
-                  activeDirectMemberId={null}
-                  agentStates={sidebarAgentStates()}
-                  agentMoods={sidebarAgentMoods()}
-                  layout={workspace.state.sidebarLayout}
-                  layoutMutable={
-                    workspace.state.status === "online" && workspace.state.capabilities.includes("sidebar-layout")
-                  }
-                  collapsedSectionIds={workspace.preferences.collapsedSidebarSectionIds()}
-                  onMutateLayout={workspace.mutateSidebarLayout}
-                  sectionDuplicateSupported={
-                    workspace.state.status === "online" &&
-                    workspace.state.capabilities.includes("agent-duplication") &&
-                    workspace.state.capabilities.includes("sidebar-layout")
-                  }
-                  duplicatingSectionIds={workspace.duplicatingSectionIds()}
-                  onDuplicateSection={workspace.duplicateSection}
-                  onToggleSection={workspace.preferences.toggleSidebarSection}
-                  pinnedItems={workspace.preferences.pinnedSidebarItems()}
-                  peopleOrder={[]}
-                  onPin={workspace.preferences.pinSidebarItem}
-                  onUnpin={workspace.preferences.unpinSidebarItem}
-                  onReorderPinned={workspace.preferences.reorderPinnedSidebarItems}
-                  onReorderPeople={() => {}}
-                  onSelectAgent={(id) => {
-                    setMobilePane("conversation");
-                    void select(id);
-                  }}
-                  onSelectPerson={() => {}}
-                  onCreateAgent={startCreate}
-                  createSupported={createSupported()}
-                  onEditAgent={(id) => {
-                    setMobilePane("conversation");
-                    void select(id);
-                    setSettingsRequest({ agentId: id, nonce: Date.now() });
-                  }}
-                  duplicateSupported={
-                    workspace.state.status === "online" && workspace.state.capabilities.includes("agent-duplication")
-                  }
-                  duplicatingAgentIds={new Set(workspace.state.duplicatingAgentIds)}
-                  onDuplicateAgent={workspace.duplicateAgent}
-                  deleteSupported={
-                    workspace.state.status === "online" && canAdministerServer(workspace.state.host?.role)
-                  }
-                  marketplaceSupported={workspace.state.status === "online"}
-                  onDeleteAgent={workspace.deleteAgent}
-                  userHiddenAgents={workspace.state.userHiddenAgents}
-                  onHideAgent={hideSupported() ? (agentId) => setAgentHidden(agentId, true) : undefined}
-                  onRestoreAgent={hideSupported() ? (agentId) => setAgentHidden(agentId, false) : undefined}
-                  compact={compact()}
-                  onExpand={layout.expandSidebar}
-                  onOpenSearch={() => setSearchOpen(true)}
-                  onOpenMarketplace={() => setMarketplaceOpen(true)}
-                  footer={
-                    <Show when={!communityCard.dismissed()}>
-                      <SidebarCommunityCard
-                        onJoinDiscord={() => void openWebDestination("discord")}
-                        onFollowX={() => void openWebDestination("x")}
-                        onDismiss={communityCard.dismiss}
+                  <RestartServerDialog
+                    server={restartServer()}
+                    servers={servers()}
+                    onClose={() => setRestartRequest(null)}
+                    onRestart={restartHost}
+                    restoreFocusTarget={restartRequest()?.trigger}
+                  />
+                  <BillingDialog
+                    open={billingOpen()}
+                    onOpenChange={setBillingOpen}
+                    store={billing}
+                    hostedServers={billingHostedServers}
+                    license={
+                      <LicenseSection
+                        store={license}
+                        onManagePayment={() => void billing.openPortal({ flow: "manage" })}
+                        onContactUs={licenseContactUs(() => window.location.assign(HOSTED_SERVER_CONTACT_URL))}
                       />
-                    </Show>
-                  }
-                  emptyAction={
-                    firstAgent()
-                      ? {
-                          label: t("sidebar.empty.firstAgent"),
-                          avatarSeed: agentAvatar().avatarSeed,
-                          avatarHue: agentAvatar().avatarHue,
-                          onSelect: startCreate,
-                        }
-                      : undefined
-                  }
-                />
-                <WebMobileNavigation activePane={mobilePane()} routines={routinesView()} onChange={setMobilePane} />
-              </>
-            }
-            after={
-              <>
-                <ServerUpdateDialogHost hosts={workspace.hostViews()} />
-                <HostedServerUpsell
-                  accountId={props.accountId}
-                  canOffer={
-                    hostedServers.available() &&
-                    hostedServers.loaded() &&
-                    !hostedServers.ownsHostedServer() &&
-                    server()?.role === "owner" &&
-                    server()?.hosted !== true
-                  }
-                  serverId={server()?.id ?? ""}
-                  host={{ name: server()?.name ?? "" }}
-                  busy={(agentId) => Boolean(workspace.state.conversations[agentId]?.page?.activeTurnId)}
-                  openPlans={() => hostedServers.openAddServer("upsell")}
-                  track={(action, entryPoint) =>
-                    desktopAnalytics.track("hosted_server_upsell", { action, entry_point: entryPoint })
-                  }
-                />
-                <AddServerOverlay
-                  open={hostedServers.addServer() !== null}
-                  entryPoint={hostedServers.addServer()?.entryPoint}
-                  calls={hostedServers.calls}
-                  servers={servers()}
-                  onRefreshServers={workspace.retryHosts}
-                  resume={hostedServers.addServer()?.resume}
-                  onClose={hostedServers.closeAddServer}
-                  onOpenServer={(serverId) => {
-                    hostedServers.closeAddServer();
-                    selectServer(serverId);
-                  }}
-                  onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
-                  onJoinWithInvite={() => {
-                    hostedServers.closeAddServer();
-                    setJoinOpen(true);
-                  }}
-                  onManageServers={() => setBillingOpen(true)}
-                />
-                <JoinServerOverlay
-                  open={joinOpen()}
-                  inviteUrl={props.inviteUrl ?? ""}
-                  accountEmail={props.accountEmail ?? ""}
-                  onClose={() => {
-                    setJoinOpen(false);
-                    props.onInviteClose?.();
-                  }}
-                  onPreview={({ inviteUrl }) => workspace.runtime.previewInvite(inviteUrl)}
-                  onJoin={({ inviteUrl }) => workspace.joinInvite(inviteUrl)}
-                />
-                <MarketplaceOverlay
-                  open={marketplaceOpen()}
-                  onOpenChange={setMarketplaceOpen}
-                  calls={marketplaceCalls}
-                  connectors={connectors}
-                  server={server()}
-                  agents={workspace.state.agents}
-                  activeAgentId={workspace.state.selectedId ?? ""}
-                  composerAvailable={status().phase === "ready" && !agentFormOpen()}
-                  onOpenAgent={(agentId) => {
-                    setMobilePane("conversation");
-                    if (agentId !== workspace.state.selectedId) void select(agentId);
-                    else {
-                      // The agent is already loaded; only what covers its conversation closes.
-                      setCreating(false);
-                      showAgents();
-                      channels.close();
                     }
-                  }}
-                  onAgentInstalled={async (agent) => {
-                    setMarketplaceOpen(false);
-                    await openAddedAgent(agent);
-                  }}
-                  pluginSlug={suggestedApp()?.appId ?? props.pluginSlug}
-                  pluginConnect={suggestedApp()?.connect ?? false}
-                  onPluginSlugConsumed={() => {
-                    if (suggestedApp()) setSuggestedApp(null);
-                    else props.onPluginSlugConsumed?.();
-                  }}
-                />
-                <Show when={accountSettingsLoaded()}>
+                  />
+                  <ChannelCreateOverlay />
+                  <GlobalSearchOverlay
+                    open={searchOpen()}
+                    agents={workspace.profiles()}
+                    channels={channels.supported() ? globalSearchChannels(channels.state.channels) : undefined}
+                    onSearchMessages={searchAllMessages}
+                    onOpenChange={setSearchOpen}
+                    onSelectAgent={(id) => {
+                      setMobilePane("conversation");
+                      void select(id);
+                    }}
+                    onSelectChannel={openChannel}
+                    onSelectMessage={(agentId, messageId) => void openMessage(agentId, messageId)}
+                  />
+                </>
+              }
+            >
+              <Show when={monitorView()}>
+                <MonitorPane />
+              </Show>
+              <Show when={tasksOpen() ? server() : undefined}>
+                {(target) => (
                   <Loading>
-                    <WebAccountSettings
-                      open={accountSettingsOpen() && settingsPlacement("personal") !== undefined}
-                      page={settingsPlacement("personal")}
-                      onOpenChange={setAccountSettingsOpen}
-                      account={account()}
-                      calls={accountCalls}
-                      language={props.language}
-                      onChangeLanguage={props.onChangeLanguage}
-                      appearance={props.appearance}
-                      onChangeAppearance={props.onChangeAppearance}
-                      onOpenBilling={() => setBillingOpen(true)}
-                      onSignOut={signOut}
+                    <TasksView
+                      serverId={target().id}
+                      hostName={target().name}
+                      onBack={closeHostPage}
+                      agentsOpen={!tasksAgentsHidden()}
+                      onToggleAgents={() => setTasksAgentsOpen(tasksAgentsHidden())}
+                      source={tasksSource}
+                      agents={workspace.profiles()}
+                      onOpenLink={(url) => void openWebLink(url)}
+                      onAttachmentAction={(attachment) =>
+                        void runtime.agent.openAttachment({ attachmentId: attachment.id, action: "download" })
+                      }
+                      approvals={workspace.state.approvals}
+                      onRespondApproval={async (approval, decision) => {
+                        await workspace.approve({ requestId: approval.requestId, decision });
+                        return true;
+                      }}
                     />
                   </Loading>
-                </Show>
-                <SharedAgentInstallOverlay
-                  templateId={props.agentTemplateId}
-                  server={server()}
-                  calls={agentTemplateCalls}
-                  onOpenLink={(url) => void openWebLink(url)}
-                  onClose={() => props.onAgentTemplateClose?.()}
-                  onInstalled={openAddedAgent}
-                />
-                <Show when={serverSettingsLoaded() && server()}>
-                  {(target) => (
-                    <ServerSettingsOverlay
-                      open={serverSettings.state.open && settingsPlacement("server") !== undefined}
-                      page={settingsPlacement("server")}
-                      restoreFocusTarget={serverSettings.restoreTarget()}
-                      initialSection={serverSettingsSection()}
-                      platform="darwin"
-                      remoteDesktopSupported={false}
-                      server={target()}
-                      hostStatus={null}
-                      connectors={connectors}
-                      members={serverSettings.state.members}
-                      invites={serverSettings.state.invites}
-                      loading={serverSettings.state.loading}
-                      loadError={serverSettings.state.error}
-                      onRetry={serverSettings.refresh}
-                      onSaveIdentity={serverSettings.saveIdentity}
-                      onSetMuted={async (muted) => setMuted(target().id, muted)}
-                      onSetNotificationLevel={async (level) => setNotificationLevel(target().id, level)}
-                      // Publication and screen recording belong to the computer that runs the server.
-                      onSetPublished={unavailable}
-                      onCreateInvite={serverSettings.createInvite}
-                      license={licenseCalls}
-                      onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
-                      onUpdateMember={serverSettings.updateMember}
-                      onRemoveMember={serverSettings.removeMember}
-                      onRevokeInvite={serverSettings.revokeInvite}
-                      onOpenScreenRecordingSettings={unavailable}
-                      onRecheckScreenRecording={unavailable}
-                      mcpServers={serverSettings.state.mcp}
-                      mcpLoadError={serverSettings.state.mcpError}
-                      onMcpSectionShown={() => {
-                        void serverSettings.refreshMcp();
-                        if (mcpSignInSupported()) void serverSettings.refreshMcpSignIns().catch(() => undefined);
+                )}
+              </Show>
+              <Show when={middleCovered() ? undefined : serverOnboarding()}>
+                {(settings) => (
+                  <Loading>
+                    <ServerOnboarding
+                      serverName={server()?.name ?? ""}
+                      setup={hostSetupProviderProps(settings())}
+                      onContinue={(provider, model) => {
+                        const id = server()?.id;
+                        if (id)
+                          setServerSetupChoices((current) => ({
+                            ...current,
+                            [id]: { preferredProvider: provider, preferredModel: model },
+                          }));
                       }}
-                      onRetryMcpServers={() => void serverSettings.refreshMcp()}
-                      onSaveMcpServer={async (config) => {
-                        await serverSettings.saveMcpServer(config);
-                        // A saved row can name an address the host is already signed in to.
-                        if (mcpSignInSupported()) void serverSettings.refreshMcpSignIns().catch(() => undefined);
-                      }}
-                      onRemoveMcpServer={serverSettings.removeMcpServer}
-                      onSetMcpServerEnabled={serverSettings.setMcpServerEnabled}
-                      onTestMcpServer={serverSettings.testMcpServer}
-                      // A host with `sign-in-relay-v1` signs in through this browser and a pasted address.
-                      // An older host opens the page in its own browser, and the live view shows it here.
-                      mcpSignIn={
-                        mcpSignInSupported()
-                          ? {
-                              states: serverSettings.state.mcpSignIns,
-                              remote: {
-                                hostName: target().name,
-                                runtime: workspace.runtime.browser,
-                                clipboard: workspace.state.capabilities.includes("browser-view-clipboard"),
-                                pages: serverSettings.state.mcpSignInPages,
-                                relay: workspace.state.capabilities.includes(SIGN_IN_RELAY_CAPABILITY)
-                                  ? {
-                                      pages: serverSettings.state.mcpSignInRelays,
-                                      paste: serverSettings.pasteMcpSignInRelay,
-                                      open: serverSettings.openMcpSignInRelay,
-                                    }
-                                  : undefined,
-                              },
-                              start: serverSettings.signInMcpServer,
-                              cancel: serverSettings.cancelMcpSignIn,
-                              signOut: serverSettings.signOutMcpServer,
-                              app: workspace.state.capabilities.includes("mcp-sign-in-app-v1")
-                                ? {
-                                    load: serverSettings.mcpSignInApp,
-                                    save: serverSettings.saveMcpSignInApp,
-                                    remove: serverSettings.removeMcpSignInApp,
-                                  }
-                                : undefined,
-                            }
-                          : undefined
-                      }
-                      storage={{
-                        hostName: target().name,
-                        calls: storageCalls,
-                        onOpenAgent: (agentId) => {
-                          serverSettings.setOpen(false);
-                          setMobilePane("conversation");
-                          void select(agentId);
-                        },
-                        onShowMessage: (agentId, messageId) => {
-                          serverSettings.setOpen(false);
-                          void openMessage(agentId, messageId);
-                        },
-                      }}
-                      // Every member lists; the host deletes only for an owner or admin.
-                      hostedSites={
-                        workspace.state.capabilities.includes(HOSTED_SITES_CAPABILITY)
-                          ? { api: hostedSiteCalls, onOpenSite: (url) => void openWebLink(url) }
-                          : undefined
-                      }
-                      providers={providerSettings()}
-                      hostUpdate={{ calls: hostUpdateCalls }}
-                      hostTimezone={{ calls: hostTimezoneCalls }}
-                      hostMemoryLimit={{ calls: hostMemoryLimitCalls }}
-                      hostPromptCacheTtl={{ calls: hostPromptCacheTtlCalls }}
-                      agentAccess={{ calls: hostAgentAccessCalls, listAgents: () => workspace.runtime.listAgents() }}
-                      browserProfiles={browserProfileSettings()}
-                      // Any member imports into a host with `agent-import-v1`.
-                      agentImport={
-                        workspace.state.capabilities.includes(AGENT_IMPORT_CAPABILITY)
-                          ? {
-                              calls: agentImportCalls,
-                              onOpenAgent: (agentId) => {
-                                serverSettings.setOpen(false);
-                                setMobilePane("conversation");
-                                void select(agentId);
-                              },
-                              onClose: () => serverSettings.setOpen(false),
+                      onClose={
+                        returnHostId()
+                          ? () => {
+                              const id = returnHostId();
+                              if (id) selectServer(id);
                             }
                           : undefined
                       }
                     />
+                  </Loading>
+                )}
+              </Show>
+              <Show when={!middleCovered() && agentFormOpen() && !serverOnboarding()}>
+                <WebAgentSettings
+                  runtime={workspace.runtime}
+                  capabilities={workspace.state.capabilities}
+                  first={firstAgent()}
+                  preference={serverSetupChoice()}
+                  customProviders={providerSettings()?.customProviders}
+                  onManageProviders={providerSettings() ? openProviderSettings : undefined}
+                  liveModels={models()}
+                  liveStatus={status()}
+                  // A new form starts empty, with the avatar that the first-agent row showed.
+                  initialDraft={{ ...createFirstAgentDraft(), ...untrack(agentAvatar) }}
+                  onDraftChange={({ avatarSeed, avatarHue }) => setAgentAvatar({ avatarSeed, avatarHue })}
+                  onClose={() => setCreating(false)}
+                  onSaved={async () => {
+                    await workspace.refresh();
+                    setAgentAvatar(newAgentAvatar());
+                    setCreating(false);
+                  }}
+                />
+              </Show>
+              <Show when={!middleCovered() && !agentFormOpen() && channelOpen()}>
+                {/* Keyed by the channel: the view reads its channel once, so another channel opens a new view. */}
+                <Show when={channels.state.selectedId} keyed>
+                  {(channelId) => {
+                    const isOwnSender = (senderId: string) =>
+                      isReaderAuthor(senderId, {
+                        memberId: workspace.state.memberId,
+                        accountUserId: props.accountId,
+                        onOwnComputer: false,
+                      });
+                    const channelView = createChannelConversation({
+                      channelId,
+                      isOwnSender,
+                      connectionReady: () => workspace.state.status === "online",
+                      // The routines of a joined host go through its event API, which the channels port gives.
+                      routines: {
+                        localHost: () => false,
+                        eventsServerId: () => undefined,
+                        routineRecovery: () => false,
+                        webhookTests: () => false,
+                      },
+                      approvals: () => workspace.state.approvals,
+                      takeovers: () => workspace.state.takeovers,
+                    });
+                    return (
+                      <Conversation
+                        runtime={runtime}
+                        channel={channelView.source}
+                        notice={<ChannelErrorNotice />}
+                        connectors={connectors}
+                        agentStatus={workspace.state.status === "online" ? providerAdmin.status() : CONNECTING_STATUS}
+                        agent={undefined}
+                        agents={workspace.profiles()}
+                        mentionAgents={channelView.mentionAgents()}
+                        modelOptions={[]}
+                        messages={channelView.messages()}
+                        unreadCount={channelView.unreadCount()}
+                        firstUnreadMessageId={channelView.firstUnreadMessageId()}
+                        loaded={channelView.loaded()}
+                        hasOlder={channelView.hasOlder()}
+                        unloadedHistory={channelView.unloadedHistory()}
+                        activeTurnId={channelView.activeTurnId()}
+                        skillsMarketplaceOpen={marketplaceOpen()}
+                        mcpSettingsOpen={serverSettings.state.open || marketplaceOpen()}
+                        globalOverlayOpen={
+                          joinOpen() ||
+                          serverSettings.state.open ||
+                          searchOpen() ||
+                          marketplaceOpen() ||
+                          hasVisibleToasts()
+                        }
+                        settingsRequest={channelView.settingsRequest()}
+                        messageFocusRequest={messageFocusRequest()}
+                        queue={undefined}
+                        browserRuntime={workspace.runtime.browser}
+                        browserTabs={workspace.state.browserTabs}
+                        activeBrowserTabId={workspace.state.activeBrowserTabId}
+                        browserVisibilitySuspended={workspace.state.status !== "online" || pageCovered()}
+                        workspaceCovered={pageCovered() || hostOffline()}
+                        browserControlState={workspace.state.browserControlState}
+                        server={server()}
+                        presence={
+                          workspace.state.presence ?? { serverId: server()?.id ?? null, members: [], updatedAt: "" }
+                        }
+                        currentUserEmail={props.accountEmail ?? ""}
+                        isOwnSender={isOwnSender}
+                        browserEnabled={browserEnabled()}
+                        remoteDesktopEnabled={false}
+                        remoteDesktopSessionActive={false}
+                        remoteDesktopVisible={false}
+                        prompt={channelView.prompt()}
+                        promptUiBlock={channelView.promptUiBlock()}
+                        approval={channelView.approval()}
+                        browserTakeover={channelView.browserTakeover()}
+                        onSelectAgent={(id) => {
+                          setMobilePane("conversation");
+                          void select(id);
+                        }}
+                        onUpdateAgent={async (agentId, updates) => {
+                          await updateRemoteAgent(
+                            remoteAgentAdmin,
+                            { agentId, ...updates },
+                            workspace.runtime.updateAgent,
+                          );
+                          await workspace.refresh();
+                        }}
+                        onSetAgentAvatar={async (agentId, image) => {
+                          await workspace.runtime.setAvatar(agentId, image);
+                          await workspace.refresh();
+                        }}
+                        onSendMessage={(text, attachments, replyTo, target, clientMessageId) => {
+                          // A sent request is what a notification later reports, so the browser asks here, from the user's action.
+                          requestWebNotificationPermission();
+                          return channelView.onSendMessage(text, attachments, replyTo, target, clientMessageId);
+                        }}
+                        onMarkRead={channelView.onMarkRead}
+                        onLoadOlder={channelView.onLoadOlder}
+                        onTypingChange={() => {}}
+                        onAnswerPrompt={channelView.onAnswerPrompt}
+                        onRespondToApproval={channelView.onRespondToApproval}
+                        onRespondToBrowserTakeover={channelView.onRespondToBrowserTakeover}
+                        onCancelQueuedMessage={() => {}}
+                        onSteerQueuedMessage={() => {}}
+                        onUpdateQueuedMessage={() => Promise.resolve(false)}
+                        onReorderQueue={() => {}}
+                        onActivateBrowserTab={workspace.activateBrowserTab}
+                        onCloseBrowserTab={(tabId) => workspace.runtime.closeBrowserTab(tabId)}
+                        onOpenRemoteDesktop={unavailable}
+                        onStop={channelView.onStop}
+                      />
+                    );
+                  }}
+                </Show>
+              </Show>
+              <Show when={!agentFormOpen() && !channelOpen() && noHost()}>
+                <WebConnectComputer
+                  loading={workspace.state.hostsLoading}
+                  failed={Boolean(workspace.state.hostsError)}
+                  reference={workspace.state.hostsError?.reference ?? null}
+                  onJoin={() => setJoinOpen(true)}
+                  onCreateServer={
+                    // An account with a hosted server that is not a host yet, such as one that waits for payment,
+                    // must not buy a second one from here.
+                    hostedServers.available() && !hostedServers.ownsHostedServer()
+                      ? () => hostedServers.openAddServer("empty_state")
+                      : undefined
+                  }
+                  onRefresh={() => void workspace.run(workspace.refreshHosts)}
+                />
+              </Show>
+              <Show
+                when={
+                  !middleCovered() &&
+                  !agentFormOpen() &&
+                  !channelOpen() &&
+                  !noHost() &&
+                  !hostOffline() &&
+                  routinesView()
+                }
+              >
+                {/* A host switch starts the canvas again, with that host's webhook relay status. */}
+                <Show when={routineFlowsHost ? workspace.state.host?.hostId : undefined} keyed>
+                  {(_hostId) => (
+                    <Show when={routineFlowsHost}>
+                      {(host) => (
+                        <Loading>
+                          <RoutineFlowsCanvas
+                            host={host()}
+                            agent={conversationAgent()}
+                            agents={workspace.profiles()}
+                            newAgentModels={newAgentModels()}
+                            createAgent={createCanvasAgent}
+                            onCreateRoutine={createCanvasRoutine}
+                          />
+                        </Loading>
+                      )}
+                    </Show>
                   )}
                 </Show>
-                <LeaveServerDialog
-                  server={leaveServer()}
-                  removeOwned={leaveRequest()?.removeOwned ?? false}
-                  onClose={() => setLeaveRequest(null)}
-                  onLeave={leaveHost}
-                  restoreFocusTarget={leaveRequest()?.trigger}
-                />
-                <RestartServerDialog
-                  server={restartServer()}
-                  servers={servers()}
-                  onClose={() => setRestartRequest(null)}
-                  onRestart={restartHost}
-                  restoreFocusTarget={restartRequest()?.trigger}
-                />
-                <BillingDialog
-                  open={billingOpen()}
-                  onOpenChange={setBillingOpen}
-                  store={billing}
-                  hostedServers={billingHostedServers}
-                  license={
-                    <LicenseSection
-                      store={license}
-                      onManagePayment={() => void billing.openPortal({ flow: "manage" })}
-                      onContactUs={licenseContactUs(() => window.location.assign(HOSTED_SERVER_CONTACT_URL))}
-                    />
-                  }
-                />
-                <ChannelCreateOverlay />
-                <GlobalSearchOverlay
-                  open={searchOpen()}
-                  agents={workspace.profiles()}
-                  channels={channels.supported() ? globalSearchChannels(channels.state.channels) : undefined}
-                  onSearchMessages={searchAllMessages}
-                  onOpenChange={setSearchOpen}
-                  onSelectAgent={(id) => {
-                    setMobilePane("conversation");
-                    void select(id);
+              </Show>
+              <Show when={agentChatOpen()}>
+                <Conversation
+                  runtime={runtime}
+                  onOpenMarketplace={() => setMarketplaceOpen(true)}
+                  connectors={connectors}
+                  onOpenMarketplaceApp={(request) => {
+                    setSuggestedApp(request);
+                    setMarketplaceOpen(true);
                   }}
-                  onSelectChannel={openChannel}
-                  onSelectMessage={(agentId, messageId) => void openMessage(agentId, messageId)}
-                />
-              </>
-            }
-          >
-            <Show when={tasksOpen() ? server() : undefined}>
-              {(target) => (
-                <Loading>
-                  <TasksView
-                    serverId={target().id}
-                    hostName={target().name}
-                    onBack={closeHostPage}
-                    agentsOpen={!tasksAgentsHidden()}
-                    onToggleAgents={() => setTasksAgentsOpen(tasksAgentsHidden())}
-                    source={tasksSource}
-                    agents={workspace.profiles()}
-                    onOpenLink={(url) => void openWebLink(url)}
-                    onAttachmentAction={(attachment) =>
-                      void runtime.agent.openAttachment({ attachmentId: attachment.id, action: "download" })
-                    }
-                    approvals={workspace.state.approvals}
-                    onRespondApproval={async (approval, decision) => {
-                      await workspace.approve({ requestId: approval.requestId, decision });
-                      return true;
-                    }}
-                  />
-                </Loading>
-              )}
-            </Show>
-            <Show when={tasksOpen() ? undefined : serverOnboarding()}>
-              {(settings) => (
-                <Loading>
-                  <ServerOnboarding
-                    serverName={server()?.name ?? ""}
-                    setup={hostSetupProviderProps(settings())}
-                    onContinue={(provider, model) => {
-                      const id = server()?.id;
-                      if (id)
-                        setServerSetupChoices((current) => ({
-                          ...current,
-                          [id]: { preferredProvider: provider, preferredModel: model },
-                        }));
-                    }}
-                    onClose={
-                      returnHostId()
-                        ? () => {
-                            const id = returnHostId();
-                            if (id) selectServer(id);
-                          }
-                        : undefined
-                    }
-                  />
-                </Loading>
-              )}
-            </Show>
-            <Show when={!tasksOpen() && agentFormOpen() && !serverOnboarding()}>
-              <WebAgentSettings
-                runtime={workspace.runtime}
-                capabilities={workspace.state.capabilities}
-                first={firstAgent()}
-                preference={serverSetupChoice()}
-                customProviders={providerSettings()?.customProviders}
-                onManageProviders={providerSettings() ? openProviderSettings : undefined}
-                liveModels={models()}
-                liveStatus={status()}
-                // A new form starts empty, with the avatar that the first-agent row showed.
-                initialDraft={{ ...createFirstAgentDraft(), ...untrack(agentAvatar) }}
-                onDraftChange={({ avatarSeed, avatarHue }) => setAgentAvatar({ avatarSeed, avatarHue })}
-                onClose={() => setCreating(false)}
-                onSaved={async () => {
-                  await workspace.refresh();
-                  setAgentAvatar(newAgentAvatar());
-                  setCreating(false);
-                }}
-              />
-            </Show>
-            <Show when={!tasksOpen() && !agentFormOpen() && channelOpen()}>
-              {/* Keyed by the channel: the view reads its channel once, so another channel opens a new view. */}
-              <Show when={channels.state.selectedId} keyed>
-                {(channelId) => {
-                  const isOwnSender = (senderId: string) =>
+                  agentStatus={
+                    workspace.state.status === "online" && workspace.conversation()?.page
+                      ? providerAdmin.status()
+                      : CONNECTING_STATUS
+                  }
+                  accountUsage={accountUsage()}
+                  // As in the desktop app on a joined host: an owner or admin downloads the host's
+                  // providers, and Connect runs the provider's route for this tab.
+                  providerRuntimeStatuses={providerSettings()?.providerRuntimeStatuses}
+                  customProviders={providerSettings()?.customProviders}
+                  onDownloadProvider={providerSettings()?.onDownloadProvider}
+                  onCancelProviderDownload={providerSettings()?.onCancelProviderDownload}
+                  onConnectProvider={providerSettings() ? connectFromComposer : undefined}
+                  canConnectProvider={(provider) =>
+                    (providerSettings()?.connection?.connectKind(provider) ?? null) !== null
+                  }
+                  onSignInProvider={composerSignIn() ? connectFromComposer : undefined}
+                  onManageProviders={providerSettings() ? openProviderSettings : undefined}
+                  onManageBrowserProfiles={browserProfiles() ? openBrowserProfileSettings : undefined}
+                  agent={conversationAgent()}
+                  agents={workspace.profiles()}
+                  modelOptions={models()}
+                  messages={view.messages}
+                  messageReferences={view.messageReferences()}
+                  missingMessageReferences={view.missingMessageReferences()}
+                  unreadCount={readState()?.unreadCount ?? 0}
+                  firstUnreadMessageId={readState()?.firstUnreadMessageId ?? null}
+                  loaded={Boolean(workspace.conversation()?.page)}
+                  hasOlder={workspace.conversation()?.page?.pageInfo.hasOlder}
+                  unloadedHistory={unloadedHistory(workspace.conversation()?.page?.pageInfo)}
+                  loadingOlder={workspace.conversation()?.loading}
+                  activeTurnId={workspace.conversation()?.page?.activeTurnId}
+                  activityDetail={
+                    workspace.state.selectedId
+                      ? workspace.state.progress[workspace.state.selectedId]?.detail
+                      : undefined
+                  }
+                  turnStepLines={workspace.stepLines()}
+                  skillsMarketplaceOpen={marketplaceOpen()}
+                  mcpSettingsOpen={serverSettings.state.open || marketplaceOpen()}
+                  globalOverlayOpen={
+                    joinOpen() || serverSettings.state.open || searchOpen() || marketplaceOpen() || hasVisibleToasts()
+                  }
+                  settingsRequest={settingsRequest()}
+                  messageFocusRequest={messageFocusRequest()}
+                  queue={workspace.state.selectedId ? workspace.state.queues[workspace.state.selectedId] : undefined}
+                  browserRuntime={workspace.runtime.browser}
+                  browserTabs={workspace.state.browserTabs}
+                  activeBrowserTabId={workspace.state.activeBrowserTabId}
+                  browserVisibilitySuspended={workspace.state.status !== "online" || pageCovered()}
+                  workspaceCovered={pageCovered() || hostOffline()}
+                  browserControlState={workspace.state.browserControlState}
+                  server={server()}
+                  presence={workspace.state.presence ?? { serverId: server()?.id ?? null, members: [], updatedAt: "" }}
+                  currentUserEmail={props.accountEmail ?? ""}
+                  isOwnSender={(senderId) =>
                     isReaderAuthor(senderId, {
                       memberId: workspace.state.memberId,
                       accountUserId: props.accountId,
                       onOwnComputer: false,
-                    });
-                  const channelView = createChannelConversation({
-                    channelId,
-                    isOwnSender,
-                    connectionReady: () => workspace.state.status === "online",
-                    // The routines of a joined host go through its event API, which the channels port gives.
-                    routines: {
-                      localHost: () => false,
-                      eventsServerId: () => undefined,
-                      routineRecovery: () => false,
-                      webhookTests: () => false,
-                    },
-                    approvals: () => workspace.state.approvals,
-                    takeovers: () => workspace.state.takeovers,
-                  });
-                  return (
-                    <Conversation
-                      runtime={runtime}
-                      channel={channelView.source}
-                      notice={<ChannelErrorNotice />}
-                      connectors={connectors}
-                      agentStatus={workspace.state.status === "online" ? providerAdmin.status() : CONNECTING_STATUS}
-                      agent={undefined}
-                      agents={workspace.profiles()}
-                      mentionAgents={channelView.mentionAgents()}
-                      modelOptions={[]}
-                      messages={channelView.messages()}
-                      unreadCount={channelView.unreadCount()}
-                      firstUnreadMessageId={channelView.firstUnreadMessageId()}
-                      loaded={channelView.loaded()}
-                      hasOlder={channelView.hasOlder()}
-                      unloadedHistory={channelView.unloadedHistory()}
-                      activeTurnId={channelView.activeTurnId()}
-                      skillsMarketplaceOpen={marketplaceOpen()}
-                      mcpSettingsOpen={serverSettings.state.open || marketplaceOpen()}
-                      globalOverlayOpen={
-                        joinOpen() ||
-                        serverSettings.state.open ||
-                        searchOpen() ||
-                        marketplaceOpen() ||
-                        hasVisibleToasts()
-                      }
-                      settingsRequest={channelView.settingsRequest()}
-                      messageFocusRequest={messageFocusRequest()}
-                      queue={undefined}
-                      browserRuntime={workspace.runtime.browser}
-                      browserTabs={workspace.state.browserTabs}
-                      activeBrowserTabId={workspace.state.activeBrowserTabId}
-                      browserVisibilitySuspended={workspace.state.status !== "online" || pageCovered()}
-                      workspaceCovered={pageCovered() || hostOffline()}
-                      browserControlState={workspace.state.browserControlState}
-                      server={server()}
-                      presence={
-                        workspace.state.presence ?? { serverId: server()?.id ?? null, members: [], updatedAt: "" }
-                      }
-                      currentUserEmail={props.accountEmail ?? ""}
-                      isOwnSender={isOwnSender}
-                      browserEnabled={browserEnabled()}
-                      remoteDesktopEnabled={false}
-                      remoteDesktopSessionActive={false}
-                      remoteDesktopVisible={false}
-                      prompt={channelView.prompt()}
-                      promptUiBlock={channelView.promptUiBlock()}
-                      approval={channelView.approval()}
-                      browserTakeover={channelView.browserTakeover()}
-                      onSelectAgent={(id) => {
-                        setMobilePane("conversation");
-                        void select(id);
-                      }}
-                      onUpdateAgent={async (agentId, updates) => {
-                        await updateRemoteAgent(
-                          remoteAgentAdmin,
-                          { agentId, ...updates },
-                          workspace.runtime.updateAgent,
-                        );
-                        await workspace.refresh();
-                      }}
-                      onSetAgentAvatar={async (agentId, image) => {
-                        await workspace.runtime.setAvatar(agentId, image);
-                        await workspace.refresh();
-                      }}
-                      onSendMessage={(text, attachments, replyTo, target, clientMessageId) => {
-                        // A sent request is what a notification later reports, so the browser asks here, from the user's action.
-                        requestWebNotificationPermission();
-                        return channelView.onSendMessage(text, attachments, replyTo, target, clientMessageId);
-                      }}
-                      onMarkRead={channelView.onMarkRead}
-                      onLoadOlder={channelView.onLoadOlder}
-                      onTypingChange={() => {}}
-                      onAnswerPrompt={channelView.onAnswerPrompt}
-                      onRespondToApproval={channelView.onRespondToApproval}
-                      onRespondToBrowserTakeover={channelView.onRespondToBrowserTakeover}
-                      onCancelQueuedMessage={() => {}}
-                      onSteerQueuedMessage={() => {}}
-                      onUpdateQueuedMessage={() => Promise.resolve(false)}
-                      onReorderQueue={() => {}}
-                      onActivateBrowserTab={workspace.activateBrowserTab}
-                      onCloseBrowserTab={(tabId) => workspace.runtime.closeBrowserTab(tabId)}
-                      onOpenRemoteDesktop={unavailable}
-                      onStop={channelView.onStop}
-                    />
-                  );
-                }}
+                    })
+                  }
+                  browserEnabled={browserEnabled()}
+                  remoteDesktopEnabled={false}
+                  remoteDesktopSessionActive={false}
+                  remoteDesktopVisible={false}
+                  prompt={view.prompt()}
+                  promptUiBlock={view.promptUiBlock()}
+                  approval={view.approval()}
+                  browserTakeover={browserTakeover()}
+                  onSelectAgent={(id) => {
+                    setMobilePane("conversation");
+                    void select(id);
+                  }}
+                  agentWaits={agentWaits()}
+                  onUpdateAgent={async (agentId, updates) => {
+                    await updateRemoteAgent(remoteAgentAdmin, { agentId, ...updates }, workspace.runtime.updateAgent);
+                    await workspace.refresh();
+                  }}
+                  onSetAgentAvatar={async (agentId, image) => {
+                    await workspace.runtime.setAvatar(agentId, image);
+                    await workspace.refresh();
+                  }}
+                  onSendMessage={async (text, attachments, replyTo, target, clientMessageId) => {
+                    // A sent prompt is what a notification later reports, so the browser asks here, from the user's action.
+                    requestWebNotificationPermission();
+                    const id = target?.agentId ?? workspace.state.selectedId;
+                    // A send for a host the user has left would reach the one they opened instead.
+                    if (!id || (target && target.serverId !== server()?.id))
+                      return { error: t("webClient.error.checkConversation") };
+                    return workspace.send(id, text, attachments, replyTo, clientMessageId);
+                  }}
+                  onMarkRead={workspace.markRead}
+                  onLoadOlder={() => void workspace.older()}
+                  onLoadLatest={workspace.refresh}
+                  onSearchMessages={async (query) => {
+                    const id = workspace.state.selectedId;
+                    if (!id) return { messageIds: [], total: 0 };
+                    const result = await workspace.runtime.search(id, query);
+                    return { messageIds: result.results.map((item) => item.message.id), total: result.total };
+                  }}
+                  onOpenSearchMessage={workspace.openSearchMessage}
+                  onTypingChange={setTyping}
+                  onAnswerPrompt={view.answerPrompt}
+                  onPromptResolutionPresented={(_agentId, turnId, requestId) =>
+                    view.presentPromptResolution(turnId, requestId)
+                  }
+                  onRespondToApproval={view.respondToApproval}
+                  onAlwaysAllowApproval={view.alwaysAllowApproval()}
+                  agentAutoApproves={remoteAgentAdmin.autoApproves()}
+                  remoteBackupModelsLoaded={remoteAgentAdmin.backupModels() !== undefined}
+                  remoteTaskLimitLoaded={remoteAgentAdmin.taskLimit() !== undefined}
+                  onUpdateAgentPermissions={remoteAgentAdmin.settings() ? remoteAgentAdmin.update : undefined}
+                  onClearAgentContext={clearSelectedAgentContext()}
+                  onRespondToBrowserTakeover={(decision) => workspace.respondToBrowserTakeover(decision)}
+                  onCancelQueuedMessage={workspace.cancelQueued}
+                  onSteerQueuedMessage={workspace.steerQueued}
+                  onUpdateQueuedMessage={workspace.updateQueued}
+                  onReorderQueue={workspace.reorderQueue}
+                  onActivateBrowserTab={workspace.activateBrowserTab}
+                  onCloseBrowserTab={(tabId) => workspace.runtime.closeBrowserTab(tabId)}
+                  onOpenRemoteDesktop={unavailable}
+                  onStop={() => {
+                    const page = workspace.conversation()?.page;
+                    if (page?.activeTurnId)
+                      void workspace.run(() => workspace.runtime.stop(page.agentId, page.activeTurnId ?? ""));
+                  }}
+                />
+                <ProviderSignInDialogs api={providerSettings()?.connection} opener="composer" />
               </Show>
-            </Show>
-            <Show when={!agentFormOpen() && !channelOpen() && noHost()}>
-              <WebConnectComputer
-                loading={workspace.state.hostsLoading}
-                failed={Boolean(workspace.state.hostsError)}
-                reference={workspace.state.hostsError?.reference ?? null}
-                onJoin={() => setJoinOpen(true)}
-                onCreateServer={
-                  // An account with a hosted server that is not a host yet, such as one that waits for payment,
-                  // must not buy a second one from here.
-                  hostedServers.available() && !hostedServers.ownsHostedServer()
-                    ? () => hostedServers.openAddServer("empty_state")
-                    : undefined
-                }
-                onRefresh={() => void workspace.run(workspace.refreshHosts)}
-              />
-            </Show>
-            <Show
-              when={!tasksOpen() && !agentFormOpen() && !channelOpen() && !noHost() && !hostOffline() && routinesView()}
-            >
-              {/* A host switch starts the canvas again, with that host's webhook relay status. */}
-              <Show when={routineFlowsHost ? workspace.state.host?.hostId : undefined} keyed>
-                {(_hostId) => (
-                  <Show when={routineFlowsHost}>
-                    {(host) => (
-                      <Loading>
-                        <RoutineFlowsCanvas
-                          host={host()}
-                          agent={conversationAgent()}
-                          agents={workspace.profiles()}
-                          newAgentModels={newAgentModels()}
-                          createAgent={createCanvasAgent}
-                          onCreateRoutine={createCanvasRoutine}
-                        />
-                      </Loading>
-                    )}
-                  </Show>
-                )}
-              </Show>
-            </Show>
-            <Show when={agentChatOpen()}>
-              <Conversation
-                runtime={runtime}
-                onOpenMarketplace={() => setMarketplaceOpen(true)}
-                connectors={connectors}
-                onOpenMarketplaceApp={(request) => {
-                  setSuggestedApp(request);
-                  setMarketplaceOpen(true);
-                }}
-                agentStatus={
-                  workspace.state.status === "online" && workspace.conversation()?.page
-                    ? providerAdmin.status()
-                    : CONNECTING_STATUS
-                }
-                accountUsage={accountUsage()}
-                // As in the desktop app on a joined host: an owner or admin downloads the host's
-                // providers, and Connect runs the provider's route for this tab.
-                providerRuntimeStatuses={providerSettings()?.providerRuntimeStatuses}
-                customProviders={providerSettings()?.customProviders}
-                onDownloadProvider={providerSettings()?.onDownloadProvider}
-                onCancelProviderDownload={providerSettings()?.onCancelProviderDownload}
-                onConnectProvider={providerSettings() ? connectFromComposer : undefined}
-                canConnectProvider={(provider) =>
-                  (providerSettings()?.connection?.connectKind(provider) ?? null) !== null
-                }
-                onSignInProvider={composerSignIn() ? connectFromComposer : undefined}
-                onManageProviders={providerSettings() ? openProviderSettings : undefined}
-                onManageBrowserProfiles={browserProfiles() ? openBrowserProfileSettings : undefined}
-                agent={conversationAgent()}
-                agents={workspace.profiles()}
-                modelOptions={models()}
-                messages={view.messages}
-                messageReferences={view.messageReferences()}
-                missingMessageReferences={view.missingMessageReferences()}
-                unreadCount={readState()?.unreadCount ?? 0}
-                firstUnreadMessageId={readState()?.firstUnreadMessageId ?? null}
-                loaded={Boolean(workspace.conversation()?.page)}
-                hasOlder={workspace.conversation()?.page?.pageInfo.hasOlder}
-                unloadedHistory={unloadedHistory(workspace.conversation()?.page?.pageInfo)}
-                loadingOlder={workspace.conversation()?.loading}
-                activeTurnId={workspace.conversation()?.page?.activeTurnId}
-                activityDetail={
-                  workspace.state.selectedId ? workspace.state.progress[workspace.state.selectedId]?.detail : undefined
-                }
-                turnStepLines={workspace.stepLines()}
-                skillsMarketplaceOpen={marketplaceOpen()}
-                mcpSettingsOpen={serverSettings.state.open || marketplaceOpen()}
-                globalOverlayOpen={
-                  joinOpen() || serverSettings.state.open || searchOpen() || marketplaceOpen() || hasVisibleToasts()
-                }
-                settingsRequest={settingsRequest()}
-                messageFocusRequest={messageFocusRequest()}
-                queue={workspace.state.selectedId ? workspace.state.queues[workspace.state.selectedId] : undefined}
-                browserRuntime={workspace.runtime.browser}
-                browserTabs={workspace.state.browserTabs}
-                activeBrowserTabId={workspace.state.activeBrowserTabId}
-                browserVisibilitySuspended={workspace.state.status !== "online" || pageCovered()}
-                workspaceCovered={pageCovered() || hostOffline()}
-                browserControlState={workspace.state.browserControlState}
-                server={server()}
-                presence={workspace.state.presence ?? { serverId: server()?.id ?? null, members: [], updatedAt: "" }}
-                currentUserEmail={props.accountEmail ?? ""}
-                isOwnSender={(senderId) =>
-                  isReaderAuthor(senderId, {
-                    memberId: workspace.state.memberId,
-                    accountUserId: props.accountId,
-                    onOwnComputer: false,
-                  })
-                }
-                browserEnabled={browserEnabled()}
-                remoteDesktopEnabled={false}
-                remoteDesktopSessionActive={false}
-                remoteDesktopVisible={false}
-                prompt={view.prompt()}
-                promptUiBlock={view.promptUiBlock()}
-                approval={view.approval()}
-                browserTakeover={browserTakeover()}
-                onSelectAgent={(id) => {
-                  setMobilePane("conversation");
-                  void select(id);
-                }}
-                agentWaits={agentWaits()}
-                onUpdateAgent={async (agentId, updates) => {
-                  await updateRemoteAgent(remoteAgentAdmin, { agentId, ...updates }, workspace.runtime.updateAgent);
-                  await workspace.refresh();
-                }}
-                onSetAgentAvatar={async (agentId, image) => {
-                  await workspace.runtime.setAvatar(agentId, image);
-                  await workspace.refresh();
-                }}
-                onSendMessage={async (text, attachments, replyTo, target, clientMessageId) => {
-                  // A sent prompt is what a notification later reports, so the browser asks here, from the user's action.
-                  requestWebNotificationPermission();
-                  const id = target?.agentId ?? workspace.state.selectedId;
-                  // A send for a host the user has left would reach the one they opened instead.
-                  if (!id || (target && target.serverId !== server()?.id))
-                    return { error: t("webClient.error.checkConversation") };
-                  return workspace.send(id, text, attachments, replyTo, clientMessageId);
-                }}
-                onMarkRead={workspace.markRead}
-                onLoadOlder={() => void workspace.older()}
-                onLoadLatest={workspace.refresh}
-                onSearchMessages={async (query) => {
-                  const id = workspace.state.selectedId;
-                  if (!id) return { messageIds: [], total: 0 };
-                  const result = await workspace.runtime.search(id, query);
-                  return { messageIds: result.results.map((item) => item.message.id), total: result.total };
-                }}
-                onOpenSearchMessage={workspace.openSearchMessage}
-                onTypingChange={setTyping}
-                onAnswerPrompt={view.answerPrompt}
-                onPromptResolutionPresented={(_agentId, turnId, requestId) =>
-                  view.presentPromptResolution(turnId, requestId)
-                }
-                onRespondToApproval={view.respondToApproval}
-                onAlwaysAllowApproval={view.alwaysAllowApproval()}
-                agentAutoApproves={remoteAgentAdmin.autoApproves()}
-                remoteBackupModelsLoaded={remoteAgentAdmin.backupModels() !== undefined}
-                remoteTaskLimitLoaded={remoteAgentAdmin.taskLimit() !== undefined}
-                onUpdateAgentPermissions={remoteAgentAdmin.settings() ? remoteAgentAdmin.update : undefined}
-                onClearAgentContext={clearSelectedAgentContext()}
-                onRespondToBrowserTakeover={(decision) => workspace.respondToBrowserTakeover(decision)}
-                onCancelQueuedMessage={workspace.cancelQueued}
-                onSteerQueuedMessage={workspace.steerQueued}
-                onUpdateQueuedMessage={workspace.updateQueued}
-                onReorderQueue={workspace.reorderQueue}
-                onActivateBrowserTab={workspace.activateBrowserTab}
-                onCloseBrowserTab={(tabId) => workspace.runtime.closeBrowserTab(tabId)}
-                onOpenRemoteDesktop={unavailable}
-                onStop={() => {
-                  const page = workspace.conversation()?.page;
-                  if (page?.activeTurnId)
-                    void workspace.run(() => workspace.runtime.stop(page.agentId, page.activeTurnId ?? ""));
-                }}
-              />
-              <ProviderSignInDialogs api={providerSettings()?.connection} opener="composer" />
-            </Show>
-          </WorkspaceFrame>
+            </WorkspaceFrame>
+          </MonitorProvider>
         </div>
       </ChannelsControllerProvider>
     </ConversationControllerProvider>

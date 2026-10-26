@@ -1293,7 +1293,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     billing: createMockBilling(billingPlans),
     license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
-    monitor: createMockMonitor(),
+    monitor: createMockMonitor(
+      (channelId) => options.channels?.find((seed) => seed.channel.id === channelId)?.channel.name,
+    ),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),

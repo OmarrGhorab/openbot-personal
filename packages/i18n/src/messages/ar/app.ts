@@ -51,6 +51,7 @@ export const messages = {
   "app.rail.label": "الصفحات",
   "app.rail.website": "موقع OpenBot",
   "app.rail.agents": "الإيجنتات",
+  "app.rail.monitor": "المراقبة",
   "app.rail.schedule": "الجدول",
   "app.rail.tasks": "المهام",
   "app.rail.usage": "الاستخدام",

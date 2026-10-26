@@ -1,3 +1,4 @@
+export { default as Activity } from "lucide-solid/icons/activity";
 export { default as AlarmClock } from "lucide-solid/icons/alarm-clock";
 export { default as AppWindow } from "lucide-solid/icons/app-window";
 export { default as ArrowDown } from "lucide-solid/icons/arrow-down";

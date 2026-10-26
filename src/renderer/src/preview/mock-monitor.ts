@@ -1,4 +1,11 @@
-import type { GroupApi, IpcEndpoints, MonitorChange, MonitorEvent, MonitorSnapshot } from "@openbot/contracts/ipc";
+import type {
+  GroupApi,
+  IpcEndpoints,
+  MonitorAgentStatus,
+  MonitorChange,
+  MonitorEvent,
+  MonitorSnapshot,
+} from "@openbot/contracts/ipc";
 
 type MonitorDesktopApi = GroupApi<IpcEndpoints["monitor"]>;
 
@@ -260,11 +267,63 @@ function mockMonitorSnapshot(channelId: string, now = Date.now()): MonitorSnapsh
   };
 }
 
-/** The preview Monitor. Each channel answers the same busy sample under its own id. */
-export function createMockMonitor(): MonitorDesktopApi {
+/**
+ * The agents of each sample after the busy one, with the status each one has there. An agent that is
+ * not listed is not a member of that channel.
+ */
+const QUIET_SAMPLES: readonly Readonly<Record<string, MonitorAgentStatus>>[] = [
+  { chief: "idle", designer: "idle", research: "idle" },
+  { chief: "idle", designer: "idle", research: "waiting", sales: "idle" },
+  { chief: "idle", sales: "error" },
+];
+
+/**
+ * The sample of a channel: the busy one, or a quieter one, picked from the id so that several channels
+ * show different counts and the same channel always shows the same one.
+ */
+function sampleSnapshot(channelId: string, channelName: string | undefined): MonitorSnapshot {
+  const snapshot = mockMonitorSnapshot(channelId);
+  if (channelName) snapshot.channelName = channelName;
+  let hash = 0;
+  for (const character of channelId) hash = (hash + character.charCodeAt(0)) % 4;
+  const quiet = hash === 0 ? undefined : QUIET_SAMPLES[hash - 1];
+  if (!quiet) return snapshot;
+  const kept = (agentId: string | null) => agentId === null || agentId in quiet;
+  snapshot.agents = snapshot.agents
+    .filter((agent) => agent.id in quiet)
+    .map((agent) => {
+      const status = quiet[agent.id] ?? "idle";
+      return {
+        ...agent,
+        status,
+        currentTaskId: status === "idle" ? null : agent.currentTaskId,
+        step: status === "working" ? agent.step : null,
+        startedAt: status === "working" ? agent.startedAt : null,
+        error: status === "error" ? agent.error : null,
+      };
+    });
+  snapshot.tasks = snapshot.tasks.filter((task) => kept(task.agentId));
+  snapshot.toolCalls = snapshot.toolCalls.filter((call) => kept(call.agentId));
+  snapshot.pairs = snapshot.pairs.filter((pair) => pair.agentIds.every((agentId) => agentId in quiet));
+  snapshot.events = snapshot.events.filter(
+    (event) =>
+      kept(event.agentId) &&
+      (event.kind !== "agent-message" || (event.fromAgentId in quiet && event.toAgentId in quiet)) &&
+      (event.kind !== "agent-status" || quiet[event.agentId ?? ""] === event.status),
+  );
+  return snapshot;
+}
+
+/**
+ * The preview Monitor. Each channel answers one of four samples under its own id and name: a busy
+ * channel, or a quieter one, so the Monitor sidebar shows different counts per channel.
+ */
+export function createMockMonitor(
+  channelName: (channelId: string) => string | undefined = () => undefined,
+): MonitorDesktopApi {
   const listeners = new Set<(change: MonitorChange) => void>();
   return {
-    getSnapshot: async ({ channelId }) => mockMonitorSnapshot(channelId),
+    getSnapshot: async ({ channelId }) => sampleSnapshot(channelId, channelName(channelId)),
     onChanged: (listener) => {
       listeners.add(listener);
       return () => {
