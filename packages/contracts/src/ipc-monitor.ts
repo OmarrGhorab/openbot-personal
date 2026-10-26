@@ -503,7 +503,27 @@ export function buildMonitorSnapshot(sources: MonitorSources): MonitorSnapshot {
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
     .slice(0, MONITOR_TOOL_CALL_LIMIT);
 
-  const exchanges = sources.exchanges.filter(
+  // The mailbox, and the agent-message summaries the channel transcript carries. A message can be
+  // in both; it counts once per recipient.
+  const pageExchanges = page.messages.flatMap((entry): MonitorExchange[] => {
+    const exchange = entry.message.exchange;
+    if (!exchange || exchange.direction !== "outgoing") return [];
+    return exchange.recipientAgentIds.map((recipientAgentId) => ({
+      messageId: exchange.messageId,
+      senderAgentId: exchange.senderAgentId,
+      recipientAgentId,
+      at: entry.message.createdAt,
+    }));
+  });
+  const allExchanges = [
+    ...new Map(
+      [...sources.exchanges, ...pageExchanges].map((exchange) => [
+        `${exchange.messageId}\n${exchange.recipientAgentId}`,
+        exchange,
+      ]),
+    ).values(),
+  ];
+  const exchanges = allExchanges.filter(
     (exchange) =>
       memberIds.has(exchange.senderAgentId) &&
       memberIds.has(exchange.recipientAgentId) &&
