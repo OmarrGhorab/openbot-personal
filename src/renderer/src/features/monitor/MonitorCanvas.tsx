@@ -169,6 +169,7 @@ export function MonitorCanvas() {
           fallback={
             <MonitorEmptyChannel
               title={t("monitor.empty.title", { name: monitor.state.snapshot?.channelName ?? "" })}
+              onAddAgent={() => monitor.openAddAgent()}
               onCreateRoutine={() => monitor.openRoutines()}
             />
           }
