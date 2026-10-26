@@ -8,9 +8,12 @@ vi.mock("electron", () => ({
   nativeTheme: { on: vi.fn() },
 }));
 
-const { clampDynamicIslandPosition, dynamicIslandWindowBounds, dynamicIslandNotchSizeForDisplay } = await import(
-  "./dynamic-island-window"
-);
+const {
+  clampDynamicIslandPosition,
+  dynamicIslandPositionedBounds,
+  dynamicIslandWindowBounds,
+  dynamicIslandNotchSizeForDisplay,
+} = await import("./dynamic-island-window");
 
 const WINDOW_WIDTH = 614;
 const COMPACT_HEIGHT = 50;
@@ -88,5 +91,23 @@ describe("dynamic island drag clamp", () => {
     expect(clampDynamicIslandPosition({ x: 10_000, y: 100 }, display, WINDOW_WIDTH, COMPACT_HEIGHT).x).toBe(
       -WINDOW_WIDTH,
     );
+  });
+});
+
+describe("dynamic island expanded clamp", () => {
+  const base = { x: 0, y: 0, width: WINDOW_WIDTH, height: 400 };
+  it("lifts the expanded panel so its whole height stays above the bottom edge", () => {
+    const bounds = dynamicIslandPositionedBounds(base, { x: 500, y: 1000 }, EXTERNAL_DISPLAY, true);
+    expect(bounds.y + bounds.height).toBe(1080);
+    expect(bounds.height).toBe(400);
+  });
+  it("keeps the compact island where it was dragged", () => {
+    const bounds = dynamicIslandPositionedBounds(
+      { ...base, height: COMPACT_HEIGHT },
+      { x: 500, y: 1000 },
+      EXTERNAL_DISPLAY,
+      false,
+    );
+    expect(bounds.y).toBe(1000);
   });
 });

@@ -79,6 +79,8 @@
 - [x] Clamp the saved position on display changes and keep the drawn island on screen
 - [x] Do not drag from a button, link, field, select or editable element; suppress the click after a drag
 - [x] Windows and Linux: start the island window and guard macOS-only calls
+- [x] Windows and Linux: island is opt-in (off by default, Settings switch); macOS stays on by default
+- [x] Expanded panel is lifted so it never runs off the bottom of the screen
 - [x] Clamp tests, typechecks and biome pass
 
 ### #53 Voice send reliability (fix/voice-send-reliability)

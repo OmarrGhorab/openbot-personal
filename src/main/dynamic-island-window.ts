@@ -23,7 +23,11 @@ import {
   readDynamicIslandPositions,
   writeDynamicIslandPositions,
 } from "./dynamic-island-position-store";
-import { readDynamicIslandPreference, writeDynamicIslandPreference } from "./dynamic-island-preference-store";
+import {
+  defaultDynamicIslandPreference,
+  readDynamicIslandPreference,
+  writeDynamicIslandPreference,
+} from "./dynamic-island-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
 
 /** The idle island comes back over about 160 ms after the voice island leaves the notch. */
@@ -97,10 +101,11 @@ export class DynamicIslandWindowController {
 
   constructor(options: DynamicIslandWindowControllerOptions) {
     this.#options = options;
+    this.#preference = defaultDynamicIslandPreference(options.platform);
   }
 
   readonly initialize = Effect.fn("DynamicIsland.initialize")(function* (this: DynamicIslandWindowController) {
-    this.#preference = yield* readDynamicIslandPreference(this.#options.preferencePath);
+    this.#preference = yield* readDynamicIslandPreference(this.#options.preferencePath, this.#options.platform);
     this.#positions = yield* readDynamicIslandPositions(this.#options.positionPath);
     yield* this.reconcileWindow();
   }).bind(this);
@@ -134,9 +139,11 @@ export class DynamicIslandWindowController {
   setPreference(preference: DynamicIslandPreference): Effect.Effect<DynamicIslandPreference, DynamicIslandFailed> {
     return this.#preferenceMutation.withPermit(
       Effect.gen({ self: this }, function* () {
-        const savedPreference = yield* writeDynamicIslandPreference(this.#options.preferencePath, preference).pipe(
-          toDynamicIslandFailed,
-        );
+        const savedPreference = yield* writeDynamicIslandPreference(
+          this.#options.preferencePath,
+          preference,
+          this.#options.platform,
+        ).pipe(toDynamicIslandFailed);
         this.#preference = savedPreference;
         yield* this.reconcileWindow();
         this.publishPreference();
@@ -297,8 +304,7 @@ export class DynamicIslandWindowController {
     const base = this.#windowBounds(display, dynamicIslandWindowBounds(display), interactive);
     const position = this.#dragPositions.get(display.id) ?? this.#positions.get(display.id);
     if (!position) return base;
-    const clamped = clampDynamicIslandPosition(position, display, base.width, DYNAMIC_ISLAND_COMPACT_WINDOW_HEIGHT);
-    return { ...base, x: clamped.x, y: clamped.y };
+    return dynamicIslandPositionedBounds(base, position, display, interactive);
   }
 
   #windowBounds(display: Pick<Display, "bounds" | "internal">, bounds: Rectangle, interactive: boolean): Rectangle {
@@ -593,6 +599,24 @@ export function dynamicIslandWindowBounds(
     y: notched ? display.bounds.y : top,
     ...DYNAMIC_ISLAND_WINDOW_SIZE,
   };
+}
+
+/**
+ * Places the window at a remembered drag position. The expanded panel is as tall as the
+ * interactive window, so near the bottom edge it is lifted until the whole panel fits; the compact
+ * island only needs its own height on screen.
+ */
+export function dynamicIslandPositionedBounds(
+  base: Rectangle,
+  position: DynamicIslandWindowPosition,
+  display: Pick<Display, "bounds" | "workArea">,
+  interactive: boolean,
+): Rectangle {
+  const visibleHeight = interactive
+    ? Math.max(base.height, DYNAMIC_ISLAND_COMPACT_WINDOW_HEIGHT)
+    : DYNAMIC_ISLAND_COMPACT_WINDOW_HEIGHT;
+  const clamped = clampDynamicIslandPosition(position, display, base.width, visibleHeight);
+  return { ...base, x: clamped.x, y: clamped.y };
 }
 
 /**
