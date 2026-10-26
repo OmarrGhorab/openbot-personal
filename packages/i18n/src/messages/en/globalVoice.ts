@@ -9,7 +9,7 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.picker.empty": "No agent matches.",
   "globalVoice.picker.noAgents": "No agent on this computer yet.",
   "globalVoice.picker.hintChoose": "Enter or a number chooses. Escape closes.",
-  "globalVoice.picker.hintListening": "Press the shortcut again or Enter to send. Escape cancels.",
+  "globalVoice.picker.hintListening": "Press Enter or the shortcut again to send. Escape cancels.",
   "globalVoice.picker.hintHold": "Release to send. Escape cancels.",
   "globalVoice.picker.openChat": "Open chat",
   "globalVoice.picker.microphoneDenied": "OpenBot cannot use the microphone. Allow it, then try again.",
@@ -18,7 +18,7 @@ export const messages = defineMessages("globalVoice", {
     "Hold needs Accessibility. Until you allow it, press the shortcut again to send.",
   "globalVoice.picker.allowAccessibility": "Allow Accessibility",
   "globalVoice.picker.holdUnavailable": "Hold is not available here. Press the shortcut again to send.",
-  "globalVoice.picker.hintReview": "Check the message. Enter sends it. Escape closes.",
+  "globalVoice.picker.hintReview": "Check the message. Send or Enter sends it. Escape closes.",
   "globalVoice.picker.preparing": "Getting the microphone ready",
   "globalVoice.picker.downloading": "Downloading the voice model, {percent}%. This happens once.",
   "globalVoice.picker.listening": "Listening to {agent}",
@@ -30,6 +30,10 @@ export const messages = defineMessages("globalVoice", {
   "globalVoice.picker.noSpeech": "No speech was heard. Try again.",
   "globalVoice.picker.dictationFailed": "Dictation failed. Try again.",
   "globalVoice.picker.sendFailed": "The message was not sent. It is still here, so you can send it again.",
+  "globalVoice.picker.sendTimedOut": "Sending took too long. Check the chat before you send it again.",
+  "globalVoice.picker.emptyMessage": "Write or say a message first.",
+  "globalVoice.picker.send": "Send",
+  "globalVoice.picker.cancel": "Cancel",
 
   // Settings > Voice: the global shortcut of the picker and the send setting.
   "globalVoice.settings.title": "Global voice shortcut",

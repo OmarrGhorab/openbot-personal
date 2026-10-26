@@ -6,6 +6,7 @@ import type {
   MonitorSnapshot,
   MonitorTaskState,
 } from "@openbot/contracts/ipc";
+import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorStatus } from "@openbot/ui/features/monitor/monitor-status";
 
@@ -103,7 +104,12 @@ export function buildMonitorFeed(snapshot: MonitorSnapshot): MonitorFeedEntry[] 
       const base = { id: event.id, at: event.at, agent: agentOf(event.agentId), tone: entryTone(event) };
       switch (event.kind) {
         case "message":
-          return { ...base, kind: "message", authorKind: event.authorKind, preview: event.preview };
+          return {
+            ...base,
+            kind: "message",
+            authorKind: event.authorKind,
+            preview: markdownPreviewText(event.preview),
+          };
         case "task": {
           const task = tasks.get(event.taskId);
           const agent = base.agent;

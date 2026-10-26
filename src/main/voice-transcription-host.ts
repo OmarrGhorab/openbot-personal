@@ -221,6 +221,8 @@ function toSamples(pcm: Uint8Array, leadingSilence: number): Float32Array {
 async function transcribe(request: VoiceTranscriptionRequest): Promise<string> {
   const loaded = await recognizerFor(request);
   useLanguage(loaded, request.language);
+  // A warm request only loads the model. The language is already set for the first real request.
+  if (request.warm) return "";
   if (request.pcm.byteLength < 2) return "";
   const samples = toSamples(request.pcm, request.leadingSilenceSamples);
   if (loaded.engine !== "whisper") return (await decode(loaded, samples)).text;
@@ -434,6 +436,7 @@ function isRequest(value: unknown): value is VoiceTranscriptionRequest {
     Number.isInteger(value.leadingSilenceSamples) &&
     value.leadingSilenceSamples >= 0 &&
     value.leadingSilenceSamples <= MAXIMUM_LEADING_SILENCE_SAMPLES &&
+    (!("warm" in value) || value.warm === undefined || typeof value.warm === "boolean") &&
     "pcm" in value &&
     value.pcm instanceof Uint8Array
   );

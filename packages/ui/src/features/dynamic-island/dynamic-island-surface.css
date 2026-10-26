@@ -120,6 +120,16 @@ body:has(.dynamic-island-surface),
   pointer-events: none;
 }
 
+/* The island moves with a drag. A control inside keeps its own cursor. */
+.dynamic-island-surface-anchor .dynamic-island-shell {
+  cursor: grab;
+}
+
+.dynamic-island-surface-anchor[data-dragging] .dynamic-island-shell,
+.dynamic-island-surface-anchor[data-dragging] .dynamic-island-shell * {
+  cursor: grabbing;
+}
+
 .dynamic-island-surface-logo {
   width: 100%;
   height: 100%;

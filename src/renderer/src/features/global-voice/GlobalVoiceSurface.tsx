@@ -8,6 +8,7 @@ import { localeDirection } from "@openbot/i18n";
 import { Button, Input, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, For, flush, onSettled, Show } from "solid-js";
+import { desktopAnalytics } from "../../analytics";
 import { matchAgentAddress } from "./global-voice-agent-address";
 import { GlobalVoiceDictation, GlobalVoiceDictationError } from "./global-voice-dictation";
 import {
@@ -20,11 +21,14 @@ import {
 } from "./global-voice-island-motion";
 import {
   filterGlobalVoiceAgents,
+  GlobalVoiceTimeout,
   globalVoiceHasAvatar,
   globalVoiceInitials,
   globalVoiceNumberKeyIndex,
   moveGlobalVoiceHighlight,
   pointInRect,
+  TRANSCRIBE_TIMEOUT_MS,
+  withTimeout,
 } from "./global-voice-picker-logic";
 import "./global-voice.css";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
@@ -32,6 +36,17 @@ import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 /** How long the confirmation stays after a message is sent, and the error after a failed dictation. */
 const SENT_CONFIRMATION_MS = 1_500;
 const ERROR_VISIBLE_MS = 3_000;
+/**
+ * The longest each step may take before the window gives up. A step that never answers would leave
+ * the island in its phase with no way out, so each one ends in a message and an idle window.
+ */
+const START_TIMEOUT_MS = 20_000;
+/**
+ * How long the window waits for main to deliver a dictation. Main has its own, shorter limit, so a
+ * send that is slower than that is reported as possibly still arriving; this one keeps the window usable if
+ * main itself stops answering.
+ */
+const SEND_TIMEOUT_MS = 25_000;
 
 type Phase = "idle" | "preparing" | "listening" | "transcribing" | "review" | "sending" | "sent";
 type View = "hidden" | "pill" | "picker";
@@ -253,6 +268,8 @@ export function GlobalVoiceSurface() {
       if (error.kind === "unavailable")
         return { message: errorMessage(error.message, t("globalVoice.picker.dictationFailed")), action: "none" };
     }
+    if (error instanceof GlobalVoiceTimeout)
+      return { message: t("globalVoice.picker.dictationFailed"), action: "none" };
     return { message: errorMessage(error, t("globalVoice.picker.dictationFailed")), action: "none" };
   }
 
@@ -279,8 +296,8 @@ export function GlobalVoiceSurface() {
         if (state.view === "picker") showIsland("pill", state.phase === "listening");
       }, 450);
     }
-    dictation
-      .start({
+    withTimeout(
+      dictation.start({
         onLive: (text) => {
           if (current === generation) set("transcript", text);
         },
@@ -288,7 +305,9 @@ export function GlobalVoiceSurface() {
           level = value;
         },
         onLimit: () => void stopAndDeliver(),
-      })
+      }),
+      START_TIMEOUT_MS,
+    )
       .then(() => {
         if (current !== generation) {
           dictation.cancel();
@@ -301,6 +320,11 @@ export function GlobalVoiceSurface() {
       })
       .catch((error: unknown) => {
         if (current !== generation) return;
+        if (error instanceof GlobalVoiceTimeout) {
+          // A start that answers late must not open the microphone for a window that gave up.
+          dictation.cancel();
+          generation += 1;
+        }
         const failure = dictationFailure(error);
         failWith(failure.message, failure.action);
       });
@@ -310,19 +334,33 @@ export function GlobalVoiceSurface() {
   async function stopAndDeliver(): Promise<void> {
     if (state.phase !== "listening") return;
     const current = generation;
+    const analytics = desktopAnalytics.scope();
+    const audioDurationSeconds = dictation.elapsedSeconds;
+    const startedAt = performance.now();
     set("phase", "transcribing");
     showIsland("pill", false);
     let text: string;
     try {
-      text = await dictation.stop();
+      text = await withTimeout(dictation.stop(), TRANSCRIBE_TIMEOUT_MS);
     } catch (error) {
       if (current === generation) {
+        analytics.track("voice_transcription", {
+          result: "failed",
+          audio_duration_seconds: audioDurationSeconds,
+          duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+          failure_code: "transcription_failed",
+        });
         const failure = dictationFailure(error);
         failWith(failure.message, failure.action);
       }
       return;
     }
     if (current !== generation) return;
+    analytics.track("voice_transcription", {
+      result: "succeeded",
+      audio_duration_seconds: audioDurationSeconds,
+      duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+    });
     // "Software Engineer, check the PR" goes to Software Engineer, without the address.
     const address = matchAgentAddress(text, state.agents);
     if (address && address.agentId !== state.targetId) {
@@ -346,7 +384,11 @@ export function GlobalVoiceSurface() {
   async function sendTranscript(): Promise<void> {
     const agentId = state.targetId;
     const text = state.transcript.trim();
-    if (!agentId || !text) return;
+    if (!agentId) return;
+    if (!text) {
+      set("error", t("globalVoice.picker.emptyMessage"));
+      return;
+    }
     const current = generation;
     setState((draft) => {
       draft.phase = "sending";
@@ -354,12 +396,17 @@ export function GlobalVoiceSurface() {
     });
     showIsland("pill", false);
     try {
-      await window.openbot.globalVoice.sendTranscript({ agentId, text });
+      await withTimeout(window.openbot.globalVoice.sendTranscript({ agentId, text }), SEND_TIMEOUT_MS);
     } catch (error) {
       if (current !== generation) return;
+      // A timed-out send may still reach the agent, so the text is kept and the user checks the chat first.
+      const message =
+        error instanceof GlobalVoiceTimeout
+          ? t("globalVoice.picker.sendTimedOut")
+          : errorMessage(error, t("globalVoice.picker.sendFailed"));
       setState((draft) => {
         draft.phase = "review";
-        draft.error = errorMessage(error, t("globalVoice.picker.sendFailed"));
+        draft.error = message;
       });
       showIsland("picker", false);
       reviewBox?.querySelector("textarea")?.focus();
@@ -416,9 +463,11 @@ export function GlobalVoiceSurface() {
       draft.sendAfterSpeaking = snapshot.sendAfterSpeaking;
       draft.floating = snapshot.floating ?? false;
       draft.query = "";
+      // A shortcut for one agent highlights that agent, so a release never sends to another row.
+      const focusId = snapshot.request.type === "agent" ? snapshot.request.agentId : snapshot.currentAgentId;
       draft.highlight = Math.max(
         0,
-        snapshot.agents.findIndex((agent) => agent.agentId === snapshot.currentAgentId),
+        snapshot.agents.findIndex((agent) => agent.agentId === focusId),
       );
       draft.transcript = "";
       draft.error = null;
@@ -474,8 +523,9 @@ export function GlobalVoiceSurface() {
         return;
       }
       if (!state.sessionHold) return;
+      // Only a row the user moved to is a choice. Otherwise the agent the key was held for keeps the message.
       const agent = highlightedAgent();
-      if (state.view === "picker" && agent) pick(agent.agentId);
+      if (state.view === "picker" && pickerPinned && agent) pick(agent.agentId);
       if (state.phase === "preparing") stopWhenReady = true;
       else void stopAndDeliver();
       return;
@@ -688,17 +738,45 @@ export function GlobalVoiceSurface() {
                 </For>
                 {t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
               </span>
+              <Show when={state.error}>
+                {(message) => (
+                  <p class="global-voice-hint global-voice-review-error" role="alert">
+                    {message()}
+                  </p>
+                )}
+              </Show>
               <Textarea
                 aria-label={t("globalVoice.picker.transcriptLabel", { agent: targetName() })}
                 class="global-voice-review-text"
                 dir={globalVoiceTextDirection(state.transcript)}
                 value={state.transcript}
                 placeholder={t("globalVoice.picker.transcriptPlaceholder")}
-                onValueChange={(value) => set("transcript", value)}
+                onValueChange={(value) => {
+                  setState((draft) => {
+                    draft.transcript = value;
+                    draft.error = null;
+                  });
+                }}
               />
+              <div class="global-voice-review-footer">
+                <p class="global-voice-hint global-voice-review-hint">{hint()}</p>
+                <Button
+                  type="button"
+                  class="global-voice-send"
+                  disabled={!state.transcript.trim()}
+                  onClick={() => void sendTranscript()}
+                >
+                  {t("globalVoice.picker.send")}
+                </Button>
+                <Button type="button" variant="ghost" class="global-voice-cancel" onClick={cancel}>
+                  {t("globalVoice.picker.cancel")}
+                </Button>
+              </div>
             </div>
           </Show>
-          <p class="global-voice-hint">{hint()}</p>
+          <Show when={state.phase !== "review"}>
+            <p class="global-voice-hint">{hint()}</p>
+          </Show>
         </Show>
       </section>
     </div>
@@ -740,6 +818,9 @@ export function GlobalVoiceSurface() {
           >
             {(message) => <span class="global-voice-error">{message()}</span>}
           </Show>
+          <Show when={state.phase === "listening"}>
+            <span class="global-voice-hint global-voice-pill-hint">{hint()}</span>
+          </Show>
           <Show when={state.keyRelease === "needs-accessibility" && state.phase !== "sent"}>
             <span class="global-voice-note">{t("globalVoice.picker.accessibilityNeeded")}</span>
           </Show>
@@ -755,6 +836,21 @@ export function GlobalVoiceSurface() {
             <span />
             <span />
           </div>
+        </Show>
+        <Show when={state.phase === "listening"}>
+          <Button
+            type="button"
+            variant="ghost"
+            class="global-voice-open global-voice-send-now"
+            onClick={() => void stopAndDeliver()}
+          >
+            {t("globalVoice.picker.send")}
+          </Button>
+        </Show>
+        <Show when={state.phase === "preparing" || state.phase === "listening"}>
+          <Button type="button" variant="ghost" class="global-voice-open global-voice-cancel" onClick={() => cancel()}>
+            {t("globalVoice.picker.cancel")}
+          </Button>
         </Show>
         <Show when={state.phase === "sent" && state.targetId}>
           <Button type="button" variant="ghost" class="global-voice-open" onClick={() => void openChat()}>

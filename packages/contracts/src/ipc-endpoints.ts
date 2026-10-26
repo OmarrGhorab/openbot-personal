@@ -247,6 +247,7 @@ import type {
   DynamicIslandGeometry,
   DynamicIslandPreference,
   DynamicIslandPresentation,
+  DynamicIslandWindowPosition,
   SetDynamicIslandInteractiveInput,
   SetDynamicIslandPreferenceInput,
 } from "./ipc-dynamic-island";
@@ -753,6 +754,11 @@ export const IPC_ENDPOINTS = {
     getSettings: request<undefined, VoiceSettings>()("voice:get-settings"),
     setSettings: request<VoiceSettings, VoiceSettings>()("voice:set-settings"),
     transcribe: request<VoiceTranscriptionInput, VoiceTranscriptionResult>()("voice:transcribe"),
+    /**
+     * Loads the local model in use before the first transcription, so its first pass does not wait
+     * for the load. It does nothing for a cloud model, a missing model, or a busy transcriber.
+     */
+    warmModel: request<undefined, void>()("voice:warm-model"),
     /** Saves or removes the ElevenLabs API key. Answers the status of the ElevenLabs model. */
     setApiKey: request<VoiceApiKeyInput, VoiceModelStatus>()("voice:set-api-key"),
     /**
@@ -806,6 +812,10 @@ export const IPC_ENDPOINTS = {
     performHaptic: request<undefined, void>()("dynamic-island:perform-haptic"),
     action: event<DynamicIslandAction>()("dynamic-island:action"),
     setInteractive: request<SetDynamicIslandInteractiveInput, void>()("dynamic-island:set-interactive"),
+    /** Moves the island window while the user drags it. Main keeps it on its display. */
+    moveWindow: request<DynamicIslandWindowPosition, void>()("dynamic-island:move-window"),
+    /** Ends a drag and saves where the window is, so it comes back there after a restart. */
+    endWindowDrag: request<undefined, void>()("dynamic-island:end-window-drag"),
   },
   /**
    * The global voice shortcuts and their picker. The picker is a helper window: it asks for its

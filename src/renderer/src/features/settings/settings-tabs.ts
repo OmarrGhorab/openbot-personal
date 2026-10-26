@@ -211,5 +211,6 @@ export function settingsTabShown(tab: SettingsTab, dynamicIslandShown: boolean):
  * from a chat window.
  */
 export function dynamicIslandSettingsShown(platform: AppInfo["platform"] | undefined, chatWindow: boolean): boolean {
-  return platform === "darwin" && !chatWindow;
+  // Windows and Linux show the tab too: it holds the switch that opts in to the island there.
+  return platform !== undefined && !chatWindow;
 }

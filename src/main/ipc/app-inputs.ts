@@ -13,6 +13,7 @@ import type {
   DynamicIslandAction,
   DynamicIslandPreference,
   DynamicIslandPresentation,
+  DynamicIslandWindowPosition,
   ExternalDestination,
   HostUpdateSettingsChange,
   IdleRestartTarget,
@@ -58,6 +59,7 @@ import {
   isDynamicIslandInteractive,
   isDynamicIslandPreference,
   isDynamicIslandPresentation,
+  isDynamicIslandWindowPosition,
   isRemoteNetworkRoute,
   isSkillCategory,
 } from "@openbot/contracts/ipc";
@@ -215,6 +217,11 @@ export function parseDynamicIslandInteractive(input: unknown): SetDynamicIslandI
   if (!isDynamicIslandInteractive(input)) {
     throw new Error("Dynamic Island interaction state is required.");
   }
+  return input;
+}
+
+export function parseDynamicIslandWindowPosition(input: unknown): DynamicIslandWindowPosition {
+  if (!isDynamicIslandWindowPosition(input)) throw new Error("Dynamic Island window position is invalid.");
   return input;
 }
 

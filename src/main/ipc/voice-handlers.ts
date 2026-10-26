@@ -63,6 +63,7 @@ export function voiceIpcHandlers({ voice, speech, service }: VoiceIpcDependencie
         parseVoiceTranscription,
         (transcription): Promise<VoiceTranscriptionResult> => runCauseEffect(voice.transcribe(transcription.audio)),
       ),
+      warmModel: handler((): Promise<void> => runCauseEffect(voice.warmModel())),
       setApiKey: payloadHandler(
         parseVoiceApiKey,
         ({ key }): Promise<VoiceModelStatus> => runCauseEffect(voice.setApiKey(key)),

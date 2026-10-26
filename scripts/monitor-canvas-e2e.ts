@@ -1,9 +1,11 @@
 // Checks the Monitor channel canvas in this worktree's running dev app. Start the app with
 // `bun run dev` (never `--shared`), then run `bun run test:monitor-canvas -- --allow-mutations`.
-// It needs two visible agents on a known provider; it starts no provider turn.
+// It needs two visible agents on a known provider. It sends one long message to the new channel,
+// which starts one provider turn.
 //
 // It makes a channel with two agents, opens the Monitor page from the rail, opens the channel, and
-// checks that the canvas shows one card per agent of the snapshot. Then it checks the keyboard: an
+// checks that the idle channel shows the empty state (#28). It then sends one message, waits for an
+// agent to work, and checks that the canvas shows one card per agent of the snapshot. Then it checks the keyboard: an
 // arrow key moves the focus from one card to the other, and Enter selects the focused card. It also
 // checks that a new snapshot does not move a card. It deletes its channel at the end.
 // Writes .openbot-build/monitor-canvas.png and .openbot-build/monitor-canvas-e2e/report.json.
@@ -12,10 +14,12 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { MonitorSnapshot } from "@openbot/contracts/ipc";
 import { en } from "@openbot/i18n";
-import { ChannelClient, connectChannelE2e, waitFor, writeReport } from "./channel-e2e-support";
+import { ChannelClient, connectChannelE2e, LONG_PROMPT, waitFor, writeReport } from "./channel-e2e-support";
 
 interface Report {
   channelId?: string;
+  emptyStateShown?: boolean;
+  workingAgentId?: string;
   cards?: string[];
   focusedAfterArrow?: string | null;
   selectedAfterEnter?: string[];
@@ -53,13 +57,31 @@ try {
   const name = `monitor-canvas-e2e-${Date.now()}`;
   const channel = await client.create(name, [lead.id, member.id], lead.id);
   report.channelId = channel.id;
-  const snapshot = await readSnapshot(channel.id);
 
   await page.getByRole("button", { name: en["app.rail.monitor"], exact: true }).click();
   await page
     .getByRole("button", { name: new RegExp(name) })
     .first()
     .click();
+
+  // A channel with no activity shows the empty state, not cards (#28).
+  const empty = page.locator(".monitor-empty-channel");
+  await empty.waitFor({ state: "visible" });
+  report.emptyStateShown = await empty.isVisible();
+  assert.ok(report.emptyStateShown, "A channel with no activity shows the empty state.");
+  assert.equal((await cards()).length, 0, "An idle channel shows no canvas cards.");
+
+  // One message makes an agent work, so the canvas replaces the empty state.
+  await client.send(channel.id, LONG_PROMPT, null);
+  const busy = await waitFor(
+    page,
+    "an agent that works on a task",
+    async () => (await readSnapshot(channel.id)).agents.find((agent) => agent.status === "working") ?? null,
+    (value) => value !== null,
+  );
+  assert.ok(busy);
+  report.workingAgentId = busy.id;
+  const snapshot = await readSnapshot(channel.id);
   const shown = await waitFor(
     page,
     "one canvas card per agent of the channel",
@@ -69,7 +91,7 @@ try {
   report.cards = shown;
   assert.deepEqual(new Set(shown), new Set(snapshot.agents.map((agent) => agent.id)));
 
-  // The lead has no hand-off yet, so both cards share the first column: Down moves between them.
+  // Try each arrow key: whichever direction the layout puts the other card in moves the focus.
   const first = shown[0];
   assert.ok(first);
   await page.locator(`[data-monitor-node="${first}"] button`).focus();
