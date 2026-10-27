@@ -154,6 +154,15 @@ settings the migration added stay. A move archiving its source uses the same id,
 applying the same selection again reuses the migration and its archive. A target that serves only v1
 still receives a copy; the desktop disables **Move** for it.
 
+`instance-transfer-v3` adds an encrypted hand-off for saved credentials without changing the archive
+or the v1 and v2 routes. Its `/secrets`, `/secrets/key`, `/secrets/seal`, and `/secrets/apply` routes
+list names only, issue the target's migration-scoped public key, and transfer sealed items. The key
+uses X25519 and AES-256-GCM with the migration id and item id as authenticated context; the target
+keeps its private key in memory for five minutes and accepts it once. The desktop sends sealed data
+directly between the source and target hosts, never to renderer code or a transfer file. See
+[credential support for instance transfer](agents.md#instance-transfer) for the provider matrix and
+which credentials require a new sign-in.
+
 After a restart, the first upload or export removes old files from `instance-transfer-uploads/`,
 including unfinished `.part` files, before it writes a new file. Concurrent uploads and exports wait
 for this cleanup. If cleanup fails, the operation fails; the next upload or export retries it.
@@ -343,6 +352,7 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `providers-v1` | Code sign-in, provider API keys, managed runtimes, custom endpoints | `providerAdmin` |
 | `instance-transfer-v1` | Export and import the server's agents and server settings as a transfer file | `instanceTransfer` |
 | `instance-transfer-v2` | A copy or move's migration id and resume flag, and a rollback of the agents one migration created | `instanceTransfer` |
+| `instance-transfer-v3` | List saved credentials without values, then send supported credentials sealed to one target migration | `instanceTransfer` |
 | `providers-v3` | Code sign-in for Codex, Claude and Grok; send the code a Claude sign-in page shows | `providerAdmin` |
 | `providers-v4` | Code or link sign-in and managed runtimes, Cursor and Cline included | `providerAdmin` |
 | `provider-usage-reset-v1` | Read the usage reset credits of each provider account on the host, and spend one. Only Codex gives credits | `providerAdmin` |

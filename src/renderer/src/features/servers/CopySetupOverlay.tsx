@@ -1,6 +1,9 @@
 import type {
   InstanceTransferPreview,
   InstanceTransferResult,
+  InstanceTransferSecretOutcome,
+  InstanceTransferSecretSection,
+  InstanceTransferSecretsSummary,
   InstanceTransferSummary,
   MoveInstanceSourceResult,
 } from "@openbot/contracts/ipc";
@@ -14,11 +17,15 @@ import {
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, untrack } from "solid-js";
 import { canCopyFrom, copyTargetOptions } from "./copy-setup-targets";
+import { useServerSettings } from "./server-settings";
 import { useServers } from "./servers-context";
 
 interface CopySetupState {
   summary: InstanceTransferSummary | null;
   summaryError: string | null;
+  secrets: InstanceTransferSecretsSummary | null;
+  secretsError: string | null;
+  secretOutcomes: InstanceTransferSecretOutcome[] | null;
   targetId: string | null;
   mode: CopySetupMode;
   /** The source agents to remove after a move confirms, by id and name. */
@@ -36,6 +43,9 @@ interface CopySetupState {
 const INITIAL: CopySetupState = {
   summary: null,
   summaryError: null,
+  secrets: null,
+  secretsError: null,
+  secretOutcomes: null,
   targetId: null,
   mode: "copy",
   moveAgents: [],
@@ -57,6 +67,7 @@ const INITIAL: CopySetupState = {
  */
 export function CopySetupOverlay() {
   const { servers, copySetupSourceId, setCopySetupSourceId } = useServers();
+  const { openServerSettings } = useServerSettings();
   const { t, errorMessage } = useText();
   const calls = window.openbot.instanceTransfer;
   const [state, setState] = createStore<CopySetupState>({ ...INITIAL });
@@ -66,12 +77,13 @@ export function CopySetupOverlay() {
   const source = () => servers().find((server) => server.id === copySetupSourceId()) ?? null;
 
   const targets = createMemo(() =>
-    copyTargetOptions(servers(), copySetupSourceId() ?? "").map(({ server, disabledReason, resumable }) => ({
+    copyTargetOptions(servers(), copySetupSourceId() ?? "").map(({ server, disabledReason, resumable, secrets }) => ({
       id: server.id,
       name: server.name,
       kind: server.kind,
       disabledReason,
       resumable,
+      secrets,
     })),
   );
   const enabledTargets = createMemo(() => targets().filter((target) => target.disabledReason === null));
@@ -112,6 +124,21 @@ export function CopySetupOverlay() {
           if (current !== run) return;
           setState((draft) => {
             draft.summaryError = errorMessage(error, t("settings.transfer.copy.sourceFailed"));
+          });
+        });
+      void calls
+        .secrets(sourceId)
+        .then((summary) => {
+          if (current === run) {
+            setState((draft) => {
+              draft.secrets = summary;
+            });
+          }
+        })
+        .catch((error: unknown) => {
+          if (current !== run) return;
+          setState((draft) => {
+            draft.secretsError = errorMessage(error, t("settings.transfer.copy.secretsUnavailable"));
           });
         });
     },
@@ -190,6 +217,7 @@ export function CopySetupOverlay() {
       draft.preview = null;
       draft.result = null;
       draft.move = null;
+      draft.secretOutcomes = null;
       draft.rolledBack = null;
       draft.error = null;
       draft.failedStep = null;
@@ -234,6 +262,55 @@ export function CopySetupOverlay() {
             });
             return;
           }
+          let secretOutcomes: InstanceTransferSecretOutcome[] = [];
+          const selectedTarget = targets().find((target) => target.id === options.targetId);
+          const sourceSecrets = state.secrets?.items ?? [];
+          if (selectedTarget?.secrets && options.secretIds.length > 0) {
+            if (!preview.migrationId) {
+              setState((draft) => {
+                draft.phase = "error";
+                draft.failedStep = "secrets";
+                draft.result = result;
+                draft.error = t("settings.transfer.copy.secretsMigrationMissing");
+              });
+              return;
+            }
+            setState((draft) => {
+              draft.phase = "secrets";
+              draft.result = result;
+            });
+            try {
+              const transferred = await calls.transferSecrets({
+                sourceServerId: from.id,
+                targetServerId: options.targetId,
+                migrationId: preview.migrationId,
+                secretIds: options.secretIds,
+              });
+              if (current !== run) return;
+              secretOutcomes = transferred.outcomes;
+            } catch (error) {
+              if (current !== run) return;
+              setState((draft) => {
+                draft.phase = "error";
+                draft.failedStep = "secrets";
+                draft.result = result;
+                draft.error = errorMessage(error, t("settings.transfer.copy.secretsFailed"));
+              });
+              return;
+            }
+          } else if (!selectedTarget?.secrets && sourceSecrets.length > 0) {
+            const reason = t("settings.transfer.copy.secretsUnsupportedReason");
+            secretOutcomes = sourceSecrets.map((item) => ({
+              id: item.id,
+              kind: item.kind,
+              label: item.label,
+              status: "failed",
+              reason,
+            }));
+          }
+          setState((draft) => {
+            draft.secretOutcomes = secretOutcomes;
+          });
           if (options.mode === "move") {
             // The target must confirm the same migration the source held bytes for, so a different
             // archive can never delete the source.
@@ -310,6 +387,7 @@ export function CopySetupOverlay() {
       draft.preview = null;
       draft.result = null;
       draft.move = null;
+      draft.secretOutcomes = null;
       draft.rolledBack = null;
       draft.error = null;
       draft.failedStep = null;
@@ -339,6 +417,9 @@ export function CopySetupOverlay() {
       phase={state.phase}
       preview={state.preview}
       result={state.result}
+      secrets={state.secrets}
+      secretsError={state.secretsError}
+      secretOutcomes={state.secretOutcomes}
       move={state.move}
       rolledBack={state.rolledBack}
       rollbackBusy={state.rollbackBusy}
@@ -359,6 +440,10 @@ export function CopySetupOverlay() {
       onRollback={() => void rollback()}
       onShowArchive={(archiveFileName) => {
         void calls.showArchive({ archiveFileName }).catch(() => undefined);
+      }}
+      onReauthenticate={(section: InstanceTransferSecretSection) => {
+        const targetId = state.targetId;
+        if (targetId) openServerSettings(targetId, null, section);
       }}
       onClose={close}
       onDone={done}

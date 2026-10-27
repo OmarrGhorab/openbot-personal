@@ -140,6 +140,7 @@ import {
   INSTANCE_TRANSFER_COPY_PREVIEW,
   INSTANCE_TRANSFER_MIGRATION_ID,
   INSTANCE_TRANSFER_PREVIEW,
+  INSTANCE_TRANSFER_SECRETS,
 } from "../../stories/instance-transfer-fixtures";
 import { toggleChannelMember } from "../features/channels/channels-draft";
 import { readStateForMessages } from "../features/conversation/conversation-read-state";
@@ -2917,6 +2918,27 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         warnings: [],
       }),
       showArchive: async () => undefined,
+      secrets: async () => clone(INSTANCE_TRANSFER_SECRETS),
+      transferSecrets: async ({ secretIds }) => ({
+        outcomes: secretIds.map((id) => {
+          const item = INSTANCE_TRANSFER_SECRETS.items.find((candidate) => candidate.id === id);
+          if (!item)
+            return {
+              id,
+              kind: "provider-key" as const,
+              label: id,
+              status: "failed" as const,
+              reason: sourceText("error.import.transferSecretGone"),
+            };
+          return {
+            id: item.id,
+            kind: item.kind,
+            label: item.label,
+            status: item.transferable ? ("transferred" as const) : ("failed" as const),
+            reason: item.transferable ? null : sourceText("error.import.transferSecretUnsupported"),
+          };
+        }),
+      }),
       discard: async () => undefined,
     },
     remoteDesktop: mockTeam.remoteDesktop,

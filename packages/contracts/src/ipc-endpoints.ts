@@ -296,12 +296,15 @@ import type {
   InstanceExportResult,
   InstanceTransferPreview,
   InstanceTransferResult,
+  InstanceTransferSecretsResult,
+  InstanceTransferSecretsSummary,
   InstanceTransferSummary,
   MoveInstanceSourceInput,
   MoveInstanceSourceResult,
   RollbackInstanceTransferInput,
   RollbackInstanceTransferResult,
   ShowInstanceArchiveInput,
+  TransferInstanceSecretsInput,
 } from "./ipc-instance-transfer";
 import type {
   AgentPublicationPreview,
@@ -1679,6 +1682,13 @@ export const IPC_ENDPOINTS = {
     rollback: request<RollbackInstanceTransferInput, RollbackInstanceTransferResult>()("instance-transfer:rollback"),
     moveSource: request<MoveInstanceSourceInput, MoveInstanceSourceResult>()("instance-transfer:move-source"),
     showArchive: request<ShowInstanceArchiveInput, void>()("instance-transfer:show-archive"),
+    // `secrets` lists what a server holds without a value, and `transferSecrets` runs the whole
+    // sealed hand-off in main: source list, target key, source seal, target apply. The renderer
+    // never sees plaintext, a sealed item or a key.
+    secrets: scopedQuery<InstanceTransferSecretsSummary, "required">()("instance-transfer:secrets"),
+    transferSecrets: request<TransferInstanceSecretsInput, InstanceTransferSecretsResult>()(
+      "instance-transfer:transfer-secrets",
+    ),
   },
   // The plugin deep link, its own group because its registrar holds the pending link rather than a
   // service. `takePendingListing` is what a window that finished loading after the link arrived

@@ -2,6 +2,10 @@ import { agentProviderName } from "@openbot/contracts/agent-providers";
 import type {
   InstanceTransferPreview,
   InstanceTransferResult,
+  InstanceTransferSecretKind,
+  InstanceTransferSecretOutcome,
+  InstanceTransferSecretSection,
+  InstanceTransferSecretsSummary,
   InstanceTransferSummary,
   MoveInstanceSourceResult,
   ServerSummary,
@@ -9,6 +13,7 @@ import type {
 import {
   Button,
   Check,
+  Checkbox,
   CircleCheck,
   CircleDot,
   Dialog,
@@ -32,15 +37,17 @@ import {
 
 export type CopySetupMode = "copy" | "move";
 
-export type CopySetupPhase = "choose" | "preparing" | "copying" | "archiving" | "error" | "done";
+export type CopySetupPhase = "choose" | "preparing" | "copying" | "secrets" | "archiving" | "error" | "done";
 
-export type CopySetupStep = "prepare" | "apply" | "archive";
+export type CopySetupStep = "prepare" | "apply" | "secrets" | "archive";
 
 export type CopySetupTarget = Pick<ServerSummary, "id" | "name" | "kind"> & {
   /** Why this server cannot receive the copy, or null when it can. */
   disabledReason: "not-admin" | "no-transfer" | null;
   /** The target records the migration, so it can confirm a move and roll it back. */
   resumable: boolean;
+  /** Both sides can seal and open secrets, so the dialog offers the sign-ins it holds. */
+  secrets: boolean;
 };
 
 export interface CopySetupOptions {
@@ -49,6 +56,8 @@ export interface CopySetupOptions {
   includeFiles: boolean;
   includeSettings: boolean;
   mode: CopySetupMode;
+  /** The secrets to seal for the target: the transferable ones chosen, and every unsupported one. */
+  secretIds: string[];
 }
 
 export interface CopySetupDialogProps {
@@ -63,6 +72,11 @@ export interface CopySetupDialogProps {
   phase: CopySetupPhase;
   preview: InstanceTransferPreview | null;
   result: InstanceTransferResult | null;
+  /** The secrets this computer holds, without a value. */
+  secrets: InstanceTransferSecretsSummary | null;
+  secretsError: string | null;
+  /** What became of every secret the transfer named, or null when none was sent. */
+  secretOutcomes: InstanceTransferSecretOutcome[] | null;
   /** The source archive a confirmed move left, and what could not be removed. */
   move: MoveInstanceSourceResult | null;
   /** Agents removed by a rollback, or null when no rollback ran. */
@@ -77,6 +91,8 @@ export interface CopySetupDialogProps {
   onRetry: () => void;
   onRollback: () => void;
   onShowArchive: (fileName: string) => void;
+  /** Opens the target's settings where a sign-in or key has to be entered again. */
+  onReauthenticate: (section: InstanceTransferSecretSection) => void;
   onClose: () => void;
   onDone: () => void;
 }
@@ -84,6 +100,31 @@ export interface CopySetupDialogProps {
 const TARGET_REASON_KEYS = {
   "not-admin": "settings.transfer.copy.targetNeedsAdmin",
   "no-transfer": "settings.transfer.copy.targetNoTransfer",
+} as const;
+
+/** Which settings section opens a sign-in of each kind, for the one-click re-auth action. */
+const SECRET_KIND_SECTIONS: Record<InstanceTransferSecretKind, InstanceTransferSecretSection> = {
+  "provider-key": "providers",
+  "provider-sign-in": "providers",
+  "custom-provider": "providers",
+  "mcp-values": "mcp",
+  "mcp-sign-in": "mcp",
+  github: "connectors",
+  onepassword: "connectors",
+  bitwarden: "connectors",
+};
+
+const SECRET_SECTION_KEYS = {
+  providers: "settings.transfer.copy.openProviders",
+  mcp: "settings.transfer.copy.openMcp",
+  connectors: "settings.transfer.copy.openConnectors",
+} as const;
+
+const SECRET_STATUS_KEYS = {
+  transferred: "settings.transfer.copy.secretTransferred",
+  "already-present": "settings.transfer.copy.secretAlreadyPresent",
+  "target-missing": "settings.transfer.copy.secretTargetMissing",
+  failed: "settings.transfer.copy.secretFailed",
 } as const;
 
 /**
@@ -94,17 +135,38 @@ const TARGET_REASON_KEYS = {
 export function CopySetupDialog(props: CopySetupDialogProps) {
   const { t } = useText();
   const [excluded, setExcluded] = createSignal<ReadonlySet<string>>(new Set());
+  const [excludedSecrets, setExcludedSecrets] = createSignal<ReadonlySet<string>>(new Set());
   const [files, setFiles] = createSignal(true);
   const [settings, setSettings] = createSignal(true);
 
-  const busy = () => props.phase === "preparing" || props.phase === "copying" || props.phase === "archiving";
+  const busy = () =>
+    props.phase === "preparing" ||
+    props.phase === "copying" ||
+    props.phase === "secrets" ||
+    props.phase === "archiving";
   const target = () => props.targets.find((server) => server.id === props.targetId) ?? null;
   const selectedTarget = () => target()?.disabledReason === null;
   const agents = () => props.summary?.agents ?? [];
   const selected = createMemo(() => agents().filter((agent) => !excluded().has(agent.id)));
   const targetName = () => target()?.name ?? "";
-  const steps = (): readonly CopySetupStep[] =>
-    props.mode === "move" ? (["prepare", "apply", "archive"] as const) : (["prepare", "apply"] as const);
+  const hasSecretStep = () =>
+    target()?.secrets === true ||
+    props.secrets === null ||
+    (props.secrets?.items.length ?? 0) > 0 ||
+    props.secretsError !== null;
+  const steps = (): readonly CopySetupStep[] => [
+    "prepare",
+    "apply",
+    ...(hasSecretStep() ? ["secrets" as const] : []),
+    ...(props.mode === "move" ? ["archive" as const] : []),
+  ];
+  const selectedSecretIds = () => {
+    if (!target()?.secrets) return [];
+    return (props.secrets?.items ?? [])
+      .filter((item) => !item.transferable || !excludedSecrets().has(item.id))
+      .map((item) => item.id);
+  };
+  const secretsLoading = () => props.secrets === null && props.secretsError === null;
 
   // A new opening starts with every agent and both optional parts selected.
   createEffect(
@@ -112,6 +174,7 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
     (open) => {
       if (!open) return;
       setExcluded(new Set<string>());
+      setExcludedSecrets(new Set<string>());
       setFiles(true);
       setSettings(true);
     },
@@ -149,9 +212,11 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
         ? "prepare"
         : props.phase === "copying"
           ? "apply"
-          : props.phase === "archiving"
-            ? "archive"
-            : null;
+          : props.phase === "secrets"
+            ? "secrets"
+            : props.phase === "archiving"
+              ? "archive"
+              : null;
     if (!active) return "pending";
     const activeIndex = list.indexOf(active);
     return index < activeIndex ? "done" : index === activeIndex ? "active" : "pending";
@@ -168,6 +233,7 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
       : t("settings.transfer.copy.lede", { source: props.sourceName });
   const busyLabel = () => {
     if (props.phase === "archiving") return t("settings.transfer.copy.archiving", { source: props.sourceName });
+    if (props.phase === "secrets") return t("settings.transfer.copy.transferringSecrets");
     if (props.phase === "copying") return t("settings.transfer.copy.copying", { name: targetName() });
     return t("settings.transfer.copy.preparing");
   };
@@ -220,6 +286,9 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                     title={t("settings.transfer.result.notImported")}
                     notes={props.result?.skipped.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
                   />
+                </Show>
+                <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
+                  <SecretOutcomes outcomes={props.secretOutcomes ?? []} onReauthenticate={props.onReauthenticate} />
                 </Show>
                 <Show
                   when={target()?.resumable === true && props.preview?.migrationId && props.failedStep !== "prepare"}
@@ -379,6 +448,60 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                     description={t("settings.transfer.export.settingsDescription")}
                   />
                 </div>
+                <Show when={hasSecretStep()}>
+                  <div class="copy-setup-sign-in">
+                    <h3 class="copy-setup-section-title">{t("settings.transfer.copy.secretsTitle")}</h3>
+                    <p class="agent-import-step-note">
+                      {t(
+                        target()?.secrets
+                          ? "settings.transfer.copy.secretsDescription"
+                          : "settings.transfer.copy.secretsUnsupported",
+                      )}
+                    </p>
+                    <Show when={props.secretsError}>
+                      {(error) => (
+                        <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
+                      )}
+                    </Show>
+                    <Show when={secretsLoading()}>
+                      <p class="agent-import-step-note">{t("settings.transfer.copy.secretsLoading")}</p>
+                    </Show>
+                    <Show when={props.secrets?.items.length}>
+                      <ul class="copy-setup-secret-list">
+                        <For each={props.secrets?.items ?? []}>
+                          {(item) => (
+                            <li class="storage-row agent-import-row">
+                              <Checkbox
+                                checked={
+                                  item.transferable && target()?.secrets === true && !excludedSecrets().has(item.id)
+                                }
+                                disabled={busy() || !item.transferable || target()?.secrets !== true}
+                                aria-label={t("settings.transfer.copy.includeSecret", { name: item.label })}
+                                onChange={(event) => {
+                                  const next = new Set(excludedSecrets());
+                                  if (event.currentTarget.checked) next.delete(item.id);
+                                  else next.add(item.id);
+                                  setExcludedSecrets(next);
+                                }}
+                              />
+                              <span class="storage-row-copy">
+                                <span class="storage-row-title">{item.label}</span>
+                                <span class="storage-row-meta">
+                                  {item.transferable && target()?.secrets
+                                    ? t("settings.transfer.copy.secretReady")
+                                    : t("settings.transfer.copy.secretNeedsSignIn")}
+                                </span>
+                              </span>
+                              <Show when={item.count > 1}>
+                                <span class="storage-row-size">{item.count}</span>
+                              </Show>
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </Show>
+                  </div>
+                </Show>
                 <p class="instance-transfer-not-moved">
                   <TriangleAlert class="instance-transfer-not-moved-icon" aria-hidden="true" />
                   <span>
@@ -396,7 +519,11 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                     <Button
                       type="button"
                       disabled={
-                        !selectedTarget() || !props.summary || (selected().length === 0 && !settings()) || busy()
+                        !selectedTarget() ||
+                        !props.summary ||
+                        secretsLoading() ||
+                        (selected().length === 0 && !settings() && selectedSecretIds().length === 0) ||
+                        busy()
                       }
                       onClick={() => {
                         if (!props.targetId) return;
@@ -406,6 +533,7 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                           includeFiles: files(),
                           includeSettings: settings(),
                           mode: props.mode,
+                          secretIds: selectedSecretIds(),
                         });
                       }}
                     >
@@ -426,7 +554,14 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
               </div>
             </Show>
 
-            <Show when={props.phase === "preparing" || props.phase === "copying" || props.phase === "archiving"}>
+            <Show
+              when={
+                props.phase === "preparing" ||
+                props.phase === "copying" ||
+                props.phase === "secrets" ||
+                props.phase === "archiving"
+              }
+            >
               <ProgressList
                 stepStatus={stepStatus}
                 steps={steps()}
@@ -513,6 +648,38 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                         <Show when={result().warnings.length > 0}>
                           <Notes title={t("settings.transfer.result.warnings")} notes={result().warnings} />
                         </Show>
+                        <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
+                          <SecretOutcomes
+                            outcomes={props.secretOutcomes ?? []}
+                            onReauthenticate={props.onReauthenticate}
+                          />
+                        </Show>
+                        <Show when={props.secretsError}>
+                          {(error) => (
+                            <div class="copy-setup-sign-in">
+                              <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
+                              <div class="copy-setup-secret-result">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => props.onReauthenticate("providers")}
+                                >
+                                  {t("settings.transfer.copy.openProviders")}
+                                </Button>
+                                <Button type="button" variant="outline" onClick={() => props.onReauthenticate("mcp")}>
+                                  {t("settings.transfer.copy.openMcp")}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => props.onReauthenticate("connectors")}
+                                >
+                                  {t("settings.transfer.copy.openConnectors")}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </Show>
                         <div class="agent-import-actions instance-transfer-start">
                           <Button type="button" variant="secondary" onClick={() => props.onDone()}>
                             {t("common.done")}
@@ -557,6 +724,8 @@ function ProgressList(props: {
         return t("settings.transfer.copy.stepPrepare");
       case "apply":
         return t("settings.transfer.copy.stepApply", { name: props.targetName });
+      case "secrets":
+        return t("settings.transfer.copy.stepSecrets");
       case "archive":
         return t("settings.transfer.copy.stepArchive", { source: props.sourceName });
     }
@@ -567,6 +736,8 @@ function ProgressList(props: {
         return t("settings.transfer.copy.stepPrepareDetail");
       case "apply":
         return t("settings.transfer.copy.stepApplyDetail", { name: props.targetName });
+      case "secrets":
+        return t("settings.transfer.copy.stepSecretsDetail");
       case "archive":
         return t("settings.transfer.copy.stepArchiveDetail", { source: props.sourceName });
     }
@@ -587,6 +758,40 @@ function ProgressList(props: {
         )}
       </For>
     </ol>
+  );
+}
+
+function SecretOutcomes(props: {
+  outcomes: readonly InstanceTransferSecretOutcome[];
+  onReauthenticate: (section: InstanceTransferSecretSection) => void;
+}) {
+  const { t } = useText();
+  return (
+    <div class="copy-setup-sign-in">
+      <h3 class="copy-setup-section-title">{t("settings.transfer.copy.secretsResultTitle")}</h3>
+      <ul class="copy-setup-secret-list">
+        <For each={props.outcomes}>
+          {(outcome) => {
+            const needsSignIn = outcome.status === "failed" || outcome.status === "target-missing";
+            const section = SECRET_KIND_SECTIONS[outcome.kind];
+            return (
+              <li class="copy-setup-secret-result">
+                <span class="storage-row-copy">
+                  <span class="storage-row-title">{outcome.label}</span>
+                  <span class="storage-row-meta">{t(SECRET_STATUS_KEYS[outcome.status])}</span>
+                  <Show when={outcome.reason}>{(reason) => <span class="storage-row-meta">{reason()}</span>}</Show>
+                </span>
+                <Show when={needsSignIn}>
+                  <Button type="button" variant="outline" onClick={() => props.onReauthenticate(section)}>
+                    {t("settings.transfer.copy.reauthenticate", { section: t(SECRET_SECTION_KEYS[section]) })}
+                  </Button>
+                </Show>
+              </li>
+            );
+          }}
+        </For>
+      </ul>
+    </div>
   );
 }
 

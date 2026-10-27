@@ -269,6 +269,14 @@ export class OnePasswordConnectorService implements PasswordVault {
     yield* this.#readIndexInBackground(INDEX_MAX_AGE_MS);
   }).bind(this);
 
+  /**
+   * The service account token, for a transfer to another OpenBot of the same user. The status never
+   * carries it; only the sealed hand-off reads it.
+   */
+  serviceAccountToken(): string | null {
+    return this.#store.read()?.token ?? null;
+  }
+
   status(): OnePasswordConnectorStatus {
     const connected = this.#store.read() !== null && !this.#connecting;
     return {

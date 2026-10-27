@@ -1,7 +1,7 @@
 // The optional API keys a provider CLI needs, encrypted at rest by the operating system.
 
 import { readFile, rm } from "node:fs/promises";
-import type { AgentProviderId, ProviderApiKeyStatus } from "@openbot/contracts/ipc";
+import { AGENT_PROVIDERS, type AgentProviderId, type ProviderApiKeyStatus } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { registerSecretValue } from "@openbot/logging";
 import { Effect, Result, Schema, Semaphore } from "effect";
@@ -83,6 +83,11 @@ export class ProviderCredentialStore {
   get(provider: AgentProviderId): string | null {
     if (!this.#loaded) throw new Error("The provider credential store is not loaded.");
     return this.#keys.get(provider) ?? null;
+  }
+
+  /** The providers with a stored key, for a transfer that names them without reading one. */
+  saved(): AgentProviderId[] {
+    return AGENT_PROVIDERS.filter((provider) => this.get(provider) !== null);
   }
 
   /** Whether a key is stored. This is the only fact that may cross the IPC boundary. */

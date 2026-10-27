@@ -79,6 +79,7 @@ export function serverSupportsCapability(
       capability === "agent-import-v1" ||
       capability === "instance-transfer-v1" ||
       capability === "instance-transfer-v2" ||
+      capability === "instance-transfer-v3" ||
       capability === "agent-hidden-v1" ||
       capability === "agent-tasks-v1" ||
       capability === "side-question-v1") &&

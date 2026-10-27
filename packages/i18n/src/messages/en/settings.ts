@@ -660,4 +660,32 @@ export const messages = defineMessages("settings", {
   "settings.transfer.copy.rollback": "Roll back",
   "settings.transfer.copy.rollbackBusy": "Rolling back…",
   "settings.transfer.copy.rollbackFailed": "The rollback did not finish",
+  "settings.transfer.copy.secretsTitle": "Saved keys and sign-ins",
+  "settings.transfer.copy.secretsDescription":
+    "Supported keys and sign-ins are sealed for this transfer. Anything unsupported stays on the source and needs setup on the target.",
+  "settings.transfer.copy.secretsUnsupported":
+    "This target cannot receive encrypted sign-ins. Add them again in the target's settings.",
+  "settings.transfer.copy.secretsUnavailable": "Saved sign-ins could not be listed",
+  "settings.transfer.copy.secretsLoading": "Checking saved keys and sign-ins…",
+  "settings.transfer.copy.secretReady": "Encrypted transfer available",
+  "settings.transfer.copy.secretNeedsSignIn": "Sign in again on the target",
+  "settings.transfer.copy.includeSecret": "Include {name}",
+  "settings.transfer.copy.stepSecrets": "Transfer saved keys and sign-ins",
+  "settings.transfer.copy.stepSecretsDetail":
+    "Seal supported values for this migration; unsupported sign-ins need setup on the target.",
+  "settings.transfer.copy.transferringSecrets": "Transferring saved sign-ins…",
+  "settings.transfer.copy.secretsResultTitle": "Saved keys and sign-ins",
+  "settings.transfer.copy.secretTransferred": "Transferred",
+  "settings.transfer.copy.secretAlreadyPresent": "Already set on the target",
+  "settings.transfer.copy.secretTargetMissing": "Not available on the target",
+  "settings.transfer.copy.secretFailed": "Needs attention",
+  "settings.transfer.copy.reauthenticate": "Set up in {section}",
+  "settings.transfer.copy.openProviders": "providers",
+  "settings.transfer.copy.openMcp": "MCP",
+  "settings.transfer.copy.openConnectors": "connectors",
+  "settings.transfer.copy.secretsMigrationMissing":
+    "This transfer has no migration ID, so saved sign-ins were not sent. The source is unchanged.",
+  "settings.transfer.copy.secretsFailed": "Saved sign-ins could not be transferred. The source is unchanged.",
+  "settings.transfer.copy.secretsUnsupportedReason":
+    "The target cannot receive encrypted sign-ins. Add this again in the target's settings.",
 });

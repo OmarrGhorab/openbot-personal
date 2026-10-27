@@ -1,6 +1,7 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
 import { INSTANCE_TRANSFER_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v1";
 import { INSTANCE_TRANSFER_V2_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v2";
+import { INSTANCE_TRANSFER_V3_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v3";
 import { serverRoleCanAdminister, serverSupportsCapability } from "./server-capabilities";
 
 /** Why a server cannot receive a copy. */
@@ -11,6 +12,8 @@ export interface CopyTargetOption {
   disabledReason: CopyTargetReason | null;
   /** The target records the migration, so a move can be confirmed and a failed run rolled back. */
   resumable: boolean;
+  /** Both sides can seal and open secrets for this migration, so the dialog may offer them. */
+  secrets: boolean;
 }
 
 /**
@@ -43,6 +46,22 @@ export function resumableTarget(target: ServerSummary): boolean {
   );
 }
 
+/** Whether this computer can read the secrets of `server` for a transfer. */
+export function canSendSecrets(server: ServerSummary | null | undefined): server is ServerSummary {
+  if (!server) return false;
+  if (server.kind === "local") return true;
+  return serverRoleCanAdminister(server) && serverSupportsCapability(server, INSTANCE_TRANSFER_V3_CAPABILITY);
+}
+
+/**
+ * Whether `target` can receive sealed secrets: it has the migration ledger of `instance-transfer-v2`
+ * and the sealed hand-off of `instance-transfer-v3`.
+ */
+export function secretsTarget(target: ServerSummary): boolean {
+  if (target.kind === "local") return true;
+  return resumableTarget(target) && serverSupportsCapability(target, INSTANCE_TRANSFER_V3_CAPABILITY);
+}
+
 /** Whether `target` can receive `from`'s setup. A server never receives from itself. */
 export function canCopyTo(from: ServerSummary, target: ServerSummary): boolean {
   return target.id !== from.id && copyTargetDisabledReason(from, target) === null;
@@ -58,6 +77,7 @@ export function copyTargetOptions(servers: readonly ServerSummary[], sourceId: s
       server,
       disabledReason: copyTargetDisabledReason(from, server),
       resumable: resumableTarget(server),
+      secrets: canSendSecrets(from) && secretsTarget(server),
     }));
 }
 

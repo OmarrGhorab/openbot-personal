@@ -210,6 +210,7 @@ import { HostedServerStartRetry } from "./hosted-server-start-retry";
 import { HostedSiteDesktopService } from "./hosted-site-service";
 import { IdleRestart } from "./idle-restart";
 import { loadIngressQueueKey } from "./ingress-queue-key";
+import { InstanceTransferSecretsService } from "./instance-transfer-secrets-service";
 import { InstanceTransferService } from "./instance-transfer-service";
 import { InterfaceSizeService } from "./interface-size-service";
 import { prepareToolRuntimeForTest } from "./ipc/mcp-server-handlers";
@@ -2149,6 +2150,36 @@ export async function createApplicationServices({
     () => serverTimezone.effective(),
   );
   // The same owners the Settings screens write through, so an import has their checks and restarts.
+  /** The providers that are signed in and ready here: what a transfer cannot carry except as a key. */
+  const signedInProviders = () =>
+    (service.getStatus().providers ?? [])
+      .filter((provider) => provider.state === "available" && !provider.off)
+      .map((provider) => provider.id);
+  const instanceTransferSecrets = new InstanceTransferSecretsService({
+    providers: {
+      saved: () => providerCredentials.saved(),
+      get: (provider) => providerCredentials.get(provider),
+      set: (provider, key) => providerCredentials.set(provider, key),
+    },
+    mcp: {
+      list: () => service.listMcpServers(),
+      save: (config) => service.saveMcpServer({ config }),
+    },
+    signedInProviders,
+    github: {
+      session: () => githubConnector.session(),
+      adoptSession: (session) => githubConnector.adoptSession(session),
+    },
+    onePassword: {
+      serviceAccountToken: () => onePasswordConnector.serviceAccountToken(),
+      connectWithToken: (token) => onePasswordConnector.connectWithToken(token),
+      connected: () => onePasswordConnector.connected(),
+    },
+    customProviders: () => customProviders.configs(),
+    updateCustomProvider: (input) => customProviderChanges.update(input),
+    mcpSignIns: () => mcpOAuthStore.resources(),
+    bitwardenConnected: () => bitwardenConnector.connected(),
+  });
   const instanceTransfer = new InstanceTransferService({
     agents: service,
     skills: { library: () => skills.requireLocalLibrary(), installLocal: (input) => skills.installLocal(input) },
@@ -2159,6 +2190,7 @@ export async function createApplicationServices({
     moveDirectory: join(app.getPath("userData"), "instance-transfer-moves"),
     archiveDirectory: join(dirname(store.sharedRoot), "Archives"),
     timezone: () => serverTimezone.effective(),
+    secrets: instanceTransferSecrets,
     settings: {
       mcpServers: () => service.listMcpServers(),
       saveMcpServer: (config) => service.saveMcpServer({ config }),
@@ -2171,10 +2203,7 @@ export async function createApplicationServices({
       routineFlowLinks: (agentId) => routineFlowRuntime.canvas(agentId).pipe(Effect.map((canvas) => canvas.links)),
       connectRoutineFlow: (input) => routineFlowRuntime.connect(input),
       removeAgent: (agentId) => sidebarLayout.removeAgent(agentId),
-      signedInProviders: () =>
-        (service.getStatus().providers ?? [])
-          .filter((provider) => provider.state === "available" && !provider.off)
-          .map((provider) => provider.id),
+      signedInProviders,
     },
   });
   const mcpHostSignIns = new McpHostSignIns({ service, browser });

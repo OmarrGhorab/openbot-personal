@@ -33,10 +33,14 @@ import {
   type CustomProviderSummary,
   type ExportInstanceInput,
   INSTANCE_TRANSFER_LIMITS,
+  INSTANCE_TRANSFER_SECRET_LIMITS,
   type InstanceExportResult,
   type InstanceTransferAgent,
   type InstanceTransferPreview,
   type InstanceTransferResult,
+  type InstanceTransferSealedItem,
+  type InstanceTransferSecretsResult,
+  type InstanceTransferSecretsSummary,
   type InstanceTransferSummary,
   isAgentImportKey,
   isInstanceArchiveFileName,
@@ -44,6 +48,7 @@ import {
   type Routine,
   type RoutineFlowLink,
   type SaveCustomProviderInput,
+  type SealInstanceTransferSecretsResult,
   type SetAgentMemoryInclusionInput,
   type SidebarLayoutAction,
   type SidebarLayoutSnapshot,
@@ -89,6 +94,7 @@ import {
   type TransferManifestFile,
   type TransferSettings,
 } from "./instance-transfer-manifest";
+import type { InstanceTransferSecretsService } from "./instance-transfer-secrets-service";
 import { MANAGED_SKILL_FOLDERS, OWNERSHIP_MARKER } from "./managed-skill-service";
 import { inspectArchive, isUnsafeArchivePath } from "./skill-package";
 
@@ -114,6 +120,8 @@ const REMOTE_ARCHIVE: ArchiveLimits = {
 };
 /** The owner of the files the local user reads. A member's owner is the member id. */
 const LOCAL_OWNER = "local";
+/** The id `migrationIdFor` makes, and the name of a held move. */
+const MIGRATION_ID = /^[\da-f]{64}$/u;
 /** A file that a member sent and nobody applied is removed after this. */
 const UPLOAD_TTL_MS = 30 * 60_000;
 /** Skill folders are copied here, published to the local library, and removed again. */
@@ -181,6 +189,8 @@ export interface InstanceTransferOptions {
   moveDirectory: string;
   /** Where a confirmed move leaves its reversible source archive, `~/OpenBot/Archives`. */
   archiveDirectory: string;
+  /** The secret inventory and sealed hand-off. Absent in a build with no secret stores. */
+  secrets?: Pick<InstanceTransferSecretsService, "list" | "createKey" | "seal" | "apply">;
   timezone?: () => string;
   now?: () => Date;
 }
@@ -698,6 +708,67 @@ export class InstanceTransferService {
     return { agents: removed };
   }).bind(this);
 
+  /**
+   * The secrets this computer holds, without a value. The copy dialog lists them after the preview,
+   * so the user chooses what travels before anything is sealed.
+   */
+  readonly listSecrets = Effect.fn("InstanceTransfer.listSecrets")(function* (
+    this: InstanceTransferService,
+  ): Effect.fn.Return<InstanceTransferSecretsSummary, ArchiveOperationError> {
+    const secrets = this.options.secrets;
+    if (!secrets) return yield* archiveFailure(new Error(sourceText("error.import.transferSecretsUnsupported")));
+    return yield* secrets.list();
+  }).bind(this);
+
+  /**
+   * A key the source seals one migration's secrets to. Issued only after this owner applied the
+   * migration here, so an admin cannot ask for a key for a migration the target never recorded.
+   */
+  readonly createSecretKey = Effect.fn("InstanceTransfer.createSecretKey")(function* (
+    this: InstanceTransferService,
+    migrationId: string,
+    owner = LOCAL_OWNER,
+  ): Effect.fn.Return<{ publicKey: string }, ArchiveOperationError> {
+    const secrets = this.options.secrets;
+    if (!secrets) return yield* archiveFailure(new Error(sourceText("error.import.transferSecretsUnsupported")));
+    if (!MIGRATION_ID.test(migrationId))
+      return yield* archiveFailure(new Error(sourceText("error.import.transferSecretKeyInvalid")));
+    const record = yield* this.#readMigration(owner, migrationId).pipe(Effect.orElseSucceed(() => null));
+    if (!record) return yield* archiveFailure(new Error(sourceText("error.import.transferSecretsLedger")));
+    return yield* secrets.createKey(owner, migrationId);
+  }).bind(this);
+
+  /** Seal the chosen secrets to the target's key. The source keeps every value it sends. */
+  readonly sealSecrets = Effect.fn("InstanceTransfer.sealSecrets")(function* (
+    this: InstanceTransferService,
+    input: { migrationId: string; targetPublicKey: string; ids: string[] },
+  ): Effect.fn.Return<SealInstanceTransferSecretsResult, ArchiveOperationError> {
+    const secrets = this.options.secrets;
+    if (!secrets) return yield* archiveFailure(new Error(sourceText("error.import.transferSecretsUnsupported")));
+    if (
+      !MIGRATION_ID.test(input.migrationId) ||
+      input.ids.length === 0 ||
+      input.ids.length > INSTANCE_TRANSFER_SECRET_LIMITS.items ||
+      new Set(input.ids).size !== input.ids.length
+    )
+      return yield* archiveFailure(new Error(sourceText("error.import.transferSecretInvalid")));
+    return yield* secrets.seal(input);
+  }).bind(this);
+
+  /** Open the sealed items for one owner's migration and write what the target does not have. */
+  readonly applySecrets = Effect.fn("InstanceTransfer.applySecrets")(function* (
+    this: InstanceTransferService,
+    migrationId: string,
+    items: InstanceTransferSealedItem[],
+    owner = LOCAL_OWNER,
+  ): Effect.fn.Return<InstanceTransferSecretsResult, ArchiveOperationError> {
+    const secrets = this.options.secrets;
+    if (!secrets) return yield* archiveFailure(new Error(sourceText("error.import.transferSecretsUnsupported")));
+    if (!MIGRATION_ID.test(migrationId) || items.length > INSTANCE_TRANSFER_SECRET_LIMITS.items)
+      return yield* archiveFailure(new Error(sourceText("error.import.transferSecretInvalid")));
+    return yield* secrets.apply(owner, migrationId, items);
+  }).bind(this);
+
   /** Holds the source bytes of a move until the target confirms, under the migration id. */
   readonly keepForMove = Effect.fn("InstanceTransfer.keepForMove")(function* (
     this: InstanceTransferService,
@@ -705,7 +776,7 @@ export class InstanceTransferService {
     bytes: Uint8Array,
   ): Effect.fn.Return<void, ArchiveOperationError> {
     const directory = this.options.moveDirectory;
-    if (!/^[\da-f]{64}$/u.test(migrationId))
+    if (!MIGRATION_ID.test(migrationId))
       return yield* archiveFailure(new Error(sourceText("error.import.transferMoveInvalid")));
     yield* archiveCall(() => mkdir(directory, { recursive: true, mode: 0o700 }));
     yield* this.#cleanupMoves(directory, migrationId).pipe(Effect.ignore);
@@ -745,7 +816,7 @@ export class InstanceTransferService {
     this: InstanceTransferService,
     migrationId: string,
   ): Effect.fn.Return<{ fileName: string; directory: string }, ArchiveOperationError> {
-    if (!/^[\da-f]{64}$/u.test(migrationId))
+    if (!MIGRATION_ID.test(migrationId))
       return yield* archiveFailure(new Error(sourceText("error.import.transferMoveInvalid")));
     const source = join(this.options.moveDirectory, `${migrationId}.zip`);
     const directory = this.options.archiveDirectory;
@@ -888,6 +959,12 @@ export class InstanceTransferService {
     }
     if (settings) yield* this.#applyLayout(settings, agentIds, routineIds, warnings);
     if (staged.manifest.shared) yield* this.#importShared(bytes, staged.manifest.shared, warnings);
+    // A settings-only migration still gets an entry, so the target can publish a secret key for it.
+    // A ledger that cannot be written keeps the imported agents and still reports why no secret can follow.
+    if (context) {
+      const saved = yield* Effect.result(this.#saveMigration(context));
+      if (Result.isFailure(saved)) warnings.push(sourceText("error.import.transferLedgerUnwritable"));
+    }
 
     const signedIn = new Set(this.options.settings.signedInProviders());
     return {

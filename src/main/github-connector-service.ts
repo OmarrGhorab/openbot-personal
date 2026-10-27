@@ -82,6 +82,9 @@ export interface GitHubConnectorServiceOptions {
   now?: () => number;
 }
 
+/** The stored sign-in, without the loopback proxy of this computer, which another computer must not inherit. */
+export type GitHubConnectorSession = Omit<GitHubConnectorRecord, "mcpProxy">;
+
 interface PendingSignIn {
   controller: AbortController;
   /** Null while GitHub has not answered the device code request. */
@@ -226,6 +229,14 @@ export class GitHubConnectorService {
     };
   }
 
+  /** The stored sign-in, for a transfer to another OpenBot of the same user. */
+  session(): GitHubConnectorSession | null {
+    const record = this.#store.read();
+    if (!record) return null;
+    const { mcpProxy: _mcpProxy, ...session } = record;
+    return session;
+  }
+
   onChanged(listener: (status: GitHubConnectorStatus) => void): () => void {
     this.#statusListeners.add(listener);
     return () => this.#statusListeners.delete(listener);
@@ -316,6 +327,52 @@ export class GitHubConnectorService {
       const { revokeUrl } = this.pages();
       if (hadRecord && revokeUrl && opensPage) yield* Effect.forkIn(this.#owned(this.#open(revokeUrl)), this.#scope);
       return this.status();
+    },
+    (operation) => this.#owned(operation),
+  ).bind(this);
+
+  /**
+   * Keeps a sign-in that another OpenBot sealed and sent. The loopback proxy is this computer's own:
+   * a port and secret from the source would point agents at a server that is not here.
+   */
+  readonly adoptSession = Effect.fn("GitHubConnector.adoptSession")(
+    function* (
+      this: GitHubConnectorService,
+      session: GitHubConnectorSession,
+    ): Effect.fn.Return<void, GitHubOperationError, GitHubPlatform> {
+      if (!this.#app)
+        return yield* new GitHubOperationError({ cause: new Error(sourceText("error.connector.githubUnavailable")) });
+      this.#pending?.controller.abort();
+      this.#pending = null;
+      this.#generation += 1;
+      const record: GitHubConnectorRecord = { ...session, mcpProxy: null };
+      registerTokenSecrets(record);
+      yield* this.#serialize(() => this.#store.write(record));
+      this.#expired = false;
+      this.#error = null;
+      this.#botTokens.clear();
+      // A proxy that is already running reads `accessToken()`, so only a computer without one starts it.
+      if (this.#mcpProxy === null)
+        yield* this.#startMcpProxyEffect(record).pipe(
+          Effect.catch(({ cause: error }) =>
+            Effect.sync(() => {
+              logger.warn("The GitHub MCP server of this computer did not start.", { cause: toLogValue(error) });
+            }),
+          ),
+        );
+      yield* this.#serialize(() =>
+        this.#writeToolFilesEffect(record).pipe(
+          Effect.catch(({ cause: error }) =>
+            Effect.sync(() => {
+              logger.warn("The GitHub token files could not be written.", { cause: toLogValue(error) });
+            }),
+          ),
+        ),
+      );
+      this.#emitStatus();
+      this.#syncAgentAccess();
+      // An expired session is reported through the status; the rest of the copy is not undone.
+      yield* this.#checkRefresh().pipe(Effect.catch(() => Effect.void));
     },
     (operation) => this.#owned(operation),
   ).bind(this);

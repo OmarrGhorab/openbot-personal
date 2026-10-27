@@ -167,6 +167,22 @@
   list-style: none;
 }
 
+.copy-setup-secret-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.copy-setup-secret-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
 .copy-setup-archive {
   display: flex;
   flex-direction: column;
