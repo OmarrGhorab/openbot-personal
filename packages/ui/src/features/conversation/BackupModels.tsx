@@ -308,7 +308,7 @@ export interface UsageLimitAskCardProps {
   /** The models that can take the message now, the first one preselected. Empty when none can. */
   options: readonly BackupModelOption[];
   /** Whether the agent has a backup model set. Without one, an empty `options` says so. */
-  hasBackup?: boolean;
+  hasBackup: boolean;
   /** Moves the agent. `remember` saves the choice first in the order and switches without asking next time. */
   onSend: (option: BackupModelOption, remember: boolean) => Promise<void>;
   onWait: () => void;
@@ -331,7 +331,7 @@ export function UsageLimitAskCard(props: UsageLimitAskCardProps) {
   const body = () => {
     const reset = formatUsageReset(props.resetsAt, format);
     if (props.options.length === 0) {
-      if (props.hasBackup === false) return t("chat.usageLimit.noBackup");
+      if (!props.hasBackup) return t("chat.usageLimit.noBackup");
       return reset ? t("chat.usageLimit.exhaustedReset", { reset }) : t("chat.usageLimit.exhausted");
     }
     return reset ? t("chat.usageLimit.bodyReset", { reset }) : t("chat.usageLimit.body");
