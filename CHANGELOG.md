@@ -6,6 +6,26 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.49.3] - 2026-10-27
+
+### Added
+
+- Copy your setup to another server directly, move it and resume there, transfer chat history, and check versions before a move. Attachments do not move yet.
+- During setup copy, you can select supported provider API keys, matching custom-provider keys and headers, GitHub sign-in, and 1Password service-account tokens to transfer. Secret values are encrypted to the target and stay out of the archive, preview, logs, and analytics. Sign-ins that cannot move are listed with a re-authentication action.
+- Two new dictation models in Settings > Voice: FastConformer Arabic (Arabic only, very fast, shows text while you speak) and Whisper small.
+- The chat says why a held message waits when no backup model is ready: no backup model is set, or every backup model is at its limit.
+- Raven Stack and REA skills, and an REA agent, in the Marketplace catalog.
+
+### Changed
+
+- An agent set to switch to a backup model without asking now moves a turn that already wrote text or ran a tool step, with the partial answer and tool steps handed off. A spent balance or quota also moves the turn to a backup model.
+
+### Fixed
+
+- Voice dictation no longer stops on "Write or say a message first", no longer fails as busy when a second dictation starts, and the island, composer and bot picker reset after a send, cancel or error.
+- Switching chats no longer makes the chat jump while it scrolls.
+- Reading a Claude chat history twice at once no longer fails with "database is locked".
+
 ## [0.49.2] - 2026-10-27
 
 ### Fixed
