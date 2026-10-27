@@ -11,6 +11,10 @@ import {
   sameAgentModelChoice,
 } from "@openbot/contracts/ipc";
 import {
+  Alert,
+  AlertContent,
+  AlertDescription,
+  AlertIcon,
   ArrowLeftRight,
   Badge,
   Button,
@@ -29,6 +33,7 @@ import {
   Switch,
   Text,
   Trash2,
+  TriangleAlert,
 } from "@openbot/ui";
 import { SettingsLinkGroup } from "@openbot/ui/components/SettingsPanel";
 import { errorReference } from "@openbot/user-errors";
@@ -185,6 +190,16 @@ export function BackupModelsPage(props: BackupModelsPageProps) {
           />
         </div>
       </SettingsLinkGroup>
+      <Show when={automatic() && entries().length === 0}>
+        <Alert tone="warning" class="backup-models-warning">
+          <AlertIcon>
+            <TriangleAlert />
+          </AlertIcon>
+          <AlertContent>
+            <AlertDescription>{t("agentSettings.backupModels.automaticNoOrder")}</AlertDescription>
+          </AlertContent>
+        </Alert>
+      </Show>
       <SettingsLinkGroup inset class="agent-settings-runtime-rows" title={t("agentSettings.backupModels.order")}>
         <Show
           when={entries().length > 0}
