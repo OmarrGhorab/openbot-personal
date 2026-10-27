@@ -153,6 +153,22 @@ export function claudeHistoryFromMessages(
     });
 }
 
+// Scans of one thread share one index file. Two at once would both index the same new lines
+// (UNIQUE entries.uuid) or hit "database is locked", so they run one after another.
+const scansByIndex = new Map<string, Promise<void>>();
+
+async function serializedScan(indexPath: string, scan: () => Promise<void>): Promise<void> {
+  const previous = scansByIndex.get(indexPath) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(scan);
+  const settled = current.catch(() => undefined);
+  scansByIndex.set(indexPath, settled);
+  try {
+    await current;
+  } finally {
+    if (scansByIndex.get(indexPath) === settled) scansByIndex.delete(indexPath);
+  }
+}
+
 async function scanClaudeHistory(
   request: ProviderHistoryRequest,
   consume: ProviderHistoryConsumer,
@@ -170,6 +186,16 @@ async function scanClaudeHistory(
   const indexDirectory = join(indexRoot, "openbot-claude-history");
   await mkdir(indexDirectory, { recursive: true });
   const indexPath = join(indexDirectory, `${sanitizeProjectPath(request.threadId)}.sqlite`);
+  return serializedScan(indexPath, () => scanIndex(request, consume, transcript, indexPath, signal));
+}
+
+async function scanIndex(
+  request: ProviderHistoryRequest,
+  consume: ProviderHistoryConsumer,
+  transcript: string,
+  indexPath: string,
+  signal: AbortSignal,
+): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (signal.aborted) throw signal.reason;
     const before = await fileIdentity(transcript);
