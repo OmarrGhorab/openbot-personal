@@ -17,6 +17,12 @@
   },
   "skills": [
     {
+      "slug": "raven-stack",
+      "category": "coding",
+      "source": "openbot",
+      "featured": false
+    },
+    {
       "slug": "secure-code-guidance",
       "category": "coding",
       "source": "openai",
