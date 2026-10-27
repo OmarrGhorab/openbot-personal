@@ -87,6 +87,10 @@ export const messages = {
     "{name}: الموديل «{model}» مش متاح هنا لسه، فالإيجنت بيستخدم الموديل الافتراضي. اختار الموديل تاني لما المزوّد بتاعه يبقى جاهز.",
   "error.import.transferSettingSkipped": "{name} ماتستوردش. {reason}",
   "error.import.transferRoutineFlowSkipped": "الاستيراد سيب مسار روتين. {reason}",
+  "error.import.historyFileInvalid": "تاريخ الشات بتاع {name} مش قابل للقراءة، فالمحادثات دي ماتستوردتش.",
+  "error.import.historyThreadSkipped": "محادثة من {name} مش سليمة، فماتستوردتش.",
+  "error.import.historyMessagesSkipped": "في رسايل في محادثة من {name} مش سليمة، فماتستوردتش.",
+  "error.import.historyAttachmentNotCopied": "المرفق {attachment} ماتنسخش، فالرسالة اتستوردت من غيره.",
   "error.import.transferCustomAgentCommand":
     "{name}: الإيجنتات المخصصة ماتستوردتش، لأنها بتشغّل أمر. راجع الأمر «{command}» وضيف الإيجنت تاني من الإعدادات.",
   "error.import.transferSkillLimit":

@@ -3,7 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { ConversationMessage, ConversationSnapshot } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
-import type { AgentRoster } from "./agent-roster";
+import type { AgentRoster, ImportedThreadProjection } from "./agent-roster";
 import { recordUsageMessage } from "./agent-usage";
 import { type DatabaseCore, deleteReceiptsOf } from "./database-core";
 import {
@@ -50,6 +50,7 @@ export class ConversationWriter {
     eventType: string,
     payload: unknown = {},
     commandId = `conversation:${eventType}:${randomUUID()}`,
+    imported?: ImportedThreadProjection,
   ): ConversationSnapshot {
     if (!snapshot.threadId) return structuredClone(snapshot);
     const threadId = snapshot.threadId;
@@ -68,7 +69,8 @@ export class ConversationWriter {
         const sequence = sequences[0] ?? snapshot.revision;
         const agent = this.#roster.listAgents().find((candidate) => candidate.id === snapshot.agentId);
         if (!agent) throw new Error(`Unknown agent for conversation: ${snapshot.agentId}`);
-        this.#roster.ensureThreadProjection(db, agent, sequence);
+        if (imported) this.#roster.ensureImportedThreadProjection(db, agent, threadId, imported, sequence);
+        else this.#roster.ensureThreadProjection(db, agent, sequence);
         db.prepare(
           `UPDATE projection_threads
            SET active_turn_id = ?, updated_at = ?, last_event_sequence = ? WHERE thread_id = ?`,

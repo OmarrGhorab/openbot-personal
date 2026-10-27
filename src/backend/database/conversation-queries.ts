@@ -34,6 +34,13 @@ export interface ConversationQueriesOptions {
   core: DatabaseCore;
 }
 
+export interface AgentThreadSummary {
+  threadId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** The message kinds that a Team API client cannot show, left out of its pages and read state. */
 export interface ConversationMarkerExclusions {
   excludeRoutineEvents?: boolean;
@@ -65,6 +72,30 @@ export class ConversationQueries {
 
   constructor(options: ConversationQueriesOptions) {
     this.#core = options.core;
+  }
+
+  /**
+   * The threads an agent keeps as its own history, for a transfer. A channel, messaging, or task thread
+   * is left out: it belongs to a conversation that another agent or a channel also reads.
+   */
+  listAgentThreads(agentId: string): AgentThreadSummary[] {
+    return databaseRows(
+      this.#core.connection
+        .prepare(
+          `SELECT thread_id, title, created_at, updated_at FROM projection_threads
+           WHERE agent_id = ?
+             AND thread_id NOT IN (SELECT thread_id FROM projection_channel_contexts WHERE thread_id IS NOT NULL)
+             AND thread_id NOT IN (SELECT thread_id FROM projection_messaging_threads WHERE thread_id IS NOT NULL)
+             AND thread_id NOT IN (SELECT thread_id FROM projection_agent_tasks WHERE thread_id IS NOT NULL)
+           ORDER BY created_at, thread_id`,
+        )
+        .all(agentId),
+    ).map((row) => ({
+      threadId: requiredStringColumn(row, "thread_id"),
+      title: requiredStringColumn(row, "title"),
+      createdAt: requiredStringColumn(row, "created_at"),
+      updatedAt: requiredStringColumn(row, "updated_at"),
+    }));
   }
 
   readConversation(agentId: string, threadId: string | null): ConversationSnapshot {

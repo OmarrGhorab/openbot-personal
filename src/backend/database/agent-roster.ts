@@ -276,6 +276,32 @@ export class AgentRoster {
       sequence,
     );
   }
+
+  /**
+   * A thread an import writes beside the agent's own chat. It keeps the title and start time it had on
+   * the computer it came from, and an existing row is never overwritten, so a second import of the same
+   * thread only adds or removes messages.
+   */
+  ensureImportedThreadProjection(
+    db: DatabaseSync,
+    agent: AgentSummary,
+    threadId: string,
+    imported: ImportedThreadProjection,
+    sequence: number,
+  ): void {
+    db.prepare(`
+      INSERT INTO projection_threads
+        (thread_id, agent_id, title, active_turn_id, created_at, updated_at, last_event_sequence)
+      VALUES (?, ?, ?, NULL, ?, ?, ?)
+      ON CONFLICT(thread_id) DO NOTHING
+    `).run(threadId, agent.id, imported.title, imported.createdAt, imported.createdAt, sequence);
+  }
+}
+
+/** The title and start time an imported thread keeps. See `ensureImportedThreadProjection`. */
+export interface ImportedThreadProjection {
+  title: string;
+  createdAt: string;
 }
 
 /**
