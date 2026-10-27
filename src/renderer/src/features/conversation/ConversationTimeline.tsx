@@ -185,6 +185,7 @@ export function ConversationTimeline() {
     setScrollElement,
     setStickToLatest,
     followReaderScroll,
+    chatOpening,
     setUnreadMessagesDividerElement,
     setVirtualRootElement,
     openTaskPanel,
@@ -575,7 +576,7 @@ export function ConversationTimeline() {
       </Show>
 
       <div
-        class={["conversation-scroll", scrollFades.classes()]}
+        class={["conversation-scroll", scrollFades.classes(), { "conversation-scroll-opening": chatOpening() }]}
         ref={(element) => {
           setScrollElement(element);
           rail.ref(element);
