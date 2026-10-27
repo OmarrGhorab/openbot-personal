@@ -565,6 +565,16 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           skillsMarketplaceOpen() ||
           hasVisibleToasts()
         }
+        toastsVisible={
+          hasVisibleToasts() &&
+          !(
+            globalSearchOpen() ||
+            joinServerOpen() ||
+            serverSettingsOpen() ||
+            appSettingsOpen() ||
+            skillsMarketplaceOpen()
+          )
+        }
         settingsRequest={settingsRequest()}
         messageFocusRequest={messageFocusRequest()}
         onSelectAgent={selectAgent}

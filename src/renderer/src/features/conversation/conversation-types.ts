@@ -220,6 +220,11 @@ export interface ConversationProps {
    */
   mcpSettingsOpen?: boolean | undefined;
   globalOverlayOpen: boolean;
+  /**
+   * True while a toast shows. A toast is in `globalOverlayOpen` so that the native browser view
+   * goes under it, but it does not take the keys: dictation must still start.
+   */
+  toastsVisible?: boolean | undefined;
   settingsRequest: AgentSettingsRequest | null;
   messageFocusRequest: { agentId: string; messageId: string; nonce: number } | null;
   queue: QueueSnapshot | undefined;
