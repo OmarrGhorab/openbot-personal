@@ -474,6 +474,9 @@ export const messages = {
   "settings.voice.model.parakeet.description": "سريع. بيعرف اللغة المنطوقة لوحده، في 25 لغة أوروبية.",
   "settings.voice.model.bark.description": "سريع. إنجليزي بس. بيكتب أغلبه بحروف صغيرة وعلامات ترقيم قليلة.",
   "settings.voice.model.whisper.description": "أبطأ. حوالي 100 لغة، وتقدر تحدد اللغة المنطوقة.",
+  "settings.voice.model.fastconformerArabic.description": "عربي بس. سريع جدًا، وبيكتب الكلام وإنت بتتكلم.",
+  "settings.voice.model.whisperSmall.description":
+    "أصغر وأسرع من Whisper turbo، بس أقل دقة. استخدمه لو turbo بطيء على الجهاز ده.",
   "settings.voice.model.size": "حجم التنزيل: {size}",
   "settings.voice.model.downloading": "بننزّل · {received} من {total}",
   "settings.voice.model.failed": "التنزيل وقف. اتأكد من الاتصال وحاول تاني.",
@@ -490,6 +493,8 @@ export const messages = {
   "settings.voice.language.description": "اللغة اللي بتتكلم بيها. «تلقائي» بيعرفها من التسجيل.",
   "settings.voice.language.modelDetects":
     "Parakeet بيعرف اللغة المنطوقة لوحده. علشان تحدد لغة، استخدم Whisper أو ElevenLabs.",
+  "settings.voice.language.arabicOnly":
+    "FastConformer Arabic بيتعرّف على العربي بس. علشان تحدد لغة، استخدم Whisper أو ElevenLabs.",
   "settings.voice.language.englishOnly": "Bark بيتعرّف على الإنجليزي بس. علشان تحدد لغة، استخدم Whisper أو ElevenLabs.",
   "settings.voice.language.automatic": "تلقائي",
   "settings.voice.loadFailed": "معرفناش نقرا موديلات الصوت.",

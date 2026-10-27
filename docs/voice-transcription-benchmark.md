@@ -34,3 +34,22 @@ dictation. The smoke script writes the full per-clip output to
 The smoke test is macOS-only and uses synthetic speech. It does not measure Arabic accuracy, a real
 microphone, or Windows; those still need a live run on each platform.
 
+
+## Arabic models (#78)
+
+FastConformer Arabic is the CTC branch of NVIDIA `stt_ar_fastconformer_hybrid_large_pc_v1.0`
+(CC-BY-4.0), exported to int8 ONNX for sherpa-onnx. The app downloads it from the
+`models-fastconformer-ar-v1` release and checks the SHA-256 of each file. Whisper small is the
+sherpa-onnx int8 export `csukuangfj/sherpa-onnx-whisper-small`, pinned to one revision.
+
+The measurement ran on the Linux box (4 threads, CPU), with the FLEURS `ar_eg` test clips. WER uses
+the FLEURS text without diacritics and punctuation.
+
+| Model | Load | RTF | Median clip | Max clip | WER | Clips |
+| --- | --- | --- | --- | --- | --- | --- |
+| FastConformer Arabic int8 (CTC) | 0.73 s | 0.012 | 132 ms | 287 ms | 8.7% | 50 (565.8 s audio) |
+| Whisper small int8 | 1.57 s | 0.325 | 3132 ms | — | 29.8% | 20 |
+
+FastConformer Arabic is fast enough for the live preview, so the composer shows the text while you
+speak. It recognizes Arabic only. Whisper small is a smaller choice than Whisper turbo for a slow
+computer. These numbers are not from a Mac; a Mac run is still necessary.

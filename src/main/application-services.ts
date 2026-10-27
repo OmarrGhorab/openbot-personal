@@ -324,9 +324,11 @@ import { VoiceApiKeyStore } from "./voice-api-key-store";
 import { openScribeSocket } from "./voice-cloud-stream";
 import {
   BARK_PLUS_MODEL_DIRECTORY,
+  FASTCONFORMER_AR_MODEL_DIRECTORY,
   PARAKEET_MODEL_DIRECTORY,
   removeLegacyWhisperCache,
   SUPERTONIC_MODEL_DIRECTORY,
+  WHISPER_SMALL_MODEL_DIRECTORY,
   WHISPER_TURBO_MODEL_DIRECTORY,
 } from "./voice-model-service";
 import { VoicePreferenceStore } from "./voice-preference-store";
@@ -2640,6 +2642,12 @@ export async function createApplicationServices({
       "whisper-turbo": app.isPackaged
         ? join(app.getPath("userData"), "runtimes", WHISPER_TURBO_MODEL_DIRECTORY)
         : resolve(".openbot-build/voice", WHISPER_TURBO_MODEL_DIRECTORY),
+      "fastconformer-ar": app.isPackaged
+        ? join(app.getPath("userData"), "runtimes", FASTCONFORMER_AR_MODEL_DIRECTORY)
+        : resolve(".openbot-build/voice", FASTCONFORMER_AR_MODEL_DIRECTORY),
+      "whisper-small": app.isPackaged
+        ? join(app.getPath("userData"), "runtimes", WHISPER_SMALL_MODEL_DIRECTORY)
+        : resolve(".openbot-build/voice", WHISPER_SMALL_MODEL_DIRECTORY),
     },
     preferences: voicePreferences,
     apiKeys: voiceApiKeys,
