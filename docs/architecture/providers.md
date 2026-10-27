@@ -607,9 +607,12 @@ provider added after v8 needs no new protocol version. The `providers-v8` routes
 
 The host hides a provider from a peer below v8 when that protocol's frozen list does not have it
 (`FROZEN_PROVIDERS` in `src/main/team-api/provider-visibility.ts`). So a new provider is hidden
-from old peers with no change there. Do not edit those lists. A local-only provider
-(`LOCAL_ONLY_PROVIDERS`, now only Inception) is hidden from peers on every protocol, v8 too, and the
-peer key routes refuse its key.
+from old peers with no change there. Do not edit those lists. A key-only provider
+(`KEY_ONLY_PROVIDERS`, now only Inception; upstream also has DeepSeek and OpenRouter) is not in any
+frozen list, so a v8 peer is the first to see it. The `providers-v8` key routes read, set and clear
+its key. A key set there starts the host's Pi download when Pi cannot start, and does not wait for
+it. Until Pi is ready no process uses the key, so the route saves only the key; the provider is
+checked again when Pi is ready. The `providers-v5` and `providers-v1` key routes refuse its key.
 
 A v8 client keeps the agents of a provider that its build does not know (`ForeignProviderId`,
 `AgentProviderRef`). The agent stays in the list and chat works, because the host runs it. The
@@ -781,8 +784,8 @@ only sign-in. The key is stored as the `inception` API key. `pi-key-providers.ts
 calls `pi.registerProvider("inception", …)` with the Mercury models; the key is in the process
 environment and a `globalThis` slot, because Pi runs extensions again on `switch_session`. The
 Inception client lists only the `inception` models, with bare ids such as `mercury-3`. The Pi client
-does not load this extension, so it keeps only the user's own `inception` models. Without a key the provider has no models and asks for a key. Inception is local-only:
-no Team API protocol carries it, v8 included (`LOCAL_ONLY_PROVIDERS`).
+does not load this extension, so it keeps only the user's own `inception` models. Without a key the provider has no models and asks for a key. A 401 or a 402 from Inception shows a text about the saved key or the account balance (`#failureText` in `pi-client.ts`). Saving the key downloads Pi when Pi cannot start (`ensureKeyProviderCli`). Team API v8 carries Inception; peers
+below v8 do not see it.
 
 ## Muse
 
