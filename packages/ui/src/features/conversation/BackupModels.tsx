@@ -11,6 +11,10 @@ import {
   sameAgentModelChoice,
 } from "@openbot/contracts/ipc";
 import {
+  Alert,
+  AlertContent,
+  AlertDescription,
+  AlertIcon,
   ArrowLeftRight,
   Badge,
   Button,
@@ -29,12 +33,14 @@ import {
   Switch,
   Text,
   Trash2,
+  TriangleAlert,
 } from "@openbot/ui";
 import { SettingsLinkGroup } from "@openbot/ui/components/SettingsPanel";
 import { errorReference } from "@openbot/user-errors";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { formatUsageReset } from "./ComposerNotice";
+import { usageLimitAskBodyKey } from "./usage-limit-copy";
 
 /** `limit`: a usage limit holds it now. `unavailable`: its provider or account cannot run it now. */
 export type BackupModelState = "ready" | "limit" | "unavailable";
@@ -185,6 +191,16 @@ export function BackupModelsPage(props: BackupModelsPageProps) {
           />
         </div>
       </SettingsLinkGroup>
+      <Show when={automatic() && entries().length === 0}>
+        <Alert tone="warning" class="backup-models-warning">
+          <AlertIcon>
+            <TriangleAlert />
+          </AlertIcon>
+          <AlertContent>
+            <AlertDescription>{t("agentSettings.backupModels.automaticNoOrder")}</AlertDescription>
+          </AlertContent>
+        </Alert>
+      </Show>
       <SettingsLinkGroup inset class="agent-settings-runtime-rows" title={t("agentSettings.backupModels.order")}>
         <Show
           when={entries().length > 0}
@@ -290,8 +306,10 @@ export interface UsageLimitAskCardProps {
   provider: AgentProviderId;
   /** Epoch seconds, or null when the provider has not said. */
   resetsAt: number | null;
-  /** The models that can take the message now, the first one preselected. */
+  /** The models that can take the message now, the first one preselected. Empty when none can. */
   options: readonly BackupModelOption[];
+  /** Whether the agent has a backup model set. Without one, an empty `options` says so. */
+  hasBackup: boolean;
   /** Moves the agent. `remember` saves the choice first in the order and switches without asking next time. */
   onSend: (option: BackupModelOption, remember: boolean) => Promise<void>;
   onWait: () => void;
@@ -313,7 +331,14 @@ export function UsageLimitAskCard(props: UsageLimitAskCardProps) {
   const [failure, setFailure] = createSignal<{ message: string; reference: string | null } | null>(null);
   const body = () => {
     const reset = formatUsageReset(props.resetsAt, format);
-    return reset ? t("chat.usageLimit.bodyReset", { reset }) : t("chat.usageLimit.body");
+    const key = usageLimitAskBodyKey({
+      optionCount: props.options.length,
+      hasBackup: props.hasBackup,
+      hasReset: reset !== null,
+    });
+    if (key === "chat.usageLimit.noBackup" || key === "chat.usageLimit.exhausted" || key === "chat.usageLimit.body")
+      return t(key);
+    return t(key, { reset: reset ?? "" });
   };
   async function send(option: BackupModelOption): Promise<void> {
     setFailure(null);
@@ -336,41 +361,43 @@ export function UsageLimitAskCard(props: UsageLimitAskCardProps) {
         </Badge>
       </header>
       <p class="usage-limit-ask-body">{body()}</p>
-      <Select<BackupModelOption>
-        class="usage-limit-ask-select"
-        options={[...props.options]}
-        optionValue="key"
-        optionTextValue={label}
-        value={picked() ?? null}
-        disabled={sending()}
-        onChange={(option) => {
-          if (option) setChoice(option);
-        }}
-        itemComponent={(item) => (
-          <SelectItem item={item.item}>
-            <OptionContent option={item.item.rawValue} />
-          </SelectItem>
-        )}
-      >
-        <SelectTrigger aria-label={t("chat.usageLimit.sendTo")}>
-          <SelectValue<BackupModelOption>>
-            {(state) => {
-              const option = state.selectedOption();
-              return option ? <OptionContent option={option} /> : null;
-            }}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent />
-      </Select>
-      <label class="usage-limit-ask-remember" for={rememberId}>
-        <Checkbox
-          id={rememberId}
-          checked={remember()}
+      <Show when={props.options.length > 0}>
+        <Select<BackupModelOption>
+          class="usage-limit-ask-select"
+          options={[...props.options]}
+          optionValue="key"
+          optionTextValue={label}
+          value={picked() ?? null}
           disabled={sending()}
-          onChange={(event) => setRemember(event.currentTarget.checked)}
-        />
-        {t("chat.usageLimit.remember")}
-      </label>
+          onChange={(option) => {
+            if (option) setChoice(option);
+          }}
+          itemComponent={(item) => (
+            <SelectItem item={item.item}>
+              <OptionContent option={item.item.rawValue} />
+            </SelectItem>
+          )}
+        >
+          <SelectTrigger aria-label={t("chat.usageLimit.sendTo")}>
+            <SelectValue<BackupModelOption>>
+              {(state) => {
+                const option = state.selectedOption();
+                return option ? <OptionContent option={option} /> : null;
+              }}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent />
+        </Select>
+        <label class="usage-limit-ask-remember" for={rememberId}>
+          <Checkbox
+            id={rememberId}
+            checked={remember()}
+            disabled={sending()}
+            onChange={(event) => setRemember(event.currentTarget.checked)}
+          />
+          {t("chat.usageLimit.remember")}
+        </label>
+      </Show>
       <Show when={failure()}>
         {(details) => (
           <p class="usage-limit-ask-error" role="alert">

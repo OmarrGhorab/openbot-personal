@@ -1,0 +1,108 @@
+name: Fork release (Intel Mac, unsigned)
+
+# Builds the fork's Intel Mac app from main and publishes it as a GitHub release with the updater
+# metadata (latest-mac.yml and blockmaps). The desktop updater reads the newest non-prerelease
+# release of this repository (`publish` in electron-builder.yml). The build has no Developer ID, so
+# it is not signed or notarized; installed builds show the update and open this release to download it.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (SemVer, without v). Empty uses package.json."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+jobs:
+  mac-x64:
+    if: github.repository == 'OmarrGhorab/openbot-personal'
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      INPUT_VERSION: ${{ inputs.version }}
+      # The services the app talks to are fixed at build time (packages/contracts/src/own-backend.ts).
+      # Without them the build falls back to the *.openbot.invalid placeholders and hangs at
+      # "Starting the account service". They are public URLs, kept as repository variables.
+      OPENBOT_ACCOUNT_URL: ${{ vars.OPENBOT_ACCOUNT_URL }}
+      OPENBOT_SIGNAL_URL: ${{ vars.OPENBOT_SIGNAL_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+        with:
+          install: none
+      - run: bun install --frozen-lockfile
+      - name: Require backend settings
+        shell: bash
+        run: |
+          for name in OPENBOT_ACCOUNT_URL OPENBOT_SIGNAL_URL; do
+            if [[ -z "${!name}" ]]; then echo "Repository variable $name is not set." >&2; exit 1; fi
+          done
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          version="${INPUT_VERSION:-$(node -p "require('./package.json').version")}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "Invalid version: $version" >&2; exit 1; fi
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$version already exists." >&2; exit 1
+          fi
+          node -e "const f='package.json',p=require('./'+f);p.version='$version';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Install native runtimes
+        run: |
+          bun run install:codex-runtime
+          bun run install:claude-runtime
+          bun run install:grok-runtime
+          bun run install:remote-desktop-runtime
+          bun run verify:remote-desktop-runtime
+          bun run prepare:cua-driver
+      - name: Build unsigned x64 app
+        run: |
+          bun run voice:prepare-runtime
+          bun run build
+          bun x electron-builder --mac --x64 --publish never \
+            --config.mac.identity=null --config.mac.notarize=false
+      - name: Verify updater metadata
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          shopt -s nullglob
+          ls -la dist
+          dmgs=(dist/*.dmg); zips=(dist/*.zip); maps=(dist/*.blockmap)
+          if (( ${#dmgs[@]} != 1 || ${#zips[@]} != 1 || ${#maps[@]} < 1 )) || [[ ! -f dist/latest-mac.yml ]]; then
+            echo "Expected one DMG, one ZIP, blockmaps and latest-mac.yml." >&2; exit 1
+          fi
+          cat dist/latest-mac.yml
+          grep -F "version: $VERSION" dist/latest-mac.yml
+          grep -F '.zip' dist/latest-mac.yml
+          feed=$(find dist/mac -name app-update.yml -path '*Resources*' | head -1)
+          cat "$feed"
+          grep -F 'owner: OmarrGhorab' "$feed"
+          grep -F 'repo: openbot-personal' "$feed"
+          asar=$(find dist -name app.asar -path '*Resources*' | head -1)
+          grep -a -c -F "$OPENBOT_ACCOUNT_URL" "$asar"
+          grep -a -c -F "$OPENBOT_SIGNAL_URL" "$asar"
+          if grep -a -q -F 'https://account.openbot.invalid' "$asar" && ! grep -a -q -F "$OPENBOT_ACCOUNT_URL" "$asar"; then
+            echo "The app still uses the placeholder account URL." >&2; exit 1
+          fi
+      - name: Publish release
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
+            --title "OpenBot $VERSION (Intel Mac, unsigned)" \
+            --notes "Intel (x64) macOS build of $GITHUB_SHA. Not signed or notarized: on first open, right-click OpenBot.app and choose Open, or allow it in System Settings > Privacy & Security. Installed builds see this release as an update and open this page to download it. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
+            dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml
