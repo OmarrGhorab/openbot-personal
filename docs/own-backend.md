@@ -13,7 +13,7 @@ in more depth, and [remote/README.md](../remote/README.md), which covers Signal.
   call is now a build setting. The defaults are placeholders on the reserved `.invalid` domain. They
   never resolve, so a build with no settings fails closed and reaches no upstream service.
 - Analytics is off unless you set both `OPENBOT_ANALYTICS_URL` and `OPENBOT_ANALYTICS_CLIENT_ID`.
-- The desktop auto-update check is off unless you set `OPENBOT_UPDATE_FEED_URL`.
+- The desktop update check reads the GitHub releases of this fork (`publish` in `electron-builder.yml`). `OPENBOT_UPDATE_FEED_URL` replaces it with a generic feed.
 - The account Worker reads the email sender, the SMTP host and the contact address from your own
   settings. Nothing in the code sends mail as the upstream sender.
 - The GitHub Actions jobs that publish, deploy, announce or sign with upstream accounts run only on
@@ -39,7 +39,7 @@ that names the setting. The message never shows the value.
 | `OPENBOT_TEAM_HOST_DOMAIN` | `openbot.invalid` | Domain of team hosts, named `<slug>-<id>-host.<domain>`. |
 | `OPENBOT_ANALYTICS_URL` | empty (off) | OpenPanel API URL, for example `https://analytics.example.com/api`. |
 | `OPENBOT_ANALYTICS_CLIENT_ID` | empty (off) | OpenPanel client id. Analytics is on only when both analytics settings are set. |
-| `OPENBOT_UPDATE_FEED_URL` | empty (off) | Desktop update feed. Must match `publish.url` in `electron-builder.yml`. |
+| `OPENBOT_UPDATE_FEED_URL` | empty (fork GitHub releases) | Generic desktop update feed that replaces the GitHub releases feed. |
 | `OPENBOT_STATUS_URL` | empty (no link) | Status page origin, shown as a link. |
 | `OPENBOT_DISCORD_URL` | empty (no link) | Community link. Without it, the Discord link opens the site. |
 | `OPENBOT_CONTACT_EMAIL` | placeholder (`contact@openbot.invalid`) | Contact address on the account Worker's pages. Set it to your own address. |

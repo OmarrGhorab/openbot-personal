@@ -28,6 +28,8 @@ export const messages = {
   "agentSettings.backupModels.order": "الترتيب",
   "agentSettings.backupModels.listLabel": "الموديلات الاحتياطية، بالترتيب",
   "agentSettings.backupModels.empty": "مفيش ترتيب متحدد. {name} بيعرض كل موديل متاح.",
+  "agentSettings.backupModels.automaticNoOrder":
+    "التبديل التلقائي مفيش فيه موديل احتياطي يتستخدم. ضيف موديل، أو شغّل «اسأل قبل التبديل».",
   "agentSettings.backupModels.add": "إضافة موديل احتياطي",
   "agentSettings.backupModels.moveUp": "نقل {model} لفوق",
   "agentSettings.backupModels.moveDown": "نقل {model} لتحت",

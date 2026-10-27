@@ -399,7 +399,6 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
       limited: usageLimited,
     };
     const options = usageLimitAskOptions({ ...agent, provider }, agent.backupModels, source);
-    if (options.length === 0) return undefined;
     const backupModels = agent.backupModels;
     if (
       backupModels?.automatic &&
@@ -409,10 +408,12 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     const agentId = agent.id;
     const reasoningEffort = agent.reasoningEffort;
     const fromProvider = agent.provider;
+    // No ready model is still an answer: the card says why the message waits, so the chat is never silent.
     return {
       provider,
       resetsAt,
       options,
+      hasBackup: (backupModels?.order.length ?? 0) > 0,
       onSend: async (option, remember) => {
         // The agent keeps its reasoning effort where the other model has it.
         const model = modelOptions().find(
@@ -564,6 +565,16 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           appSettingsOpen() ||
           skillsMarketplaceOpen() ||
           hasVisibleToasts()
+        }
+        toastsVisible={
+          hasVisibleToasts() &&
+          !(
+            globalSearchOpen() ||
+            joinServerOpen() ||
+            serverSettingsOpen() ||
+            appSettingsOpen() ||
+            skillsMarketplaceOpen()
+          )
         }
         settingsRequest={settingsRequest()}
         messageFocusRequest={messageFocusRequest()}

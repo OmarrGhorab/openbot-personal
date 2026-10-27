@@ -43,6 +43,9 @@ const SEND_TIMEOUT_MS = 20_000;
 /** Keys that work only while a dictation listens: Tab opens the picker, Escape cancels. */
 const LISTENING_KEYS = { choose: "Tab", cancel: "Escape" } as const;
 
+/** A press of the held shortcut within this time of the last press is a key repeat. */
+const HELD_REPEAT_MS = 1_000;
+
 /** A global voice operation that failed. The cause is what the renderer reads. */
 export class GlobalVoiceFailed extends Schema.TaggedError<GlobalVoiceFailed>()("GlobalVoiceFailed", {
   cause: Schema.Defect(),
@@ -110,6 +113,8 @@ export class GlobalVoiceController {
 
   /** A hold-to-talk press went to the chat's composer, so its key-up goes there too. */
   #composerHeld = false;
+  /** The held shortcut and the time of its last press, so that key auto-repeat does not stop the recording. */
+  #held: { accelerator: string; at: number } | undefined;
 
   constructor(options: GlobalVoiceControllerOptions) {
     this.#options = options;
@@ -264,7 +269,7 @@ export class GlobalVoiceController {
       return {
         target,
         accelerator,
-        status: this.#register(accelerator, () => this.#press(target)) ? "active" : "taken",
+        status: this.#register(accelerator, () => this.#press(target, accelerator)) ? "active" : "taken",
       };
     });
     // A listening dictation registers its keys again; the view state is kept by the window.
@@ -304,6 +309,7 @@ export class GlobalVoiceController {
 
   /** A key-up of a shortcut that is held. The window decides whether that ends the recording. */
   #release(accelerator: string): void {
+    if (this.#held?.accelerator === accelerator) this.#held = undefined;
     if (this.#destroyed || this.#preference.captureMode !== "hold" || this.#keyRelease !== "ready") return;
     if (this.#composerHeld) {
       this.#composerHeld = false;
@@ -345,8 +351,16 @@ export class GlobalVoiceController {
   }
 
   /** A registered shortcut, or Tab and Escape while listening, becomes a command for the window. */
-  #press(target: GlobalVoiceShortcutTarget): void {
+  #press(target: GlobalVoiceShortcutTarget, accelerator?: string): void {
     if (this.#destroyed) return;
+    if (accelerator && this.#preference.captureMode === "hold" && this.#keyRelease === "ready") {
+      const now = Date.now();
+      // While a key is held, the system repeats the press (on Linux and Windows about every 40 ms).
+      // A repeat is not a new press: it must not stop the recording that the first press started.
+      const repeat = this.#held?.accelerator === accelerator && now - this.#held.at < HELD_REPEAT_MS;
+      this.#held = { accelerator, at: now };
+      if (repeat) return;
+    }
     logger.info("A global voice shortcut was pressed.", { target: target.type });
     if (target.type === "picker") {
       this.#command({ type: "choose" });

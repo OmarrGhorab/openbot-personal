@@ -2,8 +2,8 @@
 //
 // Type-only: the host imports nothing from here at runtime, so it stays free of application code.
 
-/** `nemo-transducer` is Parakeet or Bark; `whisper` is Whisper turbo. */
-export type VoiceTranscriptionEngine = "nemo-transducer" | "whisper";
+/** `nemo-transducer` is Parakeet or Bark; `nemo-ctc` is FastConformer Arabic; `whisper` is Whisper turbo or small. */
+export type VoiceTranscriptionEngine = "nemo-transducer" | "nemo-ctc" | "whisper";
 
 export interface VoiceTranscriptionRequest {
   id: number;

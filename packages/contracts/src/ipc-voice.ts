@@ -19,7 +19,13 @@ export interface VoiceTranscriptionResult {
 }
 
 /** The local speech recognition models. Saved in `voice-preference.json`; never rename one. */
-export const LOCAL_VOICE_MODEL_IDS = ["parakeet-tdt-0.6b-v3", "bark-3.0-plus", "whisper-turbo"] as const;
+export const LOCAL_VOICE_MODEL_IDS = [
+  "parakeet-tdt-0.6b-v3",
+  "bark-3.0-plus",
+  "whisper-turbo",
+  "fastconformer-ar",
+  "whisper-small",
+] as const;
 export type LocalVoiceModelId = (typeof LOCAL_VOICE_MODEL_IDS)[number];
 
 /**
@@ -86,6 +92,24 @@ export const VOICE_MODELS: readonly VoiceModelInfo[] = [
     id: "whisper-turbo",
     name: "Whisper large-v3 turbo",
     bytes: 1_036_613_791,
+    supportsLanguage: true,
+    livePreview: false,
+  },
+  {
+    // Arabic only. A CTC model reads a full pass in about 130 ms, so the composer shows text live.
+    kind: "local",
+    id: "fastconformer-ar",
+    name: "FastConformer Arabic",
+    bytes: 131_575_497,
+    supportsLanguage: false,
+    livePreview: true,
+  },
+  {
+    // The smaller Whisper: the fallback for Arabic and English on a computer that is too slow for turbo.
+    kind: "local",
+    id: "whisper-small",
+    name: "Whisper small",
+    bytes: 375_485_327,
     supportsLanguage: true,
     livePreview: false,
   },

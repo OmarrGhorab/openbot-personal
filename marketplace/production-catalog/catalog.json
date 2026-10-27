@@ -13,6 +13,10 @@
     "cursor": {
       "repository": "https://github.com/cursor/plugins",
       "commit": "1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def"
+    },
+    "rea": {
+      "repository": "https://github.com/morluto/rea",
+      "commit": "bcc6775dc1c29c06a08798b73049d0bf506e6b55"
     }
   },
   "skills": [
@@ -168,6 +172,23 @@
     }
   ],
   "packs": [
+    {
+      "slug": "rea",
+      "name": "REA",
+      "source": "rea",
+      "upstreamPath": ".agents",
+      "aliasPrefixes": [],
+      "category": "coding",
+      "description": "REA (Reverse Engineer Anything) by morluto, MIT: reverse engineer native, managed, Electron and JavaScript, packaged, firmware, Android and browser targets with the REA tool. Explains how a feature works from shipped artifacts or runtime evidence, compares versions, decompiles code and builds agent environments of web apps. Installs the skill $rea-reverse-engineer-anything."
+    },
+    {
+      "slug": "raven-stack",
+      "name": "Raven Stack",
+      "source": "openbot",
+      "aliasPrefixes": [],
+      "category": "coding",
+      "description": "Take a coding task from brief to a proven, review-ready pull request in any repository. Detects the project's language, framework and tooling, then runs one flow: worktree, plan, before evidence, small build, the stack's gates, after evidence, draft PR, green CI, independent verification and a 10-point quality score. Installs all 14 Raven Stack skills. Call one with $raven-stack-<name>, such as $raven-stack-autopilot or $raven-stack-detect."
+    },
     {
       "slug": "pstack",
       "source": "cursor",
@@ -345,16 +366,32 @@
           "name": "transcript-healthcheck",
           "instruction": "Scans recent agent chats for user friction; proposes skills, agents or routines; stays quiet when nothing is worth proposing.\n\nRun the Agent Chat Healthcheck skill. Window: since the last successful run, or the last 24 hours if unknown. Call list_agents, then ask each agent that was active in the window for a friction report with one send_message. Report friction and proposals (skill | agent | routine) to the user. When there is nothing worth proposing, call routine_no_update and send no message; do not send filler like \"(no change.)\". Do not create skills, agents, or routines from the report alone; wait for the user to pick.",
           "active": false,
-          "schedule": { "kind": "weekdays", "time": "08:44" }
+          "schedule": {
+            "kind": "weekdays",
+            "time": "08:44"
+          }
         },
         {
           "name": "routine-healthcheck",
           "instruction": "Audits fleet routines for token waste; reports fixes; stays quiet when nothing is worth proposing.\n\nRun the Routine Healthcheck skill. Call list_agents, then list_routines for each agent. Scan every agent's scheduled and webhook routines for token waste (too frequent, recurring on a long chat, noisy empty runs, dead or duplicate). Report a short list: agent, routine, flag, suggested fix. When there is nothing worth proposing, call routine_no_update and send no message; do not send filler like \"(no change.)\". Do not edit another agent's routines unless the user says to.",
           "active": false,
-          "schedule": { "kind": "weekly", "weekday": 1, "time": "08:49" }
+          "schedule": {
+            "kind": "weekly",
+            "weekday": 1,
+            "time": "08:49"
+          }
         }
       ],
       "featured": false
+    },
+    {
+      "slug": "reverse-engineer",
+      "name": "Reverse Engineer",
+      "title": "Explains how software works, down to the binary",
+      "description": "Answer how a feature, file format, protocol or app actually works, using the REA skill (REA by morluto, MIT). Start from the user's question and the artifact they own or may analyze: a binary, app package, firmware image, web app or capture. Use REA when the agent has it, following the skill's setup and recovery steps, and say plainly when it is missing. Ground every claim in evidence you collected (addresses, strings, decompiled code, traces, requests) and separate it from inference. Prefer static analysis; observe at runtime only in a local or disposable environment. Do not bypass licensing, DRM or access controls, attack systems you do not own, or extract secrets or personal data. End with the answer, its evidence, and what is still unknown.",
+      "avatarHue": 245,
+      "skills": ["rea"],
+      "category": "coding"
     }
   ]
 }

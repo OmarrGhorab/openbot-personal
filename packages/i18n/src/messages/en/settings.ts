@@ -489,6 +489,9 @@ export const messages = defineMessages("settings", {
   "settings.voice.model.parakeet.description": "Fast. Finds the spoken language itself, in 25 European languages.",
   "settings.voice.model.bark.description": "Fast. English only. Writes mostly lowercase, with little punctuation.",
   "settings.voice.model.whisper.description": "Slower. About 100 languages, and you can set the spoken language.",
+  "settings.voice.model.fastconformerArabic.description": "Arabic only. Very fast, and shows text while you speak.",
+  "settings.voice.model.whisperSmall.description":
+    "Smaller and faster than Whisper turbo, but less accurate. Use it if turbo is too slow on this computer.",
   "settings.voice.model.size": "Download size: {size}",
   "settings.voice.model.downloading": "Downloading · {received} of {total}",
   "settings.voice.model.failed": "The download stopped. Check the connection and try again.",
@@ -505,6 +508,8 @@ export const messages = defineMessages("settings", {
   "settings.voice.language.description": "The language that you speak. Automatic finds it from the recording.",
   "settings.voice.language.modelDetects":
     "Parakeet finds the spoken language itself. To set a language, use Whisper or ElevenLabs.",
+  "settings.voice.language.arabicOnly":
+    "FastConformer Arabic recognizes Arabic only. To set a language, use Whisper or ElevenLabs.",
   "settings.voice.language.englishOnly": "Bark recognizes English only. To set a language, use Whisper or ElevenLabs.",
   "settings.voice.language.automatic": "Automatic",
   "settings.voice.loadFailed": "Could not read the voice models.",
