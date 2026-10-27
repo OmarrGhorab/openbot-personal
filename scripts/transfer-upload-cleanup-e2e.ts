@@ -126,10 +126,14 @@ function service(uploadDirectory: string): InstanceTransferService {
     mutateSidebar: (_action) => Effect.fail(unexpected("mutateSidebar")),
     routineFlowLinks: (_agentId) => Effect.fail(unexpected("routineFlowLinks")),
     connectRoutineFlow: (_input) => Effect.fail(unexpected("connectRoutineFlow")),
+    removeAgent: (_agentId) => Effect.fail(unexpected("removeAgent")),
     signedInProviders: () => [],
   };
   const options: InstanceTransferOptions = {
     uploadDirectory,
+    migrationLedgerPath: join(dirname(uploadDirectory), "instance-transfer-migrations.json"),
+    moveDirectory: join(dirname(uploadDirectory), "instance-transfer-moves"),
+    archiveDirectory: join(dirname(uploadDirectory), "Archives"),
     sharedRoot: join(dirname(uploadDirectory), "shared"),
     appVersion: "e2e",
     agents,

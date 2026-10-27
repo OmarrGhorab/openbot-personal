@@ -136,7 +136,11 @@ import {
   HERMES_IMPORT_PREVIEW,
 } from "../../stories/agent-import-fixtures";
 import { filePreviewForPath } from "../../stories/file-previews";
-import { INSTANCE_TRANSFER_PREVIEW } from "../../stories/instance-transfer-fixtures";
+import {
+  INSTANCE_TRANSFER_COPY_PREVIEW,
+  INSTANCE_TRANSFER_MIGRATION_ID,
+  INSTANCE_TRANSFER_PREVIEW,
+} from "../../stories/instance-transfer-fixtures";
 import { toggleChannelMember } from "../features/channels/channels-draft";
 import { readStateForMessages } from "../features/conversation/conversation-read-state";
 import {
@@ -2887,17 +2891,32 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       }),
       showExport: async () => undefined,
       choose: async () => clone(INSTANCE_TRANSFER_PREVIEW),
-      copyPreview: async () => clone(INSTANCE_TRANSFER_PREVIEW),
+      copyPreview: async () => clone(INSTANCE_TRANSFER_COPY_PREVIEW),
       apply: async ({ token, keys }) => {
-        if (token !== INSTANCE_TRANSFER_PREVIEW.token)
+        if (token !== INSTANCE_TRANSFER_PREVIEW.token && token !== INSTANCE_TRANSFER_COPY_PREVIEW.token)
           throw new Error("The export is no longer open. Choose it again.");
         const imported = INSTANCE_TRANSFER_PREVIEW.agents
           .filter((agent) => keys.includes(agent.key))
           .map((agent) => createAgentSummary({ name: agent.name, title: agent.title, description: agent.description }));
         agents = [...agents, ...imported];
         emitAgentEvent({ type: "agents-changed", agents });
-        return clone({ agents: imported, skipped: [], signIn: ["claude"], warnings: [] });
+        return clone({
+          agents: imported,
+          skipped: [],
+          signIn: ["claude"],
+          warnings: [],
+          migration: { id: INSTANCE_TRANSFER_MIGRATION_ID, resumed: false },
+        });
       },
+      rollback: async () => ({ agents: 0 }),
+      moveSource: async ({ agents: moved }) => ({
+        archiveFileName: `openbot-transfer-move-${INSTANCE_TRANSFER_MIGRATION_ID}.zip`,
+        archiveDirectory: "/Users/you/OpenBot/Archives",
+        movedAgentIds: moved.map((agent) => agent.id),
+        retained: [],
+        warnings: [],
+      }),
+      showArchive: async () => undefined,
       discard: async () => undefined,
     },
     remoteDesktop: mockTeam.remoteDesktop,

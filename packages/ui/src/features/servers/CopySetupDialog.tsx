@@ -3,6 +3,7 @@ import type {
   InstanceTransferPreview,
   InstanceTransferResult,
   InstanceTransferSummary,
+  MoveInstanceSourceResult,
   ServerSummary,
 } from "@openbot/contracts/ipc";
 import {
@@ -29,11 +30,17 @@ import {
   type Totals,
 } from "../transfer/InstanceTransferView";
 
-export type CopySetupPhase = "choose" | "preparing" | "copying" | "error" | "done";
+export type CopySetupMode = "copy" | "move";
+
+export type CopySetupPhase = "choose" | "preparing" | "copying" | "archiving" | "error" | "done";
+
+export type CopySetupStep = "prepare" | "apply" | "archive";
 
 export type CopySetupTarget = Pick<ServerSummary, "id" | "name" | "kind"> & {
   /** Why this server cannot receive the copy, or null when it can. */
   disabledReason: "not-admin" | "no-transfer" | null;
+  /** The target records the migration, so it can confirm a move and roll it back. */
+  resumable: boolean;
 };
 
 export interface CopySetupOptions {
@@ -41,39 +48,38 @@ export interface CopySetupOptions {
   agentIds: string[];
   includeFiles: boolean;
   includeSettings: boolean;
+  mode: CopySetupMode;
 }
 
 export interface CopySetupDialogProps {
   open: boolean;
-  /** The server whose setup is copied. */
+  /** The server whose setup is copied or moved. */
   sourceName: string;
   summary: InstanceTransferSummary | null;
   summaryError: string | null;
   targets: readonly CopySetupTarget[];
   targetId: string | null;
+  mode: CopySetupMode;
   phase: CopySetupPhase;
   preview: InstanceTransferPreview | null;
   result: InstanceTransferResult | null;
+  /** The source archive a confirmed move left, and what could not be removed. */
+  move: MoveInstanceSourceResult | null;
+  /** Agents removed by a rollback, or null when no rollback ran. */
+  rolledBack: number | null;
+  rollbackBusy: boolean;
   error: string | null;
   /** Which step failed, so the progress list marks the right one. */
-  failedStep: "prepare" | "apply" | null;
+  failedStep: CopySetupStep | null;
   onSelectTarget: (serverId: string) => void;
+  onSelectMode: (mode: CopySetupMode) => void;
   onPrepare: (options: CopySetupOptions) => void;
   onRetry: () => void;
+  onRollback: () => void;
+  onShowArchive: (fileName: string) => void;
   onClose: () => void;
   onDone: () => void;
 }
-
-const STEP_KEYS = {
-  prepare: {
-    label: "settings.transfer.copy.stepPrepare",
-    detail: "settings.transfer.copy.stepPrepareDetail",
-  },
-  apply: {
-    label: "settings.transfer.copy.stepApply",
-    detail: "settings.transfer.copy.stepApplyDetail",
-  },
-} as const;
 
 const TARGET_REASON_KEYS = {
   "not-admin": "settings.transfer.copy.targetNeedsAdmin",
@@ -81,8 +87,9 @@ const TARGET_REASON_KEYS = {
 } as const;
 
 /**
- * Server switcher > Copy setup to…: pick a server, choose what goes, then watch the two steps.
- * The dialog does not know how to copy; the desktop overlay owns the calls and the cleanup.
+ * Server switcher > Copy setup to…: pick a server, choose what goes, then watch the steps. Copy
+ * keeps the source. Move archives it after the target confirms, then removes the moved agents.
+ * The dialog does not know how to transfer; the desktop overlay owns the calls and the cleanup.
  */
 export function CopySetupDialog(props: CopySetupDialogProps) {
   const { t } = useText();
@@ -90,12 +97,14 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
   const [files, setFiles] = createSignal(true);
   const [settings, setSettings] = createSignal(true);
 
-  const busy = () => props.phase === "preparing" || props.phase === "copying";
+  const busy = () => props.phase === "preparing" || props.phase === "copying" || props.phase === "archiving";
   const target = () => props.targets.find((server) => server.id === props.targetId) ?? null;
   const selectedTarget = () => target()?.disabledReason === null;
   const agents = () => props.summary?.agents ?? [];
   const selected = createMemo(() => agents().filter((agent) => !excluded().has(agent.id)));
   const targetName = () => target()?.name ?? "";
+  const steps = (): readonly CopySetupStep[] =>
+    props.mode === "move" ? (["prepare", "apply", "archive"] as const) : (["prepare", "apply"] as const);
 
   // A new opening starts with every agent and both optional parts selected.
   createEffect(
@@ -108,6 +117,14 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
     },
   );
 
+  // A target without the migration ledger cannot accept a move. Keep the choice honest.
+  createEffect(
+    () => target()?.resumable,
+    (resumable) => {
+      if (resumable === false && props.mode === "move") props.onSelectMode("copy");
+    },
+  );
+
   const totals = (): Totals => ({
     agents: selected().length,
     skills: selected().reduce((total, agent) => total + agent.skillCount, 0),
@@ -117,27 +134,49 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
     settings: settings(),
   });
 
-  function stepStatus(step: "prepare" | "apply"): "pending" | "active" | "done" | "failed" {
+  function stepStatus(step: CopySetupStep): "pending" | "active" | "done" | "failed" {
+    const list = steps();
+    const index = list.indexOf(step);
     if (props.phase === "done") return "done";
     if (props.phase === "error") {
-      if (props.failedStep === step) return "failed";
-      if (step === "apply" && props.failedStep === "prepare") return "pending";
-      return step === "prepare" ? "done" : "pending";
+      if (!props.failedStep) return "pending";
+      const failed = list.indexOf(props.failedStep);
+      if (failed === index) return "failed";
+      return index < failed ? "done" : "pending";
     }
-    if (props.phase === "preparing") return step === "prepare" ? "active" : "pending";
-    if (props.phase === "copying") return step === "prepare" ? "done" : "active";
-    return "pending";
+    const active =
+      props.phase === "preparing"
+        ? "prepare"
+        : props.phase === "copying"
+          ? "apply"
+          : props.phase === "archiving"
+            ? "archive"
+            : null;
+    if (!active) return "pending";
+    const activeIndex = list.indexOf(active);
+    return index < activeIndex ? "done" : index === activeIndex ? "active" : "pending";
   }
 
-  const title = () =>
-    props.phase === "done" ? t("settings.transfer.copy.doneTitle") : t("settings.transfer.copy.title");
-  const description = () => t("settings.transfer.copy.lede", { source: props.sourceName });
+  const title = () => {
+    if (props.phase !== "done") return t("settings.transfer.copy.title");
+    if (props.rolledBack !== null) return t("settings.transfer.copy.rolledBackTitle");
+    return props.mode === "move" ? t("settings.transfer.copy.moveDoneTitle") : t("settings.transfer.copy.doneTitle");
+  };
+  const description = () =>
+    props.mode === "move"
+      ? t("settings.transfer.copy.moveLede")
+      : t("settings.transfer.copy.lede", { source: props.sourceName });
+  const busyLabel = () => {
+    if (props.phase === "archiving") return t("settings.transfer.copy.archiving", { source: props.sourceName });
+    if (props.phase === "copying") return t("settings.transfer.copy.copying", { name: targetName() });
+    return t("settings.transfer.copy.preparing");
+  };
 
   return (
     <Dialog.Root
       open={props.open}
       onOpenChange={(open) => {
-        // Escape or an outside click while the copy runs would discard a staging the target is using.
+        // Escape or an outside click while the transfer runs would discard a staging the target is using.
         if (!open && !busy()) props.onClose();
       }}
     >
@@ -170,7 +209,33 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                 {(error) => <Alert title={t("settings.transfer.copy.failed")} description={error()} />}
               </Show>
               <Show when={props.phase === "error"}>
-                <ProgressList stepStatus={stepStatus} targetName={targetName()} />
+                <ProgressList
+                  stepStatus={stepStatus}
+                  steps={steps()}
+                  targetName={targetName()}
+                  sourceName={props.sourceName}
+                />
+                <Show when={props.result && props.result.skipped.length > 0}>
+                  <Notes
+                    title={t("settings.transfer.result.notImported")}
+                    notes={props.result?.skipped.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
+                  />
+                </Show>
+                <Show
+                  when={target()?.resumable === true && props.preview?.migrationId && props.failedStep !== "prepare"}
+                >
+                  <div class="copy-setup-sign-in">
+                    <h3 class="copy-setup-section-title">{t("settings.transfer.copy.rollbackTitle")}</h3>
+                    <p class="agent-import-step-note">
+                      {t("settings.transfer.copy.rollbackText", { name: targetName() })}
+                    </p>
+                    <Button type="button" variant="outline" disabled={props.rollbackBusy} onClick={props.onRollback}>
+                      {t(
+                        props.rollbackBusy ? "settings.transfer.copy.rollbackBusy" : "settings.transfer.copy.rollback",
+                      )}
+                    </Button>
+                  </div>
+                </Show>
               </Show>
               <Show
                 when={props.targets.length > 0}
@@ -210,6 +275,54 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                         </Button>
                       </li>
                     )}
+                  </For>
+                </ul>
+              </Show>
+
+              <Show when={props.phase === "choose" && props.targets.length > 0}>
+                <h3 class="copy-setup-section-title">{t("settings.transfer.copy.mode")}</h3>
+                <ul class="copy-setup-targets" aria-label={t("settings.transfer.copy.mode")}>
+                  <For each={["copy", "move"] as const}>
+                    {(mode) => {
+                      const resumable = () => target()?.resumable === true;
+                      return (
+                        <li>
+                          <Button
+                            type="button"
+                            variant={props.mode === mode ? "secondary" : "outline"}
+                            class="copy-setup-target"
+                            aria-pressed={props.mode === mode ? "true" : "false"}
+                            disabled={mode === "move" && !resumable()}
+                            onClick={() => props.onSelectMode(mode)}
+                          >
+                            <span class="copy-setup-target-copy">
+                              <span class="copy-setup-target-name">
+                                {t(
+                                  mode === "copy"
+                                    ? "settings.transfer.copy.modeCopy"
+                                    : "settings.transfer.copy.modeMove",
+                                )}
+                              </span>
+                              <span class="copy-setup-target-kind">
+                                {t(
+                                  mode === "copy"
+                                    ? "settings.transfer.copy.modeCopyDetail"
+                                    : "settings.transfer.copy.modeMoveDetail",
+                                )}
+                              </span>
+                              <Show when={mode === "move" && !resumable()}>
+                                <span class="copy-setup-target-reason">
+                                  {t("settings.transfer.copy.modeMoveUnsupported")}
+                                </span>
+                              </Show>
+                            </span>
+                            <Show when={props.mode === mode}>
+                              <Check class="copy-setup-target-check" aria-hidden="true" />
+                            </Show>
+                          </Button>
+                        </li>
+                      );
+                    }}
                   </For>
                 </ul>
               </Show>
@@ -268,7 +381,11 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                 </div>
                 <p class="instance-transfer-not-moved">
                   <TriangleAlert class="instance-transfer-not-moved-icon" aria-hidden="true" />
-                  <span>{t("settings.transfer.notMoved")}</span>
+                  <span>
+                    {t(props.mode === "move" ? "settings.transfer.copy.moveNote" : "settings.transfer.notMoved", {
+                      source: props.sourceName,
+                    })}
+                  </span>
                 </p>
               </Show>
 
@@ -288,10 +405,14 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
                           agentIds: selected().map((agent) => agent.id),
                           includeFiles: files(),
                           includeSettings: settings(),
+                          mode: props.mode,
                         });
                       }}
                     >
-                      {t("settings.transfer.copy.submit", { name: targetName() })}
+                      {t(
+                        props.mode === "move" ? "settings.transfer.copy.moveSubmit" : "settings.transfer.copy.submit",
+                        { name: targetName() },
+                      )}
                     </Button>
                   }
                 >
@@ -305,59 +426,116 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
               </div>
             </Show>
 
-            <Show when={props.phase === "preparing" || props.phase === "copying"}>
-              <ProgressList stepStatus={stepStatus} targetName={targetName()} />
+            <Show when={props.phase === "preparing" || props.phase === "copying" || props.phase === "archiving"}>
+              <ProgressList
+                stepStatus={stepStatus}
+                steps={steps()}
+                targetName={targetName()}
+                sourceName={props.sourceName}
+              />
               <Show when={props.preview && props.preview.warnings.length > 0}>
                 <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
               </Show>
               <div class="agent-import-actions instance-transfer-start">
                 <Button type="button" variant="ghost" disabled>
-                  {t(
-                    props.phase === "preparing" ? "settings.transfer.copy.preparing" : "settings.transfer.copy.copying",
-                    { name: targetName() },
-                  )}
+                  {busyLabel()}
                 </Button>
               </div>
             </Show>
 
-            <Show when={props.phase === "done" && props.result}>
-              {(result) => (
-                <>
-                  <p class="storage-summary-total agent-import-done" role="status">
-                    <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
-                    {t("settings.transfer.copy.done", { name: targetName() })}
-                  </p>
-                  <p class="agent-import-lede">{t("settings.transfer.copy.doneText", { name: targetName() })}</p>
-                  <Show when={result().signIn.length > 0}>
-                    <div class="copy-setup-sign-in">
-                      <h3 class="copy-setup-section-title">{t("settings.transfer.result.signIn")}</h3>
-                      <p class="agent-import-step-note">{t("settings.transfer.result.signInText")}</p>
-                      <ul class="copy-setup-sign-in-list">
-                        <For each={result().signIn}>
-                          {(provider) => <li class="instance-transfer-chip">{agentProviderName(provider)}</li>}
-                        </For>
-                      </ul>
-                    </div>
+            <Show when={props.phase === "done"}>
+              <Show
+                when={props.rolledBack !== null}
+                fallback={
+                  <Show when={props.result}>
+                    {(result) => (
+                      <>
+                        <p class="storage-summary-total agent-import-done" role="status">
+                          <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
+                          {t(
+                            props.mode === "move" ? "settings.transfer.copy.moveDone" : "settings.transfer.copy.done",
+                            { name: targetName() },
+                          )}
+                        </p>
+                        <p class="agent-import-lede">
+                          {t(
+                            props.mode === "move"
+                              ? "settings.transfer.copy.moveDoneText"
+                              : "settings.transfer.copy.doneText",
+                            { name: targetName(), source: props.sourceName },
+                          )}
+                        </p>
+                        <Show when={result().migration?.resumed}>
+                          <p class="agent-import-step-note">{t("settings.transfer.copy.resumed")}</p>
+                        </Show>
+                        <Show when={props.move}>
+                          {(move) => (
+                            <div class="settings-modal-card copy-setup-archive">
+                              <h3 class="copy-setup-section-title">{t("settings.transfer.copy.archiveTitle")}</h3>
+                              <p class="copy-setup-archive-name">{move().archiveFileName}</p>
+                              <p class="agent-import-step-note">{move().archiveDirectory}</p>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => props.onShowArchive(move().archiveFileName)}
+                              >
+                                {t("settings.transfer.copy.showArchive")}
+                              </Button>
+                            </div>
+                          )}
+                        </Show>
+                        <Show when={props.move && props.move.retained.length > 0}>
+                          <Notes
+                            title={t("settings.transfer.copy.retainedTitle")}
+                            notes={props.move?.retained.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
+                          />
+                        </Show>
+                        <Show when={result().signIn.length > 0}>
+                          <div class="copy-setup-sign-in">
+                            <h3 class="copy-setup-section-title">{t("settings.transfer.result.signIn")}</h3>
+                            <p class="agent-import-step-note">{t("settings.transfer.result.signInText")}</p>
+                            <ul class="copy-setup-sign-in-list">
+                              <For each={result().signIn}>
+                                {(provider) => <li class="instance-transfer-chip">{agentProviderName(provider)}</li>}
+                              </For>
+                            </ul>
+                          </div>
+                        </Show>
+                        <Show when={result().skipped.length > 0}>
+                          <Notes
+                            title={t("settings.transfer.result.notImported")}
+                            notes={result().skipped.map((entry) => `${entry.name}: ${entry.reason}`)}
+                          />
+                        </Show>
+                        <Show when={props.preview && props.preview.warnings.length > 0}>
+                          <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
+                        </Show>
+                        <Show when={result().warnings.length > 0}>
+                          <Notes title={t("settings.transfer.result.warnings")} notes={result().warnings} />
+                        </Show>
+                        <div class="agent-import-actions instance-transfer-start">
+                          <Button type="button" variant="secondary" onClick={() => props.onDone()}>
+                            {t("common.done")}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </Show>
-                  <Show when={result().skipped.length > 0}>
-                    <Notes
-                      title={t("settings.transfer.result.notImported")}
-                      notes={result().skipped.map((entry) => `${entry.name}: ${entry.reason}`)}
-                    />
-                  </Show>
-                  <Show when={props.preview && props.preview.warnings.length > 0}>
-                    <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
-                  </Show>
-                  <Show when={result().warnings.length > 0}>
-                    <Notes title={t("settings.transfer.result.warnings")} notes={result().warnings} />
-                  </Show>
-                  <div class="agent-import-actions instance-transfer-start">
-                    <Button type="button" variant="secondary" onClick={() => props.onDone()}>
-                      {t("common.done")}
-                    </Button>
-                  </div>
-                </>
-              )}
+                }
+              >
+                <p class="storage-summary-total agent-import-done" role="status">
+                  <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
+                  {t("settings.transfer.copy.rolledBackTitle")}
+                </p>
+                <p class="agent-import-lede">
+                  {t("settings.transfer.copy.rolledBack", { count: props.rolledBack ?? 0 })}
+                </p>
+                <div class="agent-import-actions instance-transfer-start">
+                  <Button type="button" variant="secondary" onClick={() => props.onDone()}>
+                    {t("common.done")}
+                  </Button>
+                </div>
+              </Show>
             </Show>
           </div>
         </Dialog.Content>
@@ -367,21 +545,43 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
 }
 
 function ProgressList(props: {
-  stepStatus: (step: "prepare" | "apply") => "pending" | "active" | "done" | "failed";
+  stepStatus: (step: CopySetupStep) => "pending" | "active" | "done" | "failed";
+  steps: readonly CopySetupStep[];
   targetName: string;
+  sourceName: string;
 }) {
   const { t } = useText();
+  const label = (step: CopySetupStep) => {
+    switch (step) {
+      case "prepare":
+        return t("settings.transfer.copy.stepPrepare");
+      case "apply":
+        return t("settings.transfer.copy.stepApply", { name: props.targetName });
+      case "archive":
+        return t("settings.transfer.copy.stepArchive", { source: props.sourceName });
+    }
+  };
+  const detail = (step: CopySetupStep) => {
+    switch (step) {
+      case "prepare":
+        return t("settings.transfer.copy.stepPrepareDetail");
+      case "apply":
+        return t("settings.transfer.copy.stepApplyDetail", { name: props.targetName });
+      case "archive":
+        return t("settings.transfer.copy.stepArchiveDetail", { source: props.sourceName });
+    }
+  };
   return (
     <ol class="copy-setup-progress" aria-label={t("settings.transfer.copy.progress")}>
-      <For each={["prepare", "apply"] as const}>
+      <For each={props.steps}>
         {(step) => (
           <li class="copy-setup-step" data-status={props.stepStatus(step)}>
             <span class="copy-setup-step-icon" aria-hidden="true">
               <StepIcon status={props.stepStatus(step)} />
             </span>
             <span class="copy-setup-step-text">
-              <span class="copy-setup-step-label">{t(STEP_KEYS[step].label, { name: props.targetName })}</span>
-              <span class="copy-setup-step-detail">{t(STEP_KEYS[step].detail, { name: props.targetName })}</span>
+              <span class="copy-setup-step-label">{label(step)}</span>
+              <span class="copy-setup-step-detail">{detail(step)}</span>
             </span>
           </li>
         )}

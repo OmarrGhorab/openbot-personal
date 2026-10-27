@@ -10,14 +10,23 @@ import {
   type CopyInstanceTransferInput,
   decodeRemoteInstanceTransferResult,
   decodeRemoteInstanceTransferSummary,
+  decodeRollbackInstanceTransferResult,
   type ExportInstanceInput,
   type InstanceExportResult,
   type InstanceTransferPreview,
   LOCAL_SERVER_ID,
+  type MoveInstanceSourceInput,
+  type MoveInstanceSourceResult,
   parseApplyInstanceTransferInput,
   parseCopyInstanceTransferInput,
   parseExportInstanceInput,
+  parseMoveInstanceSourceInput,
+  parseRollbackInstanceTransferInput,
+  parseShowInstanceArchiveInput,
+  type RollbackInstanceTransferInput,
+  type RollbackInstanceTransferResult,
   resolveRemoteInstanceTransferResult,
+  type ShowInstanceArchiveInput,
 } from "@openbot/contracts/ipc";
 import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import {
@@ -25,6 +34,10 @@ import {
   INSTANCE_TRANSFER_REMOTE_BYTES,
   INSTANCE_TRANSFER_ROUTES,
 } from "@openbot/contracts/team-protocol/instance-transfer-v1";
+import {
+  INSTANCE_TRANSFER_V2_CAPABILITY,
+  INSTANCE_TRANSFER_V2_ROUTES,
+} from "@openbot/contracts/team-protocol/instance-transfer-v2";
 import type { AppTranslate } from "@openbot/i18n";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
@@ -33,6 +46,7 @@ import { runCauseEffect } from "../../backend/effect-boundary";
 import { prepareCopy } from "../instance-transfer-copy";
 import type { InstanceTransferService } from "../instance-transfer-service";
 import { decodeAgentSummaries } from "../remote-agent-decoding";
+import { decodeVoid } from "../remote-host-decoding";
 import { AGENT_IMPORT_UPLOAD_TIMEOUT_MS, type RemoteServerManager } from "../remote-server-manager";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
@@ -87,6 +101,12 @@ export function instanceTransferIpcHandlers({
       throw new Error(sourceText("error.team.instanceTransferUnsupported"));
   };
 
+  /** A joined server records the migration only when it serves the v2 routes. */
+  const resumableTarget = (serverId: string): boolean =>
+    serverId === LOCAL_SERVER_ID ||
+    (remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_CAPABILITY) &&
+      remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_V2_CAPABILITY));
+
   const exportLocal = async (input: ExportInstanceInput): Promise<InstanceExportResult> => {
     const path = await chooseDestination();
     if (!path) return { saved: false, fileName: null, warnings: [] };
@@ -125,16 +145,40 @@ export function instanceTransferIpcHandlers({
 
   const applyRemote = async (input: ApplyInstanceTransferInput, serverId: string) => {
     requireRemote(serverId);
+    const v2 =
+      remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_V2_CAPABILITY) &&
+      remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_CAPABILITY);
     const result = await runCauseEffect(
-      remoteServers.request(serverId, INSTANCE_TRANSFER_ROUTES.apply, decodeRemoteInstanceTransferResult, {
-        method: "POST",
-        body: { ...input, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-        timeoutMs: AGENT_IMPORT_UPLOAD_TIMEOUT_MS,
-      }),
+      remoteServers.request(
+        serverId,
+        v2 ? INSTANCE_TRANSFER_V2_ROUTES.apply : INSTANCE_TRANSFER_ROUTES.apply,
+        decodeRemoteInstanceTransferResult,
+        {
+          method: "POST",
+          body: { ...input, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+          timeoutMs: AGENT_IMPORT_UPLOAD_TIMEOUT_MS,
+        },
+      ),
     );
     return resolveRemoteInstanceTransferResult(
       result,
       await runCauseEffect(remoteServers.request(serverId, TEAM_API_ROUTES.agents.all, decodeAgentSummaries)),
+    );
+  };
+
+  const rollback = async (input: RollbackInstanceTransferInput): Promise<RollbackInstanceTransferResult> => {
+    if (input.targetServerId === LOCAL_SERVER_ID) return runCauseEffect(instanceTransfer.rollback(input.migrationId));
+    if (!resumableTarget(input.targetServerId)) throw new Error(sourceText("error.team.instanceTransferUnsupported"));
+    return runCauseEffect(
+      remoteServers.request(
+        input.targetServerId,
+        INSTANCE_TRANSFER_V2_ROUTES.rollback,
+        decodeRollbackInstanceTransferResult,
+        {
+          method: "POST",
+          body: { migrationId: input.migrationId },
+        },
+      ),
     );
   };
 
@@ -144,6 +188,8 @@ export function instanceTransferIpcHandlers({
     if (sourceLocal && targetLocal) throw new Error(sourceText("error.import.transferSameServer"));
     if (!sourceLocal) requireRemote(input.sourceServerId);
     if (!targetLocal) requireRemote(input.targetServerId);
+    if (input.mode === "move" && !resumableTarget(input.targetServerId))
+      throw new Error(sourceText("error.import.transferMoveUnsupported"));
 
     return prepareCopy({
       readSource: async () => {
@@ -168,7 +214,63 @@ export function instanceTransferIpcHandlers({
       stageRemote: (bytes) => runCauseEffect(remoteServers.stageInstanceTransfer(input.targetServerId, bytes)),
       stageLocal: (bytes) => runCauseEffect(instanceTransfer.stageBytes(bytes)),
       maxRemoteBytes: INSTANCE_TRANSFER_REMOTE_BYTES,
+      mode: input.mode,
+      resumableTarget: resumableTarget(input.targetServerId),
+      retain: (migrationId, bytes) => runCauseEffect(instanceTransfer.keepForMove(migrationId, bytes)),
+      discardStaged: async (token) => {
+        if (targetLocal) {
+          await runCauseEffect(instanceTransfer.discard(token));
+          return;
+        }
+        await runCauseEffect(
+          remoteServers.request(input.targetServerId, INSTANCE_TRANSFER_ROUTES.discard, decodeVoid, {
+            method: "POST",
+            body: { token },
+          }),
+        );
+      },
     });
+  };
+
+  /** Archives the held source bytes here, then removes the moved agents from the source. */
+  const moveSource = async (input: MoveInstanceSourceInput): Promise<MoveInstanceSourceResult> => {
+    const archive = await runCauseEffect(instanceTransfer.archiveMove(input.migrationId));
+    if (input.sourceServerId === LOCAL_SERVER_ID) {
+      const removed = await runCauseEffect(instanceTransfer.deleteSourceAgents(input.agents));
+      return {
+        archiveFileName: archive.fileName,
+        archiveDirectory: archive.directory,
+        movedAgentIds: removed.moved,
+        retained: removed.retained,
+        warnings: [],
+      };
+    }
+    requireRemote(input.sourceServerId);
+    const movedAgentIds: string[] = [];
+    const retained: MoveInstanceSourceResult["retained"] = [];
+    for (const agent of input.agents) {
+      try {
+        await runCauseEffect(
+          remoteServers.request(input.sourceServerId, TEAM_API_ROUTES.agent.one(agent.id), decodeVoid, {
+            method: "DELETE",
+          }),
+        );
+        movedAgentIds.push(agent.id);
+      } catch (error) {
+        retained.push({
+          agentId: agent.id,
+          name: agent.name,
+          reason: (error instanceof Error ? error.message : "The server could not remove the agent.").slice(0, 500),
+        });
+      }
+    }
+    return {
+      archiveFileName: archive.fileName,
+      archiveDirectory: archive.directory,
+      movedAgentIds,
+      retained,
+      warnings: [],
+    };
   };
 
   return {
@@ -213,6 +315,11 @@ export function instanceTransferIpcHandlers({
         },
       }),
       copyPreview: payloadHandler(parseCopyInstanceTransferInput, copyPreview),
+      rollback: payloadHandler(parseRollbackInstanceTransferInput, rollback),
+      moveSource: payloadHandler(parseMoveInstanceSourceInput, moveSource),
+      showArchive: payloadHandler(parseShowInstanceArchiveInput, (input: ShowInstanceArchiveInput) => {
+        shell.showItemInFolder(instanceTransfer.archivePath(input.archiveFileName));
+      }),
     },
   };
 }

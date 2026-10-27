@@ -57,6 +57,12 @@ export const messages = defineMessages("error.import", {
   "error.import.transferRemoteTooLarge":
     "A transfer file for a joined server must be under 100 MB. Turn off workspace files, or export fewer agents.",
   "error.import.transferSameServer": "Choose two different servers. A server cannot copy its setup to itself.",
+  "error.import.transferMoveUnsupported":
+    "This server cannot confirm a move. Update it, or copy the setup instead and remove the source by hand.",
+  "error.import.transferMoveInvalid": "The source of this move is no longer available. Start the move again.",
+  "error.import.transferArchiveInvalid": "That file is not an archive this computer made.",
+  "error.import.transferLedgerUnreadable":
+    "The target's record of this transfer could not be read, so it may repeat some earlier steps.",
   "error.import.transferNotFile": "This file is not an OpenBot transfer file.",
   "error.import.transferNewer": "A newer version of OpenBot made this file. Update OpenBot and try again.",
   "error.import.transferEmpty": "The file contains no agents and no settings.",

@@ -35,6 +35,7 @@ import { HOST_TIMEZONE_CODECS } from "./host-timezone-v1";
 import { HOST_UPDATE_CODECS } from "./host-update-v1";
 import { HOSTED_SITES_CODECS } from "./hosted-sites-v1";
 import { INSTANCE_TRANSFER_CODECS } from "./instance-transfer-v1";
+import { INSTANCE_TRANSFER_V2_CODECS } from "./instance-transfer-v2";
 import { LIVE_ACTIVITY_PUSH_CODECS } from "./live-activity-push-v1";
 import { MCP_SIGN_IN_APP_CODECS } from "./mcp-sign-in-app-v1";
 import { MCP_SIGN_IN_CODECS } from "./mcp-sign-in-v1";
@@ -92,6 +93,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...EVENTS_CODECS,
   ...AGENT_IMPORT_CODECS,
   ...INSTANCE_TRANSFER_CODECS,
+  ...INSTANCE_TRANSFER_V2_CODECS,
   ...AGENT_PUBLISH_CODECS,
   ...LIVE_ACTIVITY_PUSH_CODECS,
   ...PUSH_NOTIFICATIONS_CODECS,

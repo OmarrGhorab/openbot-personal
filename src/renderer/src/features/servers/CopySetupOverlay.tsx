@@ -1,8 +1,15 @@
-import type { InstanceTransferPreview, InstanceTransferResult, InstanceTransferSummary } from "@openbot/contracts/ipc";
+import type {
+  InstanceTransferPreview,
+  InstanceTransferResult,
+  InstanceTransferSummary,
+  MoveInstanceSourceResult,
+} from "@openbot/contracts/ipc";
 import {
   CopySetupDialog,
+  type CopySetupMode,
   type CopySetupOptions,
   type CopySetupPhase,
+  type CopySetupStep,
 } from "@openbot/ui/features/servers/CopySetupDialog";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, untrack } from "solid-js";
@@ -13,20 +20,31 @@ interface CopySetupState {
   summary: InstanceTransferSummary | null;
   summaryError: string | null;
   targetId: string | null;
+  mode: CopySetupMode;
+  /** The source agents to remove after a move confirms, by id and name. */
+  moveAgents: { id: string; name: string }[];
   phase: CopySetupPhase;
   preview: InstanceTransferPreview | null;
   result: InstanceTransferResult | null;
+  move: MoveInstanceSourceResult | null;
+  rolledBack: number | null;
+  rollbackBusy: boolean;
   error: string | null;
-  failedStep: "prepare" | "apply" | null;
+  failedStep: CopySetupStep | null;
 }
 
 const INITIAL: CopySetupState = {
   summary: null,
   summaryError: null,
   targetId: null,
+  mode: "copy",
+  moveAgents: [],
   phase: "choose",
   preview: null,
   result: null,
+  move: null,
+  rolledBack: null,
+  rollbackBusy: false,
   error: null,
   failedStep: null,
 };
@@ -34,7 +52,8 @@ const INITIAL: CopySetupState = {
 /**
  * Server switcher > Copy setup to…: one dialog over the two servers. Main reads the source and
  * stages on the target; the dialog then applies the token on the target and reports what moved.
- * Nothing on the source is removed.
+ * A copy leaves the source untouched. A move archives the source after the target confirms, then
+ * removes the moved agents, and a failed run can undo only what this migration created.
  */
 export function CopySetupOverlay() {
   const { servers, copySetupSourceId, setCopySetupSourceId } = useServers();
@@ -47,11 +66,12 @@ export function CopySetupOverlay() {
   const source = () => servers().find((server) => server.id === copySetupSourceId()) ?? null;
 
   const targets = createMemo(() =>
-    copyTargetOptions(servers(), copySetupSourceId() ?? "").map(({ server, disabledReason }) => ({
+    copyTargetOptions(servers(), copySetupSourceId() ?? "").map(({ server, disabledReason, resumable }) => ({
       id: server.id,
       name: server.name,
       kind: server.kind,
       disabledReason,
+      resumable,
     })),
   );
   const enabledTargets = createMemo(() => targets().filter((target) => target.disabledReason === null));
@@ -125,15 +145,52 @@ export function CopySetupOverlay() {
     }
   }
 
+  async function rollback(): Promise<void> {
+    const migrationId = state.preview?.migrationId;
+    const targetId = state.targetId;
+    if (!migrationId || !targetId) return;
+    setState((draft) => {
+      draft.rollbackBusy = true;
+    });
+    try {
+      const removed = await calls.rollback({ targetServerId: targetId, migrationId });
+      setState((draft) => {
+        draft.rollbackBusy = false;
+        draft.rolledBack = removed.agents;
+        draft.result = null;
+        draft.move = null;
+        draft.error = null;
+        draft.failedStep = null;
+        draft.phase = "done";
+      });
+    } catch (error) {
+      setState((draft) => {
+        draft.rollbackBusy = false;
+        draft.error = errorMessage(error, t("settings.transfer.copy.rollbackFailed"));
+      });
+    }
+  }
+
   function prepare(options: CopySetupOptions): void {
     const from = source();
     if (!from) return;
     const current = ++run;
+    const moveAgents =
+      options.mode === "move"
+        ? options.agentIds.map((id) => ({
+            id,
+            name: state.summary?.agents.find((agent) => agent.id === id)?.name ?? id,
+          }))
+        : [];
     setState((draft) => {
       draft.targetId = options.targetId;
+      draft.mode = options.mode;
+      draft.moveAgents = moveAgents;
       draft.phase = "preparing";
       draft.preview = null;
       draft.result = null;
+      draft.move = null;
+      draft.rolledBack = null;
       draft.error = null;
       draft.failedStep = null;
     });
@@ -145,6 +202,7 @@ export function CopySetupOverlay() {
           agentIds: options.agentIds,
           includeFiles: options.includeFiles,
           includeSettings: options.includeSettings,
+          mode: options.mode,
         });
         if (current !== run) {
           await discard(preview.token, options.targetId);
@@ -164,6 +222,58 @@ export function CopySetupOverlay() {
             options.targetId,
           );
           if (current !== run) return;
+          const incomplete = result.skipped.length > 0 || result.agents.length !== preview.agents.length;
+          if (options.mode === "move" && incomplete) {
+            // The target did not confirm every item, so the source stays as it is. The rollback
+            // removes only the agents this migration created.
+            setState((draft) => {
+              draft.phase = "error";
+              draft.failedStep = "apply";
+              draft.result = result;
+              draft.error = t("settings.transfer.copy.moveIncomplete", { name: targetName(options.targetId) });
+            });
+            return;
+          }
+          if (options.mode === "move") {
+            // The target must confirm the same migration the source held bytes for, so a different
+            // archive can never delete the source.
+            const migrationId = preview.migrationId;
+            if (!migrationId || result.migration?.id !== migrationId) {
+              setState((draft) => {
+                draft.phase = "error";
+                draft.failedStep = "apply";
+                draft.result = result;
+                draft.error = t("settings.transfer.copy.moveIncomplete", { name: targetName(options.targetId) });
+              });
+              return;
+            }
+            setState((draft) => {
+              draft.phase = "archiving";
+              draft.result = result;
+            });
+            try {
+              const moved = await calls.moveSource({
+                sourceServerId: from.id,
+                migrationId,
+                agents: moveAgents,
+              });
+              if (current !== run) return;
+              setState((draft) => {
+                draft.phase = "done";
+                draft.result = result;
+                draft.move = moved;
+              });
+            } catch (error) {
+              if (current !== run) return;
+              setState((draft) => {
+                draft.phase = "error";
+                draft.failedStep = "archive";
+                draft.result = result;
+                draft.error = errorMessage(error, t("settings.transfer.copy.archiveFailed"));
+              });
+            }
+            return;
+          }
           setState((draft) => {
             draft.phase = "done";
             draft.result = result;
@@ -189,12 +299,18 @@ export function CopySetupOverlay() {
     })();
   }
 
+  function targetName(targetId: string): string {
+    return targets().find((target) => target.id === targetId)?.name ?? "";
+  }
+
   function retry(): void {
     if (state.preview && state.targetId) void discard(state.preview.token, state.targetId);
     setState((draft) => {
       draft.phase = "choose";
       draft.preview = null;
       draft.result = null;
+      draft.move = null;
+      draft.rolledBack = null;
       draft.error = null;
       draft.failedStep = null;
     });
@@ -219,9 +335,13 @@ export function CopySetupOverlay() {
       summaryError={state.summaryError}
       targets={targets()}
       targetId={state.targetId}
+      mode={state.mode}
       phase={state.phase}
       preview={state.preview}
       result={state.result}
+      move={state.move}
+      rolledBack={state.rolledBack}
+      rollbackBusy={state.rollbackBusy}
       error={state.error}
       failedStep={state.failedStep}
       onSelectTarget={(serverId) =>
@@ -229,8 +349,17 @@ export function CopySetupOverlay() {
           draft.targetId = serverId;
         })
       }
+      onSelectMode={(mode) =>
+        setState((draft) => {
+          draft.mode = mode;
+        })
+      }
       onPrepare={prepare}
       onRetry={retry}
+      onRollback={() => void rollback()}
+      onShowArchive={(archiveFileName) => {
+        void calls.showArchive({ archiveFileName }).catch(() => undefined);
+      }}
       onClose={close}
       onDone={done}
     />
