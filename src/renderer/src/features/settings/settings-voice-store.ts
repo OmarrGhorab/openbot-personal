@@ -32,6 +32,8 @@ const EMPTY_STATUSES: SettingsVoiceState["statuses"] = {
   "parakeet-tdt-0.6b-v3": null,
   "bark-3.0-plus": null,
   "whisper-turbo": null,
+  "fastconformer-ar": null,
+  "whisper-small": null,
   [ELEVENLABS_VOICE_MODEL_ID]: null,
 };
 
