@@ -1,6 +1,6 @@
 import { canAdministerServer, type ServerNotificationLevel, type ServerSummary } from "@openbot/contracts/ipc";
 import type { AppFormat, AppTextKey, AppTranslate } from "@openbot/i18n";
-import { Bell, BellOff, Check, ChevronRight, type ContextMenu, LogOut, RotateCcw, Trash2 } from "@openbot/ui";
+import { Bell, BellOff, Check, ChevronRight, type ContextMenu, Copy, LogOut, RotateCcw, Trash2 } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
 
@@ -53,6 +53,10 @@ export interface ServerActionCallbacks {
   onSetMuted?: ((serverId: string, muted: boolean, durationMs?: number) => void) | undefined;
   onSetNotificationLevel?: ((serverId: string, level: ServerNotificationLevel) => void) | undefined;
   onOpenSettings?: ((serverId: string, trigger: HTMLElement | null) => void) | undefined;
+  /** Asks to copy this server's agents and settings to another server. */
+  onCopySetup?: ((serverId: string, trigger: HTMLElement | null) => void) | undefined;
+  /** Whether another server can receive this one's setup. */
+  canCopySetup?: ((serverId: string) => boolean) | undefined;
   /** Asks to leave a joined server. The menu shows it for a remote server that the user does not own. */
   onLeave?: ((serverId: string, trigger: HTMLElement | null) => void) | undefined;
   /** Asks to delete a hosted server. The menu shows it only when `canDelete` accepts the server. */
@@ -176,6 +180,12 @@ export function ServerActionItems(
         <Menu.Item onSelect={() => props.onOpenSettings?.(props.server.id, props.trigger())}>
           <ServerSettingsGlyph />
           <span>{t("server.rail.settings")}</span>
+        </Menu.Item>
+      </Show>
+      <Show when={props.onCopySetup && props.canCopySetup?.(props.server.id)}>
+        <Menu.Item onSelect={() => props.onCopySetup?.(props.server.id, props.trigger())}>
+          <Copy class="agent-context-icon size-4" aria-hidden="true" />
+          <span>{t("server.rail.copySetup")}</span>
         </Menu.Item>
       </Show>
       <Show when={canRestart() || canLeave() || canDelete() || canRemove()}>

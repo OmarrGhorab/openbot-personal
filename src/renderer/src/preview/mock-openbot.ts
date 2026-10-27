@@ -2887,6 +2887,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       }),
       showExport: async () => undefined,
       choose: async () => clone(INSTANCE_TRANSFER_PREVIEW),
+      copyPreview: async () => clone(INSTANCE_TRANSFER_PREVIEW),
       apply: async ({ token, keys }) => {
         if (token !== INSTANCE_TRANSFER_PREVIEW.token)
           throw new Error("The export is no longer open. Choose it again.");

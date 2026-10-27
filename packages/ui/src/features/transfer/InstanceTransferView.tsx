@@ -484,7 +484,7 @@ function ImportResult(props: {
   );
 }
 
-interface Totals {
+export interface Totals {
   agents: number;
   skills: number;
   routines: number;
@@ -495,7 +495,7 @@ interface Totals {
 }
 
 /** What moves, as counts with icons. Export and import show the same block. */
-function SetupSummary(props: { totals: Totals; label: string }) {
+export function SetupSummary(props: { totals: Totals; label: string }) {
   const { t, format } = useText();
   const items = () => [
     { icon: Bot, text: t("import.count.agent", { count: props.totals.agents }) },
@@ -530,7 +530,7 @@ function SetupSummary(props: { totals: Totals; label: string }) {
   );
 }
 
-interface ChecklistAgent {
+export interface ChecklistAgent {
   key: string;
   name: string;
   avatar: JSX.Element;
@@ -542,7 +542,7 @@ interface ChecklistAgent {
   nameExists: boolean;
 }
 
-function AgentChecklist(props: {
+export function AgentChecklist(props: {
   label: string;
   agents: ChecklistAgent[];
   excluded: ReadonlySet<string>;
@@ -612,7 +612,7 @@ function BackButton(props: { onBack: () => void; disabled: boolean }) {
   );
 }
 
-function Alert(props: { title: string; description: string }) {
+export function Alert(props: { title: string; description: string }) {
   return (
     <div class="storage-message" role="alert">
       <TriangleAlert class="storage-message-icon" aria-hidden="true" />
@@ -624,7 +624,7 @@ function Alert(props: { title: string; description: string }) {
   );
 }
 
-function Notes(props: { title: string; notes: readonly string[] }) {
+export function Notes(props: { title: string; notes: readonly string[] }) {
   const { sourceText } = useText();
   return (
     <div class="storage-message">

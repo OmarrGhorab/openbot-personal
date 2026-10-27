@@ -27,6 +27,7 @@ import type { ServerStorageOptions } from "./features/files/ServerStoragePanel";
 import { useSetup } from "./features/onboarding/onboarding-context";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { AddServerOverlay } from "./features/servers/AddServerOverlay";
+import { CopySetupOverlay } from "./features/servers/CopySetupOverlay";
 import {
   createdRoutines,
   HostedServerUpsell,
@@ -102,6 +103,7 @@ export function WorkspaceOverlays(props: AccountProps) {
       <SharedAgentInstall />
       <JoinServer account={props.account} />
       <AddServer />
+      <CopySetupOverlay />
       <HostedUpsell account={props.account} />
       <LeaveServer />
       <RestartServer />

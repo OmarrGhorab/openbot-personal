@@ -61,6 +61,8 @@ const Servers = createSimpleContext({
     const addServerOpen = () => addServerEntryPoint() !== null;
     const setAddServerOpen = (...args: [open: false] | [open: true, entryPoint: HostedServerEntryPoint]) =>
       setAddServerEntryPoint(args[0] ? args[1] : null);
+    /** The server whose setup the copy dialog is showing, or null while it is closed. */
+    const [copySetupSourceId, setCopySetupSourceId] = createSignal<string | null>(null);
     // True when the account can create hosted servers. The plus button then opens the plans.
     const [hostedServersAvailable, setHostedServersAvailable] = createSignal(false);
     /** The hosted servers of this account. The server menu can delete these. */
@@ -426,6 +428,8 @@ const Servers = createSimpleContext({
       addServerOpen,
       addServerEntryPoint,
       setAddServerOpen,
+      copySetupSourceId,
+      setCopySetupSourceId,
       hostedServersAvailable,
       hostedServerIds,
       hostedServersLoaded,

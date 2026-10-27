@@ -56,6 +56,7 @@ export const messages = defineMessages("error.import", {
   // Instance transfer between two OpenBot computers.
   "error.import.transferRemoteTooLarge":
     "A transfer file for a joined server must be under 100 MB. Turn off workspace files, or export fewer agents.",
+  "error.import.transferSameServer": "Choose two different servers. A server cannot copy its setup to itself.",
   "error.import.transferNotFile": "This file is not an OpenBot transfer file.",
   "error.import.transferNewer": "A newer version of OpenBot made this file. Update OpenBot and try again.",
   "error.import.transferEmpty": "The file contains no agents and no settings.",

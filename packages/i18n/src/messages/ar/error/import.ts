@@ -51,6 +51,7 @@ export const messages = {
     "{name}: OpenBot معرفش يحفظ أنهي إيجنت جه من البروفايل ده، فالاستيراد الجاي هيضيفه كإيجنت جديد.",
   "error.import.transferRemoteTooLarge":
     "ملف النقل لسيرفر منضم إليه لازم يكون أقل من 100 MB. اقفل ملفات مساحة العمل، أو صدّر إيجنتات أقل.",
+  "error.import.transferSameServer": "اختار سيرفرين مختلفين. السيرفر ماينفعش ينسخ إعداده لنفسه.",
   "error.import.transferNotFile": "الملف ده مش ملف نقل من OpenBot.",
   "error.import.transferNewer": "نسخة أحدث من OpenBot عملت الملف ده. حدّث OpenBot وجرّب تاني.",
   "error.import.transferEmpty": "الملف مفيهوش أي إيجنتات ولا إعدادات.",

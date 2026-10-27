@@ -197,6 +197,7 @@ export const messages = defineMessages("server", {
   "server.rail.mute": "Mute server",
   "server.rail.notificationSettings": "Notification settings",
   "server.rail.settings": "Server settings",
+  "server.rail.copySetup": "Copy setup to…",
   // The last items of the server menu. Leave is for a joined server; restart and delete are for a hosted server that the user owns.
   "server.rail.remove": "Remove server",
   "server.rail.restart": "Restart server",

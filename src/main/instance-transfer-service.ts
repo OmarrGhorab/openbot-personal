@@ -476,6 +476,14 @@ export class InstanceTransferService {
     );
   }).bind(this);
 
+  /** A copy from another server stages bytes it already holds, without a file dialog. */
+  readonly stageBytes = Effect.fn("InstanceTransfer.stageBytes")(function* (
+    this: InstanceTransferService,
+    bytes: Uint8Array,
+  ): Effect.fn.Return<InstanceTransferPreview, ArchiveOperationError> {
+    return yield* this.stageUpload(async () => bytes, LOCAL_OWNER);
+  }).bind(this);
+
   /** Clear files from the previous process before either writer creates a file. */
   readonly #prepareUploadDirectory = Effect.fn("InstanceTransfer.prepareUploadDirectory")(function* (
     this: InstanceTransferService,

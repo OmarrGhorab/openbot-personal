@@ -564,6 +564,14 @@ data, approval automation and the per-agent access, Computer Use and automation 
 exported, so an imported agent gets the defaults of a new agent on the new computer. Shared tables
 (`Shared/Data/agent-data.db`) are left out because their owners are agent ids.
 
+The server switcher's **Copy setup to…** action does the same transfer without a file. Main reads the
+source (a local export in the temp folder, or the host's `export` route), stages the archive on the
+target (`stageBytes` for this computer, `stage` for a joined host), and the renderer applies the token
+on the target. Copy only: the source is untouched. The target's preview warnings are merged with the
+source's export warnings when the source is this computer. A local server can always send; a joined source and every
+joined target must be administered by this account and advertise `instance-transfer-v1`. The 100 MB
+upload limit applies whenever the target is a joined server.
+
 `InstanceTransferService` (`src/main/instance-transfer-service.ts`) writes the archive one file at a
 time, stored and not compressed, to `<name>.zip.part`, and renames it when it is complete. Import uses
 the same checks as the agent import (`src/main/agent-archive.ts`): the file stays under a single-use

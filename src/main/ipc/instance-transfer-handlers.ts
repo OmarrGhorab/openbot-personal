@@ -2,16 +2,20 @@
 // Main opens both file dialogs and moves the file, so the renderer never names a path, and only main
 // can reveal the saved file.
 
+import { randomUUID } from "node:crypto";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   type ApplyInstanceTransferInput,
+  type CopyInstanceTransferInput,
   decodeRemoteInstanceTransferResult,
   decodeRemoteInstanceTransferSummary,
   type ExportInstanceInput,
   type InstanceExportResult,
   type InstanceTransferPreview,
+  LOCAL_SERVER_ID,
   parseApplyInstanceTransferInput,
+  parseCopyInstanceTransferInput,
   parseExportInstanceInput,
   resolveRemoteInstanceTransferResult,
 } from "@openbot/contracts/ipc";
@@ -26,10 +30,11 @@ import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions, type SaveDialogOptions, shell } from "electron";
 import { runCauseEffect } from "../../backend/effect-boundary";
+import { prepareCopy } from "../instance-transfer-copy";
 import type { InstanceTransferService } from "../instance-transfer-service";
 import { decodeAgentSummaries } from "../remote-agent-decoding";
 import { AGENT_IMPORT_UPLOAD_TIMEOUT_MS, type RemoteServerManager } from "../remote-server-manager";
-import { handler, type IpcGroupHandlers } from "./define-ipc-group";
+import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
 import { stringPayload } from "./validation";
 
@@ -133,6 +138,39 @@ export function instanceTransferIpcHandlers({
     );
   };
 
+  const copyPreview = async (input: CopyInstanceTransferInput): Promise<InstanceTransferPreview> => {
+    const sourceLocal = input.sourceServerId === LOCAL_SERVER_ID;
+    const targetLocal = input.targetServerId === LOCAL_SERVER_ID;
+    if (sourceLocal && targetLocal) throw new Error(sourceText("error.import.transferSameServer"));
+    if (!sourceLocal) requireRemote(input.sourceServerId);
+    if (!targetLocal) requireRemote(input.targetServerId);
+
+    return prepareCopy({
+      readSource: async () => {
+        if (!sourceLocal) {
+          const bytes = await runCauseEffect(remoteServers.downloadInstanceTransfer(input.sourceServerId, input));
+          return { bytes, warnings: [] };
+        }
+        // A local export writes a file. It is read once and removed before the target is touched.
+        const path = join(app.getPath("temp"), `openbot-copy-${randomUUID()}.zip`);
+        try {
+          const result = await runCauseEffect(instanceTransfer.exportTo(path, input));
+          // A local export can hold 2 GB, but a joined target takes one WebRTC file transfer. Refuse
+          // the size before reading the archive into memory.
+          if (!targetLocal && (await stat(path)).size > INSTANCE_TRANSFER_REMOTE_BYTES)
+            throw new Error(sourceText("error.import.transferRemoteTooLarge"));
+          return { bytes: new Uint8Array(await readFile(path)), warnings: result.warnings };
+        } finally {
+          await rm(path, { force: true });
+        }
+      },
+      remoteTarget: !targetLocal,
+      stageRemote: (bytes) => runCauseEffect(remoteServers.stageInstanceTransfer(input.targetServerId, bytes)),
+      stageLocal: (bytes) => runCauseEffect(instanceTransfer.stageBytes(bytes)),
+      maxRemoteBytes: INSTANCE_TRANSFER_REMOTE_BYTES,
+    });
+  };
+
   return {
     instanceTransfer: {
       summary: scopedQueryHandler({
@@ -174,6 +212,7 @@ export function instanceTransferIpcHandlers({
           );
         },
       }),
+      copyPreview: payloadHandler(parseCopyInstanceTransferInput, copyPreview),
     },
   };
 }
