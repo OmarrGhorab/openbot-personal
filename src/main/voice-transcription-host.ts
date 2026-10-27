@@ -9,6 +9,7 @@
 // the path in the request, and the protocol is type-only, so this process cannot load Electron,
 // the application database, or any module of the main bundle.
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { detectedLanguage, splitAtPauses } from "./voice-phrase-split";
 import type {
@@ -35,6 +36,7 @@ interface RecognizerConfig {
   featConfig: { sampleRate: number; featureDim: number };
   modelConfig: {
     transducer?: { encoder: string; decoder: string; joiner: string };
+    nemoCtc?: { model: string };
     whisper?: {
       encoder: string;
       decoder: string;
@@ -124,20 +126,28 @@ function recognizerConfig(
 ): RecognizerConfig {
   const file = (name: string) => join(modelDirectory, name);
   const common = { numThreads: 4, provider: "cpu", debug: 0 } as const;
+  if (engine === "nemo-ctc") {
+    return {
+      featConfig: { sampleRate: SAMPLE_RATE, featureDim: 80 },
+      modelConfig: { nemoCtc: { model: file("model.int8.onnx") }, tokens: file("tokens.txt"), ...common },
+    };
+  }
   if (engine === "whisper") {
+    // Whisper turbo and Whisper small have the same files with a different name prefix.
+    const prefix = existsSync(file("small-encoder.int8.onnx")) ? "small" : "turbo";
     return {
       featConfig: { sampleRate: SAMPLE_RATE, featureDim: 80 },
       modelConfig: {
         whisper: {
-          encoder: file("turbo-encoder.int8.onnx"),
-          decoder: file("turbo-decoder.int8.onnx"),
+          encoder: file(`${prefix}-encoder.int8.onnx`),
+          decoder: file(`${prefix}-decoder.int8.onnx`),
           language,
           task: "transcribe",
           tailPaddings: -1,
           enableTokenTimestamps: 0,
           enableSegmentTimestamps: 0,
         },
-        tokens: file("turbo-tokens.txt"),
+        tokens: file(`${prefix}-tokens.txt`),
         ...common,
       },
     };
@@ -425,7 +435,7 @@ function isRequest(value: unknown): value is VoiceTranscriptionRequest {
     "modelDirectory" in value &&
     typeof value.modelDirectory === "string" &&
     "engine" in value &&
-    (value.engine === "nemo-transducer" || value.engine === "whisper") &&
+    (value.engine === "nemo-transducer" || value.engine === "nemo-ctc" || value.engine === "whisper") &&
     "language" in value &&
     typeof value.language === "string" &&
     (!("fallbackLanguage" in value) ||

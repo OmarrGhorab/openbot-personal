@@ -20,12 +20,14 @@ electronFuses:
   onlyLoadAppFromAsar: true
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
-# The update feed of this fork is a placeholder on the reserved `.invalid` domain. The app checks it
-# only when OPENBOT_UPDATE_FEED_URL is set at build time (src/main/application-services.ts). Set this
-# URL to the same value, and serve the electron-builder metadata (latest*.yml) there. See docs/own-backend.md.
+# The update feed of this fork is its GitHub releases. electron-builder writes it into app-update.yml,
+# and electron-updater reads latest-mac.yml / latest.yml from the newest non-prerelease release.
+# OPENBOT_UPDATE_FEED_URL, when set at build time, replaces it with a generic feed (docs/own-backend.md).
 publish:
-  provider: generic
-  url: https://updates.openbot.invalid/desktop
+  provider: github
+  owner: OmarrGhorab
+  repo: openbot-personal
+  releaseType: release
 files:
   - out/**/*
   - package.json

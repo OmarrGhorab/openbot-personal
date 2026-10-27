@@ -27,6 +27,8 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.backupModels.order": "Order",
   "agentSettings.backupModels.listLabel": "Backup models, in order",
   "agentSettings.backupModels.empty": "No order set. {name} offers each available model.",
+  "agentSettings.backupModels.automaticNoOrder":
+    "Automatic switching has no backup model to use. Add one, or turn on Ask before switching.",
   "agentSettings.backupModels.add": "Add backup model",
   "agentSettings.backupModels.moveUp": "Move {model} up",
   "agentSettings.backupModels.moveDown": "Move {model} down",
