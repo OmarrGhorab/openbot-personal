@@ -141,6 +141,11 @@ export const messages = defineMessages("chat", {
   "chat.usageLimit.onHold": "Message on hold",
   "chat.usageLimit.bodyReset": "Your message has not started. Send it to another model now, or wait until {reset}.",
   "chat.usageLimit.body": "Your message has not started. Send it to another model now, or wait until the limit ends.",
+  "chat.usageLimit.noBackup":
+    "No backup model is set, so this message waits for the limit to end. Add a backup model in agent settings to switch on its own.",
+  "chat.usageLimit.exhaustedReset": "Every backup model is at its limit. Your message waits until {reset}.",
+  "chat.usageLimit.exhausted":
+    "Every backup model is at its limit or not available. Your message waits for the limit to end.",
   "chat.usageLimit.sendTo": "Send to",
   "chat.usageLimit.remember": "Next time, switch without asking",
   "chat.usageLimit.wait": "Wait for the reset",

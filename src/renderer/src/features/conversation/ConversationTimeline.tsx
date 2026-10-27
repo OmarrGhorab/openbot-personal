@@ -1453,6 +1453,7 @@ export function ConversationTimeline() {
                 provider={ask().provider}
                 resetsAt={ask().resetsAt}
                 options={ask().options}
+                hasBackup={ask().hasBackup}
                 onSend={ask().onSend}
                 onWait={ask().onWait}
               />
