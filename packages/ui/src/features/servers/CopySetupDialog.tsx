@@ -247,465 +247,471 @@ export function CopySetupDialog(props: CopySetupDialogProps) {
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay class="join-server-backdrop" />
-        <Dialog.Content as="section" class="copy-setup-dialog" aria-busy={busy() ? "true" : undefined}>
-          <IconButton
-            class="join-server-close"
-            label={t("common.close")}
-            tooltip={t("common.close")}
-            variant="ghost"
-            disabled={busy()}
-            onClick={() => props.onClose()}
-          >
-            <X />
-          </IconButton>
-          <div class="copy-setup-content">
-            <header class="copy-setup-header">
-              <Dialog.Title as="h2" class="copy-setup-title">
-                {title()}
-              </Dialog.Title>
-              <Dialog.Description class="agent-import-lede">{description()}</Dialog.Description>
-            </header>
+        <Dialog.Overlay class="join-server-backdrop">
+          <Dialog.Content as="section" class="copy-setup-dialog" aria-busy={busy() ? "true" : undefined}>
+            <IconButton
+              class="join-server-close"
+              label={t("common.close")}
+              tooltip={t("common.close")}
+              variant="ghost"
+              disabled={busy()}
+              onClick={() => props.onClose()}
+            >
+              <X />
+            </IconButton>
+            <div class="copy-setup-content">
+              <header class="copy-setup-header">
+                <Dialog.Title as="h2" class="copy-setup-title">
+                  {title()}
+                </Dialog.Title>
+                <Dialog.Description class="agent-import-lede">{description()}</Dialog.Description>
+              </header>
 
-            <Show when={props.phase === "choose" || props.phase === "error"}>
-              <Show when={props.summaryError}>
-                {(error) => <Alert title={t("settings.transfer.copy.sourceFailed")} description={error()} />}
+              <Show when={props.phase === "choose" || props.phase === "error"}>
+                <Show when={props.summaryError}>
+                  {(error) => <Alert title={t("settings.transfer.copy.sourceFailed")} description={error()} />}
+                </Show>
+                <Show when={props.error}>
+                  {(error) => <Alert title={t("settings.transfer.copy.failed")} description={error()} />}
+                </Show>
+                <Show when={props.phase === "error"}>
+                  <ProgressList
+                    stepStatus={stepStatus}
+                    steps={steps()}
+                    targetName={targetName()}
+                    sourceName={props.sourceName}
+                  />
+                  <Show when={props.result && props.result.skipped.length > 0}>
+                    <Notes
+                      title={t("settings.transfer.result.notImported")}
+                      notes={props.result?.skipped.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
+                    />
+                  </Show>
+                  <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
+                    <SecretOutcomes outcomes={props.secretOutcomes ?? []} onReauthenticate={props.onReauthenticate} />
+                  </Show>
+                  <Show
+                    when={target()?.resumable === true && props.preview?.migrationId && props.failedStep !== "prepare"}
+                  >
+                    <div class="copy-setup-sign-in">
+                      <h3 class="copy-setup-section-title">{t("settings.transfer.copy.rollbackTitle")}</h3>
+                      <p class="agent-import-step-note">
+                        {t("settings.transfer.copy.rollbackText", { name: targetName() })}
+                      </p>
+                      <Button type="button" variant="outline" disabled={props.rollbackBusy} onClick={props.onRollback}>
+                        {t(
+                          props.rollbackBusy
+                            ? "settings.transfer.copy.rollbackBusy"
+                            : "settings.transfer.copy.rollback",
+                        )}
+                      </Button>
+                    </div>
+                  </Show>
+                </Show>
+                <Show
+                  when={props.targets.length > 0}
+                  fallback={<p class="agent-import-lede">{t("settings.transfer.copy.noTargets")}</p>}
+                >
+                  <h3 class="copy-setup-section-title">{t("settings.transfer.copy.target")}</h3>
+                  <ul class="copy-setup-targets" aria-label={t("settings.transfer.copy.target")}>
+                    <For each={props.targets}>
+                      {(server) => (
+                        <li>
+                          <Button
+                            type="button"
+                            variant={server.id === props.targetId ? "secondary" : "outline"}
+                            class="copy-setup-target"
+                            aria-pressed={server.id === props.targetId ? "true" : "false"}
+                            disabled={server.disabledReason !== null}
+                            onClick={() => props.onSelectTarget(server.id)}
+                          >
+                            <span class="copy-setup-target-copy">
+                              <span class="copy-setup-target-name">{server.name}</span>
+                              <span class="copy-setup-target-kind">
+                                {t(
+                                  server.kind === "local"
+                                    ? "settings.transfer.copy.thisComputer"
+                                    : "settings.transfer.copy.joinedServer",
+                                )}
+                              </span>
+                              <Show when={server.disabledReason}>
+                                {(reason) => (
+                                  <span class="copy-setup-target-reason">{t(TARGET_REASON_KEYS[reason()])}</span>
+                                )}
+                              </Show>
+                            </span>
+                            <Show when={server.id === props.targetId}>
+                              <Check class="copy-setup-target-check" aria-hidden="true" />
+                            </Show>
+                          </Button>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+
+                <Show when={props.phase === "choose" && props.targets.length > 0}>
+                  <h3 class="copy-setup-section-title">{t("settings.transfer.copy.mode")}</h3>
+                  <ul class="copy-setup-targets" aria-label={t("settings.transfer.copy.mode")}>
+                    <For each={["copy", "move"] as const}>
+                      {(mode) => {
+                        const resumable = () => target()?.resumable === true;
+                        return (
+                          <li>
+                            <Button
+                              type="button"
+                              variant={props.mode === mode ? "secondary" : "outline"}
+                              class="copy-setup-target"
+                              aria-pressed={props.mode === mode ? "true" : "false"}
+                              disabled={mode === "move" && !resumable()}
+                              onClick={() => props.onSelectMode(mode)}
+                            >
+                              <span class="copy-setup-target-copy">
+                                <span class="copy-setup-target-name">
+                                  {t(
+                                    mode === "copy"
+                                      ? "settings.transfer.copy.modeCopy"
+                                      : "settings.transfer.copy.modeMove",
+                                  )}
+                                </span>
+                                <span class="copy-setup-target-kind">
+                                  {t(
+                                    mode === "copy"
+                                      ? "settings.transfer.copy.modeCopyDetail"
+                                      : "settings.transfer.copy.modeMoveDetail",
+                                  )}
+                                </span>
+                                <Show when={mode === "move" && !resumable()}>
+                                  <span class="copy-setup-target-reason">
+                                    {t("settings.transfer.copy.modeMoveUnsupported")}
+                                  </span>
+                                </Show>
+                              </span>
+                              <Show when={props.mode === mode}>
+                                <Check class="copy-setup-target-check" aria-hidden="true" />
+                              </Show>
+                            </Button>
+                          </li>
+                        );
+                      }}
+                    </For>
+                  </ul>
+                </Show>
+
+                <Show
+                  when={props.summary}
+                  fallback={
+                    <Show when={!props.summaryError}>
+                      <p class="agent-import-lede">{t("settings.transfer.loading")}</p>
+                    </Show>
+                  }
+                >
+                  <h3 class="copy-setup-section-title">{t("settings.transfer.copy.summaryLabel")}</h3>
+                  <SetupSummary totals={totals()} label={t("settings.transfer.copy.summaryLabel")} />
+                  <AgentChecklist
+                    label={t("settings.transfer.copy.agentsLabel")}
+                    agents={agents().map(
+                      (agent): ChecklistAgent => ({
+                        key: agent.id,
+                        name: agent.name,
+                        avatar: <AgentAvatar agent={agent} class="storage-row-avatar" />,
+                        skillCount: agent.skillCount,
+                        routineCount: agent.routineCount,
+                        memoryCount: agent.memoryCount,
+                        fileCount: files() ? agent.fileCount : 0,
+                        fileBytes: files() ? agent.fileBytes : 0,
+                        nameExists: false,
+                      }),
+                    )}
+                    excluded={excluded()}
+                    disabled={busy()}
+                    onToggle={(key, include) => {
+                      const next = new Set(excluded());
+                      if (include) next.delete(key);
+                      else next.add(key);
+                      setExcluded(next);
+                    }}
+                  />
+                  <div class="settings-modal-card">
+                    <SwitchField
+                      class="settings-modal-row"
+                      checked={files()}
+                      disabled={busy()}
+                      onChange={setFiles}
+                      label={t("settings.transfer.export.files")}
+                      description={t("settings.transfer.export.filesDescription")}
+                    />
+                    <SwitchField
+                      class="settings-modal-row"
+                      checked={settings()}
+                      disabled={busy()}
+                      onChange={setSettings}
+                      label={t("settings.transfer.export.settings")}
+                      description={t("settings.transfer.export.settingsDescription")}
+                    />
+                  </div>
+                  <Show when={hasSecretStep()}>
+                    <div class="copy-setup-sign-in">
+                      <h3 class="copy-setup-section-title">{t("settings.transfer.copy.secretsTitle")}</h3>
+                      <p class="agent-import-step-note">
+                        {t(
+                          target()?.secrets
+                            ? "settings.transfer.copy.secretsDescription"
+                            : "settings.transfer.copy.secretsUnsupported",
+                        )}
+                      </p>
+                      <Show when={props.secretsError}>
+                        {(error) => (
+                          <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
+                        )}
+                      </Show>
+                      <Show when={secretsLoading()}>
+                        <p class="agent-import-step-note">{t("settings.transfer.copy.secretsLoading")}</p>
+                      </Show>
+                      <Show when={props.secrets?.items.length}>
+                        <ul class="copy-setup-secret-list">
+                          <For each={props.secrets?.items ?? []}>
+                            {(item) => (
+                              <li class="storage-row agent-import-row">
+                                <Checkbox
+                                  checked={
+                                    item.transferable && target()?.secrets === true && !excludedSecrets().has(item.id)
+                                  }
+                                  disabled={busy() || !item.transferable || target()?.secrets !== true}
+                                  aria-label={t("settings.transfer.copy.includeSecret", { name: item.label })}
+                                  onChange={(event) => {
+                                    const next = new Set(excludedSecrets());
+                                    if (event.currentTarget.checked) next.delete(item.id);
+                                    else next.add(item.id);
+                                    setExcludedSecrets(next);
+                                  }}
+                                />
+                                <span class="storage-row-copy">
+                                  <span class="storage-row-title">{item.label}</span>
+                                  <span class="storage-row-meta">
+                                    {item.transferable && target()?.secrets
+                                      ? t("settings.transfer.copy.secretReady")
+                                      : t("settings.transfer.copy.secretNeedsSignIn")}
+                                  </span>
+                                </span>
+                                <Show when={item.count > 1}>
+                                  <span class="storage-row-size">{item.count}</span>
+                                </Show>
+                              </li>
+                            )}
+                          </For>
+                        </ul>
+                      </Show>
+                    </div>
+                  </Show>
+                  <p class="instance-transfer-not-moved">
+                    <TriangleAlert class="instance-transfer-not-moved-icon" aria-hidden="true" />
+                    <span>
+                      {t(props.mode === "move" ? "settings.transfer.copy.moveNote" : "settings.transfer.notMoved", {
+                        source: props.sourceName,
+                      })}
+                    </span>
+                  </p>
+                </Show>
+
+                <div class="agent-import-actions instance-transfer-start">
+                  <Show
+                    when={props.phase === "error"}
+                    fallback={
+                      <Button
+                        type="button"
+                        disabled={
+                          !selectedTarget() ||
+                          !props.summary ||
+                          secretsLoading() ||
+                          (selected().length === 0 && !settings() && selectedSecretIds().length === 0) ||
+                          busy()
+                        }
+                        onClick={() => {
+                          if (!props.targetId) return;
+                          props.onPrepare({
+                            targetId: props.targetId,
+                            agentIds: selected().map((agent) => agent.id),
+                            includeFiles: files(),
+                            includeSettings: settings(),
+                            mode: props.mode,
+                            secretIds: selectedSecretIds(),
+                          });
+                        }}
+                      >
+                        {t(
+                          props.mode === "move" ? "settings.transfer.copy.moveSubmit" : "settings.transfer.copy.submit",
+                          { name: targetName() },
+                        )}
+                      </Button>
+                    }
+                  >
+                    <Button type="button" onClick={() => props.onRetry()}>
+                      {t("common.tryAgain")}
+                    </Button>
+                  </Show>
+                  <Button type="button" variant="ghost" disabled={busy()} onClick={() => props.onClose()}>
+                    {t("common.cancel")}
+                  </Button>
+                </div>
               </Show>
-              <Show when={props.error}>
-                {(error) => <Alert title={t("settings.transfer.copy.failed")} description={error()} />}
-              </Show>
-              <Show when={props.phase === "error"}>
+
+              <Show
+                when={
+                  props.phase === "preparing" ||
+                  props.phase === "copying" ||
+                  props.phase === "secrets" ||
+                  props.phase === "archiving"
+                }
+              >
                 <ProgressList
                   stepStatus={stepStatus}
                   steps={steps()}
                   targetName={targetName()}
                   sourceName={props.sourceName}
                 />
-                <Show when={props.result && props.result.skipped.length > 0}>
-                  <Notes
-                    title={t("settings.transfer.result.notImported")}
-                    notes={props.result?.skipped.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
-                  />
+                <Show when={props.preview && props.preview.warnings.length > 0}>
+                  <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
                 </Show>
-                <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
-                  <SecretOutcomes outcomes={props.secretOutcomes ?? []} onReauthenticate={props.onReauthenticate} />
-                </Show>
-                <Show
-                  when={target()?.resumable === true && props.preview?.migrationId && props.failedStep !== "prepare"}
-                >
-                  <div class="copy-setup-sign-in">
-                    <h3 class="copy-setup-section-title">{t("settings.transfer.copy.rollbackTitle")}</h3>
-                    <p class="agent-import-step-note">
-                      {t("settings.transfer.copy.rollbackText", { name: targetName() })}
-                    </p>
-                    <Button type="button" variant="outline" disabled={props.rollbackBusy} onClick={props.onRollback}>
-                      {t(
-                        props.rollbackBusy ? "settings.transfer.copy.rollbackBusy" : "settings.transfer.copy.rollback",
-                      )}
-                    </Button>
-                  </div>
-                </Show>
-              </Show>
-              <Show
-                when={props.targets.length > 0}
-                fallback={<p class="agent-import-lede">{t("settings.transfer.copy.noTargets")}</p>}
-              >
-                <h3 class="copy-setup-section-title">{t("settings.transfer.copy.target")}</h3>
-                <ul class="copy-setup-targets" aria-label={t("settings.transfer.copy.target")}>
-                  <For each={props.targets}>
-                    {(server) => (
-                      <li>
-                        <Button
-                          type="button"
-                          variant={server.id === props.targetId ? "secondary" : "outline"}
-                          class="copy-setup-target"
-                          aria-pressed={server.id === props.targetId ? "true" : "false"}
-                          disabled={server.disabledReason !== null}
-                          onClick={() => props.onSelectTarget(server.id)}
-                        >
-                          <span class="copy-setup-target-copy">
-                            <span class="copy-setup-target-name">{server.name}</span>
-                            <span class="copy-setup-target-kind">
-                              {t(
-                                server.kind === "local"
-                                  ? "settings.transfer.copy.thisComputer"
-                                  : "settings.transfer.copy.joinedServer",
-                              )}
-                            </span>
-                            <Show when={server.disabledReason}>
-                              {(reason) => (
-                                <span class="copy-setup-target-reason">{t(TARGET_REASON_KEYS[reason()])}</span>
-                              )}
-                            </Show>
-                          </span>
-                          <Show when={server.id === props.targetId}>
-                            <Check class="copy-setup-target-check" aria-hidden="true" />
-                          </Show>
-                        </Button>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-
-              <Show when={props.phase === "choose" && props.targets.length > 0}>
-                <h3 class="copy-setup-section-title">{t("settings.transfer.copy.mode")}</h3>
-                <ul class="copy-setup-targets" aria-label={t("settings.transfer.copy.mode")}>
-                  <For each={["copy", "move"] as const}>
-                    {(mode) => {
-                      const resumable = () => target()?.resumable === true;
-                      return (
-                        <li>
-                          <Button
-                            type="button"
-                            variant={props.mode === mode ? "secondary" : "outline"}
-                            class="copy-setup-target"
-                            aria-pressed={props.mode === mode ? "true" : "false"}
-                            disabled={mode === "move" && !resumable()}
-                            onClick={() => props.onSelectMode(mode)}
-                          >
-                            <span class="copy-setup-target-copy">
-                              <span class="copy-setup-target-name">
-                                {t(
-                                  mode === "copy"
-                                    ? "settings.transfer.copy.modeCopy"
-                                    : "settings.transfer.copy.modeMove",
-                                )}
-                              </span>
-                              <span class="copy-setup-target-kind">
-                                {t(
-                                  mode === "copy"
-                                    ? "settings.transfer.copy.modeCopyDetail"
-                                    : "settings.transfer.copy.modeMoveDetail",
-                                )}
-                              </span>
-                              <Show when={mode === "move" && !resumable()}>
-                                <span class="copy-setup-target-reason">
-                                  {t("settings.transfer.copy.modeMoveUnsupported")}
-                                </span>
-                              </Show>
-                            </span>
-                            <Show when={props.mode === mode}>
-                              <Check class="copy-setup-target-check" aria-hidden="true" />
-                            </Show>
-                          </Button>
-                        </li>
-                      );
-                    }}
-                  </For>
-                </ul>
-              </Show>
-
-              <Show
-                when={props.summary}
-                fallback={
-                  <Show when={!props.summaryError}>
-                    <p class="agent-import-lede">{t("settings.transfer.loading")}</p>
-                  </Show>
-                }
-              >
-                <h3 class="copy-setup-section-title">{t("settings.transfer.copy.summaryLabel")}</h3>
-                <SetupSummary totals={totals()} label={t("settings.transfer.copy.summaryLabel")} />
-                <AgentChecklist
-                  label={t("settings.transfer.copy.agentsLabel")}
-                  agents={agents().map(
-                    (agent): ChecklistAgent => ({
-                      key: agent.id,
-                      name: agent.name,
-                      avatar: <AgentAvatar agent={agent} class="storage-row-avatar" />,
-                      skillCount: agent.skillCount,
-                      routineCount: agent.routineCount,
-                      memoryCount: agent.memoryCount,
-                      fileCount: files() ? agent.fileCount : 0,
-                      fileBytes: files() ? agent.fileBytes : 0,
-                      nameExists: false,
-                    }),
-                  )}
-                  excluded={excluded()}
-                  disabled={busy()}
-                  onToggle={(key, include) => {
-                    const next = new Set(excluded());
-                    if (include) next.delete(key);
-                    else next.add(key);
-                    setExcluded(next);
-                  }}
-                />
-                <div class="settings-modal-card">
-                  <SwitchField
-                    class="settings-modal-row"
-                    checked={files()}
-                    disabled={busy()}
-                    onChange={setFiles}
-                    label={t("settings.transfer.export.files")}
-                    description={t("settings.transfer.export.filesDescription")}
-                  />
-                  <SwitchField
-                    class="settings-modal-row"
-                    checked={settings()}
-                    disabled={busy()}
-                    onChange={setSettings}
-                    label={t("settings.transfer.export.settings")}
-                    description={t("settings.transfer.export.settingsDescription")}
-                  />
-                </div>
-                <Show when={hasSecretStep()}>
-                  <div class="copy-setup-sign-in">
-                    <h3 class="copy-setup-section-title">{t("settings.transfer.copy.secretsTitle")}</h3>
-                    <p class="agent-import-step-note">
-                      {t(
-                        target()?.secrets
-                          ? "settings.transfer.copy.secretsDescription"
-                          : "settings.transfer.copy.secretsUnsupported",
-                      )}
-                    </p>
-                    <Show when={props.secretsError}>
-                      {(error) => (
-                        <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
-                      )}
-                    </Show>
-                    <Show when={secretsLoading()}>
-                      <p class="agent-import-step-note">{t("settings.transfer.copy.secretsLoading")}</p>
-                    </Show>
-                    <Show when={props.secrets?.items.length}>
-                      <ul class="copy-setup-secret-list">
-                        <For each={props.secrets?.items ?? []}>
-                          {(item) => (
-                            <li class="storage-row agent-import-row">
-                              <Checkbox
-                                checked={
-                                  item.transferable && target()?.secrets === true && !excludedSecrets().has(item.id)
-                                }
-                                disabled={busy() || !item.transferable || target()?.secrets !== true}
-                                aria-label={t("settings.transfer.copy.includeSecret", { name: item.label })}
-                                onChange={(event) => {
-                                  const next = new Set(excludedSecrets());
-                                  if (event.currentTarget.checked) next.delete(item.id);
-                                  else next.add(item.id);
-                                  setExcludedSecrets(next);
-                                }}
-                              />
-                              <span class="storage-row-copy">
-                                <span class="storage-row-title">{item.label}</span>
-                                <span class="storage-row-meta">
-                                  {item.transferable && target()?.secrets
-                                    ? t("settings.transfer.copy.secretReady")
-                                    : t("settings.transfer.copy.secretNeedsSignIn")}
-                                </span>
-                              </span>
-                              <Show when={item.count > 1}>
-                                <span class="storage-row-size">{item.count}</span>
-                              </Show>
-                            </li>
-                          )}
-                        </For>
-                      </ul>
-                    </Show>
-                  </div>
-                </Show>
-                <p class="instance-transfer-not-moved">
-                  <TriangleAlert class="instance-transfer-not-moved-icon" aria-hidden="true" />
-                  <span>
-                    {t(props.mode === "move" ? "settings.transfer.copy.moveNote" : "settings.transfer.notMoved", {
-                      source: props.sourceName,
-                    })}
-                  </span>
-                </p>
-              </Show>
-
-              <div class="agent-import-actions instance-transfer-start">
-                <Show
-                  when={props.phase === "error"}
-                  fallback={
-                    <Button
-                      type="button"
-                      disabled={
-                        !selectedTarget() ||
-                        !props.summary ||
-                        secretsLoading() ||
-                        (selected().length === 0 && !settings() && selectedSecretIds().length === 0) ||
-                        busy()
-                      }
-                      onClick={() => {
-                        if (!props.targetId) return;
-                        props.onPrepare({
-                          targetId: props.targetId,
-                          agentIds: selected().map((agent) => agent.id),
-                          includeFiles: files(),
-                          includeSettings: settings(),
-                          mode: props.mode,
-                          secretIds: selectedSecretIds(),
-                        });
-                      }}
-                    >
-                      {t(
-                        props.mode === "move" ? "settings.transfer.copy.moveSubmit" : "settings.transfer.copy.submit",
-                        { name: targetName() },
-                      )}
-                    </Button>
-                  }
-                >
-                  <Button type="button" onClick={() => props.onRetry()}>
-                    {t("common.tryAgain")}
+                <div class="agent-import-actions instance-transfer-start">
+                  <Button type="button" variant="ghost" disabled>
+                    {busyLabel()}
                   </Button>
-                </Show>
-                <Button type="button" variant="ghost" disabled={busy()} onClick={() => props.onClose()}>
-                  {t("common.cancel")}
-                </Button>
-              </div>
-            </Show>
-
-            <Show
-              when={
-                props.phase === "preparing" ||
-                props.phase === "copying" ||
-                props.phase === "secrets" ||
-                props.phase === "archiving"
-              }
-            >
-              <ProgressList
-                stepStatus={stepStatus}
-                steps={steps()}
-                targetName={targetName()}
-                sourceName={props.sourceName}
-              />
-              <Show when={props.preview && props.preview.warnings.length > 0}>
-                <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
+                </div>
               </Show>
-              <div class="agent-import-actions instance-transfer-start">
-                <Button type="button" variant="ghost" disabled>
-                  {busyLabel()}
-                </Button>
-              </div>
-            </Show>
 
-            <Show when={props.phase === "done"}>
-              <Show
-                when={props.rolledBack !== null}
-                fallback={
-                  <Show when={props.result}>
-                    {(result) => (
-                      <>
-                        <p class="storage-summary-total agent-import-done" role="status">
-                          <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
-                          {t(
-                            props.mode === "move" ? "settings.transfer.copy.moveDone" : "settings.transfer.copy.done",
-                            { name: targetName() },
-                          )}
-                        </p>
-                        <p class="agent-import-lede">
-                          {t(
-                            props.mode === "move"
-                              ? "settings.transfer.copy.moveDoneText"
-                              : "settings.transfer.copy.doneText",
-                            { name: targetName(), source: props.sourceName },
-                          )}
-                        </p>
-                        <Show when={result().migration?.resumed}>
-                          <p class="agent-import-step-note">{t("settings.transfer.copy.resumed")}</p>
-                        </Show>
-                        <Show when={props.move}>
-                          {(move) => (
-                            <div class="settings-modal-card copy-setup-archive">
-                              <h3 class="copy-setup-section-title">{t("settings.transfer.copy.archiveTitle")}</h3>
-                              <p class="copy-setup-archive-name">{move().archiveFileName}</p>
-                              <p class="agent-import-step-note">{move().archiveDirectory}</p>
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => props.onShowArchive(move().archiveFileName)}
-                              >
-                                {t("settings.transfer.copy.showArchive")}
-                              </Button>
-                            </div>
-                          )}
-                        </Show>
-                        <Show when={props.move && props.move.retained.length > 0}>
-                          <Notes
-                            title={t("settings.transfer.copy.retainedTitle")}
-                            notes={props.move?.retained.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
-                          />
-                        </Show>
-                        <Show when={result().signIn.length > 0}>
-                          <div class="copy-setup-sign-in">
-                            <h3 class="copy-setup-section-title">{t("settings.transfer.result.signIn")}</h3>
-                            <p class="agent-import-step-note">{t("settings.transfer.result.signInText")}</p>
-                            <ul class="copy-setup-sign-in-list">
-                              <For each={result().signIn}>
-                                {(provider) => <li class="instance-transfer-chip">{agentProviderName(provider)}</li>}
-                              </For>
-                            </ul>
-                          </div>
-                        </Show>
-                        <Show when={result().skipped.length > 0}>
-                          <Notes
-                            title={t("settings.transfer.result.notImported")}
-                            notes={result().skipped.map((entry) => `${entry.name}: ${entry.reason}`)}
-                          />
-                        </Show>
-                        <Show when={props.preview && props.preview.warnings.length > 0}>
-                          <Notes title={t("settings.transfer.result.warnings")} notes={props.preview?.warnings ?? []} />
-                        </Show>
-                        <Show when={result().warnings.length > 0}>
-                          <Notes title={t("settings.transfer.result.warnings")} notes={result().warnings} />
-                        </Show>
-                        <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
-                          <SecretOutcomes
-                            outcomes={props.secretOutcomes ?? []}
-                            onReauthenticate={props.onReauthenticate}
-                          />
-                        </Show>
-                        <Show when={props.secretsError}>
-                          {(error) => (
-                            <div class="copy-setup-sign-in">
-                              <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
-                              <div class="copy-setup-secret-result">
+              <Show when={props.phase === "done"}>
+                <Show
+                  when={props.rolledBack !== null}
+                  fallback={
+                    <Show when={props.result}>
+                      {(result) => (
+                        <>
+                          <p class="storage-summary-total agent-import-done" role="status">
+                            <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
+                            {t(
+                              props.mode === "move" ? "settings.transfer.copy.moveDone" : "settings.transfer.copy.done",
+                              { name: targetName() },
+                            )}
+                          </p>
+                          <p class="agent-import-lede">
+                            {t(
+                              props.mode === "move"
+                                ? "settings.transfer.copy.moveDoneText"
+                                : "settings.transfer.copy.doneText",
+                              { name: targetName(), source: props.sourceName },
+                            )}
+                          </p>
+                          <Show when={result().migration?.resumed}>
+                            <p class="agent-import-step-note">{t("settings.transfer.copy.resumed")}</p>
+                          </Show>
+                          <Show when={props.move}>
+                            {(move) => (
+                              <div class="settings-modal-card copy-setup-archive">
+                                <h3 class="copy-setup-section-title">{t("settings.transfer.copy.archiveTitle")}</h3>
+                                <p class="copy-setup-archive-name">{move().archiveFileName}</p>
+                                <p class="agent-import-step-note">{move().archiveDirectory}</p>
                                 <Button
                                   type="button"
-                                  variant="outline"
-                                  onClick={() => props.onReauthenticate("providers")}
+                                  variant="secondary"
+                                  onClick={() => props.onShowArchive(move().archiveFileName)}
                                 >
-                                  {t("settings.transfer.copy.openProviders")}
-                                </Button>
-                                <Button type="button" variant="outline" onClick={() => props.onReauthenticate("mcp")}>
-                                  {t("settings.transfer.copy.openMcp")}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => props.onReauthenticate("connectors")}
-                                >
-                                  {t("settings.transfer.copy.openConnectors")}
+                                  {t("settings.transfer.copy.showArchive")}
                                 </Button>
                               </div>
+                            )}
+                          </Show>
+                          <Show when={props.move && props.move.retained.length > 0}>
+                            <Notes
+                              title={t("settings.transfer.copy.retainedTitle")}
+                              notes={props.move?.retained.map((entry) => `${entry.name}: ${entry.reason}`) ?? []}
+                            />
+                          </Show>
+                          <Show when={result().signIn.length > 0}>
+                            <div class="copy-setup-sign-in">
+                              <h3 class="copy-setup-section-title">{t("settings.transfer.result.signIn")}</h3>
+                              <p class="agent-import-step-note">{t("settings.transfer.result.signInText")}</p>
+                              <ul class="copy-setup-sign-in-list">
+                                <For each={result().signIn}>
+                                  {(provider) => <li class="instance-transfer-chip">{agentProviderName(provider)}</li>}
+                                </For>
+                              </ul>
                             </div>
-                          )}
-                        </Show>
-                        <div class="agent-import-actions instance-transfer-start">
-                          <Button type="button" variant="secondary" onClick={() => props.onDone()}>
-                            {t("common.done")}
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </Show>
-                }
-              >
-                <p class="storage-summary-total agent-import-done" role="status">
-                  <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
-                  {t("settings.transfer.copy.rolledBackTitle")}
-                </p>
-                <p class="agent-import-lede">
-                  {t("settings.transfer.copy.rolledBack", { count: props.rolledBack ?? 0 })}
-                </p>
-                <div class="agent-import-actions instance-transfer-start">
-                  <Button type="button" variant="secondary" onClick={() => props.onDone()}>
-                    {t("common.done")}
-                  </Button>
-                </div>
+                          </Show>
+                          <Show when={result().skipped.length > 0}>
+                            <Notes
+                              title={t("settings.transfer.result.notImported")}
+                              notes={result().skipped.map((entry) => `${entry.name}: ${entry.reason}`)}
+                            />
+                          </Show>
+                          <Show when={props.preview && props.preview.warnings.length > 0}>
+                            <Notes
+                              title={t("settings.transfer.result.warnings")}
+                              notes={props.preview?.warnings ?? []}
+                            />
+                          </Show>
+                          <Show when={result().warnings.length > 0}>
+                            <Notes title={t("settings.transfer.result.warnings")} notes={result().warnings} />
+                          </Show>
+                          <Show when={props.secretOutcomes && props.secretOutcomes.length > 0}>
+                            <SecretOutcomes
+                              outcomes={props.secretOutcomes ?? []}
+                              onReauthenticate={props.onReauthenticate}
+                            />
+                          </Show>
+                          <Show when={props.secretsError}>
+                            {(error) => (
+                              <div class="copy-setup-sign-in">
+                                <Alert title={t("settings.transfer.copy.secretsUnavailable")} description={error()} />
+                                <div class="copy-setup-secret-result">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => props.onReauthenticate("providers")}
+                                  >
+                                    {t("settings.transfer.copy.openProviders")}
+                                  </Button>
+                                  <Button type="button" variant="outline" onClick={() => props.onReauthenticate("mcp")}>
+                                    {t("settings.transfer.copy.openMcp")}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => props.onReauthenticate("connectors")}
+                                  >
+                                    {t("settings.transfer.copy.openConnectors")}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </Show>
+                          <div class="agent-import-actions instance-transfer-start">
+                            <Button type="button" variant="secondary" onClick={() => props.onDone()}>
+                              {t("common.done")}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </Show>
+                  }
+                >
+                  <p class="storage-summary-total agent-import-done" role="status">
+                    <CircleCheck class="agent-import-done-icon" aria-hidden="true" />
+                    {t("settings.transfer.copy.rolledBackTitle")}
+                  </p>
+                  <p class="agent-import-lede">
+                    {t("settings.transfer.copy.rolledBack", { count: props.rolledBack ?? 0 })}
+                  </p>
+                  <div class="agent-import-actions instance-transfer-start">
+                    <Button type="button" variant="secondary" onClick={() => props.onDone()}>
+                      {t("common.done")}
+                    </Button>
+                  </div>
+                </Show>
               </Show>
-            </Show>
-          </div>
-        </Dialog.Content>
+            </div>
+          </Dialog.Content>
+        </Dialog.Overlay>
       </Dialog.Portal>
     </Dialog.Root>
   );
