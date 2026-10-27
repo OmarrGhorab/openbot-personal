@@ -32,7 +32,7 @@ interface UpstreamSource {
   commit: string;
 }
 
-type UpstreamProvider = "openai" | "anthropic" | "cursor";
+type UpstreamProvider = "openai" | "anthropic" | "cursor" | "rea";
 
 /**
  * A pack in `bundles/<slug>/`, published as one skill `<slug>`. A `cursor` pack is a vendored plugin;
@@ -230,7 +230,11 @@ async function promptArchive(skill: SkillSpec, license: string, sources: Catalog
 /** The index `SKILL.md` that lists each skill of a pack with its description. */
 function packIndex(pack: Pack, lines: string[]): string {
   const { name } = pack.spec;
-  return `---\nname: ${name}\ndescription: ${JSON.stringify(pack.spec.description)}\n---\n\n# ${name}\n\nThis skill installs the ${pack.folders.length} ${name} skills below, each as a skill of its own. Call one with \`$<name>\`.\n\n${lines.join("\n")}\n`;
+  const intro =
+    pack.folders.length === 1
+      ? `This skill installs the ${name} skill below as a skill of its own. Call it with \`$${pack.spec.slug}-${pack.folders[0]}\`.`
+      : `This skill installs the ${pack.folders.length} ${name} skills below, each as a skill of its own. Call one with \`$<name>\`.`;
+  return `---\nname: ${name}\ndescription: ${JSON.stringify(pack.spec.description)}\n---\n\n# ${name}\n\n${intro}\n\n${lines.join("\n")}\n`;
 }
 
 /**
@@ -442,7 +446,7 @@ function escapeRegExp(value: string): string {
 
 function skillLicense(source: SkillSpec["source"]): BuiltSkill["license"] {
   if (source === "openbot") return "PolyForm-Noncommercial-1.0.0";
-  return source === "cursor" ? "MIT" : "Apache-2.0";
+  return source === "cursor" || source === "rea" ? "MIT" : "Apache-2.0";
 }
 
 function inspectGeneratedArchive(archive: Uint8Array, vendored: boolean) {
@@ -545,6 +549,7 @@ function parsePackSpec(value: unknown): PackSpec {
     (value.source !== "openai" &&
       value.source !== "anthropic" &&
       value.source !== "cursor" &&
+      value.source !== "rea" &&
       value.source !== "openbot") ||
     (value.name !== undefined && !isString(value.name)) ||
     (value.source !== "openbot" && !isString(value.upstreamPath)) ||
@@ -587,6 +592,7 @@ function parseSources(value: unknown): CatalogSpec["sources"] {
     openai: parseSource(value.openai, "openai"),
     anthropic: parseSource(value.anthropic, "anthropic"),
     cursor: parseSource(value.cursor, "cursor"),
+    rea: parseSource(value.rea, "rea"),
   };
 }
 
@@ -671,13 +677,16 @@ function createUpstreamNotices(spec: CatalogSpec, skills: BuiltSkill[]): string 
       ? `- **${skill.slug}** — original OpenBot team instructions; PolyForm Noncommercial 1.0.0.`
       : skill.source.provider === "cursor"
         ? `- **${skill.slug}** — copy of [${skill.source.upstreamSkill}](${skill.source.url}) from cursor commit \`${skill.source.commit}\`, with pstack skill names prefixed; MIT.`
-        : `- **${skill.slug}** — derivative of [${skill.source.upstreamSkill}](${skill.source.url}) from ${skill.source.provider} commit \`${skill.source.commit}\`.`,
+        : skill.source.provider === "rea"
+          ? `- **${skill.slug}** — copy of [${skill.source.upstreamSkill}](${skill.source.url}) from morluto/rea commit \`${skill.source.commit}\`, with its skill name prefixed; MIT.`
+          : `- **${skill.slug}** — derivative of [${skill.source.upstreamSkill}](${skill.source.url}) from ${skill.source.provider} commit \`${skill.source.commit}\`.`,
   );
-  return `# Upstream Notices\n\nThis catalog contains original OpenBot team skills under PolyForm Noncommercial 1.0.0, derivatives from the pinned OpenAI and Anthropic repositories under Apache License 2.0, and the skills of the pinned Cursor pstack plugin, with their names prefixed, under the MIT License. Each bundle includes its applicable license and notice.\n\n${entries.join("\n")}\n\nCatalog version: \`${spec.catalogVersion}\`\n`;
+  return `# Upstream Notices\n\nThis catalog contains original OpenBot team skills under PolyForm Noncommercial 1.0.0, derivatives from the pinned OpenAI and Anthropic repositories under Apache License 2.0, and the skills of the pinned Cursor pstack plugin and the pinned morluto/rea repository, with their names prefixed, under the MIT License. Each bundle includes its applicable license and notice.\n\n${entries.join("\n")}\n\nCatalog version: \`${spec.catalogVersion}\`\n`;
 }
 
 function upstreamSkillUrl(skill: Extract<SkillSpec, { upstreamSkill: string }>, upstream: UpstreamSource): string {
-  if (skill.source === "cursor") return `${upstream.repository}/tree/${upstream.commit}/${skill.upstreamSkill}`;
+  if (skill.source === "cursor" || skill.source === "rea")
+    return `${upstream.repository}/tree/${upstream.commit}/${skill.upstreamSkill}`;
   const segment = skill.source === "openai" ? "skills/.curated" : "skills";
   return `${upstream.repository}/tree/${upstream.commit}/${segment}/${skill.upstreamSkill}`;
 }
