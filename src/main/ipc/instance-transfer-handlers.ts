@@ -204,6 +204,8 @@ export function instanceTransferIpcHandlers({
       throw new Error(sourceText("error.import.transferMoveUnsupported"));
 
     return prepareCopy({
+      // A local source can size its own archive, so an oversized copy stops before anything is read.
+      estimate: sourceLocal ? () => runCauseEffect(instanceTransfer.estimate(input)) : undefined,
       readSource: async () => {
         if (!sourceLocal) {
           const bytes = await runCauseEffect(remoteServers.downloadInstanceTransfer(input.sourceServerId, input));

@@ -1621,6 +1621,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#store.database.listAgentThreads(agentId);
   }
 
+  /** The bytes of the history a transfer would carry, measured in SQLite without encoding it. */
+  conversationHistoryBytes(agentId: string): number {
+    return this.#store.database.agentHistoryBytes(agentId);
+  }
+
   readConversationThread(agentId: string, threadId: string): ConversationSnapshot {
     return this.#store.database.readConversation(agentId, threadId);
   }

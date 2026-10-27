@@ -5,6 +5,7 @@
 import type { CopyInstanceTransferMode, InstanceTransferPreview } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { migrationIdFor } from "./instance-transfer-ledger";
+import { fitsLimit, megabytes } from "./instance-transfer-preflight";
 
 interface CopyArchive {
   bytes: Uint8Array;
@@ -16,6 +17,8 @@ export interface PrepareCopyOptions {
   readSource: () => Promise<CopyArchive>;
   /** The target is a joined server, so one WebRTC file transfer bounds the archive. */
   remoteTarget: boolean;
+  /** Estimates the archive from sizes alone. Checked before anything is read, when the source can answer. */
+  estimate?: (() => Promise<number>) | undefined;
   stageRemote: (bytes: Uint8Array) => Promise<InstanceTransferPreview>;
   /** Stages on this computer, which keeps the bytes until `apply` or `discard`. */
   stageLocal: (bytes: Uint8Array) => Promise<InstanceTransferPreview>;
@@ -33,8 +36,18 @@ export interface PrepareCopyOptions {
 export async function prepareCopy(options: PrepareCopyOptions): Promise<InstanceTransferPreview> {
   if (options.mode === "move" && !options.resumableTarget)
     throw new Error(sourceText("error.import.transferMoveUnsupported"));
+  if (options.remoteTarget && options.estimate) {
+    const estimated = await options.estimate();
+    if (!fitsLimit(estimated, options.maxRemoteBytes))
+      throw new Error(
+        sourceText("error.import.transferEstimateTooLarge", {
+          size: megabytes(estimated),
+          limit: megabytes(options.maxRemoteBytes),
+        }),
+      );
+  }
   const { bytes, warnings } = await options.readSource();
-  if (options.remoteTarget && bytes.byteLength > options.maxRemoteBytes)
+  if (options.remoteTarget && !fitsLimit(bytes.byteLength, options.maxRemoteBytes))
     throw new Error(sourceText("error.import.transferRemoteTooLarge"));
   const preview = options.remoteTarget ? await options.stageRemote(bytes) : await options.stageLocal(bytes);
   // A v1 target answers no migration id; the preview's keys still name the same migration.

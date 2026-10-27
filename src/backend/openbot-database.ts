@@ -272,6 +272,11 @@ export class OpenBotDatabase {
     return this.#conversations.listAgentThreads(agentId);
   }
 
+  /** The stored message bytes of the threads a transfer carries, measured without encoding them. */
+  agentHistoryBytes(agentId: string): number {
+    return this.#conversations.agentHistoryBytes(agentId);
+  }
+
   /** Writes one message of a thread, for a caller that knows only that message changed. */
   persistStreamingMessage(input: {
     snapshot: ConversationSnapshot;

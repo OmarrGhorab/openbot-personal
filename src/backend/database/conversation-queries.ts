@@ -98,6 +98,27 @@ export class ConversationQueries {
     }));
   }
 
+  /**
+   * The stored message JSON of the threads `listAgentThreads` returns, in bytes. A transfer estimate
+   * reads this instead of encoding the history, so it measures the history without building the file.
+   */
+  agentHistoryBytes(agentId: string): number {
+    const row = databaseRow(
+      this.#core.connection
+        .prepare(
+          `SELECT COALESCE(SUM(length(CAST(message.message_json AS BLOB))), 0) AS bytes
+           FROM projection_thread_messages AS message
+           JOIN projection_threads AS thread ON thread.thread_id = message.thread_id
+           WHERE thread.agent_id = ?
+             AND thread.thread_id NOT IN (SELECT thread_id FROM projection_channel_contexts WHERE thread_id IS NOT NULL)
+             AND thread.thread_id NOT IN (SELECT thread_id FROM projection_messaging_threads WHERE thread_id IS NOT NULL)
+             AND thread.thread_id NOT IN (SELECT thread_id FROM projection_agent_tasks WHERE thread_id IS NOT NULL)`,
+        )
+        .get(agentId),
+    );
+    return row ? requiredNumberColumn(row, "bytes") : 0;
+  }
+
   readConversation(agentId: string, threadId: string | null): ConversationSnapshot {
     if (!threadId) return { agentId, threadId: null, activeTurnId: null, revision: 0, messages: [] };
     const thread = decodeConversationThreadRow(
