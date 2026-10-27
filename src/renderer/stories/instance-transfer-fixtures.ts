@@ -67,6 +67,17 @@ export const INSTANCE_TRANSFER_PREVIEW: InstanceTransferPreview = {
   agents: AGENT_IMPORT_PREVIEW.agents,
   hasSettings: true,
   warnings: [],
+  migrationId: null,
+};
+
+/** The migration a copy or move records on the target, as the preview names it. */
+export const INSTANCE_TRANSFER_MIGRATION_ID = "0f5d0f6e8c1a4f0b9d3c2e7a5b6c8d1e2f3a4b5c6d7e8f9012345678abcdef00";
+
+/** A staged copy or move: the same file, with the target's migration id. */
+export const INSTANCE_TRANSFER_COPY_PREVIEW: InstanceTransferPreview = {
+  ...INSTANCE_TRANSFER_PREVIEW,
+  token: "transfer-copy",
+  migrationId: INSTANCE_TRANSFER_MIGRATION_ID,
 };
 
 export const INSTANCE_TRANSFER_WARNINGS = [
@@ -78,4 +89,5 @@ export const INSTANCE_TRANSFER_RESULT: Omit<InstanceTransferResult, "agents"> = 
   skipped: [{ key: "sales", name: "Sales Outbound", reason: "SKILL.md must begin with YAML frontmatter." }],
   signIn: ["claude", "codex"],
   warnings: INSTANCE_TRANSFER_WARNINGS,
+  migration: null,
 };

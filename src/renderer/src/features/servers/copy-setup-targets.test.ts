@@ -1,5 +1,6 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
 import { INSTANCE_TRANSFER_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v1";
+import { INSTANCE_TRANSFER_V2_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v2";
 import { describe, expect, it } from "vitest";
 import {
   canCopyFrom,
@@ -8,6 +9,7 @@ import {
   copyTargetOptions,
   copyTargets,
   hasCopyTarget,
+  resumableTarget,
 } from "./copy-setup-targets";
 
 function server(
@@ -36,7 +38,7 @@ function server(
             localProtocol: { minimum: 1, maximum: 1 },
             hostProtocol: { minimum: 1, maximum: 1 },
             negotiatedProtocol: 1,
-            capabilities: options.capabilities ?? [INSTANCE_TRANSFER_CAPABILITY],
+            capabilities: options.capabilities ?? [INSTANCE_TRANSFER_CAPABILITY, INSTANCE_TRANSFER_V2_CAPABILITY],
           }
         : null,
   };
@@ -46,6 +48,10 @@ const local = server("local", "local");
 const adminRemote = server("remote-admin", "remote", { role: "admin" });
 const memberRemote = server("remote-member", "remote", { role: "member" });
 const oldRemote = server("remote-old", "remote", { role: "owner", capabilities: [] });
+const v1Remote = server("remote-v1", "remote", {
+  role: "owner",
+  capabilities: [INSTANCE_TRANSFER_CAPABILITY],
+});
 
 describe("copy setup targets", () => {
   it("lets this computer copy to a joined server this account administers", () => {
@@ -86,5 +92,14 @@ describe("copy setup targets", () => {
   it("never offers the source itself", () => {
     expect(canCopyTo(local, local)).toBe(false);
     expect(canCopyTo(adminRemote, adminRemote)).toBe(false);
+  });
+
+  it("lets a move go only to a target that records the migration", () => {
+    expect(resumableTarget(local)).toBe(true);
+    expect(resumableTarget(adminRemote)).toBe(true);
+    expect(resumableTarget(v1Remote)).toBe(false);
+    expect(copyTargetOptions([local, v1Remote], "local").map((option) => [option.server.id, option.resumable])).toEqual(
+      [["remote-v1", false]],
+    );
   });
 });

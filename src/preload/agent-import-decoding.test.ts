@@ -3,7 +3,10 @@
 import {
   decodeAgentImportResult,
   decodeInstanceTransferResult,
+  decodeMoveInstanceSourceResult,
   decodeRemoteInstanceTransferResult,
+  decodeRollbackInstanceTransferResult,
+  parseRollbackInstanceTransferInput,
 } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 
@@ -32,7 +35,7 @@ const AGENT = {
 const FOREIGN_AGENT = { ...AGENT, id: "agent-2", provider: "omp", model: "omp/default" };
 
 const IMPORT_RESULT = { skipped: [], channels: [], skippedChannels: [], warnings: [] };
-const TRANSFER_RESULT = { skipped: [], signIn: [], warnings: [] };
+const TRANSFER_RESULT = { skipped: [], signIn: [], warnings: [], migration: null };
 
 describe("agent import result decoding", () => {
   it("keeps an agent on a provider that this build does not know", () => {
@@ -78,5 +81,77 @@ describe("instance transfer result decoding", () => {
     expect(() =>
       decodeRemoteInstanceTransferResult({ ...TRANSFER_RESULT, agents: [], signIn: ["claude", "Not An Id"] }),
     ).toThrow("Invalid transfer result.");
+  });
+
+  it("reads a v1 host's result without a migration as null", () => {
+    const result = decodeRemoteInstanceTransferResult({
+      skipped: [],
+      signIn: [],
+      warnings: [],
+      agents: [{ agentId: "agent-2", name: "Ada" }],
+    });
+    expect(result.migration).toBeNull();
+  });
+
+  it("reads a v2 host's migration", () => {
+    const result = decodeRemoteInstanceTransferResult({
+      ...TRANSFER_RESULT,
+      agents: [],
+      migration: { id: "migration-1", resumed: true },
+    });
+    expect(result.migration).toEqual({ id: "migration-1", resumed: true });
+  });
+
+  it("rejects a migration without its resumed flag", () => {
+    expect(() =>
+      decodeInstanceTransferResult({
+        ...TRANSFER_RESULT,
+        agents: [],
+        migration: { id: "migration-1" },
+      }),
+    ).toThrow("Invalid transfer migration.");
+  });
+});
+
+describe("instance transfer move and rollback decoding", () => {
+  it("reads a rollback result", () => {
+    expect(decodeRollbackInstanceTransferResult({ agents: 2 })).toEqual({ agents: 2 });
+  });
+
+  it("rejects a rollback count that is not a whole number", () => {
+    expect(() => decodeRollbackInstanceTransferResult({ agents: 1.5 })).toThrow("Invalid rollback result.");
+  });
+
+  it("reads a move result with a retained agent", () => {
+    const result = decodeMoveInstanceSourceResult({
+      archiveFileName: `openbot-transfer-move-${"a".repeat(64)}.zip`,
+      archiveDirectory: "/Users/ada/OpenBot/Archives",
+      movedAgentIds: ["agent-1"],
+      retained: [{ agentId: "agent-2", name: "Ada", reason: "The server is offline." }],
+      warnings: [],
+    });
+    expect(result.retained).toEqual([{ agentId: "agent-2", name: "Ada", reason: "The server is offline." }]);
+  });
+
+  it("rejects a move archive name that is not a file name", () => {
+    expect(() =>
+      decodeMoveInstanceSourceResult({
+        archiveFileName: "openbot-transfer-move-nothex.zip",
+        archiveDirectory: "/Users/ada/OpenBot/Archives",
+        movedAgentIds: [],
+        retained: [],
+        warnings: [],
+      }),
+    ).toThrow("Invalid move result.");
+  });
+
+  it("requires the target and the migration for a rollback", () => {
+    expect(parseRollbackInstanceTransferInput({ targetServerId: "local", migrationId: "migration-1" })).toEqual({
+      targetServerId: "local",
+      migrationId: "migration-1",
+    });
+    expect(() => parseRollbackInstanceTransferInput({ migrationId: "migration-1" })).toThrow(
+      "Invalid rollback request.",
+    );
   });
 });

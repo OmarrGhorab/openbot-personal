@@ -11,7 +11,7 @@
 // here and never replace an MCP server, provider or custom agent that this computer has.
 
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import type { AgentProviderId } from "@openbot/contracts/agent-providers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
@@ -39,6 +39,7 @@ import {
   type InstanceTransferResult,
   type InstanceTransferSummary,
   isAgentImportKey,
+  isInstanceArchiveFileName,
   type McpServerConfig,
   type Routine,
   type RoutineFlowLink,
@@ -50,7 +51,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { INSTANCE_TRANSFER_REMOTE_BYTES } from "@openbot/contracts/team-protocol/instance-transfer-v1";
 import { sourceText } from "@openbot/i18n/source";
-import { Deferred, Effect, Exit, Result } from "effect";
+import { Deferred, Effect, Exit, Result, Semaphore } from "effect";
 import { Zip, ZipPassThrough, zipSync } from "fflate";
 import { isMissingFileError } from "../backend/file-errors";
 import { isPathInside } from "../backend/path-containment";
@@ -69,6 +70,13 @@ import {
 import type { AgentImportSkills } from "./agent-import-service";
 import { validTimezone } from "./agent-marketplace-service";
 import { type ArchiveOperationError, archiveCall, archiveFailure, archiveSync } from "./archive-effects";
+import {
+  type MigrationRecord,
+  migrationIdFor,
+  readMigration,
+  removeMigration,
+  writeMigration,
+} from "./instance-transfer-ledger";
 import {
   agentPrefix,
   decodeTransferManifest,
@@ -152,6 +160,8 @@ interface InstanceTransferSettings {
   mutateSidebar(action: SidebarLayoutAction): Effect.Effect<SidebarLayoutSnapshot, unknown>;
   routineFlowLinks(agentId: string): Effect.Effect<RoutineFlowLink[], unknown>;
   connectRoutineFlow(input: ConnectRoutineFlowInput): Effect.Effect<unknown, unknown>;
+  /** Removes an agent from the sidebar after a rollback or a move deletes it. */
+  removeAgent(agentId: string): Effect.Effect<unknown, unknown>;
   /** Providers that are signed in and ready on this computer. */
   signedInProviders(): AgentProviderId[];
 }
@@ -165,6 +175,12 @@ export interface InstanceTransferOptions {
   appVersion: string;
   /** Where a file sent by a member of a joined client, or made for one, waits. */
   uploadDirectory?: string;
+  /** The target's record of each migration, under user data. */
+  migrationLedgerPath: string;
+  /** Source archives held after staging a move, until the target confirms. */
+  moveDirectory: string;
+  /** Where a confirmed move leaves its reversible source archive, `~/OpenBot/Archives`. */
+  archiveDirectory: string;
   timezone?: () => string;
   now?: () => Date;
 }
@@ -187,10 +203,21 @@ interface StagedTransfer {
   sha256: string;
   manifest: TransferManifest;
   avatars: Map<string, AvatarImageInput>;
+  /** True when a copy or move staged it, so the target ledger can resume and roll it back. */
+  migrate: boolean;
+}
+
+/** The ledger of the migration an apply is running, shared by the agents it creates. */
+interface MigrationContext {
+  owner: string;
+  id: string;
+  record: MigrationRecord;
 }
 
 export class InstanceTransferService {
   readonly #staged = new Map<string, StagedTransfer>();
+  /** One ledger write at a time, so two applies cannot lose each other's entries. */
+  readonly #ledger = Semaphore.makeUnsafe(1);
   readonly #timezone: () => string;
   readonly #now: () => Date;
   #uploadDirectoryReady: Deferred.Deferred<void, ArchiveOperationError> | null = null;
@@ -456,7 +483,7 @@ export class InstanceTransferService {
     path: string,
     owner = LOCAL_OWNER,
   ): Effect.fn.Return<InstanceTransferPreview, ArchiveOperationError> {
-    return yield* this.#stageFile(path, owner, false, ARCHIVE);
+    return yield* this.#stageFile(path, owner, false, ARCHIVE, false);
   }).bind(this);
 
   /** A file that a member of a joined client sends: the service keeps it until the token ends. */
@@ -471,7 +498,7 @@ export class InstanceTransferService {
     yield* this.#prepareUploadDirectory(directory);
     const path = join(directory, `${randomUUID()}.zip`);
     yield* archiveCall(() => writeFile(path, bytes, { flag: "wx", mode: 0o600 }));
-    return yield* this.#stageFile(path, owner, true, REMOTE_ARCHIVE).pipe(
+    return yield* this.#stageFile(path, owner, true, REMOTE_ARCHIVE, true).pipe(
       Effect.tapError(() => archiveCall(() => rm(path, { force: true })).pipe(Effect.ignore)),
     );
   }).bind(this);
@@ -481,7 +508,16 @@ export class InstanceTransferService {
     this: InstanceTransferService,
     bytes: Uint8Array,
   ): Effect.fn.Return<InstanceTransferPreview, ArchiveOperationError> {
-    return yield* this.stageUpload(async () => bytes, LOCAL_OWNER);
+    const directory = this.options.uploadDirectory;
+    if (!directory) return yield* archiveFailure(new Error("Instance transfer uploads are not available."));
+    yield* this.#prepareUploadDirectory(directory);
+    const path = join(directory, `${randomUUID()}.zip`);
+    yield* archiveCall(() => writeFile(path, bytes, { flag: "wx", mode: 0o600 }));
+    // The bytes are already here, so this target reads its own 2 GB limit rather than the 100 MB
+    // one a WebRTC transfer uses. The file still goes through the upload directory and expires.
+    return yield* this.#stageFile(path, LOCAL_OWNER, true, ARCHIVE, true).pipe(
+      Effect.tapError(() => archiveCall(() => rm(path, { force: true })).pipe(Effect.ignore)),
+    );
   }).bind(this);
 
   /** Clear files from the previous process before either writer creates a file. */
@@ -509,6 +545,7 @@ export class InstanceTransferService {
     owner: string,
     temporary: boolean,
     limits: ArchiveLimits,
+    migrate: boolean,
   ): Effect.fn.Return<InstanceTransferPreview, ArchiveOperationError> {
     // The file read before stays staged until this one is checked, so a bad file keeps it.
     const bytes = yield* readArchiveEffect(path, limits);
@@ -544,6 +581,7 @@ export class InstanceTransferService {
       sha256: sha256(bytes),
       manifest: { ...manifest, agents },
       avatars,
+      migrate,
     };
     yield* this.#release(owner);
     this.#staged.set(staged.token, staged);
@@ -576,6 +614,7 @@ export class InstanceTransferService {
       }),
       hasSettings: manifest.settings !== null,
       warnings: bounded(warnings),
+      migrationId: migrate ? migrationIdFor(agents.map((agent) => agent.key)) : null,
     };
   });
 
@@ -600,6 +639,163 @@ export class InstanceTransferService {
     if (staged.temporary) yield* archiveCall(() => rm(staged.path, { force: true })).pipe(Effect.ignore);
   });
 
+  readonly #readMigration = Effect.fn("InstanceTransfer.readMigration")(function* (
+    this: InstanceTransferService,
+    owner: string,
+    migrationId: string,
+  ): Effect.fn.Return<MigrationRecord | null, ArchiveOperationError> {
+    return yield* this.#ledger.withPermits(1)(
+      archiveCall(() => readMigration(this.options.migrationLedgerPath, owner, migrationId)),
+    );
+  });
+
+  readonly #saveMigration = Effect.fn("InstanceTransfer.saveMigration")(function* (
+    this: InstanceTransferService,
+    context: MigrationContext,
+  ): Effect.fn.Return<void, ArchiveOperationError> {
+    yield* this.#ledger.withPermits(1)(
+      archiveCall(() => writeMigration(this.options.migrationLedgerPath, context.owner, context.id, context.record)),
+    );
+  });
+
+  readonly #removeMigration = Effect.fn("InstanceTransfer.removeMigration")(function* (
+    this: InstanceTransferService,
+    owner: string,
+    migrationId: string,
+  ): Effect.fn.Return<void, ArchiveOperationError> {
+    yield* this.#ledger.withPermits(1)(
+      archiveCall(() => removeMigration(this.options.migrationLedgerPath, owner, migrationId)),
+    );
+  });
+
+  /**
+   * Deletes only the agents this migration created. Settings it added are kept, and an entry whose
+   * agent cannot be deleted stays for a later rollback.
+   */
+  readonly rollback = Effect.fn("InstanceTransfer.rollback")(function* (
+    this: InstanceTransferService,
+    migrationId: string,
+    owner = LOCAL_OWNER,
+  ): Effect.fn.Return<{ agents: number }, ArchiveOperationError> {
+    const record = yield* this.#readMigration(owner, migrationId).pipe(Effect.orElseSucceed(() => null));
+    if (!record) return { agents: 0 };
+    let removed = 0;
+    const existing = new Set(this.options.agents.listAgents().map((agent) => agent.id));
+    for (const [key, entry] of Object.entries(record.agents)) {
+      if (existing.has(entry.agentId)) {
+        const result = yield* Effect.result(this.options.agents.deleteAgent(entry.agentId));
+        if (Result.isFailure(result)) continue;
+        yield* this.options.settings.removeAgent(entry.agentId).pipe(Effect.ignore);
+        removed += 1;
+      }
+      // The agent is gone with its routines and memories; the skill revisions it published remain.
+      for (const skill of Object.values(entry.skills))
+        yield* this.options.skills.library().withdraw(skill.id, skill.revision).pipe(Effect.ignore);
+      delete record.agents[key];
+    }
+    if (Object.keys(record.agents).length === 0) yield* this.#removeMigration(owner, migrationId);
+    else yield* this.#saveMigration({ owner, id: migrationId, record });
+    return { agents: removed };
+  }).bind(this);
+
+  /** Holds the source bytes of a move until the target confirms, under the migration id. */
+  readonly keepForMove = Effect.fn("InstanceTransfer.keepForMove")(function* (
+    this: InstanceTransferService,
+    migrationId: string,
+    bytes: Uint8Array,
+  ): Effect.fn.Return<void, ArchiveOperationError> {
+    const directory = this.options.moveDirectory;
+    if (!/^[\da-f]{64}$/u.test(migrationId))
+      return yield* archiveFailure(new Error(sourceText("error.import.transferMoveInvalid")));
+    yield* archiveCall(() => mkdir(directory, { recursive: true, mode: 0o700 }));
+    yield* this.#cleanupMoves(directory, migrationId).pipe(Effect.ignore);
+    const path = join(directory, `${migrationId}.zip`);
+    const part = `${path}.part`;
+    yield* archiveCall(() => writeFile(part, bytes, { mode: 0o600 }));
+    yield* archiveCall(() => rename(part, path)).pipe(
+      Effect.tapError(() => archiveCall(() => rm(part, { force: true })).pipe(Effect.ignore)),
+    );
+  }).bind(this);
+
+  /** Removes move files left by a run that never confirmed. Best effort: a running move is kept. */
+  readonly #cleanupMoves = Effect.fn("InstanceTransfer.cleanupMoves")(function* (
+    this: InstanceTransferService,
+    directory: string,
+    current: string,
+  ) {
+    const listed = yield* Effect.result(archiveCall(() => readdir(directory)));
+    if (Result.isFailure(listed)) return;
+    const cutoff = this.#now().getTime() - 7 * 24 * 60 * 60_000;
+    for (const name of listed.success) {
+      if (!name.endsWith(".zip") || name === `${current}.zip`) continue;
+      const path = join(directory, name);
+      const info = yield* Effect.result(archiveCall(() => stat(path)));
+      if (Result.isSuccess(info) && info.success.mtimeMs < cutoff)
+        yield* archiveCall(() => rm(path, { force: true })).pipe(Effect.ignore);
+    }
+  });
+
+  /**
+   * Writes the source archive of a confirmed move to `~/OpenBot/Archives` and releases the held
+   * bytes. The new file replaces an earlier archive of the same migration, so it always holds the
+   * bytes the target just confirmed. A retry after the bytes were released keeps the archive that
+   * is already there.
+   */
+  readonly archiveMove = Effect.fn("InstanceTransfer.archiveMove")(function* (
+    this: InstanceTransferService,
+    migrationId: string,
+  ): Effect.fn.Return<{ fileName: string; directory: string }, ArchiveOperationError> {
+    if (!/^[\da-f]{64}$/u.test(migrationId))
+      return yield* archiveFailure(new Error(sourceText("error.import.transferMoveInvalid")));
+    const source = join(this.options.moveDirectory, `${migrationId}.zip`);
+    const directory = this.options.archiveDirectory;
+    const fileName = `openbot-transfer-move-${migrationId}.zip`;
+    const target = join(directory, fileName);
+    yield* archiveCall(() => mkdir(directory, { recursive: true, mode: 0o700 }));
+    if (Result.isSuccess(yield* Effect.result(archiveCall(() => stat(source))))) {
+      const part = `${target}.part`;
+      yield* archiveCall(() => copyFile(source, part));
+      yield* archiveCall(() => rename(part, target)).pipe(
+        Effect.tapError(() => archiveCall(() => rm(part, { force: true })).pipe(Effect.ignore)),
+      );
+      yield* archiveCall(() => rm(source, { force: true })).pipe(Effect.ignore);
+    } else if (Result.isFailure(yield* Effect.result(archiveCall(() => stat(target))))) {
+      // Neither the held bytes nor an archive from an earlier confirmed move exist.
+      return yield* archiveFailure(new Error(sourceText("error.import.transferMoveInvalid")));
+    }
+    return { fileName, directory };
+  }).bind(this);
+
+  /** The path of this service's own archive, never another file the user names. */
+  archivePath(fileName: string): string {
+    if (!isInstanceArchiveFileName(fileName)) throw new Error(sourceText("error.import.transferArchiveInvalid"));
+    return join(this.options.archiveDirectory, fileName);
+  }
+
+  /** Removes the moved agents from this computer, after the archive holds them. */
+  readonly deleteSourceAgents = Effect.fn("InstanceTransfer.deleteSourceAgents")(function* (
+    this: InstanceTransferService,
+    agents: ReadonlyArray<{ id: string; name: string }>,
+  ) {
+    const existing = new Set(this.options.agents.listAgents().map((agent) => agent.id));
+    const moved: string[] = [];
+    const retained: Array<{ agentId: string; name: string; reason: string }> = [];
+    for (const agent of agents) {
+      if (!existing.has(agent.id)) {
+        moved.push(agent.id);
+        continue;
+      }
+      const result = yield* Effect.result(this.options.agents.deleteAgent(agent.id));
+      if (Result.isFailure(result)) {
+        retained.push({ agentId: agent.id, name: agent.name, reason: message(result.failure) });
+        continue;
+      }
+      yield* this.options.settings.removeAgent(agent.id).pipe(Effect.ignore);
+      moved.push(agent.id);
+    }
+    return { moved, retained };
+  }).bind(this);
+
   readonly apply = Effect.fn("InstanceTransfer.apply")(function* (
     this: InstanceTransferService,
     input: ApplyInstanceTransferInput,
@@ -613,7 +809,7 @@ export class InstanceTransferService {
       return yield* archiveFailure(new Error(sourceText("error.import.exportClosed")));
     this.#staged.delete(staged.token);
     const fallbackTimezone = timezone !== undefined && validTimezone(timezone) ? timezone : this.#timezone();
-    return yield* this.#applyStaged(staged, input, fallbackTimezone).pipe(Effect.ensuring(this.#drop(staged)));
+    return yield* this.#applyStaged(staged, input, fallbackTimezone, owner).pipe(Effect.ensuring(this.#drop(staged)));
   }).bind(this);
 
   readonly #applyStaged = Effect.fn("InstanceTransfer.applyStaged")(function* (
@@ -621,14 +817,11 @@ export class InstanceTransferService {
     staged: StagedTransfer,
     input: ApplyInstanceTransferInput,
     fallbackTimezone: string,
+    owner: string,
   ): Effect.fn.Return<InstanceTransferResult, ArchiveOperationError> {
     const selected = staged.manifest.agents.filter((agent) => input.keys.includes(agent.key));
     if (selected.length !== input.keys.length)
       return yield* archiveFailure(new Error(sourceText("error.import.agentNotInExport")));
-    if (this.options.agents.listAgents().length + selected.length > INPUT_LIMITS.agents)
-      return yield* archiveFailure(
-        new Error(sourceText("error.import.serverAgentLimit", { limit: INPUT_LIMITS.agents })),
-      );
     // The file is read again rather than held since `stage`, and only the same bytes are accepted.
     const bytes = yield* readArchiveEffect(staged.path, staged.temporary ? REMOTE_ARCHIVE : ARCHIVE);
     if (sha256(bytes) !== staged.sha256)
@@ -636,6 +829,32 @@ export class InstanceTransferService {
 
     const warnings: string[] = [];
     const settings = input.includeSettings ? staged.manifest.settings : null;
+    const migrationId = staged.migrate ? migrationIdFor(staged.manifest.agents.map((agent) => agent.key)) : null;
+    const context: MigrationContext | null =
+      migrationId === null
+        ? null
+        : {
+            owner,
+            id: migrationId,
+            record: (yield* this.#readMigration(owner, migrationId).pipe(
+              Effect.catch(() => {
+                warnings.push(sourceText("error.import.transferLedgerUnreadable"));
+                return Effect.succeed(null);
+              }),
+            )) ?? { agents: {}, updatedAt: new Date(0).toISOString() },
+          };
+    const existing = new Map(this.options.agents.listAgents().map((agent) => [agent.id, agent]));
+    // An agent this migration already created is not a new one, so a resumed run does not overflow
+    // the limit. An agent the user deleted counts again.
+    const creators = selected.filter((agent) => {
+      const record = context?.record.agents[agent.key];
+      return !(record && existing.has(record.agentId));
+    });
+    if (existing.size + creators.length > INPUT_LIMITS.agents)
+      return yield* archiveFailure(
+        new Error(sourceText("error.import.serverAgentLimit", { limit: INPUT_LIMITS.agents })),
+      );
+    let resumed = false;
     // Providers and custom agents first, so their warnings come first. Their models are not listed yet:
     // a save does not wait for model discovery, and an imported provider has no key. An agent on one
     // of them starts on the default model, and the warning asks the user to choose the model again.
@@ -646,14 +865,25 @@ export class InstanceTransferService {
     const agentIds = new Map<string, string>();
     const routineIds = new Map<string, string>();
     for (const agent of selected) {
+      const record = context?.record.agents[agent.key];
+      const current = record ? existing.get(record.agentId) : undefined;
+      if (record && current) {
+        resumed = true;
+        // A finished agent is kept as it is; a partial one continues from its ledger entry.
+        for (const [key, routineId] of Object.entries(record.routines)) routineIds.set(key, routineId);
+      } else if (record) {
+        // The user deleted it after an earlier run, so this run creates it again.
+        delete context?.record.agents[agent.key];
+      }
       const result = yield* Effect.result(
-        this.#importAgent(bytes, staged, agent, routineIds, warnings, fallbackTimezone),
+        this.#importAgent(bytes, staged, agent, routineIds, warnings, fallbackTimezone, context, current),
       );
       if (Result.isFailure(result)) {
         skipped.push({ key: agent.key, name: agent.name, reason: message(result.failure.cause) });
       } else {
         imported.push(result.success);
         agentIds.set(agent.key, result.success.id);
+        existing.set(result.success.id, result.success);
       }
     }
     if (settings) yield* this.#applyLayout(settings, agentIds, routineIds, warnings);
@@ -665,6 +895,7 @@ export class InstanceTransferService {
       skipped,
       signIn: staged.manifest.signedIn.filter((provider) => !signedIn.has(provider)),
       warnings: bounded(warnings),
+      migration: context ? { id: context.id, resumed } : null,
     };
   });
 
@@ -811,6 +1042,8 @@ export class InstanceTransferService {
     routineIds: Map<string, string>,
     warnings: string[],
     fallbackTimezone: string,
+    context: MigrationContext | null,
+    existingAgent: AgentSummary | undefined,
   ): Effect.fn.Return<AgentSummary, ArchiveOperationError> {
     const prefix = agentPrefix(source.key);
     const files = yield* archiveSync(() => extract(bytes, (name) => name.startsWith(prefix)));
@@ -820,9 +1053,9 @@ export class InstanceTransferService {
         .map(([name, data]) => [name.slice(path.length + 1), data] as const);
     // Every skill is checked before the agent exists, so a bad one publishes nothing.
     const skills = yield* archiveSync(() =>
-      source.skills.map((skill) => {
-        const skillFiles = read(skill);
-        return { files: skillFiles, slug: inspectArchive(zipSync(Object.fromEntries(skillFiles))).slug };
+      source.skills.map((folder) => {
+        const skillFiles = read(folder);
+        return { folder, files: skillFiles, slug: inspectArchive(zipSync(Object.fromEntries(skillFiles))).slug };
       }),
     );
     // The model is kept when this computer offers it, and the provider is on.
@@ -833,25 +1066,50 @@ export class InstanceTransferService {
     if (!useModel)
       warnings.push(sourceText("error.import.transferModelMissing", { name: source.name, model: source.model }));
 
+    // A finished agent from an earlier run of this migration is kept as it is.
+    const recorded = existingAgent ? context?.record.agents[source.key] : undefined;
+    if (existingAgent && recorded?.done) return existingAgent;
+
     const published: Array<{ id: string; revision: number }> = [];
+    let entry = recorded;
+    let createdHere = false;
     let completed = false;
+    const save = () => (context ? this.#saveMigration(context).pipe(Effect.mapError(failure)) : Effect.void);
     return yield* Effect.acquireUseRelease(
-      this.options.agents
-        .createAgentProfile({
-          name: source.name,
-          ...(source.title ? { title: source.title } : {}),
-          description: source.description,
-          avatarSeed: AVATAR_SEED_PATTERN.test(source.avatarSeed) ? source.avatarSeed : `${source.key}-${randomUUID()}`,
-          avatarHue: source.avatarHue,
-          ...(useModel
-            ? { provider: source.provider, model: source.model, reasoningEffort: source.reasoningEffort }
-            : {}),
-        })
-        .pipe(Effect.mapError(failure)),
+      existingAgent
+        ? Effect.succeed(existingAgent)
+        : this.options.agents
+            .createAgentProfile({
+              name: source.name,
+              ...(source.title ? { title: source.title } : {}),
+              description: source.description,
+              avatarSeed: AVATAR_SEED_PATTERN.test(source.avatarSeed)
+                ? source.avatarSeed
+                : `${source.key}-${randomUUID()}`,
+              avatarHue: source.avatarHue,
+              ...(useModel
+                ? { provider: source.provider, model: source.model, reasoningEffort: source.reasoningEffort }
+                : {}),
+            })
+            .pipe(Effect.mapError(failure)),
       (created) =>
         Effect.gen({ self: this }, function* () {
           let agent = created;
-          if (source.files) {
+          if (!existingAgent) {
+            createdHere = true;
+            if (context) {
+              entry = { agentId: created.id, files: false, done: false, skills: {}, routines: {}, memories: {} };
+              context.record.agents[source.key] = entry;
+              // A ledger that cannot record the agent removes it again, so a retry does not duplicate.
+              yield* save();
+            }
+          } else if (context && !entry) {
+            entry = { agentId: created.id, files: false, done: false, skills: {}, routines: {}, memories: {} };
+            context.record.agents[source.key] = entry;
+            yield* save();
+          }
+
+          if (source.files && !entry?.files) {
             const folder = source.files;
             const executable = yield* archiveSync(() => executableEntries(bytes));
             yield* writeImportedFilesEffect(
@@ -861,9 +1119,21 @@ export class InstanceTransferService {
               warnings,
               (name) => executable.has(`${folder}/${name}`),
             );
+            if (entry) {
+              entry.files = true;
+              yield* save();
+            }
           }
           const library = this.options.skills.library();
           for (const skill of skills) {
+            const stored = entry?.skills[skill.folder];
+            if (
+              stored &&
+              (yield* library.list().pipe(Effect.mapError(failure))).some(
+                (candidate) => candidate.id === stored.id && candidate.version >= stored.revision,
+              )
+            )
+              continue;
             const current = (yield* library.list().pipe(Effect.mapError(failure))).find(
               (candidate) => candidate.slug === skill.slug,
             );
@@ -883,12 +1153,22 @@ export class InstanceTransferService {
                   yield* this.options.skills
                     .installLocal({ agentId: agent.id, skillId: revision.id, revision: revision.version })
                     .pipe(Effect.mapError(failure), Effect.uninterruptible);
+                  if (entry) {
+                    entry.skills[skill.folder] = { id: revision.id, revision: revision.version };
+                    yield* save();
+                  }
                 }),
               () => archiveCall(() => rm(target, { recursive: true, force: true })),
             );
           }
 
+          const routines = this.options.agents.listRoutines(agent.id);
           for (const routine of transferRoutines(source)) {
+            const stored = entry?.routines[routine.key];
+            if (stored && routines.some((candidate) => candidate.id === stored)) {
+              routineIds.set(routine.key, stored);
+              continue;
+            }
             const created = yield* archiveSync(() =>
               this.options.agents.createRoutine(
                 {
@@ -904,8 +1184,13 @@ export class InstanceTransferService {
                 { recordConversationEvent: false },
               ),
             ).pipe(Effect.result);
-            if (Result.isSuccess(created)) routineIds.set(routine.key, created.success.id);
-            else
+            if (Result.isSuccess(created)) {
+              routineIds.set(routine.key, created.success.id);
+              if (entry) {
+                entry.routines[routine.key] = created.success.id;
+                yield* save();
+              }
+            } else
               warnings.push(
                 sourceText("error.import.routineSkipped", {
                   name: source.name,
@@ -919,12 +1204,23 @@ export class InstanceTransferService {
           const memoryLimit = this.options.agents.memoryLimit();
           if (source.memories.length > memoryLimit)
             warnings.push(sourceText("error.import.memoryLimit", { name: source.name, limit: memoryLimit }));
-          const chosen = yield* archiveSync(() =>
-            source.memories.slice(0, memoryLimit).flatMap((memory) => {
-              const created = this.options.agents.createMemory({ agentId: agent.id, text: memory.text });
-              return memory.inclusion ? [{ memoryId: created.id, inclusion: memory.inclusion }] : [];
-            }),
-          );
+          const memories = new Set(this.options.agents.listMemories(agent.id).map((memory) => memory.id));
+          const chosen: Array<{
+            memoryId: string;
+            inclusion: NonNullable<TransferAgent["memories"][number]["inclusion"]>;
+          }> = [];
+          for (const [index, memory] of source.memories.slice(0, memoryLimit).entries()) {
+            const stored = entry?.memories[String(index)];
+            let memoryId = stored && memories.has(stored) ? stored : undefined;
+            if (!memoryId) {
+              memoryId = this.options.agents.createMemory({ agentId: agent.id, text: memory.text }).id;
+              if (entry) {
+                entry.memories[String(index)] = memoryId;
+                yield* save();
+              }
+            }
+            if (memory.inclusion) chosen.push({ memoryId, inclusion: memory.inclusion });
+          }
           yield* archiveSync(() => this.options.agents.initializeMemorySelection(agent.id));
           if (chosen.length > 0) {
             const revisions = new Map(
@@ -950,6 +1246,10 @@ export class InstanceTransferService {
               ...(source.taskLimit === undefined ? {} : { taskLimit: source.taskLimit }),
             })
             .pipe(Effect.mapError(failure));
+          if (entry) {
+            entry.done = true;
+            yield* save();
+          }
           completed = true;
           return agent;
         }),
@@ -957,7 +1257,14 @@ export class InstanceTransferService {
         completed
           ? Effect.void
           : Effect.gen({ self: this }, function* () {
-              yield* this.options.agents.deleteAgent(agent.id).pipe(Effect.ignore);
+              // A resumed agent stays for the next retry; one created here is removed with its entry.
+              if (createdHere) {
+                yield* this.options.agents.deleteAgent(agent.id).pipe(Effect.ignore);
+                if (context) {
+                  delete context.record.agents[source.key];
+                  yield* this.#saveMigration(context).pipe(Effect.ignore);
+                }
+              }
               for (const skill of published.reverse())
                 yield* this.options.skills.library().withdraw(skill.id, skill.revision).pipe(Effect.ignore);
             }).pipe(Effect.orDie),

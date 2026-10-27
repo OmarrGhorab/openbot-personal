@@ -5,6 +5,10 @@ import {
   INSTANCE_TRANSFER_REMOTE_BYTES,
   INSTANCE_TRANSFER_ROUTES,
 } from "@openbot/contracts/team-protocol/instance-transfer-v1";
+import {
+  INSTANCE_TRANSFER_V2_CAPABILITY,
+  INSTANCE_TRANSFER_V2_ROUTES,
+} from "@openbot/contracts/team-protocol/instance-transfer-v2";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { runCauseEffect } from "../../backend/effect-boundary";
@@ -15,12 +19,15 @@ import { readBinary, readJson, requireAdmin, stringField } from "./request-helpe
 import { answer } from "./route-agent-import";
 import { sendFile } from "./route-files";
 
-const ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_ROUTES));
+const V1_ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_ROUTES));
+const V2_ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_V2_ROUTES));
+const ROUTES: ReadonlySet<string> = new Set([...V1_ROUTES, ...V2_ROUTES]);
 
 /**
  * The server's agents and server settings to or from an OpenBot transfer file. Only an owner or an
  * admin: an export holds every agent's memories and files, and an import adds server settings. The
- * token is the caller's own. Frozen by `instance-transfer-v1`.
+ * token is the caller's own. Frozen by `instance-transfer-v1`; `instance-transfer-v2` adds the
+ * migration id, the resumed flag and the rollback.
  */
 export async function routeInstanceTransfer(
   context: TeamApiRequestContext,
@@ -30,6 +37,8 @@ export async function routeInstanceTransfer(
   const { method, url, capabilities, member, request, response, json } = context;
   if (method !== "POST" || !ROUTES.has(url.pathname)) return "unmatched";
   if (!instanceTransfer || !capabilities.has(INSTANCE_TRANSFER_CAPABILITY))
+    throw new HttpError(400, sourceText("error.team.instanceTransferUnsupported"));
+  if (V2_ROUTES.has(url.pathname) && !capabilities.has(INSTANCE_TRANSFER_V2_CAPABILITY))
     throw new HttpError(400, sourceText("error.team.instanceTransferUnsupported"));
   requireAdmin(member);
 
@@ -67,6 +76,11 @@ export async function routeInstanceTransfer(
     case INSTANCE_TRANSFER_ROUTES.discard:
       await Effect.runPromise(instanceTransfer.discard(stringField(await readJson(request), "token"), member.id));
       return json(200, {});
+    case INSTANCE_TRANSFER_V2_ROUTES.rollback: {
+      // `readJson` has already run the body through the v2 wire codec.
+      const migrationId = stringField(await readJson(request), "migrationId");
+      return json(200, await answer(() => runCauseEffect(instanceTransfer.rollback(migrationId, member.id)), 409));
+    }
     default: {
       // `readJson` has already run the body through the instance-transfer wire codec.
       const body = await readJson(request);

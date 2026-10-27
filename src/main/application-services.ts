@@ -62,7 +62,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { homedir, hostname, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import type {
   AgentStatus,
@@ -2158,6 +2158,9 @@ export async function createApplicationServices({
     sharedRoot: store.sharedRoot,
     appVersion: app.getVersion(),
     uploadDirectory: join(app.getPath("userData"), "instance-transfer-uploads"),
+    migrationLedgerPath: join(app.getPath("userData"), "instance-transfer-migrations.json"),
+    moveDirectory: join(app.getPath("userData"), "instance-transfer-moves"),
+    archiveDirectory: join(dirname(store.sharedRoot), "Archives"),
     timezone: () => serverTimezone.effective(),
     settings: {
       mcpServers: () => service.listMcpServers(),
@@ -2170,6 +2173,7 @@ export async function createApplicationServices({
       mutateSidebar: (action) => sidebarLayout.mutate(action, service.sidebarChatIds()),
       routineFlowLinks: (agentId) => routineFlowRuntime.canvas(agentId).pipe(Effect.map((canvas) => canvas.links)),
       connectRoutineFlow: (input) => routineFlowRuntime.connect(input),
+      removeAgent: (agentId) => sidebarLayout.removeAgent(agentId),
       signedInProviders: () =>
         (service.getStatus().providers ?? [])
           .filter((provider) => provider.state === "available" && !provider.off)

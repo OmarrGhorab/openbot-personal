@@ -297,6 +297,11 @@ import type {
   InstanceTransferPreview,
   InstanceTransferResult,
   InstanceTransferSummary,
+  MoveInstanceSourceInput,
+  MoveInstanceSourceResult,
+  RollbackInstanceTransferInput,
+  RollbackInstanceTransferResult,
+  ShowInstanceArchiveInput,
 } from "./ipc-instance-transfer";
 import type {
   AgentPublicationPreview,
@@ -1669,6 +1674,11 @@ export const IPC_ENDPOINTS = {
     // Copying to another server reads the source and stages on the target in one main-process call,
     // so the renderer never receives a path or the archive bytes. `apply` then runs on the target.
     copyPreview: request<CopyInstanceTransferInput, InstanceTransferPreview>()("instance-transfer:copy-preview"),
+    // The target's ledger removes what one migration added, and the source archives only after the
+    // target confirms. `moveSource` reads the bytes main kept when it staged the move.
+    rollback: request<RollbackInstanceTransferInput, RollbackInstanceTransferResult>()("instance-transfer:rollback"),
+    moveSource: request<MoveInstanceSourceInput, MoveInstanceSourceResult>()("instance-transfer:move-source"),
+    showArchive: request<ShowInstanceArchiveInput, void>()("instance-transfer:show-archive"),
   },
   // The plugin deep link, its own group because its registrar holds the pending link rather than a
   // service. `takePendingListing` is what a window that finished loading after the link arrived

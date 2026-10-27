@@ -52,6 +52,11 @@ export const messages = {
   "error.import.transferRemoteTooLarge":
     "ملف النقل لسيرفر منضم إليه لازم يكون أقل من 100 MB. اقفل ملفات مساحة العمل، أو صدّر إيجنتات أقل.",
   "error.import.transferSameServer": "اختار سيرفرين مختلفين. السيرفر ماينفعش ينسخ إعداده لنفسه.",
+  "error.import.transferMoveUnsupported":
+    "السيرفر ده مش يقدر يأكد النقل. حدّثه، أو انسخ الإعداد بدل ما تنقل وامسح المصدر بنفسك.",
+  "error.import.transferMoveInvalid": "مصدر النقل ده مش متاح تاني. ابدأ النقل من الأول.",
+  "error.import.transferArchiveInvalid": "الملف ده مش أرشيف عمله الكمبيوتر ده.",
+  "error.import.transferLedgerUnreadable": "مقدرناش نقرا سجل النقل على الهدف، فممكن يكرر شوية خطوات سابقة.",
   "error.import.transferNotFile": "الملف ده مش ملف نقل من OpenBot.",
   "error.import.transferNewer": "نسخة أحدث من OpenBot عملت الملف ده. حدّث OpenBot وجرّب تاني.",
   "error.import.transferEmpty": "الملف مفيهوش أي إيجنتات ولا إعدادات.",

@@ -632,4 +632,37 @@ export const messages = defineMessages("settings", {
   "settings.transfer.copy.doneText": "{name} has its own copy. The source server is unchanged.",
   "settings.transfer.copy.failed": "The copy did not finish",
   "settings.transfer.copy.sourceFailed": "This server's setup could not be read",
+  "settings.transfer.copy.moveLede":
+    "Choose a server and what to move. The source is archived after the target confirms every item.",
+  "settings.transfer.copy.mode": "What to do",
+  "settings.transfer.copy.modeCopy": "Copy",
+  "settings.transfer.copy.modeCopyDetail": "Keep the source server as it is.",
+  "settings.transfer.copy.modeMove": "Move",
+  "settings.transfer.copy.modeMoveDetail": "Archive the source, then remove the moved agents from it.",
+  "settings.transfer.copy.modeMoveUnsupported": "This server cannot confirm a move. Update it, or copy instead.",
+  "settings.transfer.copy.moveNote":
+    "A move archives the agents and removes them from {source} after the target confirms. The archive stays in ~/OpenBot/Archives until you delete it.",
+  "settings.transfer.copy.moveSubmit": "Move to {name}",
+  "settings.transfer.copy.stepArchive": "Archive the source and remove it from {source}",
+  "settings.transfer.copy.stepArchiveDetail": "Save the source archive, then remove the moved agents from {source}.",
+  "settings.transfer.copy.archiving": "Archiving and removing from {source}…",
+  "settings.transfer.copy.moveDoneTitle": "Move finished",
+  "settings.transfer.copy.moveDone": "Moved to {name}",
+  "settings.transfer.copy.moveDoneText": "{name} has the agents. {source} keeps a reversible archive.",
+  "settings.transfer.copy.archiveTitle": "Source archive",
+  "settings.transfer.copy.showArchive": "Show archive",
+  "settings.transfer.copy.retainedTitle": "Could not remove from the source",
+  "settings.transfer.copy.resumed": "An earlier run had already added some items. This run continued from there.",
+  "settings.transfer.copy.moveIncomplete":
+    "Some items could not be added to {name}, so nothing was removed from the source. Roll back to remove what this transfer created.",
+  "settings.transfer.copy.archiveFailed": "The source archive could not be finished. The source is unchanged.",
+  "settings.transfer.copy.rolledBackTitle": "Transfer rolled back",
+  "settings.transfer.copy.rolledBack":
+    "Removed {count} agents that this transfer created. Items that were already there are unchanged.",
+  "settings.transfer.copy.rollbackTitle": "Roll back this transfer",
+  "settings.transfer.copy.rollbackText":
+    "Remove the agents this transfer created on {name}. Items that were already there stay.",
+  "settings.transfer.copy.rollback": "Roll back",
+  "settings.transfer.copy.rollbackBusy": "Rolling back…",
+  "settings.transfer.copy.rollbackFailed": "The rollback did not finish",
 });

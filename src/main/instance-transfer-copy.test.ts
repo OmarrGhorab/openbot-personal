@@ -2,6 +2,7 @@ import type { InstanceTransferPreview } from "@openbot/contracts/ipc";
 import { parseCopyInstanceTransferInput } from "@openbot/contracts/ipc";
 import { describe, expect, it, vi } from "vitest";
 import { prepareCopy } from "./instance-transfer-copy";
+import { migrationIdFor } from "./instance-transfer-ledger";
 
 const PREVIEW: InstanceTransferPreview = {
   token: "token",
@@ -10,20 +11,51 @@ const PREVIEW: InstanceTransferPreview = {
   agents: [],
   hasSettings: false,
   warnings: [],
+  migrationId: null,
 };
+
+const MIGRATION_ID = "a".repeat(64);
+
+const AGENT: InstanceTransferPreview["agents"][number] = {
+  key: "alpha",
+  name: "Alpha",
+  title: "First agent",
+  description: "A test agent.",
+  avatarUrl: null,
+  skillCount: 0,
+  routineCount: 0,
+  memoryCount: 0,
+  fileCount: 0,
+  fileBytes: 0,
+  nameExists: false,
+};
+
+function options(overrides: Partial<Parameters<typeof prepareCopy>[0]> = {}) {
+  return {
+    readSource: async () => ({ bytes: new Uint8Array([1]), warnings: [] }),
+    remoteTarget: false,
+    stageRemote: vi.fn(async () => PREVIEW),
+    stageLocal: vi.fn(async () => PREVIEW),
+    maxRemoteBytes: 10,
+    mode: "copy" as const,
+    resumableTarget: true,
+    ...overrides,
+  };
+}
 
 describe("prepareCopy", () => {
   it("stages the source archive on a remote target and merges the warnings", async () => {
     const stageRemote = vi.fn(async () => ({ ...PREVIEW, warnings: ["remote warning"] }));
     const stageLocal = vi.fn(async () => PREVIEW);
 
-    const preview = await prepareCopy({
-      readSource: async () => ({ bytes: new Uint8Array([1]), warnings: ["source warning"] }),
-      remoteTarget: true,
-      stageRemote,
-      stageLocal,
-      maxRemoteBytes: 10,
-    });
+    const preview = await prepareCopy(
+      options({
+        readSource: async () => ({ bytes: new Uint8Array([1]), warnings: ["source warning"] }),
+        remoteTarget: true,
+        stageRemote,
+        stageLocal,
+      }),
+    );
 
     expect(stageRemote).toHaveBeenCalledWith(new Uint8Array([1]));
     expect(stageLocal).not.toHaveBeenCalled();
@@ -34,13 +66,7 @@ describe("prepareCopy", () => {
     const stageRemote = vi.fn(async () => PREVIEW);
     const stageLocal = vi.fn(async () => ({ ...PREVIEW, warnings: ["local warning"] }));
 
-    const preview = await prepareCopy({
-      readSource: async () => ({ bytes: new Uint8Array([1]), warnings: [] }),
-      remoteTarget: false,
-      stageRemote,
-      stageLocal,
-      maxRemoteBytes: 10,
-    });
+    const preview = await prepareCopy(options({ stageRemote, stageLocal }));
 
     expect(stageLocal).toHaveBeenCalledWith(new Uint8Array([1]));
     expect(stageRemote).not.toHaveBeenCalled();
@@ -51,13 +77,13 @@ describe("prepareCopy", () => {
     const stageRemote = vi.fn(async () => PREVIEW);
 
     await expect(
-      prepareCopy({
-        readSource: async () => ({ bytes: new Uint8Array(11), warnings: [] }),
-        remoteTarget: true,
-        stageRemote,
-        stageLocal: async () => PREVIEW,
-        maxRemoteBytes: 10,
-      }),
+      prepareCopy(
+        options({
+          readSource: async () => ({ bytes: new Uint8Array(11), warnings: [] }),
+          remoteTarget: true,
+          stageRemote,
+        }),
+      ),
     ).rejects.toThrow("100 MB");
     expect(stageRemote).not.toHaveBeenCalled();
   });
@@ -65,13 +91,13 @@ describe("prepareCopy", () => {
   it("accepts an archive exactly at the remote limit", async () => {
     const stageRemote = vi.fn(async () => PREVIEW);
 
-    await prepareCopy({
-      readSource: async () => ({ bytes: new Uint8Array(10), warnings: [] }),
-      remoteTarget: true,
-      stageRemote,
-      stageLocal: async () => PREVIEW,
-      maxRemoteBytes: 10,
-    });
+    await prepareCopy(
+      options({
+        readSource: async () => ({ bytes: new Uint8Array(10), warnings: [] }),
+        remoteTarget: true,
+        stageRemote,
+      }),
+    );
 
     expect(stageRemote).toHaveBeenCalledOnce();
   });
@@ -80,17 +106,68 @@ describe("prepareCopy", () => {
     const stageRemote = vi.fn(async () => PREVIEW);
 
     await expect(
-      prepareCopy({
-        readSource: async () => {
-          throw new Error("source failed");
-        },
-        remoteTarget: true,
-        stageRemote,
-        stageLocal: async () => PREVIEW,
-        maxRemoteBytes: 10,
-      }),
+      prepareCopy(
+        options({
+          readSource: async () => {
+            throw new Error("source failed");
+          },
+          remoteTarget: true,
+          stageRemote,
+        }),
+      ),
     ).rejects.toThrow("source failed");
     expect(stageRemote).not.toHaveBeenCalled();
+  });
+
+  it("names the migration from the preview's keys when the target is v1", async () => {
+    const preview = await prepareCopy(
+      options({
+        stageLocal: vi.fn(async () => ({ ...PREVIEW, agents: [AGENT] })),
+      }),
+    );
+
+    expect(preview.migrationId).toBe(migrationIdFor(["alpha"]));
+  });
+
+  it("keeps the source bytes under the preview's migration id for a move", async () => {
+    const retain = vi.fn(async () => undefined);
+    const preview = await prepareCopy(
+      options({
+        mode: "move",
+        stageLocal: vi.fn(async () => ({ ...PREVIEW, migrationId: MIGRATION_ID })),
+        retain,
+      }),
+    );
+
+    expect(retain).toHaveBeenCalledWith(MIGRATION_ID, new Uint8Array([1]));
+    expect(preview.migrationId).toBe(MIGRATION_ID);
+  });
+
+  it("refuses a move to a target that cannot confirm it", async () => {
+    const readSource = vi.fn(async () => ({ bytes: new Uint8Array([1]), warnings: [] }));
+
+    await expect(prepareCopy(options({ mode: "move", resumableTarget: false, readSource }))).rejects.toThrow(
+      "cannot confirm a move",
+    );
+    expect(readSource).not.toHaveBeenCalled();
+  });
+
+  it("discards the staged token when the move's bytes cannot be kept", async () => {
+    const discardStaged = vi.fn(async () => undefined);
+
+    await expect(
+      prepareCopy(
+        options({
+          mode: "move",
+          stageLocal: vi.fn(async () => ({ ...PREVIEW, migrationId: MIGRATION_ID })),
+          retain: async () => {
+            throw new Error("disk full");
+          },
+          discardStaged,
+        }),
+      ),
+    ).rejects.toThrow("disk full");
+    expect(discardStaged).toHaveBeenCalledWith("token");
   });
 });
 
@@ -101,9 +178,10 @@ describe("parseCopyInstanceTransferInput", () => {
     agentIds: ["agent-1"],
     includeFiles: true,
     includeSettings: false,
+    mode: "copy",
   };
 
-  it("accepts two different servers and the export choices", () => {
+  it("accepts two different servers, the export choices and a mode", () => {
     expect(parseCopyInstanceTransferInput(input)).toEqual(input);
   });
 
@@ -113,5 +191,9 @@ describe("parseCopyInstanceTransferInput", () => {
 
   it("refuses an input without two server ids", () => {
     expect(() => parseCopyInstanceTransferInput({ ...input, targetServerId: "" })).toThrow("Invalid copy request");
+  });
+
+  it("refuses an unknown mode", () => {
+    expect(() => parseCopyInstanceTransferInput({ ...input, mode: "clone" })).toThrow("Invalid copy request");
   });
 });

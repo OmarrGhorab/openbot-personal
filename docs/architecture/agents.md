@@ -566,11 +566,29 @@ exported, so an imported agent gets the defaults of a new agent on the new compu
 
 The server switcher's **Copy setup to…** action does the same transfer without a file. Main reads the
 source (a local export in the temp folder, or the host's `export` route), stages the archive on the
-target (`stageBytes` for this computer, `stage` for a joined host), and the renderer applies the token
-on the target. Copy only: the source is untouched. The target's preview warnings are merged with the
-source's export warnings when the source is this computer. A local server can always send; a joined source and every
+target (`stageBytes` for this computer, `stageUpload` over WebRTC for a joined host), and the renderer
+applies the token on the target. The dialog offers **Copy** and **Move**. A copy leaves the source
+untouched. A move first stages the target, and main keeps the source bytes under
+`userData/instance-transfer-moves/<migrationId>.zip` until the target confirms every agent; it then
+writes `~/OpenBot/Archives/openbot-transfer-move-<migrationId>.zip` and removes the moved agents from
+the source. An agent the source cannot remove stays, and the result lists it with the reason. The
+target's preview warnings are merged with the source's export warnings when the source is this
+computer. A local server can always send; a joined source and every
 joined target must be administered by this account and advertise `instance-transfer-v1`. The 100 MB
-upload limit applies whenever the target is a joined server.
+upload limit applies whenever the target is a joined server; this computer reads its own 2 GB limit
+even when it is the target of a copy.
+
+A copy or move names its migration by a SHA-256 of the sorted manifest agent keys (`migrationIdFor` in
+`src/main/instance-transfer-ledger.ts`), so a retry of the same selection resumes rather than stages a
+second migration. The target records the migration in `userData/instance-transfer-migrations.json`,
+one entry per owner, written atomically. The entry maps each source agent key to the target agent and
+the files, skill revisions, routines and memories already made, so applying the same archive again
+continues from the last finished step and the result says `resumed: true`. A ledger write that fails
+removes the agent it just created, so a retry does not duplicate it. `rollback` deletes only the agents
+the record names, leaves settings the migration added, and keeps an entry whose agent cannot be
+deleted so a later rollback can try again. The v1 file format does not change: the migration id and
+the `resumed` flag travel on the `instance-transfer-v2` routes, and a joined target that serves only
+`instance-transfer-v1` can receive a copy but not a move.
 
 `InstanceTransferService` (`src/main/instance-transfer-service.ts`) writes the archive one file at a
 time, stored and not compressed, to `<name>.zip.part`, and renames it when it is complete. Import uses

@@ -55,10 +55,14 @@ export interface ExportInstanceInput {
   includeSettings: boolean;
 }
 
-/** A copy from one server to another, without a file dialog. */
+/** Copy keeps the source; move archives it after the target confirms every item. */
+export type CopyInstanceTransferMode = "copy" | "move";
+
+/** A copy or move from one server to another, without a file dialog. */
 export interface CopyInstanceTransferInput extends ExportInstanceInput {
   sourceServerId: string;
   targetServerId: string;
+  mode: CopyInstanceTransferMode;
 }
 
 export interface InstanceExportResult {
@@ -78,6 +82,11 @@ export interface InstanceTransferPreview {
   /** The file carries app settings. */
   hasSettings: boolean;
   warnings: string[];
+  /**
+   * The target's ledger for this selection. Re-running the same selection resumes it instead of
+   * creating duplicates. Null for a file the user picked directly.
+   */
+  migrationId: string | null;
 }
 
 export interface ApplyInstanceTransferInput {
@@ -87,12 +96,61 @@ export interface ApplyInstanceTransferInput {
   includeSettings: boolean;
 }
 
+export interface InstanceTransferMigration {
+  id: string;
+  /** True when this run found items an earlier run had already imported. */
+  resumed: boolean;
+}
+
 export interface InstanceTransferResult {
   agents: ClientAgentSummary[];
   skipped: AgentImportSkipped[];
   /** Providers that were signed in on the other computer and are not signed in here. */
   signIn: AgentProviderId[];
   warnings: string[];
+  /** Null for a file import, whose preview the user picked directly. */
+  migration: InstanceTransferMigration | null;
+}
+
+/** Roll back the target items a migration created. */
+export interface RollbackInstanceTransferInput {
+  targetServerId: string;
+  migrationId: string;
+}
+
+export interface RollbackInstanceTransferResult {
+  /** Agents removed from the target. Settings the migration added are kept. */
+  agents: number;
+}
+
+/** Archive the moved source items, then remove them from the source. */
+export interface MoveInstanceSourceInput {
+  sourceServerId: string;
+  /** The target preview's migration id, which names the source bytes held for the move. */
+  migrationId: string;
+  agents: { id: string; name: string }[];
+}
+
+export interface MoveInstanceSourceResult {
+  /** The saved transfer file, which the user can import again. */
+  archiveFileName: string;
+  /** The folder that holds the archive, for display. */
+  archiveDirectory: string;
+  movedAgentIds: string[];
+  /** A source agent that could not be removed; its archive entry still exists. */
+  retained: { agentId: string; name: string; reason: string }[];
+  warnings: string[];
+}
+
+export interface ShowInstanceArchiveInput {
+  archiveFileName: string;
+}
+
+/** The name this computer gives a move's source archive, which `showArchive` may reveal. */
+const INSTANCE_ARCHIVE_FILE = /^openbot-transfer-move-[\da-f]{64}\.zip$/u;
+
+export function isInstanceArchiveFileName(value: unknown): value is string {
+  return typeof value === "string" && INSTANCE_ARCHIVE_FILE.test(value);
 }
 
 function invalid(label: string): never {
@@ -139,11 +197,39 @@ export function parseCopyInstanceTransferInput(value: unknown): CopyInstanceTran
   const input = record(value, "copy request");
   if (!isIdentifier(input.sourceServerId) || !isIdentifier(input.targetServerId)) invalid("copy request");
   if (input.sourceServerId === input.targetServerId) invalid("copy request");
+  if (input.mode !== "copy" && input.mode !== "move") invalid("copy request");
   return {
     ...parseExportInstanceInput(value),
     sourceServerId: input.sourceServerId,
     targetServerId: input.targetServerId,
+    mode: input.mode,
   };
+}
+
+export function parseRollbackInstanceTransferInput(value: unknown): RollbackInstanceTransferInput {
+  const input = record(value, "rollback request");
+  if (!isIdentifier(input.targetServerId) || !isIdentifier(input.migrationId)) invalid("rollback request");
+  return { targetServerId: input.targetServerId, migrationId: input.migrationId };
+}
+
+/** The source agents to archive and remove, by id and name, after the target confirms. */
+export function parseMoveInstanceSourceInput(value: unknown): MoveInstanceSourceInput {
+  const input = record(value, "move request");
+  if (!isIdentifier(input.sourceServerId) || !isIdentifier(input.migrationId)) invalid("move request");
+  if (!Array.isArray(input.agents) || input.agents.length > INPUT_LIMITS.agents) invalid("move request");
+  const agents = input.agents.map((entry) => {
+    const agent = record(entry, "move agent");
+    if (!isIdentifier(agent.id) || !isBoundedString(agent.name, INPUT_LIMITS.agentName)) invalid("move agent");
+    return { id: agent.id, name: agent.name };
+  });
+  if (new Set(agents.map((agent) => agent.id)).size !== agents.length) invalid("move request");
+  return { sourceServerId: input.sourceServerId, migrationId: input.migrationId, agents };
+}
+
+export function parseShowInstanceArchiveInput(value: unknown): ShowInstanceArchiveInput {
+  const input = record(value, "archive request");
+  if (!isInstanceArchiveFileName(input.archiveFileName)) invalid("archive request");
+  return { archiveFileName: input.archiveFileName };
 }
 
 export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTransferInput {
@@ -202,7 +288,8 @@ export function decodeInstanceTransferPreview(value: unknown): InstanceTransferP
     !isNullableBoundedString(preview.exportedAt, 64) ||
     !Array.isArray(preview.agents) ||
     preview.agents.length > INPUT_LIMITS.agents ||
-    !isBoolean(preview.hasSettings)
+    !isBoolean(preview.hasSettings) ||
+    !(preview.migrationId === null || isIdentifier(preview.migrationId))
   )
     invalid("transfer preview");
   return {
@@ -212,6 +299,7 @@ export function decodeInstanceTransferPreview(value: unknown): InstanceTransferP
     agents: preview.agents.map(decodeAgentImportPreviewAgent),
     hasSettings: preview.hasSettings,
     warnings: messages(preview.warnings, "transfer warnings"),
+    migrationId: preview.migrationId,
   };
 }
 
@@ -222,15 +310,58 @@ export function decodeRequiredInstanceTransferPreview(value: unknown): InstanceT
   return preview;
 }
 
+function decodeMigration(value: unknown): InstanceTransferMigration {
+  const migration = record(value, "transfer migration");
+  if (!isIdentifier(migration.id) || !isBoolean(migration.resumed)) invalid("transfer migration");
+  return { id: migration.id, resumed: migration.resumed };
+}
+
 export function decodeInstanceTransferResult(value: unknown): InstanceTransferResult {
   const result = record(value, "transfer result");
   if (!Array.isArray(result.agents) || !result.agents.every(isClientAgentSummary)) invalid("transfer result");
   if (!isUniqueList(result.signIn, 32, isAgentProvider)) invalid("transfer result");
+  if (!(result.migration === null || isDynamicRecord(result.migration))) invalid("transfer result");
   return {
     agents: result.agents,
     skipped: decodeAgentImportSkipped(result.skipped, "skipped agent"),
     signIn: result.signIn,
     warnings: messages(result.warnings, "transfer warnings"),
+    migration: result.migration === null ? null : decodeMigration(result.migration),
+  };
+}
+
+export function decodeRollbackInstanceTransferResult(value: unknown): RollbackInstanceTransferResult {
+  const result = record(value, "rollback result");
+  return { agents: count(result.agents, "rollback result") };
+}
+
+export function decodeMoveInstanceSourceResult(value: unknown): MoveInstanceSourceResult {
+  const result = record(value, "move result");
+  if (
+    !isInstanceArchiveFileName(result.archiveFileName) ||
+    !isBoundedString(result.archiveDirectory, 4096) ||
+    !Array.isArray(result.movedAgentIds) ||
+    result.movedAgentIds.length > INPUT_LIMITS.agents ||
+    !result.movedAgentIds.every(isIdentifier) ||
+    !Array.isArray(result.retained) ||
+    result.retained.length > INPUT_LIMITS.agents
+  )
+    invalid("move result");
+  return {
+    archiveFileName: result.archiveFileName,
+    archiveDirectory: result.archiveDirectory,
+    movedAgentIds: result.movedAgentIds,
+    retained: result.retained.map((entry) => {
+      const item = record(entry, "retained agent");
+      if (
+        !isIdentifier(item.agentId) ||
+        !isBoundedString(item.name, INPUT_LIMITS.agentName) ||
+        !isBoundedString(item.reason, AGENT_IMPORT_LIMITS.message)
+      )
+        invalid("retained agent");
+      return { agentId: item.agentId, name: item.name, reason: item.reason };
+    }),
+    warnings: messages(result.warnings, "move warnings"),
   };
 }
 
@@ -249,6 +380,7 @@ export function decodeRemoteInstanceTransferPreview(value: unknown): InstanceTra
   if (!Array.isArray(preview.agents)) invalid("transfer preview");
   const decoded = decodeInstanceTransferPreview({
     ...preview,
+    migrationId: preview.migrationId ?? null,
     agents: preview.agents.map((agent) => ({ ...record(agent, "transfer agent"), avatarUrl: null })),
   });
   if (!decoded) invalid("transfer preview");
@@ -272,7 +404,11 @@ export function decodeRemoteInstanceTransferResult(value: unknown): RemoteInstan
   // A newer host can name a provider that this OpenBot does not know. Its sign-in cannot start here.
   if (!isUniqueList(result.signIn, 32, isAgentProviderRef)) invalid("transfer result");
   const signIn = result.signIn.filter(isAgentProvider);
-  return { ...decodeInstanceTransferResult({ ...result, agents: [], signIn }), agents };
+  // `instance-transfer-v1` has no migration; a v2 host adds it.
+  return {
+    ...decodeInstanceTransferResult({ ...result, agents: [], signIn, migration: result.migration ?? null }),
+    agents,
+  };
 }
 
 /** The remote result, with the new agents read from the host's agent list. */

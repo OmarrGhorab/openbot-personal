@@ -143,6 +143,17 @@ and answers the new agents by id and name, which the client reads with the agent
 the file (`instance-transfer:*` is server-scoped). The web client does not show the Transfer section: its
 downloads are limited to 10 MB.
 
+`instance-transfer-v2` adds what a copy or a move needs to be resumed and undone, without changing the
+v1 file or its frozen routes. `POST /v1/instance-transfer/apply-v2` takes the same body and answers with
+`migration: { id, resumed }` beside the v1 result; the id is a SHA-256 of the sorted agent keys, and
+`resumed` says an earlier run of the same archive had already created some of the agents. The host
+keeps the migration in `userData/instance-transfer-migrations.json`, one entry per owner, and records
+each agent, file step, skill revision, routine and memory as it succeeds. `POST
+/v1/instance-transfer/rollback` takes `{ migrationId }` and deletes only the agents that record names;
+settings the migration added stay. A move archiving its source uses the same id, so staging and
+applying the same selection again reuses the migration and its archive. A target that serves only v1
+still receives a copy; the desktop disables **Move** for it.
+
 After a restart, the first upload or export removes old files from `instance-transfer-uploads/`,
 including unfinished `.part` files, before it writes a new file. Concurrent uploads and exports wait
 for this cleanup. If cleanup fails, the operation fails; the next upload or export retries it.
@@ -331,6 +342,7 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `agent-update-v1` | Update an agent added from a listing to the listing's current version, by id | `agentAdmin` |
 | `providers-v1` | Code sign-in, provider API keys, managed runtimes, custom endpoints | `providerAdmin` |
 | `instance-transfer-v1` | Export and import the server's agents and server settings as a transfer file | `instanceTransfer` |
+| `instance-transfer-v2` | A copy or move's migration id and resume flag, and a rollback of the agents one migration created | `instanceTransfer` |
 | `providers-v3` | Code sign-in for Codex, Claude and Grok; send the code a Claude sign-in page shows | `providerAdmin` |
 | `providers-v4` | Code or link sign-in and managed runtimes, Cursor and Cline included | `providerAdmin` |
 | `provider-usage-reset-v1` | Read the usage reset credits of each provider account on the host, and spend one. Only Codex gives credits | `providerAdmin` |
