@@ -21,7 +21,12 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { VoiceApiKeyStore } from "../src/main/voice-api-key-store";
 import { openScribeSocket } from "../src/main/voice-cloud-stream";
-import { BARK_PLUS_MODEL_DIRECTORY, WHISPER_TURBO_MODEL_DIRECTORY } from "../src/main/voice-model-service";
+import {
+  BARK_PLUS_MODEL_DIRECTORY,
+  FASTCONFORMER_AR_MODEL_DIRECTORY,
+  WHISPER_SMALL_MODEL_DIRECTORY,
+  WHISPER_TURBO_MODEL_DIRECTORY,
+} from "../src/main/voice-model-service";
 import { VoicePreferenceStore } from "../src/main/voice-preference-store";
 import type {
   VoiceTranscriptionFailure,
@@ -40,6 +45,8 @@ const MODEL_DIRECTORIES: Record<LocalVoiceModelId, string> = {
   "parakeet-tdt-0.6b-v3": join(RESOURCES_ROOT, "model"),
   "bark-3.0-plus": join(RESOURCES_ROOT, BARK_PLUS_MODEL_DIRECTORY),
   "whisper-turbo": join(RESOURCES_ROOT, WHISPER_TURBO_MODEL_DIRECTORY),
+  "fastconformer-ar": join(RESOURCES_ROOT, FASTCONFORMER_AR_MODEL_DIRECTORY),
+  "whisper-small": join(RESOURCES_ROOT, WHISPER_SMALL_MODEL_DIRECTORY),
 };
 /** Synthetic speech is clear, so a model that works gets nearly every word. */
 const MAXIMUM_WORD_ERROR_RATE = 0.15;

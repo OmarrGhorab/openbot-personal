@@ -21,6 +21,11 @@
   margin-inline: auto;
 }
 
+/* A chat that opens shows its rows only at the place where it opens, not at the top first. */
+.conversation-scroll.conversation-scroll-opening > .virtual-chat-list {
+  visibility: hidden;
+}
+
 /*
  * The composer is 6px wider on each side than the messages, as at full width. The padding holds the
  * composer and the notices above it in the column, and keeps their own side margins. A percentage

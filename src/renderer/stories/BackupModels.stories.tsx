@@ -69,6 +69,7 @@ export const AskCard: Story = {
         provider="claude"
         resetsAt={RESETS_AT}
         options={usageLimitAskOptions(OWN, ORDER, SOURCE)}
+        hasBackup
         onSend={fn(async () => undefined)}
         onWait={fn()}
       />

@@ -45,6 +45,8 @@ interface ScrollStickyState {
   getStickToLatest: () => boolean;
   setStickToLatest: (value: boolean) => void;
   getCurrentUnreadCount: () => number;
+  /** A chat that opens has not reached its first place yet, so its top is not the reader's. */
+  isOpening: () => boolean;
 }
 
 export interface ScrollStoreDeps {
@@ -62,7 +64,13 @@ export function createScrollStore(deps: ScrollStoreDeps) {
   const scrollFades = createScrollFades();
   const [virtualScrollMargin, setVirtualScrollMargin] = createSignal(0);
   const [showScrollToLatest, setShowScrollToLatest] = createSignal(false);
-  const [atHistoryBoundary, setAtHistoryBoundary] = createSignal(false);
+  const scrollIdentity = () => `${deps.props.server?.id ?? "local"}:${conversationOwnerId(deps.props) ?? ""}`;
+  /*
+   * The chat whose top the reader reached. A chat switch keeps the view, so a plain flag of the chat
+   * the reader left loaded a page of older messages in the chat they opened, before its first place.
+   */
+  const [historyBoundaryChat, setHistoryBoundaryChat] = createSignal<string>();
+  const atHistoryBoundary = () => historyBoundaryChat() !== undefined && historyBoundaryChat() === scrollIdentity();
   const [unreadDividerVisible, setUnreadDividerVisible] = createSignal(false);
   const [newMessageCount, setNewMessageCount] = createSignal(0);
   let unreadVisibilityFrame: number | undefined;
@@ -190,6 +198,7 @@ export function createScrollStore(deps: ScrollStoreDeps) {
   createEffect(
     () =>
       deps.props.loaded &&
+      !deps.sticky.isOpening() &&
       (timelineMessages().length === 0 || atHistoryBoundary()) &&
       deps.props.hasOlder &&
       !deps.props.loadingOlder &&
@@ -219,7 +228,8 @@ export function createScrollStore(deps: ScrollStoreDeps) {
 
   /* One writer for the boundary: the row the virtualizer renders first, read where the reader is. */
   function updateHistoryBoundary(element = deps.elements.scrollElement()): void {
-    setAtHistoryBoundary(chatHistoryBoundaryReached(element, firstRenderedIndex));
+    const reached = !deps.sticky.isOpening() && chatHistoryBoundaryReached(element, firstRenderedIndex);
+    setHistoryBoundaryChat(reached ? untrack(scrollIdentity) : undefined);
   }
 
   function updateScrollFade(element = deps.elements.scrollElement()) {

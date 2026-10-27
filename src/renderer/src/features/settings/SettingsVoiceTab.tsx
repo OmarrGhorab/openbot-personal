@@ -46,6 +46,8 @@ const MODEL_DESCRIPTION = {
   "parakeet-tdt-0.6b-v3": "settings.voice.model.parakeet.description",
   "bark-3.0-plus": "settings.voice.model.bark.description",
   "whisper-turbo": "settings.voice.model.whisper.description",
+  "fastconformer-ar": "settings.voice.model.fastconformerArabic.description",
+  "whisper-small": "settings.voice.model.whisperSmall.description",
   [ELEVENLABS_VOICE_MODEL_ID]: "settings.voice.model.elevenlabs.description",
 } as const satisfies Record<VoiceModelInfo["id"], AppTextKey>;
 
@@ -53,6 +55,7 @@ const MODEL_DESCRIPTION = {
 const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLanguage; description: AppTextKey }>> = {
   "parakeet-tdt-0.6b-v3": { language: AUTOMATIC_VOICE_LANGUAGE, description: "settings.voice.language.modelDetects" },
   "bark-3.0-plus": { language: "en", description: "settings.voice.language.englishOnly" },
+  "fastconformer-ar": { language: "ar", description: "settings.voice.language.arabicOnly" },
 };
 
 const LANGUAGE_NAME = {
