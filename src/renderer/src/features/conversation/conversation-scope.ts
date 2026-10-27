@@ -78,6 +78,8 @@ export function createConversationViewScope(props: ConversationProps) {
   /** A view shows one agent or one channel for its whole life, so each branch below is fixed. */
   const channel = untrack(() => props.channel);
   const agentReady = () => props.agentStatus.phase === "ready";
+  /** A dialog, settings, or search is open. A toast alone does not stop the voice keys. */
+  const overlayTakesKeys = () => props.globalOverlayOpen && !props.toastsVisible;
   const providerUpdateRequired = () =>
     props.agentStatus.providers?.find(
       (provider) => provider.id === props.agent?.provider && provider.state === "outdated",
@@ -892,7 +894,7 @@ export function createConversationViewScope(props: ConversationProps) {
      * key, so a focused text field keeps it. A dialog or menu keeps its keys, as Escape does above.
      */
     const handleVoiceShortcut = (event: KeyboardEvent) => {
-      if (!isVoiceShortcut(event) || isTextEntryTarget(event.target) || props.globalOverlayOpen) return;
+      if (!isVoiceShortcut(event) || isTextEntryTarget(event.target) || overlayTakesKeys()) return;
       if (
         event.target instanceof Element &&
         event.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')
@@ -955,7 +957,7 @@ export function createConversationViewScope(props: ConversationProps) {
      * composer instead of the island. A press starts or stops; a hold's key-up stops.
      */
     const stopComposerDictation = window.openbot.globalVoice.onComposerDictation(({ phase, send }) => {
-      if (props.workspaceCovered || props.globalOverlayOpen) return;
+      if (props.workspaceCovered || overlayTakesKeys()) return;
       if (voicePhase() === "recording") {
         // With "send after speaking" the release sends, the same as pressing send while recording.
         if (send) actions.submitComposer();
