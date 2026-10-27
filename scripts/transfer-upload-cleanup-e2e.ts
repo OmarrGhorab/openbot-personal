@@ -67,6 +67,9 @@ function service(uploadDirectory: string): InstanceTransferService {
     listConversationThreads: (_agentId) => {
       throw unexpected("listConversationThreads");
     },
+    conversationHistoryBytes: (_agentId) => {
+      throw unexpected("conversationHistoryBytes");
+    },
     readConversationThread: (_agentId, _threadId) => {
       throw unexpected("readConversationThread");
     },

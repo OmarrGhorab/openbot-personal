@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentMemory, AgentSummary, ConversationMessage, Routine } from "@openbot/contracts/ipc";
@@ -69,6 +69,8 @@ interface Store {
   threads: Map<string, ConversationSource[]>;
   /** What an import wrote, by agent and thread id. A write of an id that exists replaces it. */
   imported: Map<string, Map<string, { title: string; createdAt: string; messages: ConversationMessage[] }>>;
+  /** The stored history bytes each agent reports to a transfer estimate. */
+  historyBytes: Map<string, number>;
   /** Agents whose deletion fails, to check the retained list and a rollback that can retry. */
   failing: Set<string>;
   removedFromSidebar: string[];
@@ -78,6 +80,7 @@ interface Store {
 function store(): Store {
   return {
     agents: new Map(),
+    historyBytes: new Map(),
     routines: new Map(),
     memories: new Map(),
     threads: new Map(),
@@ -121,6 +124,7 @@ function seedAgent(store: Store, root: string, name: string): AgentSummary {
 function service(root: string, state: Store): InstanceTransferService {
   const agents: InstanceTransferOptions["agents"] = {
     listAgents: () => [...state.agents.values()],
+    conversationHistoryBytes: (agentId) => state.historyBytes.get(agentId) ?? 0,
     listModels: () => [{ provider: "codex", id: "gpt-5.5" }],
     createAgentProfile: (input) =>
       Effect.sync(() => {
@@ -665,3 +669,100 @@ describe("instance transfer chat history", () => {
     expect(first).toMatch(/^history-[0-9a-f]{40}$/u);
   });
 });
+
+describe("instance transfer limits", () => {
+  it("estimates the files, shared folder and history, and leaves history out when asked", async () => {
+    const directory = await root();
+    const state = store();
+    const source = seedAgent(state, directory, "Source");
+    await mkdir(source.workspacePath, { recursive: true });
+    await writeFile(join(source.workspacePath, "notes.txt"), "0123456789");
+    await mkdir(join(directory, "shared"), { recursive: true });
+    await writeFile(join(directory, "shared", "shared.txt"), "01234");
+    state.historyBytes.set(source.id, 100);
+    const transfer = service(directory, state);
+
+    const everything = await Effect.runPromise(
+      transfer.estimate({ agentIds: [source.id], includeFiles: true, includeSettings: false }),
+    );
+    const withoutHistory = await Effect.runPromise(
+      transfer.estimate({ agentIds: [source.id], includeFiles: true, includeSettings: false, includeHistory: false }),
+    );
+    const withoutFiles = await Effect.runPromise(
+      transfer.estimate({ agentIds: [source.id], includeFiles: false, includeSettings: false }),
+    );
+
+    expect(everything).toBe(115);
+    expect(withoutHistory).toBe(15);
+    expect(withoutFiles).toBe(100);
+  });
+
+  it("leaves the history out of an export that turns it off", async () => {
+    const directory = await root();
+    const state = store();
+    const source = seedAgent(state, directory, "Source");
+    state.threads.set(source.id, [
+      {
+        threadId: "thread-main",
+        title: "Main",
+        createdAt: CREATED,
+        updatedAt: CREATED,
+        messages: [{ id: "m1", author: "user", text: "hello", createdAt: CREATED, status: "completed" }],
+      },
+    ]);
+    const path = join(directory, "no-history.zip");
+
+    await Effect.runPromise(
+      service(directory, state).exportTo(path, {
+        agentIds: [source.id],
+        includeFiles: false,
+        includeSettings: false,
+        includeHistory: false,
+      }),
+    );
+
+    const files = unzipSync(await readFile(path));
+    const manifest = JSON.parse(strFromU8(files[INSTANCE_TRANSFER_MANIFEST] ?? new Uint8Array()));
+    expect(Object.keys(files).some((name) => name.endsWith(CONVERSATIONS_FILE))).toBe(false);
+    expect(manifest.agents[0].conversations).toBeUndefined();
+  });
+
+  it("refuses to apply an archive that grew past the remote limit, before it writes an agent", async () => {
+    const directory = await root();
+    const state = store();
+    const transfer = service(directory, state);
+    const preview = await Effect.runPromise(transfer.stageUpload(() => Promise.resolve(archive()), "local"));
+    const staged = await onlyZip(join(directory, "instance-transfer-uploads"));
+    await truncate(staged, REMOTE_LIMIT + 1);
+
+    const error = await Effect.runPromise(
+      transfer.apply({ token: preview.token, keys: [AGENT.key], includeSettings: false }).pipe(Effect.flip),
+    );
+    expect(String(error.cause)).toContain("must be under 100 MB");
+    expect(state.agents.size).toBe(0);
+  });
+
+  it("applies a file staged on this computer with its own limit, not the remote one", async () => {
+    const directory = await root();
+    const state = store();
+    const transfer = service(directory, state);
+    const preview = await Effect.runPromise(transfer.stageBytes(archive()));
+    // Past the remote limit but within the local one: the bytes no longer match, so apply fails on the
+    // hash, not on the size.
+    await truncate(await onlyZip(join(directory, "instance-transfer-uploads")), REMOTE_LIMIT + 1);
+
+    const error = await Effect.runPromise(
+      transfer.apply({ token: preview.token, keys: [AGENT.key], includeSettings: false }).pipe(Effect.flip),
+    );
+    expect(String(error.cause)).not.toContain("must be under 100 MB");
+  });
+});
+
+const REMOTE_LIMIT = 100 * 1024 * 1024;
+
+/** The one archive a transfer staged in `directory`. */
+async function onlyZip(directory: string): Promise<string> {
+  const zips = (await readdir(directory)).filter((name) => name.endsWith(".zip"));
+  expect(zips).toHaveLength(1);
+  return join(directory, zips[0] ?? "");
+}

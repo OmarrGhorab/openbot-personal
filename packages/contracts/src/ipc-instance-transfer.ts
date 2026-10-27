@@ -53,6 +53,8 @@ export interface ExportInstanceInput {
   agentIds: string[];
   includeFiles: boolean;
   includeSettings: boolean;
+  /** Chat history is carried unless this is false. A reduced copy turns it off to fit a joined server. */
+  includeHistory?: boolean;
 }
 
 /** Copy keeps the source; move archives it after the target confirms every item. */
@@ -312,7 +314,13 @@ export function parseExportInstanceInput(value: unknown): ExportInstanceInput {
   if (!isUniqueList(input.agentIds, INPUT_LIMITS.agents, isIdentifier) || input.agentIds.length === 0)
     invalid("agent selection");
   if (!isBoolean(input.includeFiles) || !isBoolean(input.includeSettings)) invalid("export request");
-  return { agentIds: input.agentIds, includeFiles: input.includeFiles, includeSettings: input.includeSettings };
+  if (input.includeHistory !== undefined && !isBoolean(input.includeHistory)) invalid("export request");
+  return {
+    agentIds: input.agentIds,
+    includeFiles: input.includeFiles,
+    includeSettings: input.includeSettings,
+    ...(input.includeHistory === undefined ? {} : { includeHistory: input.includeHistory }),
+  };
 }
 
 export function parseCopyInstanceTransferInput(value: unknown): CopyInstanceTransferInput {

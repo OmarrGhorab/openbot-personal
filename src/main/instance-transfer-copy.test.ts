@@ -102,6 +102,34 @@ describe("prepareCopy", () => {
     expect(stageRemote).toHaveBeenCalledOnce();
   });
 
+  it("refuses a joined target from the estimate before the source is read", async () => {
+    const readSource = vi.fn(async () => ({ bytes: new Uint8Array([1]), warnings: [] }));
+    const stageRemote = vi.fn(async () => PREVIEW);
+
+    // Ten bytes is the limit in these tests, so 11 is one byte over; the message rounds to megabytes.
+    await expect(
+      prepareCopy(options({ estimate: async () => 11, readSource, remoteTarget: true, stageRemote })),
+    ).rejects.toThrow("This setup is about 1 MB, and a joined server takes at most 1 MB");
+    expect(readSource).not.toHaveBeenCalled();
+    expect(stageRemote).not.toHaveBeenCalled();
+  });
+
+  it("reads the source when the estimate is exactly the remote limit", async () => {
+    const readSource = vi.fn(async () => ({ bytes: new Uint8Array([1]), warnings: [] }));
+
+    await prepareCopy(options({ estimate: async () => 10, readSource, remoteTarget: true }));
+
+    expect(readSource).toHaveBeenCalledOnce();
+  });
+
+  it("does not estimate a copy to this computer", async () => {
+    const estimate = vi.fn(async () => 11);
+
+    await prepareCopy(options({ estimate }));
+
+    expect(estimate).not.toHaveBeenCalled();
+  });
+
   it("does not stage anything when the source cannot be read", async () => {
     const stageRemote = vi.fn(async () => PREVIEW);
 

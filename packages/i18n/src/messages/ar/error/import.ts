@@ -77,7 +77,15 @@ export const messages = {
   "error.import.transferSecretGithub": "GitHub مارفضش تسجيل الدخول ده على السيرفر التاني. سجّل دخول تاني هناك.",
   "error.import.transferSecretOnePassword": "1Password مارفضش التوكن ده على السيرفر التاني. وصّله تاني هناك.",
   "error.import.transferNotFile": "الملف ده مش ملف نقل من OpenBot.",
-  "error.import.transferNewer": "نسخة أحدث من OpenBot عملت الملف ده. حدّث OpenBot وجرّب تاني.",
+  "error.import.transferNewer":
+    "الملف ده محتاج صيغة نقل {version}، والنسخة دي من OpenBot بتقرأ لحد الصيغة {current}. حدّث OpenBot وجرّب تاني.",
+  "error.import.transferNewerFormat":
+    "الملف ده بصيغة نقل أحدث (النسخة {version}). الحقول اللي OpenBot ده مش عارفها بتتخطّى.",
+  "error.import.transferUnknownFieldsFile": "في الملف حقول OpenBot ده مش عارفها، فبتتخطّى: {fields}.",
+  "error.import.transferUnknownFieldsAgent": "الإيجنت رقم {number} فيه حقول OpenBot ده مش عارفها، فبتتخطّى: {fields}.",
+  "error.import.transferUnknownFieldsSettings": "إعدادات التطبيق فيها حقول OpenBot ده مش عارفها، فبتتخطّى: {fields}.",
+  "error.import.transferEstimateTooLarge":
+    "الإعداد ده حوالي {size} MB، والسيرفر المتوصّل بياخد لحد {limit} MB في النقل الواحد. اقفل سجل الشات أو ملفات مساحة العمل، أو اختار إيجنتات أقل، وانسخ تاني.",
   "error.import.transferEmpty": "الملف مفيهوش أي إيجنتات ولا إعدادات.",
   "error.import.transferTooLarge":
     "ملف النقل لازم يكون أقل من 2 GB و50,000 ملف. اقفل ملفات مساحة العمل، أو صدّر إيجنتات أقل.",

@@ -133,6 +133,8 @@ export type TransferAgent = typeof Agent.Type;
 export type TransferSettings = typeof Settings.Type;
 
 export interface TransferManifest {
+  /** The format version the file declares. It can be newer than this build writes. */
+  version: number;
   appVersion: string;
   exportedAt: string | null;
   agents: TransferAgent[];
@@ -156,19 +158,42 @@ const decodeManifest = Schema.decodeUnknownResult(Manifest);
 const decodeAgent = Schema.decodeUnknownResult(Agent);
 const decodeSettings = Schema.decodeUnknownResult(Settings);
 
-export function decodeTransferManifest(bytes: Uint8Array): { manifest: TransferManifest; warnings: string[] } {
+const MANIFEST_FIELDS: readonly string[] = Object.keys(Manifest.fields);
+const AGENT_FIELDS: readonly string[] = Object.keys(Agent.fields);
+const SETTINGS_FIELDS: readonly string[] = Object.keys(Settings.fields);
+
+/**
+ * Reads a transfer file, negotiating its format field by field. A newer file keeps every field this
+ * build knows and lists the rest as skipped. It is refused only when a field this build needs cannot
+ * be read, and the refusal names the format the file needs. `supportedVersion` is the newest format
+ * this build reads; it defaults to the one it writes.
+ */
+export function decodeTransferManifest(
+  bytes: Uint8Array,
+  supportedVersion: number = INSTANCE_TRANSFER_VERSION,
+): { manifest: TransferManifest; warnings: string[] } {
   let value: unknown;
   try {
     value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     throw new Error(sourceText("error.import.transferNotFile"));
   }
+  const version = versionOf(value);
+  if (version === null) throw new Error(sourceText("error.import.transferNotFile"));
   const decoded = decodeManifest(value);
-  if (Result.isFailure(decoded)) throw new Error(sourceText("error.import.transferNotFile"));
+  if (Result.isFailure(decoded)) {
+    if (version > supportedVersion)
+      throw new Error(sourceText("error.import.transferNewer", { version, current: supportedVersion }));
+    throw new Error(sourceText("error.import.transferNotFile"));
+  }
   const file = decoded.success;
-  if (file.version !== INSTANCE_TRANSFER_VERSION) throw new Error(sourceText("error.import.transferNewer"));
 
   const warnings: string[] = [];
+  if (version > supportedVersion) warnings.push(sourceText("error.import.transferNewerFormat", { version }));
+  const unknownFile = unknownFields(value, MANIFEST_FIELDS);
+  if (unknownFile.length > 0)
+    warnings.push(sourceText("error.import.transferUnknownFieldsFile", { fields: unknownFile.join(", ") }));
+
   const keys = new Set<string>();
   const agents: TransferAgent[] = [];
   for (const [index, item] of file.agents.entries()) {
@@ -177,18 +202,28 @@ export function decodeTransferManifest(bytes: Uint8Array): { manifest: TransferM
       warnings.push(sourceText("error.import.transferAgentInvalid", { number: index + 1 }));
       continue;
     }
+    const unknown = unknownFields(item, AGENT_FIELDS);
+    if (unknown.length > 0)
+      warnings.push(
+        sourceText("error.import.transferUnknownFieldsAgent", { number: index + 1, fields: unknown.join(", ") }),
+      );
     keys.add(agent.success.key);
     agents.push(agent.success);
   }
   let settings: TransferSettings | null = null;
   if (file.settings !== null) {
     const result = decodeSettings(file.settings);
-    if (Result.isSuccess(result)) settings = result.success;
-    else warnings.push(sourceText("error.import.transferSettingsInvalid"));
+    if (Result.isSuccess(result)) {
+      settings = result.success;
+      const unknown = unknownFields(file.settings, SETTINGS_FIELDS);
+      if (unknown.length > 0)
+        warnings.push(sourceText("error.import.transferUnknownFieldsSettings", { fields: unknown.join(", ") }));
+    } else warnings.push(sourceText("error.import.transferSettingsInvalid"));
   }
   if (agents.length === 0 && settings === null) throw new Error(sourceText("error.import.transferEmpty"));
   return {
     manifest: {
+      version,
       appVersion: file.source.appVersion || "unknown",
       exportedAt:
         file.source.exportedAt && !Number.isNaN(Date.parse(file.source.exportedAt)) ? file.source.exportedAt : null,
@@ -199,6 +234,19 @@ export function decodeTransferManifest(bytes: Uint8Array): { manifest: TransferM
     },
     warnings,
   };
+}
+
+/** The format version a file declares, when it declares a whole number of at least 1. */
+function versionOf(value: unknown): number | null {
+  if (typeof value !== "object" || value === null || !("version" in value)) return null;
+  const version = value.version;
+  return typeof version === "number" && Number.isInteger(version) && version >= 1 ? version : null;
+}
+
+/** Fields the file has that this build does not read. They are skipped, never imported. */
+function unknownFields(value: unknown, known: readonly string[]): string[] {
+  if (typeof value !== "object" || value === null) return [];
+  return Object.keys(value).filter((field) => !known.includes(field));
 }
 
 /** Every path an agent names is inside its own `agents/<key>/` folder. */

@@ -104,6 +104,7 @@ import {
   type TransferManifestFile,
   type TransferSettings,
 } from "./instance-transfer-manifest";
+import { fitsLimit } from "./instance-transfer-preflight";
 import type { InstanceTransferSecretsService } from "./instance-transfer-secrets-service";
 import { MANAGED_SKILL_FOLDERS, OWNERSHIP_MARKER } from "./managed-skill-service";
 import { inspectArchive, isUnsafeArchivePath } from "./skill-package";
@@ -150,6 +151,8 @@ interface InstanceTransferAgents {
   listRoutines(agentId: string): Routine[];
   listConversationThreads(agentId: string): AgentThreadSummary[];
   readConversationThread(agentId: string, threadId: string): ConversationSnapshot;
+  /** The bytes the agent's history would take in the archive, measured without encoding it. */
+  conversationHistoryBytes(agentId: string): number;
   importConversationThread(input: {
     agentId: string;
     threadId: string;
@@ -234,6 +237,8 @@ interface StagedTransfer {
   avatars: Map<string, AvatarImageInput>;
   /** True when a copy or move staged it, so the target ledger can resume and roll it back. */
   migrate: boolean;
+  /** The limit the archive was read with at staging. Apply reads it with the same one. */
+  limits: ArchiveLimits;
 }
 
 /** The ledger of the migration an apply is running, shared by the agents it creates. */
@@ -283,6 +288,39 @@ export class InstanceTransferService {
     return { agents };
   }).bind(this);
 
+  /**
+   * The bytes an export would write, from sizes on disk and in SQLite. Nothing is read or zipped, so a
+   * setup that is too large is refused before its history is encoded or its files are read.
+   */
+  readonly estimate = Effect.fn("InstanceTransfer.estimate")(function* (
+    this: InstanceTransferService,
+    input: ExportInstanceInput,
+  ): Effect.fn.Return<number, ArchiveOperationError> {
+    const agents = this.#selectedAgents(input);
+    if (!agents) return yield* archiveFailure(new Error(sourceText("error.import.agentNotInExport")));
+    let bytes = 0;
+    for (const agent of agents) {
+      if (input.includeFiles) {
+        const files = yield* workspaceFiles(agent.workspacePath);
+        bytes += files.reduce((total, file) => total + file.size, 0);
+      }
+      if (input.includeHistory !== false) bytes += this.options.agents.conversationHistoryBytes(agent.id);
+    }
+    if (input.includeFiles) {
+      const sharedFiles = yield* walk(this.options.sharedRoot, isSharedData);
+      bytes += sharedFiles.reduce((total, file) => total + file.size, 0);
+    }
+    return bytes;
+  });
+
+  /** The agents an export names, or null when one of them is not in this computer's list. */
+  #selectedAgents(input: ExportInstanceInput): AgentSummary[] | null {
+    const all = this.options.agents.listAgents();
+    const selected = input.agentIds.map((id) => all.find((agent) => agent.id === id));
+    if (selected.some((agent) => !agent)) return null;
+    return selected.filter((agent): agent is AgentSummary => agent !== undefined);
+  }
+
   /** Writes the export to `path`. The file appears only when it is complete. */
   readonly exportTo = Effect.fn("InstanceTransfer.export")(function* (
     this: InstanceTransferService,
@@ -290,11 +328,11 @@ export class InstanceTransferService {
     input: ExportInstanceInput,
     limits: ArchiveLimits = ARCHIVE,
   ): Effect.fn.Return<InstanceExportResult, ArchiveOperationError> {
-    const all = this.options.agents.listAgents();
-    const selected = input.agentIds.map((id) => all.find((agent) => agent.id === id));
-    if (selected.some((agent) => !agent))
-      return yield* archiveFailure(new Error(sourceText("error.import.agentNotInExport")));
-    const agents = selected.filter((agent): agent is AgentSummary => agent !== undefined);
+    const agents = this.#selectedAgents(input);
+    if (!agents) return yield* archiveFailure(new Error(sourceText("error.import.agentNotInExport")));
+    // The same sum the check after the loop makes, taken first so an oversized history is never encoded.
+    if (!fitsLimit(yield* this.estimate(input), limits.archiveBytes))
+      return yield* archiveFailure(new Error(limits.tooLarge));
 
     const entries: ZipEntry[] = [];
     const warnings: string[] = [];
@@ -372,7 +410,7 @@ export class InstanceTransferService {
           .selections.filter((selection) => selection.userControlled)
           .map((selection) => [selection.memoryId, selection.inclusion] as const),
       );
-      const conversations = this.#conversationsFile(agent.id, keys);
+      const conversations = input.includeHistory === false ? null : this.#conversationsFile(agent.id, keys);
       const conversationsPath = conversations ? `${prefix}${CONVERSATIONS_FILE}` : undefined;
       if (conversations) {
         bytes += conversations.byteLength;
@@ -621,6 +659,7 @@ export class InstanceTransferService {
       manifest: { ...manifest, agents },
       avatars,
       migrate,
+      limits,
     };
     yield* this.#release(owner);
     this.#staged.set(staged.token, staged);
@@ -923,7 +962,7 @@ export class InstanceTransferService {
     if (selected.length !== input.keys.length)
       return yield* archiveFailure(new Error(sourceText("error.import.agentNotInExport")));
     // The file is read again rather than held since `stage`, and only the same bytes are accepted.
-    const bytes = yield* readArchiveEffect(staged.path, staged.temporary ? REMOTE_ARCHIVE : ARCHIVE);
+    const bytes = yield* readArchiveEffect(staged.path, staged.limits);
     if (sha256(bytes) !== staged.sha256)
       return yield* archiveFailure(new Error(sourceText("error.import.exportChanged")));
 

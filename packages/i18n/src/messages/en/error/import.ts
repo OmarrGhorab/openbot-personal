@@ -84,7 +84,18 @@ export const messages = defineMessages("error.import", {
   "error.import.transferSecretOnePassword":
     "1Password did not accept this token on the other server. Connect it again there.",
   "error.import.transferNotFile": "This file is not an OpenBot transfer file.",
-  "error.import.transferNewer": "A newer version of OpenBot made this file. Update OpenBot and try again.",
+  "error.import.transferNewer":
+    "This file needs transfer format {version}, and this version of OpenBot reads up to format {current}. Update OpenBot and try again.",
+  "error.import.transferNewerFormat":
+    "This file uses a newer transfer format (version {version}). Fields this OpenBot does not know are skipped.",
+  "error.import.transferUnknownFieldsFile":
+    "The file has fields this OpenBot does not know, so they are skipped: {fields}.",
+  "error.import.transferUnknownFieldsAgent":
+    "Agent {number} has fields this OpenBot does not know, so they are skipped: {fields}.",
+  "error.import.transferUnknownFieldsSettings":
+    "The app settings have fields this OpenBot does not know, so they are skipped: {fields}.",
+  "error.import.transferEstimateTooLarge":
+    "This setup is about {size} MB, and a joined server takes at most {limit} MB in one transfer. Leave out chat history or workspace files, or pick fewer agents, then copy again.",
   "error.import.transferEmpty": "The file contains no agents and no settings.",
   "error.import.transferTooLarge":
     "A transfer file must be under 2 GB and 50,000 files. Turn off workspace files, or export fewer agents.",
