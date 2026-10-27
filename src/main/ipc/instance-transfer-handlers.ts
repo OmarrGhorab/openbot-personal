@@ -8,12 +8,18 @@ import { basename, join } from "node:path";
 import {
   type ApplyInstanceTransferInput,
   type CopyInstanceTransferInput,
+  decodeInstanceTransferSecretKey,
+  decodeInstanceTransferSecretsResult,
+  decodeInstanceTransferSecretsSummary,
   decodeRemoteInstanceTransferResult,
   decodeRemoteInstanceTransferSummary,
   decodeRollbackInstanceTransferResult,
+  decodeSealInstanceTransferSecretsResult,
   type ExportInstanceInput,
   type InstanceExportResult,
   type InstanceTransferPreview,
+  type InstanceTransferSecretOutcome,
+  type InstanceTransferSecretsResult,
   LOCAL_SERVER_ID,
   type MoveInstanceSourceInput,
   type MoveInstanceSourceResult,
@@ -23,10 +29,12 @@ import {
   parseMoveInstanceSourceInput,
   parseRollbackInstanceTransferInput,
   parseShowInstanceArchiveInput,
+  parseTransferInstanceSecretsInput,
   type RollbackInstanceTransferInput,
   type RollbackInstanceTransferResult,
   resolveRemoteInstanceTransferResult,
   type ShowInstanceArchiveInput,
+  type TransferInstanceSecretsInput,
 } from "@openbot/contracts/ipc";
 import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import {
@@ -38,6 +46,10 @@ import {
   INSTANCE_TRANSFER_V2_CAPABILITY,
   INSTANCE_TRANSFER_V2_ROUTES,
 } from "@openbot/contracts/team-protocol/instance-transfer-v2";
+import {
+  INSTANCE_TRANSFER_V3_CAPABILITY,
+  INSTANCE_TRANSFER_V3_ROUTES,
+} from "@openbot/contracts/team-protocol/instance-transfer-v3";
 import type { AppTranslate } from "@openbot/i18n";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
@@ -273,6 +285,137 @@ export function instanceTransferIpcHandlers({
     };
   };
 
+  /** The source list, or the target key, the seal and the apply of one sealed hand-off. */
+  const requireSecretsRemote = (serverId: string) => {
+    if (
+      !remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_CAPABILITY) ||
+      !remoteServers.supportsCapability(serverId, INSTANCE_TRANSFER_V3_CAPABILITY)
+    )
+      throw new Error(sourceText("error.import.transferSecretsUnsupported"));
+  };
+
+  const listSecretsRemote = async (serverId: string) =>
+    runCauseEffect(
+      remoteServers.request(serverId, INSTANCE_TRANSFER_V3_ROUTES.secrets, decodeInstanceTransferSecretsSummary, {
+        method: "POST",
+        body: {},
+      }),
+    );
+
+  /**
+   * The whole hand-off in main. The source seals each chosen value to a key that exists only in the
+   * target's memory for this migration; neither the renderer nor a log ever holds a value, a key or
+   * a sealed item. A failed item is reported, not retried with a weaker rule.
+   */
+  const transferSecrets = async (input: TransferInstanceSecretsInput): Promise<InstanceTransferSecretsResult> => {
+    const sourceLocal = input.sourceServerId === LOCAL_SERVER_ID;
+    const targetLocal = input.targetServerId === LOCAL_SERVER_ID;
+    if (sourceLocal && targetLocal) throw new Error(sourceText("error.import.transferSameServer"));
+    if (!sourceLocal) requireSecretsRemote(input.sourceServerId);
+    if (!targetLocal) requireSecretsRemote(input.targetServerId);
+
+    const source = sourceLocal
+      ? await runCauseEffect(instanceTransfer.listSecrets())
+      : await listSecretsRemote(input.sourceServerId);
+    const byId = new Map(source.items.map((item) => [item.id, item]));
+    // The renderer names what the dialog listed. A list that no longer holds an id is stale, and
+    // guessing its kind would make the summary lie.
+    if (input.secretIds.some((id) => !byId.has(id))) throw new Error(sourceText("error.import.transferSecretsStale"));
+
+    const outcomes: InstanceTransferSecretOutcome[] = [];
+    const chosen = input.secretIds.map((id) => byId.get(id)).filter((item) => item !== undefined);
+    const transferable = chosen.filter((item) => item.transferable);
+    const ids = transferable.map((item) => item.id);
+
+    if (ids.length > 0) {
+      const publicKey = targetLocal
+        ? (await runCauseEffect(instanceTransfer.createSecretKey(input.migrationId))).publicKey
+        : await runCauseEffect(
+            remoteServers.request(
+              input.targetServerId,
+              INSTANCE_TRANSFER_V3_ROUTES.key,
+              decodeInstanceTransferSecretKey,
+              {
+                method: "POST",
+                body: { migrationId: input.migrationId },
+              },
+            ),
+          );
+      const sealed = sourceLocal
+        ? await runCauseEffect(
+            instanceTransfer.sealSecrets({
+              migrationId: input.migrationId,
+              targetPublicKey: publicKey,
+              ids,
+            }),
+          )
+        : await runCauseEffect(
+            remoteServers.request(
+              input.sourceServerId,
+              INSTANCE_TRANSFER_V3_ROUTES.seal,
+              decodeSealInstanceTransferSecretsResult,
+              {
+                method: "POST",
+                body: { migrationId: input.migrationId, targetPublicKey: publicKey, ids },
+              },
+            ),
+          );
+      if (sealed.items.length > 0) {
+        const applied = targetLocal
+          ? await runCauseEffect(instanceTransfer.applySecrets(input.migrationId, sealed.items))
+          : await runCauseEffect(
+              remoteServers.request(
+                input.targetServerId,
+                INSTANCE_TRANSFER_V3_ROUTES.apply,
+                decodeInstanceTransferSecretsResult,
+                {
+                  method: "POST",
+                  body: { migrationId: input.migrationId, items: sealed.items },
+                },
+              ),
+            );
+        outcomes.push(...applied.outcomes);
+      }
+      for (const failure of sealed.failed) {
+        outcomes.push({
+          id: failure.id,
+          kind: byId.get(failure.id)?.kind ?? "provider-key",
+          label: byId.get(failure.id)?.label ?? failure.id,
+          status: "failed",
+          reason: failure.reason,
+        });
+      }
+    }
+
+    // An item this build cannot move is listed with the settings section to sign in again.
+    for (const item of chosen) {
+      if (item.transferable) continue;
+      outcomes.push({
+        id: item.id,
+        kind: item.kind,
+        label: item.label,
+        status: "failed",
+        reason: sourceText("error.import.transferSecretUnsupported"),
+      });
+    }
+
+    // One outcome per chosen item, in the order the dialog showed them.
+    const result: InstanceTransferSecretOutcome[] = [];
+    for (const item of chosen) {
+      const outcome = outcomes.find((candidate) => candidate.id === item.id);
+      result.push(
+        outcome ?? {
+          id: item.id,
+          kind: item.kind,
+          label: item.label,
+          status: "failed",
+          reason: sourceText("error.import.transferSecretApply"),
+        },
+      );
+    }
+    return { outcomes: result };
+  };
+
   return {
     instanceTransfer: {
       summary: scopedQueryHandler({
@@ -320,6 +463,14 @@ export function instanceTransferIpcHandlers({
       showArchive: payloadHandler(parseShowInstanceArchiveInput, (input: ShowInstanceArchiveInput) => {
         shell.showItemInFolder(instanceTransfer.archivePath(input.archiveFileName));
       }),
+      secrets: scopedQueryHandler({
+        local: () => runCauseEffect(instanceTransfer.listSecrets()),
+        remote: async (serverId) => {
+          requireSecretsRemote(serverId);
+          return listSecretsRemote(serverId);
+        },
+      }),
+      transferSecrets: payloadHandler(parseTransferInstanceSecretsInput, transferSecrets),
     },
   };
 }

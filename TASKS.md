@@ -99,3 +99,24 @@
 - [ ] Stream PCM while recording and show partial text within 1 s
 - [ ] Replace the partial text with the final text, with no duplicates
 - [ ] Retry and replay the utterance after a dropped stream
+
+## 9. Server setup transfer (#71)
+### #73 Direct copy (PR #79)
+- [x] Add direct copy from the server switcher with target preview, progress, and warnings
+
+### #75 Move, resume, and rollback (PR #84)
+- [x] Add a move ledger, retry/resume, source archive, and rollback for incomplete moves
+
+### #74 Encrypted secrets (feat/74-encrypted-secrets)
+- [x] Add an ephemeral target key and authenticated encryption for selected secrets
+- [x] Transfer provider API keys, matching custom-provider credentials, GitHub sessions, and 1Password service-account tokens
+- [x] Keep MCP values and unsupported sign-ins out of the transfer and offer re-authentication
+- [x] Add a support matrix, English/Arabic labels, and redaction/encryption E2E coverage
+- [x] Focused checks: contracts, node, renderer, i18n, Biome, and secrets E2E
+- [ ] Push and open PR stacked on #84
+
+### #77 Chat history (not started)
+- [ ] Define an archive format and import behavior for chat history
+
+### #76 Version negotiation and size preflight (not started)
+- [ ] Negotiate compatible transfer capabilities and estimate size before copying

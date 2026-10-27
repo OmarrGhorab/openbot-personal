@@ -30,6 +30,8 @@ import {
   decodeInstanceExportResult,
   decodeInstanceTransferPreview,
   decodeInstanceTransferResult,
+  decodeInstanceTransferSecretsResult,
+  decodeInstanceTransferSecretsSummary,
   decodeInstanceTransferSummary,
   decodeMcpServerConfigs,
   decodeMcpSignInAppState,
@@ -1005,6 +1007,8 @@ const openbotApi: OpenBotDesktopApi = {
     rollback: decodeRollbackInstanceTransferResult,
     moveSource: decodeMoveInstanceSourceResult,
     showArchive: decodeVoid,
+    secrets: decodeInstanceTransferSecretsSummary,
+    transferSecrets: decodeInstanceTransferSecretsResult,
   }),
   marketplaceAgents: bridgeGroup(IPC_ENDPOINTS.marketplaceAgents, {
     list: decodeMarketplaceAgentPage,

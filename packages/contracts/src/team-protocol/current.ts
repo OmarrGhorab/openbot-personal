@@ -47,6 +47,7 @@ import { HOST_UPDATE_CAPABILITY } from "./host-update-v1";
 import { HOSTED_SITES_CAPABILITY } from "./hosted-sites-v1";
 import { INSTANCE_TRANSFER_CAPABILITY } from "./instance-transfer-v1";
 import { INSTANCE_TRANSFER_V2_CAPABILITY } from "./instance-transfer-v2";
+import { INSTANCE_TRANSFER_V3_CAPABILITY } from "./instance-transfer-v3";
 import { LIVE_ACTIVITY_PUSH_CAPABILITY } from "./live-activity-push-v1";
 import { MCP_SIGN_IN_APP_CAPABILITY } from "./mcp-sign-in-app-v1";
 import { MCP_SIGN_IN_CAPABILITY } from "./mcp-sign-in-v1";
@@ -152,6 +153,7 @@ export {
   HOSTED_SITES_CAPABILITY,
   INSTANCE_TRANSFER_CAPABILITY,
   INSTANCE_TRANSFER_V2_CAPABILITY,
+  INSTANCE_TRANSFER_V3_CAPABILITY,
   LIVE_ACTIVITY_PUSH_CAPABILITY,
   MCP_SERVERS_CAPABILITY,
   MCP_SIGN_IN_APP_CAPABILITY,
@@ -250,6 +252,7 @@ export const TEAM_CURRENT_CAPABILITIES = [
   AGENT_IMPORT_CAPABILITY,
   INSTANCE_TRANSFER_CAPABILITY,
   INSTANCE_TRANSFER_V2_CAPABILITY,
+  INSTANCE_TRANSFER_V3_CAPABILITY,
   AGENT_PUBLISH_CAPABILITY,
   LIVE_ACTIVITY_PUSH_CAPABILITY,
   HOSTED_SITES_CAPABILITY,
@@ -386,6 +389,7 @@ export const TEAM_BOOTSTRAP_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
     capability !== ROUTINE_RECOVERY_CAPABILITY &&
     capability !== INSTANCE_TRANSFER_CAPABILITY &&
     capability !== INSTANCE_TRANSFER_V2_CAPABILITY &&
+    capability !== INSTANCE_TRANSFER_V3_CAPABILITY &&
     capability !== FOCUS_USE_CAPABILITY &&
     capability !== AGENT_HIDDEN_CAPABILITY &&
     capability !== TEAM_QUEUE_WINDOW_CAPABILITY &&
@@ -445,6 +449,7 @@ export function legacyTeamCapabilities(capabilities: readonly string[]): string[
       capability !== ROUTINE_RECOVERY_CAPABILITY &&
       capability !== INSTANCE_TRANSFER_CAPABILITY &&
       capability !== INSTANCE_TRANSFER_V2_CAPABILITY &&
+      capability !== INSTANCE_TRANSFER_V3_CAPABILITY &&
       capability !== FOCUS_USE_CAPABILITY &&
       capability !== AGENT_HIDDEN_CAPABILITY &&
       capability !== TEAM_QUEUE_WINDOW_CAPABILITY &&

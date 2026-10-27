@@ -243,7 +243,16 @@ export type TeamApiAgentImport = Pick<AgentImportService, "stageUpload" | "apply
 /** Its presence is what `#protocolSupport` advertises `instance-transfer-v1` and its v2 on. Only admins use it. */
 export type TeamApiInstanceTransfer = Pick<
   InstanceTransferService,
-  "summary" | "exportForMember" | "stageUpload" | "apply" | "discard" | "rollback"
+  | "summary"
+  | "exportForMember"
+  | "stageUpload"
+  | "apply"
+  | "discard"
+  | "rollback"
+  | "listSecrets"
+  | "createSecretKey"
+  | "sealSecrets"
+  | "applySecrets"
 >;
 
 /**

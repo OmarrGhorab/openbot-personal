@@ -655,4 +655,31 @@ export const messages = {
   "settings.transfer.copy.rollback": "رجّع",
   "settings.transfer.copy.rollbackBusy": "بيرجع…",
   "settings.transfer.copy.rollbackFailed": "الرجوع ماخلصش",
+  "settings.transfer.copy.secretsTitle": "المفاتيح وتسجيلات الدخول المحفوظة",
+  "settings.transfer.copy.secretsDescription":
+    "المفاتيح وتسجيلات الدخول اللي ينفع تنتقل بتتشفّر للنقل ده. الحاجات اللي ماتنفعش بتفضل على المصدر وعايزة إعداد على الهدف.",
+  "settings.transfer.copy.secretsUnsupported":
+    "الهدف ده ما يقدرش يستقبل تسجيلات دخول مشفّرة. ضيفها تاني من إعدادات الهدف.",
+  "settings.transfer.copy.secretsUnavailable": "مقدرناش نعرض تسجيلات الدخول المحفوظة",
+  "settings.transfer.copy.secretsLoading": "بيتحقق من المفاتيح وتسجيلات الدخول المحفوظة…",
+  "settings.transfer.copy.secretReady": "النقل المشفّر متاح",
+  "settings.transfer.copy.secretNeedsSignIn": "سجّل دخول تاني على الهدف",
+  "settings.transfer.copy.includeSecret": "ضمّن {name}",
+  "settings.transfer.copy.stepSecrets": "انقل المفاتيح وتسجيلات الدخول المحفوظة",
+  "settings.transfer.copy.stepSecretsDetail": "شفّر الحاجات اللي ينفع تنتقل للنقل ده؛ الباقي محتاج إعداد على الهدف.",
+  "settings.transfer.copy.transferringSecrets": "بينقل تسجيلات الدخول المحفوظة…",
+  "settings.transfer.copy.secretsResultTitle": "المفاتيح وتسجيلات الدخول المحفوظة",
+  "settings.transfer.copy.secretTransferred": "اتنقل",
+  "settings.transfer.copy.secretAlreadyPresent": "موجود بالفعل على الهدف",
+  "settings.transfer.copy.secretTargetMissing": "مش موجود على الهدف",
+  "settings.transfer.copy.secretFailed": "محتاج مراجعة",
+  "settings.transfer.copy.reauthenticate": "اضبطه من {section}",
+  "settings.transfer.copy.openProviders": "المزوّدين",
+  "settings.transfer.copy.openMcp": "MCP",
+  "settings.transfer.copy.openConnectors": "التوصيلات",
+  "settings.transfer.copy.secretsMigrationMissing":
+    "النقل ده مالوش رقم هجرة، فتسجيلات الدخول ما اتبعتتش. المصدر زي ما هو.",
+  "settings.transfer.copy.secretsFailed": "مقدرناش ننقل تسجيلات الدخول المحفوظة. المصدر زي ما هو.",
+  "settings.transfer.copy.secretsUnsupportedReason":
+    "الهدف ما يقدرش يستقبل تسجيلات دخول مشفّرة. ضيفها تاني من إعدادات الهدف.",
 } as const satisfies PartialTranslation<typeof source>;

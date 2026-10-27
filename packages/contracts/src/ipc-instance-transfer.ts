@@ -146,6 +146,128 @@ export interface ShowInstanceArchiveInput {
   archiveFileName: string;
 }
 
+/** How many secrets one transfer may carry, and the smallest set of bounds every side checks. */
+export const INSTANCE_TRANSFER_SECRET_LIMITS = {
+  items: 64,
+  /** One sealed payload before its envelope; an item larger than this is not sent. */
+  itemBytes: 8 * 1024,
+  /** Every sealed payload of one transfer together. */
+  totalBytes: 512 * 1024,
+  /** How long the target keeps the key that may open one migration's secrets. */
+  keyTtlMs: 5 * 60_000,
+} as const;
+
+/** The kinds of secret a transfer names. A sign-in this build cannot encrypt is listed, not sent. */
+export const INSTANCE_TRANSFER_SECRET_KINDS = [
+  "provider-key",
+  "provider-sign-in",
+  "mcp-values",
+  "github",
+  "onepassword",
+  "custom-provider",
+  "mcp-sign-in",
+  "bitwarden",
+] as const;
+
+export type InstanceTransferSecretKind = (typeof INSTANCE_TRANSFER_SECRET_KINDS)[number];
+
+export function isInstanceTransferSecretKind(value: unknown): value is InstanceTransferSecretKind {
+  switch (value) {
+    case "provider-key":
+    case "provider-sign-in":
+    case "mcp-values":
+    case "github":
+    case "onepassword":
+    case "custom-provider":
+    case "mcp-sign-in":
+    case "bitwarden":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Where the target asks the user to sign in again: the same sections the server settings open. */
+export const INSTANCE_TRANSFER_SECRET_SECTIONS = ["providers", "mcp", "connectors"] as const;
+
+export type InstanceTransferSecretSection = (typeof INSTANCE_TRANSFER_SECRET_SECTIONS)[number];
+
+export function isInstanceTransferSecretSection(value: unknown): value is InstanceTransferSecretSection {
+  switch (value) {
+    case "providers":
+    case "mcp":
+    case "connectors":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * One secret the source holds, described without its value. `transferable` is false when the value
+ * cannot safely move or the target must sign in again.
+ */
+export interface InstanceTransferSecretSummary {
+  id: string;
+  kind: InstanceTransferSecretKind;
+  /** The provider, MCP server or connector name the target shows. */
+  label: string;
+  /** How many stored values the item carries: one key, or every variable of one MCP server. */
+  count: number;
+  section: InstanceTransferSecretSection;
+  transferable: boolean;
+}
+
+export interface InstanceTransferSecretsSummary {
+  items: InstanceTransferSecretSummary[];
+}
+
+/** What became of one secret. A failed item stays on the source and is shown for re-authentication. */
+export type InstanceTransferSecretStatus = "transferred" | "already-present" | "target-missing" | "failed";
+
+export interface InstanceTransferSecretOutcome {
+  id: string;
+  kind: InstanceTransferSecretKind;
+  label: string;
+  status: InstanceTransferSecretStatus;
+  /** A sentence for the completion summary: why it failed or where it already existed. */
+  reason: string | null;
+}
+
+export interface InstanceTransferSecretsResult {
+  outcomes: InstanceTransferSecretOutcome[];
+}
+
+/** Move the selected secrets of `sourceServerId` into an applied migration on `targetServerId`. */
+export interface TransferInstanceSecretsInput {
+  sourceServerId: string;
+  targetServerId: string;
+  /** The target migration the secrets belong to; it must be in the target's ledger. */
+  migrationId: string;
+  secretIds: string[];
+}
+
+/**
+ * One secret encrypted for one migration. Main only: the renderer never receives this, and only
+ * the target's in-memory key can open it. `publicKey`, `salt`, `nonce` and `ciphertext` are base64.
+ */
+export interface InstanceTransferSealedItem {
+  id: string;
+  kind: InstanceTransferSecretKind;
+  label: string;
+  /** The source's ephemeral X25519 public key. */
+  publicKey: string;
+  salt: string;
+  nonce: string;
+  ciphertext: string;
+}
+
+export interface SealInstanceTransferSecretsResult {
+  items: InstanceTransferSealedItem[];
+  /** A selected item the source could not seal; it stays on the source. */
+  failed: { id: string; reason: string }[];
+}
+
 /** The name this computer gives a move's source archive, which `showArchive` may reveal. */
 const INSTANCE_ARCHIVE_FILE = /^openbot-transfer-move-[\da-f]{64}\.zip$/u;
 
@@ -230,6 +352,28 @@ export function parseShowInstanceArchiveInput(value: unknown): ShowInstanceArchi
   const input = record(value, "archive request");
   if (!isInstanceArchiveFileName(input.archiveFileName)) invalid("archive request");
   return { archiveFileName: input.archiveFileName };
+}
+
+export function parseTransferInstanceSecretsInput(value: unknown): TransferInstanceSecretsInput {
+  const input = record(value, "secrets request");
+  if (
+    !isIdentifier(input.sourceServerId) ||
+    !isIdentifier(input.targetServerId) ||
+    input.sourceServerId === input.targetServerId ||
+    !isIdentifier(input.migrationId)
+  )
+    invalid("secrets request");
+  if (
+    !isUniqueList(input.secretIds, INSTANCE_TRANSFER_SECRET_LIMITS.items, isIdentifier) ||
+    input.secretIds.length === 0
+  )
+    invalid("secrets selection");
+  return {
+    sourceServerId: input.sourceServerId,
+    targetServerId: input.targetServerId,
+    migrationId: input.migrationId,
+    secretIds: input.secretIds,
+  };
 }
 
 export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTransferInput {
@@ -363,6 +507,103 @@ export function decodeMoveInstanceSourceResult(value: unknown): MoveInstanceSour
     }),
     warnings: messages(result.warnings, "move warnings"),
   };
+}
+
+function decodeSecretSummary(value: unknown): InstanceTransferSecretSummary {
+  const item = record(value, "transfer secret");
+  if (
+    !isIdentifier(item.id) ||
+    !isInstanceTransferSecretKind(item.kind) ||
+    !isBoundedString(item.label, 2048) ||
+    !isInstanceTransferSecretSection(item.section) ||
+    typeof item.transferable !== "boolean"
+  )
+    invalid("transfer secret");
+  return {
+    id: item.id,
+    kind: item.kind,
+    label: item.label,
+    count: count(item.count, "transfer secret"),
+    section: item.section,
+    transferable: item.transferable,
+  };
+}
+
+export function decodeInstanceTransferSecretsSummary(value: unknown): InstanceTransferSecretsSummary {
+  const summary = record(value, "secrets summary");
+  if (!Array.isArray(summary.items) || summary.items.length > INSTANCE_TRANSFER_SECRET_LIMITS.items)
+    invalid("secrets summary");
+  return { items: summary.items.map(decodeSecretSummary) };
+}
+
+function decodeSecretOutcome(value: unknown): InstanceTransferSecretOutcome {
+  const item = record(value, "secret outcome");
+  if (
+    !isIdentifier(item.id) ||
+    !isInstanceTransferSecretKind(item.kind) ||
+    !isBoundedString(item.label, 2048) ||
+    (item.status !== "transferred" &&
+      item.status !== "already-present" &&
+      item.status !== "target-missing" &&
+      item.status !== "failed") ||
+    !(item.reason === null || isBoundedString(item.reason, AGENT_IMPORT_LIMITS.message))
+  )
+    invalid("secret outcome");
+  return { id: item.id, kind: item.kind, label: item.label, status: item.status, reason: item.reason };
+}
+
+export function decodeInstanceTransferSecretsResult(value: unknown): InstanceTransferSecretsResult {
+  const result = record(value, "secrets result");
+  if (!Array.isArray(result.outcomes) || result.outcomes.length > INSTANCE_TRANSFER_SECRET_LIMITS.items)
+    invalid("secrets result");
+  return { outcomes: result.outcomes.map(decodeSecretOutcome) };
+}
+
+function decodeBase64(value: unknown, bytes: number | null, label: string): string {
+  if (typeof value !== "string" || value.length > (bytes === null ? 16_384 : 64)) invalid(label);
+  if (bytes !== null && value.length !== Math.ceil(bytes / 3) * 4) invalid(label);
+  return value;
+}
+
+function decodeSealedItem(value: unknown): InstanceTransferSealedItem {
+  const item = record(value, "sealed secret");
+  if (!isIdentifier(item.id) || !isInstanceTransferSecretKind(item.kind) || !isBoundedString(item.label, 2048))
+    invalid("sealed secret");
+  return {
+    id: item.id,
+    kind: item.kind,
+    label: item.label,
+    publicKey: decodeBase64(item.publicKey, 32, "sealed secret"),
+    salt: decodeBase64(item.salt, 16, "sealed secret"),
+    nonce: decodeBase64(item.nonce, 12, "sealed secret"),
+    ciphertext: decodeBase64(item.ciphertext, null, "sealed secret"),
+  };
+}
+
+export function decodeSealInstanceTransferSecretsResult(value: unknown): SealInstanceTransferSecretsResult {
+  const result = record(value, "sealed secrets");
+  if (
+    !Array.isArray(result.items) ||
+    result.items.length > INSTANCE_TRANSFER_SECRET_LIMITS.items ||
+    !Array.isArray(result.failed) ||
+    result.failed.length > INSTANCE_TRANSFER_SECRET_LIMITS.items
+  )
+    invalid("sealed secrets");
+  return {
+    items: result.items.map(decodeSealedItem),
+    failed: result.failed.map((entry) => {
+      const item = record(entry, "sealed failure");
+      if (!isIdentifier(item.id) || !isBoundedString(item.reason, AGENT_IMPORT_LIMITS.message))
+        invalid("sealed failure");
+      return { id: item.id, reason: item.reason };
+    }),
+  };
+}
+
+/** The target's public key for one migration, base64. */
+export function decodeInstanceTransferSecretKey(value: unknown): string {
+  const result = record(value, "secret key");
+  return decodeBase64(result.publicKey, 32, "secret key");
 }
 
 /** A remote host's summary: `instance-transfer-v1` carries no avatar addresses. */

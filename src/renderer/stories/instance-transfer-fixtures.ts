@@ -2,6 +2,7 @@ import type {
   InstanceTransferAgent,
   InstanceTransferPreview,
   InstanceTransferResult,
+  InstanceTransferSecretsSummary,
   InstanceTransferSummary,
 } from "@openbot/contracts/ipc";
 import { AGENT_IMPORT_PREVIEW } from "./agent-import-fixtures";
@@ -90,4 +91,66 @@ export const INSTANCE_TRANSFER_RESULT: Omit<InstanceTransferResult, "agents"> = 
   signIn: ["claude", "codex"],
   warnings: INSTANCE_TRANSFER_WARNINGS,
   migration: null,
+};
+
+/** What this computer holds, as `instanceTransfer.secrets` answers it: names, never values. */
+export const INSTANCE_TRANSFER_SECRETS: InstanceTransferSecretsSummary = {
+  items: [
+    {
+      id: "provider-key:claude",
+      kind: "provider-key",
+      label: "Claude Code",
+      count: 1,
+      section: "providers",
+      transferable: true,
+    },
+    {
+      id: "provider-key:codex",
+      kind: "provider-key",
+      label: "Codex",
+      count: 1,
+      section: "providers",
+      transferable: true,
+    },
+    {
+      id: "provider-sign-in:gemini",
+      kind: "provider-sign-in",
+      label: "Gemini",
+      count: 1,
+      section: "providers",
+      transferable: false,
+    },
+    {
+      id: "mcp-values:Linear",
+      kind: "mcp-values",
+      label: "Linear",
+      count: 2,
+      section: "mcp",
+      transferable: true,
+    },
+    {
+      id: "mcp-sign-in:https://mcp.notion.com/mcp",
+      kind: "mcp-sign-in",
+      label: "https://mcp.notion.com/mcp",
+      count: 1,
+      section: "mcp",
+      transferable: false,
+    },
+    {
+      id: "github",
+      kind: "github",
+      label: "GitHub",
+      count: 1,
+      section: "connectors",
+      transferable: true,
+    },
+    {
+      id: "bitwarden",
+      kind: "bitwarden",
+      label: "Bitwarden",
+      count: 1,
+      section: "connectors",
+      transferable: false,
+    },
+  ],
 };

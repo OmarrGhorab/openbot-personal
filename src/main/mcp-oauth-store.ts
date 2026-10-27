@@ -91,6 +91,12 @@ export class McpOAuthStore implements McpOAuthStorage {
     return this.#records.get(resource) ?? null;
   }
 
+  /** The resources this computer signed in to, sorted, for a transfer that carries no token. */
+  resources(): string[] {
+    if (!this.#loaded) throw new Error("The MCP sign-in store is not loaded.");
+    return [...this.#records.keys()].sort((left, right) => left.localeCompare(right, "en"));
+  }
+
   write(resource: string, record: McpOAuthRecord): Effect.Effect<void, McpOperationError> {
     return this.#enqueue(
       Effect.gen({ self: this }, function* () {

@@ -1,5 +1,9 @@
 import { rm } from "node:fs/promises";
-import { parseApplyInstanceTransferInput, parseExportInstanceInput } from "@openbot/contracts/ipc";
+import {
+  decodeSealInstanceTransferSecretsResult,
+  parseApplyInstanceTransferInput,
+  parseExportInstanceInput,
+} from "@openbot/contracts/ipc";
 import {
   INSTANCE_TRANSFER_CAPABILITY,
   INSTANCE_TRANSFER_REMOTE_BYTES,
@@ -9,6 +13,10 @@ import {
   INSTANCE_TRANSFER_V2_CAPABILITY,
   INSTANCE_TRANSFER_V2_ROUTES,
 } from "@openbot/contracts/team-protocol/instance-transfer-v2";
+import {
+  INSTANCE_TRANSFER_V3_CAPABILITY,
+  INSTANCE_TRANSFER_V3_ROUTES,
+} from "@openbot/contracts/team-protocol/instance-transfer-v3";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { runCauseEffect } from "../../backend/effect-boundary";
@@ -19,9 +27,14 @@ import { readBinary, readJson, requireAdmin, stringField } from "./request-helpe
 import { answer } from "./route-agent-import";
 import { sendFile } from "./route-files";
 
+/** `INPUT_LIMITS.identifier`. The v3 codec bounds each id too; this checks it again before use. */
+const isSecretId = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0 && value.length <= 128;
+
 const V1_ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_ROUTES));
 const V2_ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_V2_ROUTES));
-const ROUTES: ReadonlySet<string> = new Set([...V1_ROUTES, ...V2_ROUTES]);
+const V3_ROUTES: ReadonlySet<string> = new Set(Object.values(INSTANCE_TRANSFER_V3_ROUTES));
+const ROUTES: ReadonlySet<string> = new Set([...V1_ROUTES, ...V2_ROUTES, ...V3_ROUTES]);
 
 /**
  * The server's agents and server settings to or from an OpenBot transfer file. Only an owner or an
@@ -39,6 +52,8 @@ export async function routeInstanceTransfer(
   if (!instanceTransfer || !capabilities.has(INSTANCE_TRANSFER_CAPABILITY))
     throw new HttpError(400, sourceText("error.team.instanceTransferUnsupported"));
   if (V2_ROUTES.has(url.pathname) && !capabilities.has(INSTANCE_TRANSFER_V2_CAPABILITY))
+    throw new HttpError(400, sourceText("error.team.instanceTransferUnsupported"));
+  if (V3_ROUTES.has(url.pathname) && !capabilities.has(INSTANCE_TRANSFER_V3_CAPABILITY))
     throw new HttpError(400, sourceText("error.team.instanceTransferUnsupported"));
   requireAdmin(member);
 
@@ -76,6 +91,38 @@ export async function routeInstanceTransfer(
     case INSTANCE_TRANSFER_ROUTES.discard:
       await Effect.runPromise(instanceTransfer.discard(stringField(await readJson(request), "token"), member.id));
       return json(200, {});
+    case INSTANCE_TRANSFER_V3_ROUTES.secrets:
+      return json(200, await answer(() => runCauseEffect(instanceTransfer.listSecrets()), 400));
+    case INSTANCE_TRANSFER_V3_ROUTES.key: {
+      // `readJson` has already run the body through the v3 wire codec.
+      const migrationId = stringField(await readJson(request), "migrationId");
+      return json(
+        200,
+        await answer(() => runCauseEffect(instanceTransfer.createSecretKey(migrationId, member.id)), 409),
+      );
+    }
+    case INSTANCE_TRANSFER_V3_ROUTES.seal: {
+      const body = await readJson(request);
+      const migrationId = stringField(body, "migrationId");
+      const targetPublicKey = stringField(body, "targetPublicKey");
+      const ids = body.ids;
+      if (!Array.isArray(ids) || ids.length === 0 || ids.length > 64 || !ids.every(isSecretId))
+        throw new HttpError(400, sourceText("error.import.transferSecretInvalid"));
+      return json(
+        200,
+        await answer(() => runCauseEffect(instanceTransfer.sealSecrets({ migrationId, targetPublicKey, ids })), 400),
+      );
+    }
+    case INSTANCE_TRANSFER_V3_ROUTES.apply: {
+      const body = await readJson(request);
+      const migrationId = stringField(body, "migrationId");
+      // The v3 wire codec read every field; this checks the bounds again before a key is used.
+      const items = decodeSealInstanceTransferSecretsResult({ items: body.items, failed: [] }).items;
+      return json(
+        200,
+        await answer(() => runCauseEffect(instanceTransfer.applySecrets(migrationId, items, member.id)), 409),
+      );
+    }
     case INSTANCE_TRANSFER_V2_ROUTES.rollback: {
       // `readJson` has already run the body through the v2 wire codec.
       const migrationId = stringField(await readJson(request), "migrationId");

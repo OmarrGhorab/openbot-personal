@@ -578,6 +578,29 @@ joined target must be administered by this account and advertise `instance-trans
 upload limit applies whenever the target is a joined server; this computer reads its own 2 GB limit
 even when it is the target of a copy.
 
+The archive stays free of credentials. During **Copy setup to…**, the desktop can instead send
+supported saved credentials as a separate sealed hand-off after the target applies the archive.
+`instance-transfer-v3` uses a fresh X25519 key for one migration, derives an AES-256-GCM key per item,
+and binds each item to its migration and id. The target keeps its private key in memory for five
+minutes and consumes it once. The sealed values travel over the authenticated server connection,
+never through the renderer, archive, temp files, or analytics. The target's existing credential
+stores encrypt accepted values with the system's secure storage.
+
+| Credential | Copy behavior |
+| --- | --- |
+| Built-in provider API keys | Sealed and copied when the target has no key; target key wins otherwise. |
+| GitHub connector | Sealed and copied when the target is not signed in; the account login appears in the preview. |
+| 1Password service-account token | Sealed and copied when the target has no token. |
+| Provider OAuth sign-ins | Re-authenticate on the target; refresh-token portability is not proven. |
+| Custom-provider API keys and headers | Sealed when the matching provider id and origin exist on the target; target values win. Otherwise, re-authenticate. |
+| MCP environment and header values | Re-authenticate on the target because this build stores them as plaintext JSON. |
+| MCP OAuth, Bitwarden, and browser sign-ins | Re-authenticate on the target. |
+| Passkeys and device-bound sign-ins | Not transferred. |
+
+The dialog names each item without revealing its value, lets the user exclude a supported item, and
+opens the target's matching settings section for every item that needs another sign-in. An existing
+credential on the target is never replaced.
+
 A copy or move names its migration by a SHA-256 of the sorted manifest agent keys (`migrationIdFor` in
 `src/main/instance-transfer-ledger.ts`), so a retry of the same selection resumes rather than stages a
 second migration. The target records the migration in `userData/instance-transfer-migrations.json`,

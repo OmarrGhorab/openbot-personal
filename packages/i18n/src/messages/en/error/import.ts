@@ -63,6 +63,26 @@ export const messages = defineMessages("error.import", {
   "error.import.transferArchiveInvalid": "That file is not an archive this computer made.",
   "error.import.transferLedgerUnreadable":
     "The target's record of this transfer could not be read, so it may repeat some earlier steps.",
+  "error.import.transferLedgerUnwritable":
+    "This server could not record the transfer, so its secrets cannot follow. Enter them again in Settings.",
+  "error.import.transferSecretsUnsupported":
+    "This connection cannot receive secrets. Update OpenBot on both servers, or enter them again in Settings.",
+  "error.import.transferSecretsStale": "The secrets on this server changed. Choose them again.",
+  "error.import.transferSecretsLedger": "This server did not record the transfer, so it cannot receive its secrets.",
+  "error.import.transferSecretKeyInvalid": "The other server sent an invalid key, so no secret was sent.",
+  "error.import.transferSecretKeyExpired": "The other server is no longer ready for secrets. Run the copy again.",
+  "error.import.transferSecretGone": "This secret is no longer on this server.",
+  "error.import.transferSecretUnsupported": "This sign-in has to be made again on the other server.",
+  "error.import.transferSecretSeal": "This secret could not be encrypted, so it was not sent.",
+  "error.import.transferSecretTooLarge": "The selected secrets are too large to send. Choose fewer of them.",
+  "error.import.transferSecretInvalid": "A secret could not be read safely, so it was not applied.",
+  "error.import.transferSecretApply": "This secret could not be saved on the other server.",
+  "error.import.transferSecretProviderUnknown": "The other server does not know this provider.",
+  "error.import.transferSecretCustomProviderMissing":
+    "The matching custom provider is not on the other server, so its key was not added.",
+  "error.import.transferSecretGithub": "GitHub did not accept this sign-in on the other server. Sign in again there.",
+  "error.import.transferSecretOnePassword":
+    "1Password did not accept this token on the other server. Connect it again there.",
   "error.import.transferNotFile": "This file is not an OpenBot transfer file.",
   "error.import.transferNewer": "A newer version of OpenBot made this file. Update OpenBot and try again.",
   "error.import.transferEmpty": "The file contains no agents and no settings.",
