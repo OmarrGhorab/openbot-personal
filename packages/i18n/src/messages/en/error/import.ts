@@ -94,6 +94,13 @@ export const messages = defineMessages("error.import", {
     '{name}: the model "{model}" is not available here yet, so the agent uses the default model. Choose the model again when its provider is ready.',
   "error.import.transferSettingSkipped": "{name} is not imported. {reason}",
   "error.import.transferRoutineFlowSkipped": "The import left out a routine flow. {reason}",
+  "error.import.historyFileInvalid":
+    "The chat history of {name} cannot be read, so its conversations are not imported.",
+  "error.import.historyThreadSkipped": "A conversation of {name} is invalid, so it is not imported.",
+  "error.import.historyMessagesSkipped":
+    "Some messages in a conversation of {name} are invalid, so they are not imported.",
+  "error.import.historyAttachmentNotCopied":
+    "The attachment {attachment} is not copied, so its message is imported without it.",
   "error.import.transferCustomAgentCommand":
     '{name}: custom agents are not imported, because they run a command. Check the command "{command}" and add the agent again in Settings.',
   "error.import.transferSkillLimit":

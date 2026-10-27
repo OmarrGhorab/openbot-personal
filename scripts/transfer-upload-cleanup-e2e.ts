@@ -64,6 +64,15 @@ function service(uploadDirectory: string): InstanceTransferService {
     listRoutines: (_agentId) => {
       throw unexpected("listRoutines");
     },
+    listConversationThreads: (_agentId) => {
+      throw unexpected("listConversationThreads");
+    },
+    readConversationThread: (_agentId, _threadId) => {
+      throw unexpected("readConversationThread");
+    },
+    importConversationThread: (_input) => {
+      throw unexpected("importConversationThread");
+    },
     listMemories: (_agentId) => {
       throw unexpected("listMemories");
     },

@@ -1,10 +1,11 @@
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentMemory, AgentSummary, Routine } from "@openbot/contracts/ipc";
+import type { AgentMemory, AgentSummary, ConversationMessage, Routine } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import { strToU8, zipSync } from "fflate";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { afterEach, describe, expect, it } from "vitest";
+import { CONVERSATIONS_FILE, type ConversationSource, importedThreadId } from "./instance-transfer-conversations";
 import { migrationIdFor, writeMigration } from "./instance-transfer-ledger";
 import {
   INSTANCE_TRANSFER_FORMAT,
@@ -64,6 +65,10 @@ interface Store {
   agents: Map<string, AgentSummary>;
   routines: Map<string, Routine[]>;
   memories: Map<string, AgentMemory[]>;
+  /** The conversations each agent keeps, as the database lists them. */
+  threads: Map<string, ConversationSource[]>;
+  /** What an import wrote, by agent and thread id. A write of an id that exists replaces it. */
+  imported: Map<string, Map<string, { title: string; createdAt: string; messages: ConversationMessage[] }>>;
   /** Agents whose deletion fails, to check the retained list and a rollback that can retry. */
   failing: Set<string>;
   removedFromSidebar: string[];
@@ -75,6 +80,8 @@ function store(): Store {
     agents: new Map(),
     routines: new Map(),
     memories: new Map(),
+    threads: new Map(),
+    imported: new Map(),
     failing: new Set(),
     removedFromSidebar: [],
     nextId: 1,
@@ -142,6 +149,25 @@ function service(root: string, state: Store): InstanceTransferService {
         return updated;
       }),
     listRoutines: (agentId) => state.routines.get(agentId) ?? [],
+    listConversationThreads: (agentId) =>
+      (state.threads.get(agentId) ?? []).map(({ threadId, title, createdAt, updatedAt }) => ({
+        threadId,
+        title,
+        createdAt,
+        updatedAt,
+      })),
+    readConversationThread: (agentId, threadId) => ({
+      agentId,
+      threadId,
+      activeTurnId: null,
+      revision: 1,
+      messages: (state.threads.get(agentId) ?? []).find((thread) => thread.threadId === threadId)?.messages ?? [],
+    }),
+    importConversationThread: ({ agentId, threadId, title, createdAt, messages }) => {
+      const byThread = state.imported.get(agentId) ?? new Map();
+      byThread.set(threadId, { title, createdAt, messages });
+      state.imported.set(agentId, byThread);
+    },
     createRoutine: (input) => {
       const id = `routine-${state.nextId++}`;
       const list = state.routines.get(input.agentId) ?? [];
@@ -470,5 +496,172 @@ describe("instance transfer migration", () => {
     expect(transfer.archivePath(`openbot-transfer-move-${MIGRATION_ALPHA}.zip`)).toBe(
       join(directory, "Archives", `openbot-transfer-move-${MIGRATION_ALPHA}.zip`),
     );
+  });
+});
+
+/** An archive whose one agent carries a `conversations.json` with the given bytes or text. */
+function historyArchive(conversations: string | Uint8Array): Uint8Array {
+  const path = `agents/${AGENT.key}/${CONVERSATIONS_FILE}`;
+  const manifest = {
+    format: INSTANCE_TRANSFER_FORMAT,
+    version: INSTANCE_TRANSFER_VERSION,
+    source: { appVersion: "test", exportedAt: "2026-10-27T00:00:00.000Z" },
+    agents: [{ ...AGENT, conversations: path }],
+    settings: null,
+    shared: null,
+    signedIn: [],
+  };
+  return zipSync({
+    [INSTANCE_TRANSFER_MANIFEST]: strToU8(JSON.stringify(manifest)),
+    [path]: typeof conversations === "string" ? strToU8(conversations) : conversations,
+  });
+}
+
+const CREATED = "2026-10-01T10:00:00.000Z";
+
+describe("instance transfer chat history", () => {
+  it("exports conversations without anything that acts, and maps a sender to its key in the file", async () => {
+    const directory = await root();
+    const state = store();
+    const source = seedAgent(state, directory, "Source");
+    const peer = seedAgent(state, directory, "Peer");
+    // What the database may hold beside a message. The file must not carry any of it.
+    const working: ConversationMessage = JSON.parse(
+      JSON.stringify({
+        id: "m2",
+        author: "agent",
+        text: "working",
+        createdAt: "2026-10-01T10:00:01.000Z",
+        status: "streaming",
+        senderAgentId: peer.id,
+        turnId: "turn-1",
+        delivery: { id: "delivery-1", status: "queued", position: 1 },
+        routine: { routineId: "r", runId: "run", name: "Daily", scheduledFor: CREATED },
+        attachments: [
+          {
+            id: "att-1",
+            name: "notes.txt",
+            size: 4,
+            kind: "file",
+            mimeType: "text/plain",
+            previewKind: "none",
+            previewUrl: "file:///private/notes.txt",
+          },
+        ],
+      }),
+    );
+    state.threads.set(source.id, [
+      {
+        threadId: "thread-main",
+        title: "Main",
+        createdAt: CREATED,
+        updatedAt: "2026-10-01T11:00:00.000Z",
+        messages: [{ id: "m1", author: "user", text: "hello", createdAt: CREATED, status: "completed" }, working],
+      },
+    ]);
+    const transfer = service(directory, state);
+    const path = join(directory, "history.zip");
+
+    await Effect.runPromise(
+      transfer.exportTo(path, { agentIds: [source.id, peer.id], includeFiles: false, includeSettings: false }),
+    );
+    const files = unzipSync(await readFile(path));
+    const manifest = JSON.parse(strFromU8(files[INSTANCE_TRANSFER_MANIFEST] ?? new Uint8Array()));
+    const exported = manifest.agents.find((agent: { name: string }) => agent.name === "Source");
+    const peerKey = manifest.agents.find((agent: { name: string }) => agent.name === "Peer").key;
+    const history = JSON.parse(strFromU8(files[exported.conversations] ?? new Uint8Array()));
+
+    expect(history.threads).toHaveLength(1);
+    const [first, second] = history.threads[0].messages;
+    expect(first).toEqual({ id: "m1", author: "user", text: "hello", createdAt: CREATED, status: "completed" });
+    expect(second).toEqual({
+      id: "m2",
+      author: "agent",
+      text: "working",
+      createdAt: "2026-10-01T10:00:01.000Z",
+      status: "interrupted",
+      senderAgentKey: peerKey,
+      attachments: [{ name: "notes.txt", size: 4, mimeType: "text/plain", kind: "file" }],
+    });
+    const serialized = strFromU8(files[exported.conversations] ?? new Uint8Array());
+    for (const forbidden of ["delivery", "routine", "turnId", "previewUrl", "/private/notes.txt"])
+      expect(serialized).not.toContain(forbidden);
+  });
+
+  it("imports a thread as read-only history, skips a bad message, and lists an attachment as not copied", async () => {
+    const directory = await root();
+    const state = store();
+    const transfer = service(directory, state);
+    const file = JSON.stringify({
+      format: "openbot-conversations",
+      version: 1,
+      threads: [
+        {
+          threadId: "thread-main",
+          title: "Main",
+          createdAt: CREATED,
+          updatedAt: CREATED,
+          messages: [
+            { id: "m1", author: "user", text: "hello", createdAt: CREATED, status: "completed" },
+            {
+              id: "m2",
+              author: "agent",
+              text: "partial",
+              createdAt: "2026-10-01T10:00:01.000Z",
+              status: "interrupted",
+              senderAgentKey: AGENT.key,
+              delivery: { id: "delivery-1", status: "queued", position: 1 },
+              routine: { routineId: "r", runId: "run", name: "Daily", scheduledFor: CREATED },
+              attachments: [{ name: "notes.txt", size: 4, mimeType: "text/plain", kind: "file" }],
+            },
+            { id: "m3", author: "agent", text: "bad", createdAt: CREATED, status: "streaming" },
+          ],
+        },
+      ],
+    });
+
+    const preview = await Effect.runPromise(transfer.stageBytes(historyArchive(file)));
+    const applied = await Effect.runPromise(
+      transfer.apply({ token: preview.token, keys: [AGENT.key], includeSettings: false }),
+    );
+
+    const agentId = applied.agents[0]?.id ?? "";
+    const threads = state.imported.get(agentId);
+    expect([...(threads?.keys() ?? [])]).toEqual([importedThreadId(agentId, AGENT.key, "thread-main")]);
+    const imported = [...(threads?.values() ?? [])][0];
+    expect(imported?.messages.map((message) => message.id)).toEqual(["m1", "m2"]);
+    expect(imported?.messages[1]).toEqual({
+      id: "m2",
+      author: "agent",
+      text: "partial",
+      createdAt: "2026-10-01T10:00:01.000Z",
+      status: "interrupted",
+      senderAgentId: agentId,
+    });
+    expect(applied.warnings.some((warning) => warning.includes("notes.txt"))).toBe(true);
+    expect(applied.warnings.some((warning) => warning.includes("invalid"))).toBe(true);
+  });
+
+  it("imports the agent and reports a history file it cannot read", async () => {
+    const directory = await root();
+    const state = store();
+    const transfer = service(directory, state);
+
+    const preview = await Effect.runPromise(transfer.stageBytes(historyArchive("{not json")));
+    const applied = await Effect.runPromise(
+      transfer.apply({ token: preview.token, keys: [AGENT.key], includeSettings: false }),
+    );
+
+    expect(applied.agents).toHaveLength(1);
+    expect(state.imported.size).toBe(0);
+    expect(applied.warnings.some((warning) => warning.includes("cannot be read"))).toBe(true);
+  });
+
+  it("gives the same thread id to the same agent and source thread, and a different one to another agent", () => {
+    const first = importedThreadId("agent-1", AGENT.key, "thread-main");
+
+    expect(first).toBe(importedThreadId("agent-1", AGENT.key, "thread-main"));
+    expect(first).not.toBe(importedThreadId("agent-2", AGENT.key, "thread-main"));
+    expect(first).toMatch(/^history-[0-9a-f]{40}$/u);
   });
 });

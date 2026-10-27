@@ -212,6 +212,7 @@ import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
 import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
+import type { AgentThreadSummary } from "./database/conversation-queries";
 import type { ProviderSession } from "./database/provider-sessions";
 import { reportOriginalFailure } from "./effect-boundary";
 import type { HostMemory } from "./host-memory";
@@ -1613,6 +1614,32 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   listRoutines(agentId: string): Routine[] {
     return this.#routines.list(agentId);
+  }
+
+  /** The conversations an agent keeps, for an instance transfer. Its own chat is one of them. */
+  listConversationThreads(agentId: string): AgentThreadSummary[] {
+    return this.#store.database.listAgentThreads(agentId);
+  }
+
+  readConversationThread(agentId: string, threadId: string): ConversationSnapshot {
+    return this.#store.database.readConversation(agentId, threadId);
+  }
+
+  /** Writes one imported thread as read-only history: no turn is active and nothing is queued. */
+  importConversationThread(input: {
+    agentId: string;
+    threadId: string;
+    title: string;
+    createdAt: string;
+    messages: ConversationMessage[];
+  }): void {
+    this.#store.database.persistConversation(
+      { agentId: input.agentId, threadId: input.threadId, activeTurnId: null, revision: 0, messages: input.messages },
+      "instance-transfer.history-imported",
+      {},
+      undefined,
+      { title: input.title, createdAt: input.createdAt },
+    );
   }
 
   createRoutine(input: CreateRoutineInput, options: RoutineMutationOptions = {}): Routine {

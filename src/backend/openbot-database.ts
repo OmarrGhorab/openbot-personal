@@ -12,9 +12,13 @@ import type {
   HostedSiteConversationEventStatus,
 } from "@openbot/contracts/ipc";
 import { AgentHistoryQueries, type AgentHistorySelection } from "./database/agent-history-queries";
-import { type AgentModelChange, AgentRoster } from "./database/agent-roster";
+import { type AgentModelChange, AgentRoster, type ImportedThreadProjection } from "./database/agent-roster";
 import { AgentUsage } from "./database/agent-usage";
-import { type ConversationMarkerExclusions, ConversationQueries } from "./database/conversation-queries";
+import {
+  type AgentThreadSummary,
+  type ConversationMarkerExclusions,
+  ConversationQueries,
+} from "./database/conversation-queries";
 import { ConversationWriter } from "./database/conversation-writer";
 import { DatabaseCore, type OrchestrationEventInput } from "./database/database-core";
 import {
@@ -259,8 +263,13 @@ export class OpenBotDatabase {
     eventType: string,
     payload: unknown = {},
     commandId = `conversation:${eventType}:${randomUUID()}`,
+    imported?: ImportedThreadProjection,
   ): ConversationSnapshot {
-    return this.#conversationWrites.persistConversation(snapshot, eventType, payload, commandId);
+    return this.#conversationWrites.persistConversation(snapshot, eventType, payload, commandId, imported);
+  }
+
+  listAgentThreads(agentId: string): AgentThreadSummary[] {
+    return this.#conversations.listAgentThreads(agentId);
   }
 
   /** Writes one message of a thread, for a caller that knows only that message changed. */

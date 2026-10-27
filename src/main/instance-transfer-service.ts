@@ -27,6 +27,8 @@ import {
   AVATAR_SEED_PATTERN,
   type AvatarImageInput,
   type ConnectRoutineFlowInput,
+  type ConversationMessage,
+  type ConversationSnapshot,
   type CreateAgentInput,
   type CreateRoutineInput,
   type CustomAgentSummary,
@@ -58,6 +60,7 @@ import { INSTANCE_TRANSFER_REMOTE_BYTES } from "@openbot/contracts/team-protocol
 import { sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Result, Semaphore } from "effect";
 import { Zip, ZipPassThrough, zipSync } from "fflate";
+import type { AgentThreadSummary } from "../backend/database/conversation-queries";
 import { isMissingFileError } from "../backend/file-errors";
 import { isPathInside } from "../backend/path-containment";
 import {
@@ -75,6 +78,13 @@ import {
 import type { AgentImportSkills } from "./agent-import-service";
 import { validTimezone } from "./agent-marketplace-service";
 import { type ArchiveOperationError, archiveCall, archiveFailure, archiveSync } from "./archive-effects";
+import {
+  CONVERSATIONS_FILE,
+  decodeConversations,
+  encodeConversations,
+  importedMessages,
+  importedThreadId,
+} from "./instance-transfer-conversations";
 import {
   type MigrationRecord,
   migrationIdFor,
@@ -138,6 +148,15 @@ const AVATAR_EXTENSIONS: Record<AvatarImageInput["mimeType"], string> = {
 interface InstanceTransferAgents {
   listAgents(): AgentSummary[];
   listRoutines(agentId: string): Routine[];
+  listConversationThreads(agentId: string): AgentThreadSummary[];
+  readConversationThread(agentId: string, threadId: string): ConversationSnapshot;
+  importConversationThread(input: {
+    agentId: string;
+    threadId: string;
+    title: string;
+    createdAt: string;
+    messages: ConversationMessage[];
+  }): void;
   listMemories(agentId: string): AgentMemory[];
   getMemorySelection(agentId: string): Pick<AgentMemorySelectionState, "selections">;
   setMemoryInclusion(input: SetAgentMemoryInclusionInput): unknown;
@@ -279,12 +298,14 @@ export class InstanceTransferService {
 
     const entries: ZipEntry[] = [];
     const warnings: string[] = [];
-    const keys = new Map<string, string>();
+    // Keys are settled before the loop, so a message from another agent in the export can name its key.
+    const keys = new Map(
+      agents.map((agent, index) => [agent.id, isAgentImportKey(agent.id) ? agent.id : `agent-${index + 1}`] as const),
+    );
     const manifestAgents: TransferAgent[] = [];
     let bytes = 0;
     for (const [index, agent] of agents.entries()) {
-      const key = isAgentImportKey(agent.id) ? agent.id : `agent-${index + 1}`;
-      keys.set(agent.id, key);
+      const key = keys.get(agent.id) ?? `agent-${index + 1}`;
       const prefix = agentPrefix(key);
 
       let avatar: string | null = null;
@@ -351,9 +372,17 @@ export class InstanceTransferService {
           .selections.filter((selection) => selection.userControlled)
           .map((selection) => [selection.memoryId, selection.inclusion] as const),
       );
+      const conversations = this.#conversationsFile(agent.id, keys);
+      const conversationsPath = conversations ? `${prefix}${CONVERSATIONS_FILE}` : undefined;
+      if (conversations) {
+        bytes += conversations.byteLength;
+        entries.push({ name: `${prefix}${CONVERSATIONS_FILE}`, read: () => Promise.resolve(conversations) });
+      }
+
       manifestAgents.push({
         key,
         name: agent.name,
+        ...(conversationsPath ? { conversations: conversationsPath } : {}),
         title: agent.title,
         description: agent.description,
         avatarSeed: agent.avatarSeed,
@@ -1111,6 +1140,41 @@ export class InstanceTransferService {
     if (kept > 0) warnings.push(sourceText("error.import.transferSharedKept", { number: kept }));
   });
 
+  /** The agent's conversations as one file, or null when it has none. The rows are local, so this is sync. */
+  #conversationsFile(agentId: string, keys: ReadonlyMap<string, string>): Uint8Array | null {
+    const threads = this.options.agents.listConversationThreads(agentId).map((summary) => ({
+      ...summary,
+      messages: this.options.agents.readConversationThread(agentId, summary.threadId).messages,
+    }));
+    if (threads.length === 0) return null;
+    return encodeConversations(threads, (id) => keys.get(id) ?? null);
+  }
+
+  /** Writes the agent's conversations as read-only history. A bad file or thread is reported, not fatal. */
+  #importHistory(agentId: string, source: TransferAgent, files: Record<string, Uint8Array>, warnings: string[]): void {
+    if (!source.conversations) return;
+    const bytes = files[source.conversations];
+    if (!bytes) {
+      warnings.push(sourceText("error.import.historyFileInvalid", { name: source.name }));
+      return;
+    }
+    const decoded = decodeConversations(bytes, source.name);
+    warnings.push(...decoded.warnings);
+    for (const thread of decoded.threads) {
+      try {
+        this.options.agents.importConversationThread({
+          agentId,
+          threadId: importedThreadId(agentId, source.key, thread.threadId),
+          title: thread.title,
+          createdAt: thread.createdAt,
+          messages: importedMessages(thread, source.key, agentId, source.name, warnings),
+        });
+      } catch {
+        warnings.push(sourceText("error.import.historyThreadSkipped", { name: source.name }));
+      }
+    }
+  }
+
   readonly #importAgent = Effect.fn("InstanceTransfer.importAgent")(function* (
     this: InstanceTransferService,
     bytes: Uint8Array,
@@ -1323,6 +1387,7 @@ export class InstanceTransferService {
               ...(source.taskLimit === undefined ? {} : { taskLimit: source.taskLimit }),
             })
             .pipe(Effect.mapError(failure));
+          this.#importHistory(agent.id, source, files, warnings);
           if (entry) {
             entry.done = true;
             yield* save();

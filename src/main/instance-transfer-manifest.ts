@@ -62,6 +62,8 @@ const Agent = Schema.Struct({
   avatarHue: Schema.NullOr(guarded(isAvatarHue)),
   /** An archive path inside `agents/<key>/`, checked below. */
   avatar: Schema.NullOr(text(512)),
+  /** The chat history file inside `agents/<key>/`, checked below. Absent when the agent has no history. */
+  conversations: Schema.optionalKey(text(512)),
   provider: Provider,
   model: name(256),
   reasoningEffort: guarded(isReasoningEffort),
@@ -202,7 +204,9 @@ export function decodeTransferManifest(bytes: Uint8Array): { manifest: TransferM
 /** Every path an agent names is inside its own `agents/<key>/` folder. */
 function hasSafePaths(agent: TransferAgent): boolean {
   const prefix = `agents/${agent.key}/`;
-  const paths = [agent.avatar, agent.files, ...agent.skills].filter((path): path is string => path !== null);
+  const paths = [agent.avatar, agent.files, agent.conversations, ...agent.skills].filter(
+    (path): path is string => typeof path === "string",
+  );
   return paths.every((path) => path.startsWith(prefix) && !isUnsafeArchivePath(path));
 }
 
