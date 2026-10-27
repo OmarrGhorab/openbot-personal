@@ -30,6 +30,8 @@ import {
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
+import { classifyFailure } from "../packages/telemetry/src/events";
+import { usageLimitAskBodyKey } from "../packages/ui/src/features/conversation/usage-limit-copy";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import type { AgentClient, DiagnosticOrigin } from "../src/backend/agent-client";
 import type { ClaudeCliInfo } from "../src/backend/cli";
@@ -43,6 +45,8 @@ const userData = join(root, "user-data");
 const home = join(root, "home");
 const turnLog = join(root, "claude-turns.jsonl");
 const failingFile = join(root, "failing.json");
+// One line per tool run of the stand-in, so a repeated run of a tool shows as a second line.
+const effectsFile = join(root, "effects.log");
 const claudeExecutable = join(root, "claude");
 const PRIMARY: AgentModelId = defaultProviderModel("claude");
 const BACKUP: AgentModelId = PRIMARY === "claude-sonnet-5-5" ? "claude-opus-5-5" : "claude-sonnet-5-5";
@@ -64,6 +68,8 @@ const ERRORS: Record<string, string> = {
 
 // Before the service modules load: the stores and the CLI search read these.
 process.env.HOME = home;
+// Claude's transcripts are read from this directory, so the check never reads the user's own config.
+process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
 process.env.OPENBOT_CLAUDE_PATH = claudeExecutable;
 mkdirSync(home, { recursive: true });
 
@@ -96,18 +102,49 @@ const result = (fields) =>
   write({ type: "result", subtype: "success", session_id: sessionId, uuid: randomUUID(), duration_ms: 1,
     duration_api_ms: 1, num_turns: 1, total_cost_usd: 0, usage: { input_tokens: 0, output_tokens: 0 },
     permission_denials: [], modelUsage: {}, ...fields });
-const assistant = (text) =>
-  write({ type: "assistant", message: { id: "msg_" + randomUUID(), type: "message", role: "assistant", model,
-    content: [{ type: "text", text }], stop_reason: null, usage: { input_tokens: 1, output_tokens: 1 } },
-    parent_tool_use_id: null, session_id: sessionId, uuid: randomUUID() });
+// The transcript goes where the client reads it: CLAUDE_CONFIG_DIR of the agent, or the default config directory.
+const transcriptDir = (process.env.CLAUDE_CONFIG_DIR ?? ${JSON.stringify(join(home, ".claude"))}) + "/projects/e2e-project";
+const effectsFile = ${JSON.stringify(effectsFile)};
+// The session transcript the Claude client reads its work steps from.
+// Each record names the one before it, as Claude's transcript does, so the reader finds the conversation.
+const record = (value) => {
+  fs.mkdirSync(transcriptDir, { recursive: true });
+  const file = transcriptDir + "/" + sessionId + ".jsonl";
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\\n").filter(Boolean) : [];
+  const parentUuid = lines.length ? JSON.parse(lines[lines.length - 1]).uuid : null;
+  fs.appendFileSync(file, JSON.stringify({ uuid: randomUUID(), parentUuid, sessionId, timestamp: new Date().toISOString(), ...value }) + "\\n");
+};
+// The text of a user message: its string content, or the text of its blocks.
+const userText = (content) =>
+  typeof content === "string" ? content : (Array.isArray(content) ? content.map((block) => block.text ?? "").join("\\n") : "");
+const assistantBlocks = (content) => {
+  write({ type: "assistant", message: { id: "msg_" + randomUUID(), type: "message", role: "assistant", model, content,
+    stop_reason: null, usage: { input_tokens: 1, output_tokens: 1 } }, parent_tool_use_id: null, session_id: sessionId, uuid: randomUUID() });
+  record({ type: "assistant", message: { role: "assistant", model, content } });
+};
+const assistant = (text) => assistantBlocks([{ type: "text", text }]);
 const turn = (message) => {
   const failing = JSON.parse(fs.readFileSync(${JSON.stringify(failingFile)}, "utf8"));
   const entry = failing.find((item) => item.split("|")[0] === model);
   const fails = entry !== undefined;
   const errors = ${JSON.stringify(ERRORS)};
   const kind = entry?.split("|")[1] ?? "overload";
-  const acts = JSON.stringify(message).includes("act-then-fail");
-  fs.appendFileSync(${JSON.stringify(turnLog)}, JSON.stringify({ model, failed: fails, prompt: JSON.stringify(message) }) + "\\n");
+  const body = JSON.stringify(message);
+  const acts = body.includes("act-then-fail");
+  // A turn that asks for a tool runs it, unless its prompt already holds the work steps of an earlier
+  // attempt. A model that reads those steps does not run the tool again.
+  const runsTool = body.includes("use-tool") && !body.includes("[work steps]");
+  fs.appendFileSync(${JSON.stringify(turnLog)}, JSON.stringify({ model, failed: fails, prompt: body }) + "\\n");
+  // The user record keeps the uuid that OpenBot sent: the reader names the turn by it, as the CLI does.
+  record({ ...(message.uuid ? { uuid: message.uuid } : {}), type: "user", message: { role: "user", content: userText(message.message?.content) } });
+  if (runsTool) {
+    const id = "toolu_e2e_" + randomUUID().slice(0, 8);
+    fs.appendFileSync(effectsFile, "run\\n");
+    assistantBlocks([{ type: "tool_use", id, name: "Bash", input: { command: "e2e-effect" } }]);
+    const toolResult = [{ type: "tool_result", tool_use_id: id, content: "ok" }];
+    write({ type: "user", message: { role: "user", content: toolResult }, parent_tool_use_id: null, session_id: sessionId, uuid: randomUUID() });
+    record({ type: "user", message: { role: "user", content: toolResult } });
+  }
   if (fails) {
     if (acts) assistant("Partial answer.");
     result({ is_error: true, result: errors[kind] });
@@ -365,6 +402,15 @@ async function callTool(tool: string, args: unknown) {
   return { success: answer.success === true, text: item.text };
 }
 
+/** How many tool runs the stand-in made so far. */
+function effectRuns(): number {
+  try {
+    return readFileSync(effectsFile, "utf8").split("\n").filter(Boolean).length;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Stops the service and starts it again with these models failing. A provider error holds its model
  * for ten minutes in memory, so each check that needs its own model free starts from a restart.
@@ -382,6 +428,46 @@ async function check(name: string, run: () => Promise<unknown>) {
 }
 
 try {
+  // Each sample is the text a provider reports for a limit or an outage, as its CLI or API writes it.
+  // The cause decides whether a turn moves to a backup model (`FAILOVER_CAUSES`) or waits for a reset.
+  await check("limit and outage errors of each provider are classified", async () => {
+    const samples: { provider: string; input: unknown; cause: string }[] = [
+      {
+        provider: "claude",
+        input: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error"}}',
+        cause: "provider_unavailable",
+      },
+      {
+        provider: "claude",
+        input: 'API Error: 429 {"type":"error","error":{"type":"rate_limit_error"}}',
+        cause: "rate_limit",
+      },
+      { provider: "claude", input: "API Error: 402 insufficient quota", cause: "billing" },
+      { provider: "claude", input: "You've hit your session limit · resets 5pm", cause: "usage_limit" },
+      { provider: "codex", input: { codexErrorInfo: "serverOverloaded" }, cause: "provider_unavailable" },
+      { provider: "codex", input: { codexErrorInfo: "rateLimitExceeded" }, cause: "rate_limit" },
+      { provider: "codex", input: { codexErrorInfo: "usageLimitExceeded" }, cause: "usage_limit" },
+      { provider: "openai", input: "Rate limit reached for gpt. code: rate_limit_exceeded", cause: "rate_limit" },
+      {
+        provider: "openai",
+        input: "Error code: 500 - the server had an error while processing",
+        cause: "provider_unavailable",
+      },
+      { provider: "gemini", input: "429 Too Many Requests", cause: "rate_limit" },
+      {
+        provider: "gemini",
+        input: "503 UNAVAILABLE: The model is overloaded. Please try again later.",
+        cause: "provider_unavailable",
+      },
+    ];
+    const mismatches = samples.flatMap((sample) => {
+      const actual = classifyFailure(sample.input);
+      return actual === sample.cause ? [] : [{ provider: sample.provider, expected: sample.cause, actual }];
+    });
+    assert.deepEqual(mismatches, [], "Each sample has its expected cause.");
+    return { samples: samples.length };
+  });
+
   await runCauseEffect(service.initialize());
   const create = (name: string) =>
     runCauseEffect(
@@ -403,7 +489,8 @@ try {
   const quota = await create("Quota");
   const exhausted = await create("Exhausted");
   const plan = await create("Plan");
-  const all = [mover, stayer, writer, asker, rate, quota, exhausted, plan];
+  const tools = await create("Tools");
+  const all = [mover, stayer, writer, asker, rate, quota, exhausted, plan, tools];
   await waitFor("the first turns to end", () => {
     const queued = all.some((agent) =>
       service
@@ -419,7 +506,7 @@ try {
         backupModels: { automatic: true, order: [{ provider: "claude", model: BACKUP }] },
       }),
     );
-  for (const agent of [mover, writer, rate, quota, exhausted, plan]) await automatic(agent);
+  for (const agent of [mover, writer, rate, quota, exhausted, plan, tools]) await automatic(agent);
   await runCauseEffect(
     service.updateAgent({
       agentId: asker.id,
@@ -555,6 +642,26 @@ try {
     return { ran: ran.map((turn) => turn.model), notes };
   });
 
+  await check("a tool step that ran before a limit does not run again on the backup", async () => {
+    await restart([PRIMARY]);
+    const runsBefore = effectRuns();
+    const before = turns().length;
+    const outcome = await send(tools.id, "use-tool act-then-fail");
+    assert.equal(outcome.status, "completed", `The message completes: ${outcome.error}`);
+    const ran = turns().slice(before);
+    assert.deepEqual(
+      ran.map((turn) => turn.model),
+      [PRIMARY, BACKUP],
+      "The message runs once on each model.",
+    );
+    const retry = ran[1]?.prompt ?? "";
+    assert.ok(retry.includes("[work steps]"), "The backup turn starts with the work steps of the first attempt.");
+    assert.ok(retry.includes("tool Bash"), "The work steps name the tool that ran.");
+    assert.equal(effectRuns() - runsBefore, 1, "The tool ran once, on the first attempt only.");
+    assert.equal(agentOf(tools.id).model, BACKUP, "The agent is on the backup model.");
+    return { ran: ran.map((turn) => turn.model), toolRuns: effectRuns() - runsBefore };
+  });
+
   await check("when the backup fails too, the turn fails once and does not loop", async () => {
     await restart([PRIMARY, BACKUP]);
     const since = events.length;
@@ -589,7 +696,49 @@ try {
     return { notes };
   });
 
-  report.passed = report.checks.length === 9;
+  // The card's text, derived from the held state the service reports, through the same choice the card makes.
+  await check("the usage-limit card text follows the held state", async () => {
+    await restart([`${PRIMARY}|limit`, `${BACKUP}|limit`]);
+    // Both models hit a plan window: the exhausted agent moves to BACKUP and holds there, and the other
+    // agent holds on its own model with no backup set.
+    await runCauseEffect(service.sendMessage({ agentId: exhausted.id, text: "work" }));
+    await waitFor("the exhausted agent to hold", () => {
+      const held = service.getRuntimeSnapshot().usageLimits ?? [];
+      return held.some((entry) => entry.agentId === exhausted.id) ? held : null;
+    });
+    await runCauseEffect(service.sendMessage({ agentId: stayer.id, text: "work" }));
+    const snapshot = await waitFor("both agents to hold", () => {
+      const current = service.getRuntimeSnapshot();
+      const held = current.usageLimits ?? [];
+      return held.some((entry) => entry.agentId === stayer.id) && held.some((entry) => entry.agentId === exhausted.id)
+        ? current
+        : null;
+    });
+    const limited = snapshot.usageLimitedModels ?? [];
+    const card = (agentId: string) => {
+      const agent = agentOf(agentId);
+      const own = { provider: agent.provider, model: agent.model };
+      const options = service
+        .listModels()
+        .filter((model) => !(model.provider === own.provider && model.id === own.model))
+        .filter((model) => !limited.some((held) => held.provider === model.provider && held.model === model.id));
+      const hold = (snapshot.usageLimits ?? []).find((entry) => entry.agentId === agentId);
+      return {
+        key: usageLimitAskBodyKey({
+          optionCount: options.length,
+          hasBackup: (agent.backupModels?.order.length ?? 0) > 0,
+          hasReset: hold?.resetsAt !== null && hold?.resetsAt !== undefined,
+        }),
+      };
+    };
+    const exhaustedCard = card(exhausted.id);
+    const stayerCard = card(stayer.id);
+    assert.equal(exhaustedCard.key, "chat.usageLimit.exhausted", "Every backup is at its limit.");
+    assert.equal(stayerCard.key, "chat.usageLimit.noBackup", "No backup is set and no other model is ready.");
+    return { exhausted: exhaustedCard.key, stayer: stayerCard.key };
+  });
+
+  report.passed = report.checks.length === 12;
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);
   process.exitCode = 1;

@@ -40,6 +40,7 @@ import { errorReference } from "@openbot/user-errors";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { formatUsageReset } from "./ComposerNotice";
+import { usageLimitAskBodyKey } from "./usage-limit-copy";
 
 /** `limit`: a usage limit holds it now. `unavailable`: its provider or account cannot run it now. */
 export type BackupModelState = "ready" | "limit" | "unavailable";
@@ -330,11 +331,14 @@ export function UsageLimitAskCard(props: UsageLimitAskCardProps) {
   const [failure, setFailure] = createSignal<{ message: string; reference: string | null } | null>(null);
   const body = () => {
     const reset = formatUsageReset(props.resetsAt, format);
-    if (props.options.length === 0) {
-      if (!props.hasBackup) return t("chat.usageLimit.noBackup");
-      return reset ? t("chat.usageLimit.exhaustedReset", { reset }) : t("chat.usageLimit.exhausted");
-    }
-    return reset ? t("chat.usageLimit.bodyReset", { reset }) : t("chat.usageLimit.body");
+    const key = usageLimitAskBodyKey({
+      optionCount: props.options.length,
+      hasBackup: props.hasBackup,
+      hasReset: reset !== null,
+    });
+    if (key === "chat.usageLimit.noBackup" || key === "chat.usageLimit.exhausted" || key === "chat.usageLimit.body")
+      return t(key);
+    return t(key, { reset: reset ?? "" });
   };
   async function send(option: BackupModelOption): Promise<void> {
     setFailure(null);
