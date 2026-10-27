@@ -47,7 +47,7 @@ export function resumableTarget(target: ServerSummary): boolean {
 }
 
 /** Whether this computer can read the secrets of `server` for a transfer. */
-export function canSendSecrets(server: ServerSummary | null | undefined): server is ServerSummary {
+function canSendSecrets(server: ServerSummary | null | undefined): server is ServerSummary {
   if (!server) return false;
   if (server.kind === "local") return true;
   return serverRoleCanAdminister(server) && serverSupportsCapability(server, INSTANCE_TRANSFER_V3_CAPABILITY);
@@ -57,7 +57,7 @@ export function canSendSecrets(server: ServerSummary | null | undefined): server
  * Whether `target` can receive sealed secrets: it has the migration ledger of `instance-transfer-v2`
  * and the sealed hand-off of `instance-transfer-v3`.
  */
-export function secretsTarget(target: ServerSummary): boolean {
+function secretsTarget(target: ServerSummary): boolean {
   if (target.kind === "local") return true;
   return resumableTarget(target) && serverSupportsCapability(target, INSTANCE_TRANSFER_V3_CAPABILITY);
 }

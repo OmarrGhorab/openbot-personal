@@ -120,6 +120,60 @@ const WHISPER_TURBO_MODEL_FILES: readonly VoiceModelFile[] = [
   },
 ];
 
+const FASTCONFORMER_AR_MODEL_BASE_URL =
+  "https://github.com/OmarrGhorab/openbot-personal/releases/download/models-fastconformer-ar-v1";
+
+/** The directory name of FastConformer Arabic in `<userData>/runtimes`. A new pin needs a new name. */
+export const FASTCONFORMER_AR_MODEL_DIRECTORY = "fastconformer-ar-ctc-int8";
+
+/**
+ * NVIDIA FastConformer Hybrid Large Arabic (`stt_ar_fastconformer_hybrid_large_pc_v1.0`, CC-BY-4.0).
+ * Only its CTC branch is exported to ONNX for sherpa-onnx and quantized to int8. The export, its
+ * license, and its benchmark are in the `models-fastconformer-ar-v1` release.
+ */
+const FASTCONFORMER_AR_MODEL_FILES: readonly VoiceModelFile[] = [
+  {
+    name: "model.int8.onnx",
+    url: `${FASTCONFORMER_AR_MODEL_BASE_URL}/model.int8.onnx`,
+    bytes: 131_562_573,
+    sha256: "ce25098a710db5bf44284530707559f7b4be9b12cfc550816b5f9cc869a3c121",
+  },
+  {
+    name: "tokens.txt",
+    url: `${FASTCONFORMER_AR_MODEL_BASE_URL}/tokens.txt`,
+    bytes: 12_924,
+    sha256: "b5d39b52143723e71d997ed5dd8a68aa5facbd0a7c84a47669f83b0033d33164",
+  },
+];
+
+const WHISPER_SMALL_MODEL_REVISION = "8f3c18b358db4d1f2fc1eae49d75cd20989e4309";
+const WHISPER_SMALL_MODEL_BASE_URL = `https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/${WHISPER_SMALL_MODEL_REVISION}`;
+
+/** The directory name of Whisper small in `<userData>/runtimes`. A new pin needs a new name. */
+export const WHISPER_SMALL_MODEL_DIRECTORY = "whisper-small-int8";
+
+/** OpenAI Whisper small (MIT), int8 ONNX export for sherpa-onnx. */
+const WHISPER_SMALL_MODEL_FILES: readonly VoiceModelFile[] = [
+  {
+    name: "small-encoder.int8.onnx",
+    url: `${WHISPER_SMALL_MODEL_BASE_URL}/small-encoder.int8.onnx`,
+    bytes: 112_442_483,
+    sha256: "4cbe7b22fa9026b843b60a68640c747de05bafb1a11b57edc0e66c232d9f33a9",
+  },
+  {
+    name: "small-decoder.int8.onnx",
+    url: `${WHISPER_SMALL_MODEL_BASE_URL}/small-decoder.int8.onnx`,
+    bytes: 262_226_114,
+    sha256: "acad50b5c782696e91b55914cc5ab4f756f1532f76e22aa6fc615f39fb69a8ee",
+  },
+  {
+    name: "small-tokens.txt",
+    url: `${WHISPER_SMALL_MODEL_BASE_URL}/small-tokens.txt`,
+    bytes: 816_730,
+    sha256: "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126",
+  },
+];
+
 const SUPERTONIC_MODEL_REVISION = "cca5a0e6c96e1d2c720986bf7e75fcc81dee3ae4";
 const SUPERTONIC_MODEL_BASE_URL = `https://huggingface.co/csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11/resolve/${SUPERTONIC_MODEL_REVISION}`;
 
@@ -189,6 +243,8 @@ const VOICE_MODEL_FILES: Record<DownloadedModelId, readonly VoiceModelFile[]> = 
   "parakeet-tdt-0.6b-v3": PARAKEET_MODEL_FILES,
   "bark-3.0-plus": BARK_PLUS_MODEL_FILES,
   "whisper-turbo": WHISPER_TURBO_MODEL_FILES,
+  "fastconformer-ar": FASTCONFORMER_AR_MODEL_FILES,
+  "whisper-small": WHISPER_SMALL_MODEL_FILES,
   "supertonic-3": SUPERTONIC_MODEL_FILES,
 };
 

@@ -67,7 +67,7 @@ const Updates = createSimpleContext({
         setStatus(next);
         const succeeded =
           action === "download"
-            ? next.phase === "downloading" || next.phase === "ready"
+            ? next.phase === "downloading" || next.phase === "ready" || next.manualInstall === true
             : next.phase !== "error" && next.phase !== "unsupported";
         analytics.track("update_action", {
           action,

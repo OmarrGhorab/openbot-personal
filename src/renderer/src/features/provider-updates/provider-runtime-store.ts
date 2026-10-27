@@ -290,7 +290,10 @@ export function createProviderRuntimeStore(
         // A closed notification stays closed, including across the server switch that rebuilds this
         // store: the record of it is kept by the notification module, which outlives the switch.
         if (providerUpdateOfferClosed(update.provider, update.availableVersion)) continue;
-        showProviderUpdateToast(update, () => void startProviderUpdate(update.provider));
+        // The notification makes a root for its parts. Solid 2 does not allow a root in the
+        // callback of an effect (PRIMITIVE_IN_EFFECT_CALLBACK), and the error stopped the whole
+        // page. A microtask runs it after the callback, with no owner.
+        queueMicrotask(() => showProviderUpdateToast(update, () => void startProviderUpdate(update.provider)));
       }
       announced = next;
     },

@@ -47,12 +47,16 @@ const MODEL_ENGINES: Record<LocalVoiceModelId, VoiceTranscriptionEngine> = {
   "parakeet-tdt-0.6b-v3": "nemo-transducer",
   "bark-3.0-plus": "nemo-transducer",
   "whisper-turbo": "whisper",
+  "fastconformer-ar": "nemo-ctc",
+  "whisper-small": "whisper",
 };
 /** Bark was evaluated with 0.25 s of silence before the speech; without it, it can lose the first word. */
 const LEADING_SILENCE_SAMPLES: Record<LocalVoiceModelId, number> = {
   "parakeet-tdt-0.6b-v3": 0,
   "bark-3.0-plus": 4_000,
   "whisper-turbo": 0,
+  "fastconformer-ar": 0,
+  "whisper-small": 0,
 };
 
 /**
@@ -113,7 +117,10 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
   readonly #apiKeys: VoiceApiKeyStore;
   readonly #spawnHost: () => VoiceTranscriptionHostProcess;
   readonly #openStreamSocket: OpenVoiceStreamSocket;
-  /** One local request at a time: a warm load and a transcription must not share the host slot. */
+  /**
+   * One local request at a time: a warm load and a transcription must not share the host slot. A
+   * request that arrives while another runs waits here for its turn; it does not fail.
+   */
   readonly #requests = Semaphore.makeUnsafe(1);
   #host: VoiceTranscriptionHostProcess | null = null;
   /** The model the running host loaded. The host holds one model, so another one starts a new host. */
@@ -123,7 +130,8 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
   #pending: PendingRequest | null = null;
   #nextRequestId = 1;
   #idleTimer: NodeJS.Timeout | null = null;
-  #busy = false;
+  /** How many transcriptions run or wait for the host. A model is not removed while one does. */
+  #transcriptions = 0;
 
   constructor(options: VoiceTranscriptionServiceOptions) {
     super();
@@ -145,6 +153,8 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
       "parakeet-tdt-0.6b-v3": model("parakeet-tdt-0.6b-v3"),
       "bark-3.0-plus": model("bark-3.0-plus"),
       "whisper-turbo": model("whisper-turbo"),
+      "fastconformer-ar": model("fastconformer-ar"),
+      "whisper-small": model("whisper-small"),
     };
   }
 
@@ -193,7 +203,8 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
   ) {
     if (!isLocalVoiceModelId(modelId))
       return yield* new VoiceOperationError({ cause: new Error("A cloud model has no files to remove.") });
-    if (this.#busy) return yield* new VoiceOperationError({ cause: new Error(sourceText("error.voice.removeBusy")) });
+    if (this.#transcriptions > 0)
+      return yield* new VoiceOperationError({ cause: new Error(sourceText("error.voice.removeBusy")) });
     // A transcription that starts during the removal waits in `prepare`, then downloads the model again.
     return yield* this.#models[modelId].remove(
       Effect.suspend(() => (this.#hostModelId === modelId ? this.#endHost() : Effect.void)),
@@ -214,10 +225,11 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
   readonly transcribe = Effect.fn("VoiceTranscription.transcribe")(
     (audio: Uint8Array): Effect.Effect<VoiceTranscriptionResult, VoiceOperationError> =>
       Effect.gen({ self: this }, function* () {
-        if (this.#busy) return yield* new VoiceOperationError({ cause: new Error(sourceText("error.voice.busy")) });
+        // A request during another one, for example the final pass of a new dictation while the pass
+        // of a cancelled one still runs, waits for the host instead of failing as busy.
         return yield* Effect.acquireUseRelease(
           Effect.sync(() => {
-            this.#busy = true;
+            this.#transcriptions += 1;
           }),
           () =>
             Effect.gen({ self: this }, function* () {
@@ -257,7 +269,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
             }),
           () =>
             Effect.sync(() => {
-              this.#busy = false;
+              this.#transcriptions -= 1;
             }),
         );
       }).pipe(Effect.forkIn(this.#scope, { startImmediately: true }), Effect.flatMap(Fiber.join)),
@@ -274,7 +286,7 @@ export class VoiceTranscriptionService extends EventEmitter<VoiceTranscriptionEv
     yield* this.#requests.withPermit(
       Effect.gen({ self: this }, function* () {
         // A real request that just ran left the model loaded; a live pass owns the slot until it ends.
-        if (this.#busy || this.#pending || (this.#host && this.#hostModelId === modelId)) return;
+        if (this.#transcriptions > 0 || this.#pending || (this.#host && this.#hostModelId === modelId)) return;
         const status = yield* this.#models[modelId].getStatus();
         if (status.phase !== "ready") return;
         const startedAt = Date.now();

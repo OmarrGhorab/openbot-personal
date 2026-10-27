@@ -7,7 +7,6 @@ export const messages = {
   "error.voice.removeBusy": "استنى لحد ما تحويل الصوت لنص يخلص، وبعدين امسح الموديل.",
   "error.voice.removeFailed": "معرفتش أمسح موديل الصوت. جرّب تاني.",
   "error.voice.runtimeUnavailable": "تحويل الصوت لنص محليًا مش متاح على المنصة دي.",
-  "error.voice.busy": "فيه تحويل صوت لنص شغّال بالفعل.",
   "error.voice.modelUnavailable": "موديل الصوت مش متاح.",
   "error.voice.transcriptionTimedOut": "تحويل الصوت لنص خد وقت أطول من اللازم.",
   "error.voice.prepareRequired": "تحويل الصوت لنص محليًا مش متاح. شغّل `bun run voice:prepare` واعمل restart لـ OpenBot.",

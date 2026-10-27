@@ -63,7 +63,7 @@ import {
 } from "./handoff-history";
 import { decodeCapturedSteps, readCapturedSteps } from "./handoff-tool-steps";
 import { sessionSettingsIdentity } from "./session-settings";
-import { isArchivedThreadError, isMissingProviderSessionError } from "./thread-items";
+import { isArchivedThreadError, isMissingProviderSessionError, providerForAgent } from "./thread-items";
 import { VISIBLE_DYNAMIC_TOOLS } from "./tool-catalog";
 import { codexSandboxConfig, codexSandboxMode, workspaceWritableRoots } from "./workspace-sandbox";
 
@@ -1029,8 +1029,9 @@ export class ThreadLifecycle {
   }).bind(this);
 
   /**
-   * Closes one provider session that the provider refuses, and keeps the public thread. The next
-   * turn opens a new session, and `startProviderThread` gives it the OpenBot transcript.
+   * Closes one provider session that the provider refuses or that a limit stopped mid-turn, and keeps
+   * the public thread. The next turn opens a new session, and `startProviderThread` gives it the
+   * OpenBot transcript with the work steps of the session that closes here.
    */
   readonly dropRefusedProviderSession = Effect.fn("ThreadLifecycle.dropRefusedProviderSession")(function* (
     this: ThreadLifecycle,
@@ -1039,6 +1040,13 @@ export class ThreadLifecycle {
   ) {
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
     if (!agent) return;
+    const publicThreadId = this.#conversation.publicThreadId(agentId, externalThreadId);
+    const session = this.#store.database.activeProviderSession(publicThreadId, providerForAgent(agent));
+    if (session?.externalSessionId === externalThreadId) {
+      // The steps first: the client that holds them closes below, and the handoff reads them from the file.
+      const steps = yield* this.readWorkSteps(session);
+      if (steps !== null) yield* this.saveWorkSteps(session, steps);
+    }
     // The client first, while the routing entry that `retireProviderSession` removes still names it.
     yield* this.#releaseProviderSession(externalThreadId);
     this.retireProviderSession(agent, externalThreadId);

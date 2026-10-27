@@ -172,6 +172,10 @@ export const messages = {
   "chat.usageLimit.onHold": "الرسالة متوقفة",
   "chat.usageLimit.bodyReset": "رسالتك لسه ماابتدتش. ابعتها لموديل تاني دلوقتي، أو استنى لحد {reset}.",
   "chat.usageLimit.body": "رسالتك لسه ماابتدتش. ابعتها لموديل تاني دلوقتي، أو استنى لحد ما الحد يخلص.",
+  "chat.usageLimit.noBackup":
+    "مفيش موديل احتياطي متظبط، فالرسالة هتستنى لحد ما الحد يخلص. ضيف موديل احتياطي من إعدادات الـagent عشان يبدّل لوحده.",
+  "chat.usageLimit.exhaustedReset": "كل الموديلات الاحتياطية وصلت للحد. رسالتك هتستنى لحد {reset}.",
+  "chat.usageLimit.exhausted": "كل الموديلات الاحتياطية وصلت للحد أو مش متاحة. رسالتك هتستنى لحد ما الحد يخلص.",
   "chat.usageLimit.sendTo": "ابعت إلى",
   "chat.usageLimit.remember": "المرة الجاية بدّل من غير ما تسأل",
   "chat.usageLimit.wait": "استنى لحد ما يتصفّر",

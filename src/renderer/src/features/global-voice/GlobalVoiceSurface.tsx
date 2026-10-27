@@ -361,32 +361,58 @@ export function GlobalVoiceSurface() {
       audio_duration_seconds: audioDurationSeconds,
       duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
     });
-    // "Software Engineer, check the PR" goes to Software Engineer, without the address.
-    const address = matchAgentAddress(text, state.agents);
-    if (address && address.agentId !== state.targetId) {
-      set("targetId", address.agentId);
-      void window.openbot.globalVoice.selectAgent({ agentId: address.agentId }).catch(() => undefined);
+    try {
+      // "Software Engineer, check the PR" goes to Software Engineer, without the address.
+      const address = matchAgentAddress(text, state.agents);
+      const agentId = address?.agentId ?? state.targetId;
+      const message = address ? address.text : text;
+      if (address && address.agentId !== state.targetId) {
+        set("targetId", address.agentId);
+        void window.openbot.globalVoice.selectAgent({ agentId: address.agentId }).catch(() => undefined);
+      }
+      set("transcript", message);
+      if (state.sendAfterSpeaking) {
+        // Solid 2 holds store writes until a flush, so the text and the target go to the send as
+        // values. A read of the store here can still give the empty text of a dictation without a
+        // live preview, and the window then said "Write or say a message first" and stayed locked.
+        await sendTranscript(agentId, message);
+        return;
+      }
+      setState((draft) => {
+        draft.phase = "review";
+        draft.error = null;
+      });
+      showIsland("picker", false);
+      reviewBox?.querySelector("textarea")?.focus();
+    } catch (error) {
+      // A failure after the transcription must not keep the window in "transcribing".
+      if (current === generation) failWith(errorMessage(error, t("globalVoice.picker.dictationFailed")));
     }
-    set("transcript", address ? address.text : text);
-    if (state.sendAfterSpeaking) {
-      await sendTranscript();
-      return;
-    }
-    setState((draft) => {
-      draft.phase = "review";
-      draft.error = null;
-    });
-    showIsland("picker", false);
-    reviewBox?.querySelector("textarea")?.focus();
   }
 
-  /** Sends the text in the window to the target agent. A failed send keeps the text for another try. */
-  async function sendTranscript(): Promise<void> {
-    const agentId = state.targetId;
-    const text = state.transcript.trim();
-    if (!agentId) return;
-    if (!text) {
-      set("error", t("globalVoice.picker.emptyMessage"));
+  /**
+   * Sends the text to the target agent. A failed send keeps the text for another try. Give the text
+   * and the target as values when they were just written: the store shows a write only after a flush.
+   */
+  async function sendTranscript(
+    targetId: string | null = state.targetId,
+    transcript: string = state.transcript,
+  ): Promise<void> {
+    const agentId = targetId;
+    const text = transcript.trim();
+    if (!agentId || !text) {
+      const message = agentId ? t("globalVoice.picker.emptyMessage") : t("globalVoice.picker.dictationFailed");
+      if (state.phase !== "review") {
+        // Outside review there is no text box to write in. Go back to idle and close the window, so the
+        // next shortcut can start a new dictation or choose another agent.
+        failWith(message);
+        return;
+      }
+      set("error", message);
+      const current = generation;
+      later(() => {
+        if (current === generation && state.error === message) set("error", null);
+      }, ERROR_VISIBLE_MS);
       return;
     }
     const current = generation;
@@ -406,6 +432,7 @@ export function GlobalVoiceSurface() {
           : errorMessage(error, t("globalVoice.picker.sendFailed"));
       setState((draft) => {
         draft.phase = "review";
+        draft.transcript = text;
         draft.error = message;
       });
       showIsland("picker", false);
@@ -563,7 +590,7 @@ export function GlobalVoiceSurface() {
       void stopAndDeliver();
     } else if (state.phase === "review") {
       set("targetId", command.agentId);
-      void sendTranscript();
+      void sendTranscript(command.agentId, state.transcript);
     }
   }
 
@@ -764,7 +791,7 @@ export function GlobalVoiceSurface() {
                   type="button"
                   class="global-voice-send"
                   disabled={!state.transcript.trim()}
-                  onClick={() => void sendTranscript()}
+                  onClick={() => void sendTranscript(state.targetId, state.transcript)}
                 >
                   {t("globalVoice.picker.send")}
                 </Button>
