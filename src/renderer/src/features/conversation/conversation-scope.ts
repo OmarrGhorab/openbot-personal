@@ -22,6 +22,7 @@ import {
 } from "solid-js";
 import { createScopeGuard } from "../../scope-lifetime";
 import { createAttachmentImportSounds } from "./attachment-import-sounds";
+import { chatScrollMemory, openChatAt } from "./chat-scroll-memory";
 import { useConversationController } from "./conversation-controller-context";
 import { agentConversationKey, composerDraftKey } from "./conversation-keys";
 import { conversationRuntime } from "./conversation-runtime";
@@ -496,6 +497,7 @@ export function createConversationViewScope(props: ConversationProps) {
       getStickToLatest: () => stickToLatest,
       setStickToLatest,
       getCurrentUnreadCount: () => currentUnreadCount,
+      isOpening: () => chatOpening(),
     },
   });
   const {
@@ -765,6 +767,14 @@ export function createConversationViewScope(props: ConversationProps) {
   let browserVisibilityGeneration = 0;
   let stickToLatest = true;
   let lastConversationIdentity: string | undefined;
+  /**
+   * A chat that opens, until its rows sit at the place where it opens. `place` is the reader's kept
+   * place as a distance from the bottom; none opens at the newest message.
+   */
+  let opening:
+    | { place: number | undefined; loaded: boolean; hasMessages: boolean; revealFrame?: number; timeout: number }
+    | undefined;
+  const [chatOpening, setChatOpening] = createSignal(false);
   let lastPanelAgentId: string | undefined;
   let lastHandledMessageFocusNonce: number | undefined;
   const [quoteRequest, setQuoteRequest] = createSignal<QuoteRequest | undefined>(undefined);
@@ -977,6 +987,7 @@ export function createConversationViewScope(props: ConversationProps) {
     scrollResizeObserver = new ResizeObserver(() => {
       updateVirtualScrollMargin();
       if (scrollElement && stickToLatest) followConversationBottom(scrollElement);
+      placeOpeningChat();
       updateScrollFade();
       updateUnreadDividerVisibility();
     });
@@ -1098,6 +1109,57 @@ export function createConversationViewScope(props: ConversationProps) {
     if (row && props.agent?.id === agentId) showQuotedText(messageId, text);
   }
 
+  /*
+   * A chat opens at the newest message, or at the place where the reader left it. Its rows can come
+   * into the document after the effect that follows the latest message, and the browser can paint
+   * them at the top before a follow in the next frame. The chat then showed its oldest messages for
+   * a moment and jumped to the bottom (#80); the top also loaded a page of older messages. So the
+   * rows stay hidden until they are at the place, and the place is set before each paint.
+   */
+  function startOpeningChat(identity: string): void {
+    if (opening) {
+      clearTimeout(opening.timeout);
+      if (opening.revealFrame !== undefined) cancelAnimationFrame(opening.revealFrame);
+    }
+    const place = chatScrollMemory.place(identity);
+    // The reader's hold stays on, so the chat does not follow the newest message or open at the divider.
+    if (place !== undefined) leaveLatest();
+    // A chat that loads slowly shows its rows at the end anyway.
+    opening = { place, loaded: false, hasMessages: false, timeout: window.setTimeout(finishOpeningChat, 4000) };
+    setChatOpening(true);
+  }
+
+  function setOpeningPlace(element: HTMLDivElement): void {
+    if (!opening) return;
+    updateVirtualScrollMargin();
+    if (opening.place !== undefined) openChatAt(element, opening.place);
+    else if (stickToLatest) openChatAt(element);
+    lastScrollTop = element.scrollTop;
+  }
+
+  function placeOpeningChat(): void {
+    // The effect below gives the loaded state: props read here, outside a tracked scope, can
+    // create a computation in an effect callback.
+    if (!opening?.loaded || !scrollElement) return;
+    if (opening.hasMessages && !virtualRoot?.querySelector(".virtual-chat-row")) return;
+    setOpeningPlace(scrollElement);
+    // Two frames let the rows measure; each frame sets the place again before its paint.
+    opening.revealFrame ??= requestAnimationFrame(() => {
+      if (scrollElement) setOpeningPlace(scrollElement);
+      if (opening) opening.revealFrame = requestAnimationFrame(finishOpeningChat);
+    });
+  }
+
+  function finishOpeningChat(): void {
+    if (!opening) return;
+    if (scrollElement) setOpeningPlace(scrollElement);
+    clearTimeout(opening.timeout);
+    opening = undefined;
+    setChatOpening(false);
+    updateScrollFade();
+    updateUnreadDividerVisibility();
+  }
+
   function showQuotedText(messageId: string, text: string): boolean {
     const blocks = scrollElement ? messageTextBlocks(scrollElement, messageId) : [];
     const firstBlock = blocks[0];
@@ -1128,11 +1190,12 @@ export function createConversationViewScope(props: ConversationProps) {
           .map((delivery) => `${delivery.id}:${delivery.status}:${delivery.position}`)
           .join("|"),
         loaded: props.loaded,
+        hasMessages: props.messages.length > 0,
         prompt: props.prompt,
         unreadCount: props.unreadCount,
       };
     },
-    ({ agentId, serverId, unreadCount }) => {
+    ({ agentId, serverId, unreadCount, loaded, hasMessages }) => {
       currentUnreadCount = unreadCount;
       const conversationIdentity = `${serverId}:${agentId ?? ""}`;
       if (conversationIdentity !== lastConversationIdentity) {
@@ -1140,10 +1203,16 @@ export function createConversationViewScope(props: ConversationProps) {
         lastConversationIdentity = conversationIdentity;
         setStickToLatest(true);
         setAgentActivitySpaceReserved(false);
+        startOpeningChat(conversationIdentity);
       }
       if (latestScrollFrame !== undefined) cancelAnimationFrame(latestScrollFrame);
       if (latestScrollSettleFrame !== undefined) cancelAnimationFrame(latestScrollSettleFrame);
       const followLatest = stickToLatest;
+      if (opening) {
+        opening.loaded = loaded;
+        opening.hasMessages = hasMessages;
+        placeOpeningChat();
+      }
       latestScrollFrame = requestAnimationFrame(() => {
         latestScrollFrame = undefined;
         if (!scrollElement) return;
@@ -1228,6 +1297,11 @@ export function createConversationViewScope(props: ConversationProps) {
     clearQuotedTextHighlight();
     if (latestScrollFrame !== undefined) cancelAnimationFrame(latestScrollFrame);
     if (latestScrollSettleFrame !== undefined) cancelAnimationFrame(latestScrollSettleFrame);
+    if (opening) {
+      clearTimeout(opening.timeout);
+      if (opening.revealFrame !== undefined) cancelAnimationFrame(opening.revealFrame);
+      opening = undefined;
+    }
   });
 
   createEffect(
@@ -1563,6 +1637,7 @@ export function createConversationViewScope(props: ConversationProps) {
     if (!readerLeftLatest && element.scrollHeight - element.scrollTop - element.clientHeight <= 80) {
       stickToLatest = true;
     }
+    if (!opening) chatScrollMemory.remember(lastConversationIdentity, element, readerLeftLatest);
   };
   function noteReaderIntent(up: boolean) {
     readerIntent = { up, at: performance.now() };
@@ -1647,6 +1722,7 @@ export function createConversationViewScope(props: ConversationProps) {
     setConversationPanelElement,
     setAttachmentPickerElement,
     setScrollElement,
+    chatOpening,
     setStickToLatest,
     followReaderScroll,
     setUnreadMessagesDividerElement,
