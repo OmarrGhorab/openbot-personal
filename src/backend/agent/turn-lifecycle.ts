@@ -730,6 +730,30 @@ export class TurnLifecycle {
         // before 1.4.1 and a Claude or GPT model have no reading. Cursor keeps it too: an on-demand
         // budget and a team limit are not in its reading. A plan window holds the queue until its
         // reset for every provider.
+        const context = {
+          causeCode: classifyFailure(error ?? message),
+          provider: source.provider,
+          model: agentId && errorTurnId ? this.#hooks.turnModel(agentId, errorTurnId) : null,
+          turnId: errorTurnId,
+          severity: notification.method === "warning" ? ("warning" as const) : ("error" as const),
+        };
+        // A provider error moves an agent set to switch without asking to its next backup model. The
+        // error waits for the end of the turn: a turn that did nothing yet runs again there, and a turn
+        // that acted hands its partial answer and steps to the backup. A spent balance or quota does not
+        // reset, so it moves too: the backup may still work. A plan window waits for its reset instead.
+        if (
+          notification.method === "error" &&
+          agentId &&
+          errorTurnId !== null &&
+          this.#runningTurns.has(errorTurnId) &&
+          FAILOVER_CAUSES.has(context.causeCode) &&
+          !isPlanLimitDiagnostic(message) &&
+          !this.#limitedTurns.has(errorTurnId) &&
+          this.#hooks.mayFailOver(agentId)
+        ) {
+          this.#failoverTurns.set(errorTurnId, { message, context });
+          return;
+        }
         if (
           error?.codexErrorInfo === "usageLimitExceeded" ||
           (isUsageLimitDiagnostic(message) &&
@@ -756,26 +780,6 @@ export class TurnLifecycle {
             severity: notification.method === "warning" ? "warning" : "error",
           });
           yield* this.#providers.refreshUsageAfterLimit(source);
-          return;
-        }
-        const context = {
-          causeCode: classifyFailure(error ?? message),
-          provider: source.provider,
-          model: agentId && errorTurnId ? this.#hooks.turnModel(agentId, errorTurnId) : null,
-          turnId: errorTurnId,
-          severity: notification.method === "warning" ? ("warning" as const) : ("error" as const),
-        };
-        // A provider error moves an agent set to switch without asking to its next backup model. The
-        // error waits for the end of the turn: a turn that did nothing yet runs again there instead.
-        if (
-          notification.method === "error" &&
-          agentId &&
-          errorTurnId !== null &&
-          this.#runningTurns.has(errorTurnId) &&
-          FAILOVER_CAUSES.has(context.causeCode) &&
-          this.#hooks.mayFailOver(agentId)
-        ) {
-          this.#failoverTurns.set(errorTurnId, { message, context });
           return;
         }
         const taskId =
@@ -870,10 +874,10 @@ export class TurnLifecycle {
       // A refused session is closed below, and a spent plan would refuse the summary turn too, so
       // neither is compacted.
       // A routine run's own session closes after this turn, so it is not compacted either. Nor is a
-      // turn that a provider error ended before it did work: it can run again on a backup model.
+      // turn that a provider error ended: it runs again on a backup model. When it already acted, the
+      // handoff carries its partial answer and work steps, and its session closes.
       const routineSession = this.#conversation.isRoutineSession(threadId);
-      const mayRunAgain =
-        failover !== undefined && !limited && status === "failed" && running !== undefined && !running.acted;
+      const mayRunAgain = failover !== undefined && !limited && status === "failed" && running !== undefined;
       const shouldCompact =
         !refused && !limited && !mayRunAgain && !routineSession && this.#compaction.reserve(agentId, threadId);
       this.#browser.endControl(this.#conversation.publicThreadId(agentId, threadId), turnId);
@@ -896,8 +900,17 @@ export class TurnLifecycle {
       // The plan refused the turn before it did anything that a second run would repeat, so its
       // messages wait in the queue for the reset. A channel task goes back to its channel's queue
       // instead: an assignment that waited here would hold its agent until the reset.
-      const repeatable = limited && running !== undefined && !running.acted && deliveries.length > 0;
       const channelTurn = !taskTurn && this.#conversation.isExecutionThread(snapshot.threadId);
+      // A limit that ends a turn which already acted moves the agent's own chat to a backup model with a
+      // handoff, when the agent switches without asking. Other turns that acted keep the error.
+      const handedOff =
+        limited &&
+        running?.acted === true &&
+        !taskTurn &&
+        !channelTurn &&
+        deliveries.length > 0 &&
+        this.#hooks.mayFailOver(agentId);
+      const repeatable = limited && running !== undefined && deliveries.length > 0 && (!running.acted || handedOff);
       const requeue = repeatable && !channelTurn;
       // The limit belongs to the model the turn ran on, which the agent may have left since.
       const model = this.#hooks.turnModel(agentId, turnId);
@@ -926,6 +939,8 @@ export class TurnLifecycle {
       for (const [itemId, itemTurnId] of this.#itemTurns) if (itemTurnId === turnId) this.#itemTurns.delete(itemId);
       if (requeue) {
         yield* this.#requeueTurn(agentId, threadId, turnId, snapshot, deliveries);
+        // The next run starts a session with the handoff, not the session that the limit stopped.
+        if (running?.acted) yield* this.#hooks.dropRefusedSession(agentId, threadId);
         // After the requeue, so a routine set to skip finds its run back in the queue.
         yield* this.#usageLimits.reached(agentId, resetsAt, model);
         this.#hooks.scheduleDrain(agentId);
@@ -938,6 +953,8 @@ export class TurnLifecycle {
           this.#failoverRetries.set(delivery.id, failed.add(failedKey));
         }
         yield* this.#requeueTurn(agentId, threadId, turnId, snapshot, deliveries);
+        // An acted turn's next run starts a session with the handoff of its partial answer and steps.
+        if (running?.acted) yield* this.#hooks.dropRefusedSession(agentId, threadId);
         this.#usageLimits.failed(agentId, model);
         this.#hooks.scheduleDrain(agentId);
         return;
