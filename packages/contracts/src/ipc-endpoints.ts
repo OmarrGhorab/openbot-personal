@@ -291,6 +291,7 @@ import type {
 } from "./ipc-hosted-sites";
 import type {
   ApplyInstanceTransferInput,
+  CopyInstanceTransferInput,
   ExportInstanceInput,
   InstanceExportResult,
   InstanceTransferPreview,
@@ -1665,6 +1666,9 @@ export const IPC_ENDPOINTS = {
     choose: scopedQuery<InstanceTransferPreview | null, "required">()("instance-transfer:choose"),
     apply: scopedRequest<ApplyInstanceTransferInput, InstanceTransferResult, "required">()("instance-transfer:apply"),
     discard: scopedRequest<string, void, "required">()("instance-transfer:discard"),
+    // Copying to another server reads the source and stages on the target in one main-process call,
+    // so the renderer never receives a path or the archive bytes. `apply` then runs on the target.
+    copyPreview: request<CopyInstanceTransferInput, InstanceTransferPreview>()("instance-transfer:copy-preview"),
   },
   // The plugin deep link, its own group because its registrar holds the pending link rather than a
   // service. `takePendingListing` is what a window that finished loading after the link arrived

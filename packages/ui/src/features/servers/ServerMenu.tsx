@@ -184,6 +184,8 @@ export function ServerMenu(props: ServerMenuProps) {
                       server={server()}
                       trigger={() => trigger ?? null}
                       onOpenSettings={props.onOpenSettings}
+                      onCopySetup={props.onCopySetup}
+                      canCopySetup={props.canCopySetup}
                       onLeave={props.onLeave}
                       onDelete={props.onDelete}
                       canDelete={props.canDelete}
@@ -237,6 +239,8 @@ export function ServerMenu(props: ServerMenuProps) {
                           onSetMuted={props.onSetMuted}
                           onSetNotificationLevel={props.onSetNotificationLevel}
                           onOpenSettings={props.onOpenSettings}
+                          onCopySetup={props.onCopySetup}
+                          canCopySetup={props.canCopySetup}
                           onLeave={props.onLeave}
                           onDelete={props.onDelete}
                           canDelete={props.canDelete}
@@ -269,6 +273,8 @@ export function ServerMenu(props: ServerMenuProps) {
                       server={server()}
                       trigger={() => trigger ?? null}
                       onOpenSettings={props.onOpenSettings}
+                      onCopySetup={props.onCopySetup}
+                      canCopySetup={props.canCopySetup}
                       onLeave={props.onLeave}
                       onDelete={props.onDelete}
                       canDelete={props.canDelete}
@@ -341,6 +347,8 @@ export function ServerMenu(props: ServerMenuProps) {
                   onSetMuted={props.onSetMuted}
                   onSetNotificationLevel={props.onSetNotificationLevel}
                   onOpenSettings={props.onOpenSettings}
+                  onCopySetup={props.onCopySetup}
+                  canCopySetup={props.canCopySetup}
                   onLeave={props.onLeave}
                   onDelete={props.onDelete}
                   canDelete={props.canDelete}

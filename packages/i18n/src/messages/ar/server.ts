@@ -184,6 +184,7 @@ export const messages = {
   "server.rail.mute": "كتم السيرفر",
   "server.rail.notificationSettings": "إعدادات الإشعارات",
   "server.rail.settings": "إعدادات السيرفر",
+  "server.rail.copySetup": "انسخ الإعداد لـ…",
   "server.rail.remove": "إزالة السيرفر",
   "server.rail.restart": "إعادة تشغيل السيرفر",
   "server.rail.leave": "مغادرة السيرفر",

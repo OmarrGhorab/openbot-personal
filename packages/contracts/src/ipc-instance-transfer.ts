@@ -55,6 +55,12 @@ export interface ExportInstanceInput {
   includeSettings: boolean;
 }
 
+/** A copy from one server to another, without a file dialog. */
+export interface CopyInstanceTransferInput extends ExportInstanceInput {
+  sourceServerId: string;
+  targetServerId: string;
+}
+
 export interface InstanceExportResult {
   /** False when the user closed the save dialog. */
   saved: boolean;
@@ -129,6 +135,17 @@ export function parseExportInstanceInput(value: unknown): ExportInstanceInput {
   return { agentIds: input.agentIds, includeFiles: input.includeFiles, includeSettings: input.includeSettings };
 }
 
+export function parseCopyInstanceTransferInput(value: unknown): CopyInstanceTransferInput {
+  const input = record(value, "copy request");
+  if (!isIdentifier(input.sourceServerId) || !isIdentifier(input.targetServerId)) invalid("copy request");
+  if (input.sourceServerId === input.targetServerId) invalid("copy request");
+  return {
+    ...parseExportInstanceInput(value),
+    sourceServerId: input.sourceServerId,
+    targetServerId: input.targetServerId,
+  };
+}
+
 export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTransferInput {
   const input = record(value, "import request");
   if (!isIdentifier(input.token)) invalid("import token");
@@ -196,6 +213,13 @@ export function decodeInstanceTransferPreview(value: unknown): InstanceTransferP
     hasSettings: preview.hasSettings,
     warnings: messages(preview.warnings, "transfer warnings"),
   };
+}
+
+/** The preview a copy must produce. Only `choose`, where the user may pick no file, returns null. */
+export function decodeRequiredInstanceTransferPreview(value: unknown): InstanceTransferPreview {
+  const preview = decodeInstanceTransferPreview(value);
+  if (preview === null) invalid("transfer preview");
+  return preview;
 }
 
 export function decodeInstanceTransferResult(value: unknown): InstanceTransferResult {

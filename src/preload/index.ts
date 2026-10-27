@@ -47,6 +47,7 @@ import {
   decodeRegistryInstallations,
   decodeRegistryInstallResult,
   decodeRegistryOperations,
+  decodeRequiredInstanceTransferPreview,
   decodeSaveAgentProfileResult,
   decodeWorkspaceDirectory,
   type EventEndpoint,
@@ -998,6 +999,7 @@ const openbotApi: OpenBotDesktopApi = {
     choose: decodeInstanceTransferPreview,
     apply: decodeInstanceTransferResult,
     discard: decodeVoid,
+    copyPreview: decodeRequiredInstanceTransferPreview,
   }),
   marketplaceAgents: bridgeGroup(IPC_ENDPOINTS.marketplaceAgents, {
     list: decodeMarketplaceAgentPage,

@@ -5,6 +5,7 @@ import { useText } from "@openbot/ui/text";
 import { actionToast } from "../../action-toast";
 import { usePlatform } from "../../platform";
 import { useSettings } from "../settings/settings-context";
+import { hasCopyTarget } from "./copy-setup-targets";
 import { useServerSelection } from "./server-selection";
 import { useServerSettings } from "./server-settings";
 import { useServers } from "./servers-context";
@@ -26,6 +27,7 @@ export function useServerActions() {
     hostedServerIds,
     hostedServersLoaded,
     refreshHostedServersAvailable,
+    setCopySetupSourceId,
   } = useServers();
   const { selectServer } = useServerSelection();
   const { openServerSettings, requestLeaveServer, requestRestartServer } = useServerSettings();
@@ -64,10 +66,17 @@ export function useServerActions() {
     void refreshHostedServersAvailable();
   }
 
+  /** Whether the menu offers Copy setup to…: a source this account can read and a target that can receive it. */
+  function canCopySetup(serverId: string): boolean {
+    return hasCopyTarget(servers(), serverId);
+  }
+
   const callbacks = {
     onSetMuted: (serverId, muted, durationMs) => void setServerMuted(serverId, muted, durationMs),
     onSetNotificationLevel: (serverId, level) => void setServerNotificationLevel(serverId, level),
     onOpenSettings: openServerSettings,
+    onCopySetup: (serverId) => setCopySetupSourceId(serverId),
+    canCopySetup,
     onLeave: requestLeaveServer,
     // The same confirmation: main removes an owned server from the account instead of leaving it.
     onRemove: requestLeaveServer,
