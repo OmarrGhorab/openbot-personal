@@ -17,12 +17,6 @@
   },
   "skills": [
     {
-      "slug": "raven-stack",
-      "category": "coding",
-      "source": "openbot",
-      "featured": false
-    },
-    {
       "slug": "secure-code-guidance",
       "category": "coding",
       "source": "openai",
@@ -174,6 +168,14 @@
     }
   ],
   "packs": [
+    {
+      "slug": "raven-stack",
+      "name": "Raven Stack",
+      "source": "openbot",
+      "aliasPrefixes": [],
+      "category": "coding",
+      "description": "Take a coding task from brief to a proven, review-ready pull request in any repository. Detects the project's language, framework and tooling, then runs one flow: worktree, plan, before evidence, small build, the stack's gates, after evidence, draft PR, green CI, independent verification and a 10-point quality score. Installs all 14 Raven Stack skills. Call one with $raven-stack-<name>, such as $raven-stack-autopilot or $raven-stack-detect."
+    },
     {
       "slug": "pstack",
       "source": "cursor",

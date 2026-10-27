@@ -35,7 +35,9 @@ interface UpstreamSource {
 type UpstreamProvider = "openai" | "anthropic" | "cursor";
 
 /**
- * A vendored plugin in `bundles/<slug>/`, published as one skill `<slug>`. Its archive holds an index
+ * A pack in `bundles/<slug>/`, published as one skill `<slug>`. A `cursor` pack is a vendored plugin;
+ * an `openbot` pack is written here, with each skill's `name` already `<slug>-<folder>` and its text
+ * checked against `dependencyPattern`. Its archive holds an index
  * `SKILL.md` and each folder of the plugin's `skills/` as `skills/<slug>-<folder>/`, which the app
  * installs as a skill of its own, so `$<slug>-<folder>` calls it with any provider. References to
  * other skills of the pack are renamed. `aliasPrefixes` lets the text name a skill without that
@@ -43,7 +45,9 @@ type UpstreamProvider = "openai" | "anthropic" | "cursor";
  */
 interface PackSpec {
   slug: string;
-  source: UpstreamProvider;
+  /** The index's display name. Defaults to the slug. */
+  name: string;
+  source: UpstreamProvider | "openbot";
   upstreamPath: string;
   aliasPrefixes: string[];
   category: SkillCategory;
@@ -59,7 +63,7 @@ type SkillSpec = {
   slug: string;
   category: SkillCategory;
   featured: boolean;
-} & ({ source: "openbot" } | { source: UpstreamProvider; upstreamSkill: string; pack?: Pack });
+} & ({ source: "openbot"; pack?: Pack } | { source: UpstreamProvider; upstreamSkill: string; pack?: Pack });
 
 interface AgentSpec {
   category: SkillCategory;
@@ -122,11 +126,12 @@ export async function buildProductionCatalog(outputArgument?: string): Promise<s
     const builtSkills: BuiltSkill[] = [];
 
     for (const skill of spec.skills) {
-      const pack = skill.source === "openbot" ? undefined : skill.pack;
-      const archive =
-        skill.source !== "openbot" && pack
-          ? await packArchive(pack, spec.sources[skill.source])
-          : await promptArchive(skill, skill.source === "openbot" ? openbotLicense : license, spec.sources);
+      const pack = skill.pack;
+      const archive = pack
+        ? skill.source === "openbot"
+          ? await openbotPackArchive(pack, openbotLicense)
+          : await packArchive(pack, spec.sources[skill.source])
+        : await promptArchive(skill, skill.source === "openbot" ? openbotLicense : license, spec.sources);
       const preview = inspectGeneratedArchive(archive, pack !== undefined);
       if (preview.slug !== skill.slug) {
         throw new Error(`Skill folder ${skill.slug} does not match its SKILL.md name (${preview.slug}).`);
@@ -156,7 +161,9 @@ export async function buildProductionCatalog(outputArgument?: string): Promise<s
           skill.source === "openbot"
             ? {
                 provider: "openbot",
-                url: `marketplace/production-catalog/skills/${skill.slug}/SKILL.md`,
+                url: pack
+                  ? `marketplace/production-catalog/bundles/${skill.slug}/skills`
+                  : `marketplace/production-catalog/skills/${skill.slug}/SKILL.md`,
               }
             : {
                 provider: skill.source,
@@ -220,6 +227,50 @@ async function promptArchive(skill: SkillSpec, license: string, sources: Catalog
   );
 }
 
+/** The index `SKILL.md` that lists each skill of a pack with its description. */
+function packIndex(pack: Pack, lines: string[]): string {
+  const { name } = pack.spec;
+  return `---\nname: ${name}\ndescription: ${JSON.stringify(pack.spec.description)}\n---\n\n# ${name}\n\nThis skill installs the ${pack.folders.length} ${name} skills below, each as a skill of its own. Call one with \`$<name>\`.\n\n${lines.join("\n")}\n`;
+}
+
+/**
+ * An OpenBot team pack: the index `SKILL.md`, `LICENSE.txt`, `NOTICE.txt`, and each skill folder in
+ * `skills/<pack>-<folder>/`, copied unchanged after its `SKILL.md` passes `validateSkillMarkdown`.
+ */
+async function openbotPackArchive(pack: Pack, license: string): Promise<Uint8Array> {
+  const prefix = pack.spec.slug;
+  const root = join(sourceRoot, "bundles", prefix, "skills");
+  const entries: Record<string, [Uint8Array, { mtime: Date }]> = {
+    "LICENSE.txt": [utf8Bytes(license), { mtime: zipTimestamp }],
+    "NOTICE.txt": [
+      utf8Bytes(
+        `Original Skill instructions by the OpenBot team. Licensed under PolyForm Noncommercial 1.0.0 (LICENSE.txt).\nEach folder in skills/ installs as a skill of its own, named ${prefix}-<name>.\n`,
+      ),
+      { mtime: zipTimestamp },
+    ],
+  };
+  const index: string[] = [];
+  for (const folder of pack.folders) {
+    const name = `${prefix}-${folder}`;
+    for (const file of await listRelativeFiles(join(root, folder))) {
+      const bytes = new Uint8Array(await readFile(join(root, folder, file)));
+      if (file === "SKILL.md") {
+        const markdown = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        validateSkillMarkdown(`${prefix}/${folder}`, markdown);
+        const metadata = parseYaml(markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/u)?.[1] ?? "");
+        if (!isDynamicRecord(metadata) || metadata.name !== name) {
+          throw new Error(`${prefix}/${folder}/SKILL.md must be named ${name}.`);
+        }
+        index.push(`- \`$${name}\`: ${skillDescription(markdown).replace(/\s+/gu, " ")}`);
+      }
+      entries[`skills/${name}/${file}`] = [bytes, { mtime: zipTimestamp }];
+    }
+  }
+  if (index.length !== pack.folders.length) throw new Error(`Every skill of pack ${prefix} needs a SKILL.md.`);
+  entries["SKILL.md"] = [utf8Bytes(packIndex(pack, index)), { mtime: zipTimestamp }];
+  return zipSync(entries, { level: 9 });
+}
+
 /**
  * The index `SKILL.md`, the pack's `LICENSE` and `NOTICE.md`, and each skill of the pack in
  * `skills/<pack>-<folder>/`. The upstream text is not checked against `dependencyPattern`.
@@ -240,8 +291,7 @@ async function packArchive(pack: Pack, upstream: UpstreamSource): Promise<Uint8A
     for (const [file, bytes] of files) entries[`skills/${prefix}-${folder}/${file}`] = [bytes, { mtime: zipTimestamp }];
     index.push(`- \`$${prefix}-${folder}\`: ${description.replace(/\s+/gu, " ")}`);
   }
-  const markdown = `---\nname: ${prefix}\ndescription: ${JSON.stringify(pack.spec.description)}\n---\n\n# ${prefix}\n\nThis skill installs the ${pack.folders.length} ${prefix} skills below, each as a skill of its own. Call one with \`$<name>\`.\n\n${index.join("\n")}\n`;
-  entries["SKILL.md"] = [utf8Bytes(markdown), { mtime: zipTimestamp }];
+  entries["SKILL.md"] = [utf8Bytes(packIndex(pack, index)), { mtime: zipTimestamp }];
   return zipSync(entries, { level: 9 });
 }
 
@@ -492,8 +542,12 @@ function parsePackSpec(value: unknown): PackSpec {
     !isDynamicRecord(value) ||
     !isString(value.slug) ||
     !/^[a-z0-9][a-z0-9-]{0,31}$/u.test(value.slug) ||
-    (value.source !== "openai" && value.source !== "anthropic" && value.source !== "cursor") ||
-    !isString(value.upstreamPath) ||
+    (value.source !== "openai" &&
+      value.source !== "anthropic" &&
+      value.source !== "cursor" &&
+      value.source !== "openbot") ||
+    (value.name !== undefined && !isString(value.name)) ||
+    (value.source !== "openbot" && !isString(value.upstreamPath)) ||
     !Array.isArray(value.aliasPrefixes) ||
     !value.aliasPrefixes.every(isString) ||
     !isSkillCategory(value.category) ||
@@ -503,8 +557,9 @@ function parsePackSpec(value: unknown): PackSpec {
   }
   return {
     slug: value.slug,
+    name: isString(value.name) ? value.name : value.slug,
     source: value.source,
-    upstreamPath: value.upstreamPath,
+    upstreamPath: isString(value.upstreamPath) ? value.upstreamPath : value.slug,
     aliasPrefixes: value.aliasPrefixes,
     category: value.category,
     description: value.description,
@@ -520,14 +575,10 @@ async function packSkillSpec(spec: PackSpec): Promise<SkillSpec> {
   // The app installs only a child whose folder name is a valid skill slug.
   const invalid = folders.find((folder) => !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(`${spec.slug}-${folder}`));
   if (invalid) throw new Error(`Pack ${spec.slug} has a skill folder that is not a valid slug: ${invalid}.`);
-  return {
-    slug: spec.slug,
-    category: spec.category,
-    featured: false,
-    source: spec.source,
-    upstreamSkill: spec.upstreamPath,
-    pack: { spec, folders },
-  };
+  const pack = { spec, folders };
+  const base = { slug: spec.slug, category: spec.category, featured: false };
+  if (spec.source === "openbot") return { ...base, source: "openbot", pack };
+  return { ...base, source: spec.source, upstreamSkill: spec.upstreamPath, pack };
 }
 
 function parseSources(value: unknown): CatalogSpec["sources"] {
