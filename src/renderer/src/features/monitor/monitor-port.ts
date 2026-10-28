@@ -4,6 +4,7 @@ import type {
   MonitorConversation,
   MonitorConversationInput,
   MonitorSnapshot,
+  RavenTeamJob,
 } from "@openbot/contracts/ipc";
 
 /** What the Monitor reads: the snapshot of one channel, and the change that asks for a new read. */
@@ -13,6 +14,22 @@ export interface MonitorSource {
   conversation(input: MonitorConversationInput): Promise<MonitorConversation>;
   /** Calls `listener` when the snapshot of a channel changed. Returns the unsubscribe. */
   onChange(listener: (change: MonitorChange) => void): () => void;
+}
+
+/** A change that asks the Monitor to read the team jobs again. */
+export interface MonitorTeamChange {
+  /** The work thread whose turn started or ended. Null when a team job changed. */
+  threadId: string | null;
+}
+
+/**
+ * What the Monitor reads of the Raven Stack team jobs of this computer. It only reads: the team page
+ * starts and stops jobs.
+ */
+export interface MonitorTeamSource {
+  listJobs(): Promise<RavenTeamJob[]>;
+  /** Calls `listener` when a team job changed, or when a turn of an agent started or ended. Returns the unsubscribe. */
+  onChange(listener: (change: MonitorTeamChange) => void): () => void;
 }
 
 /**
@@ -48,6 +65,10 @@ export interface MonitorActions extends MonitorTaskActions {
   showMonitor(): void;
   /** Opens the routines view in place of the Monitor. Optional: a host without it leaves the button inert. */
   openRoutines?: (() => void) | undefined;
+  /** Shows one work thread of the agent, in place of the Monitor. Optional: a host without team jobs leaves it out. */
+  openWorkThread?: ((agentId: string, taskId: string) => void) | undefined;
+  /** Opens the team page on a team job. Optional: a host without team jobs leaves it out. */
+  openTeamJob?: ((jobId: string) => void) | undefined;
 }
 
 /** The channel command that holds or continues a channel task and the run below it. */
@@ -95,6 +116,28 @@ export function desktopMonitorTaskActions(): MonitorTaskActions {
         return;
       }
       await window.openbot.agent.channelCommand(monitorChannelTaskCommand("resume", target));
+    },
+  };
+}
+
+/**
+ * The team jobs on desktop. A team runs on this computer, so the jobs come from the local team bridge.
+ * The `ravenTeam` change event and the agent turn events ask for a new read; nothing polls.
+ */
+export function desktopMonitorTeamSource(): MonitorTeamSource {
+  return {
+    listJobs: () => window.openbot.ravenTeam.listJobs(),
+    onChange(listener) {
+      const offTeam = window.openbot.ravenTeam.onChanged((change) => {
+        if (change.jobId !== null) listener({ threadId: null });
+      });
+      const offTurns = window.openbot.agent.onScopedEvent(({ event }) => {
+        if (event.type === "turn-started" || event.type === "turn-completed") listener({ threadId: event.threadId });
+      });
+      return () => {
+        offTeam();
+        offTurns();
+      };
     },
   };
 }

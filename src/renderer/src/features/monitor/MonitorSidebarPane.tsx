@@ -34,6 +34,20 @@ export function MonitorSidebarPane(props: MonitorSidebarPaneProps) {
       since: agent.since,
     })),
   );
+  const teams = createMemo(() =>
+    monitor.teams().map((job) => ({
+      id: job.id,
+      title: job.title,
+      state: job.state,
+      roles: job.roles.map((role) => ({
+        key: role.key,
+        label: role.label,
+        state: role.state,
+        status: role.status,
+        canOpen: monitor.canOpenTeams() && role.agentId !== null && role.taskId !== null,
+      })),
+    })),
+  );
   const filter = () => {
     const status = monitor.statusFilter();
     return status === "working" || status === "waiting" || status === "error" ? status : null;
@@ -55,6 +69,9 @@ export function MonitorSidebarPane(props: MonitorSidebarPaneProps) {
       onAllAgents={monitor.showAllAgents}
       allAgentsOpen={monitor.state.view === "all-agents"}
       onOpenSearch={props.onOpenSearch}
+      teams={teams()}
+      onOpenTeamJob={monitor.canOpenTeams() ? monitor.openTeamJob : undefined}
+      onOpenTeamRole={monitor.openTeamRole}
     />
   );
 }
