@@ -57,7 +57,6 @@ export const messages = defineMessages("memory", {
   "memory.project.description": "Shared by every agent in {path}",
   "memory.project.empty":
     "No project memory yet. Agents save commands, rules, known problems and decisions here when they finish a task.",
-  "memory.project.kind.label": "Kind",
   "memory.project.kind.rule": "Rule",
   "memory.project.kind.command": "Command",
   "memory.project.kind.known-problem": "Known problem",

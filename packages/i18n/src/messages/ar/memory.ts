@@ -58,7 +58,6 @@ export const messages = {
   "memory.project.description": "مشتركة بين كل الإيجنتات في {path}",
   "memory.project.empty":
     "مفيش ذاكرة مشروع لسه. الإيجنتات بتحفظ هنا الأوامر والقواعد والمشاكل المعروفة والقرارات لما تخلص مهمة.",
-  "memory.project.kind.label": "النوع",
   "memory.project.kind.rule": "قاعدة",
   "memory.project.kind.command": "أمر",
   "memory.project.kind.known-problem": "مشكلة معروفة",
