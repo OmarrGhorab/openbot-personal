@@ -534,6 +534,11 @@ is not included in analytics; provider output uses the application's secret reda
   Every agent on this computer can read and write every table in that file, and the user can delete any
   table in agent settings.
 - `~/OpenBot/Downloads` contains files downloaded by the embedded browser.
+- `~/OpenBot/mcp-servers` contains the MCP servers that agents write for a system that has no MCP
+  server (the built-in `openbot-mcp-server-creator` skill): their code, installed dependencies and an
+  `openbot-mcp.json` file with names only. The skill tells agents to read keys from environment
+  variables and never to write a key in these folders. The keys stay in the MCP server settings in the
+  OpenBot database. Removing a server in settings does not delete its folder.
 - `~/Library/Application Support/OpenBot` contains the OpenBot SQLite database, agent metadata,
   conversations, message queues, direct messages, reactions, read state, attachment drafts and
   indexes, team configuration, local team members and sessions, the browser profiles and their
@@ -702,6 +707,12 @@ Network traffic can also occur when:
   Nothing about the user's agents, conversations or files is sent in those requests. The
   registration names OpenBot's logo at `openbot.run`; an authorization service that shows it on its
   sign-in page can make the browser load it from `openbot.run`;
+- an MCP server that an agent wrote with the `openbot-mcp-server-creator` skill runs on this computer
+  and sends requests to the system the user named, such as an API address, with the data that each
+  tool call needs. The skill tells the agent not to add calls to other services. Installing the
+  server's dependencies downloads packages from the npm or PyPI registry. With the setting "Agents can
+  manage MCP servers without asking" on, an agent with Full access can add or change such a server
+  with no approval card; each change shows as a note in the conversation;
 - the user presses Install on the 1Password page. OpenBot downloads the 1Password CLI release that it
   pins from `cache.agilebits.com`, checks its SHA-256, and keeps it in
   `~/Library/Application Support/OpenBot/provider-state/1password-cli`. The request carries no user
