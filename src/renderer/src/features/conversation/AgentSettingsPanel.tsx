@@ -438,7 +438,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                   }
                 />
               </Show>
-              <AgentTicketWatchRow agentId={props.agent.id} />
+              <AgentTicketWatchRow agentId={props.agent.id} onClose={props.onClose} />
               <Show when={!props.remoteClient && props.onOpenUsage}>
                 <SettingsLinkRow
                   icon={<Gauge aria-hidden="true" />}

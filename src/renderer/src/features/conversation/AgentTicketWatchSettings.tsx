@@ -1,7 +1,13 @@
 // The ticket source of one agent: the repository and label that the ticket intake watches.
 
 import type { AgentTicketWatch } from "@openbot/contracts/ipc";
-import { Button, Input, SwitchField } from "@openbot/ui";
+import { Button, Input, Switch, Text } from "@openbot/ui";
+import {
+  SettingsField,
+  SettingsLinkGroup,
+  SettingsPanelContent,
+  SettingsPanelHeader,
+} from "@openbot/ui/components/SettingsPanel";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, Show } from "solid-js";
 import type { TicketWatchPort } from "./ticket-watch-port";
@@ -10,6 +16,8 @@ interface AgentTicketWatchSettingsProps {
   agentId: string;
   port: TicketWatchPort;
   onBack: () => void;
+  /** Closes the whole settings panel, as the forward button of every settings page does. */
+  onClose: () => void;
   onChanged: (watch: AgentTicketWatch | null) => void;
 }
 
@@ -73,48 +81,67 @@ export function AgentTicketWatchSettings(props: AgentTicketWatchSettingsProps) {
     }
   };
 
+  // The same frame as the other agent settings pages: header, a muted note, inset rows and fields.
   return (
-    <section class="agent-ticket-watch">
-      <header>
-        <Button variant="ghost" type="button" onClick={() => props.onBack()}>
-          {t("common.back")}
-        </Button>
-        <h2>{t("agentSettings.ticketSource.title")}</h2>
-      </header>
-      <p>{t("agentSettings.ticketSource.description")}</p>
-      <p>
-        {t("agentSettings.ticketSource.provider")}: {t("agentSettings.ticketSource.github")}
-      </p>
-      <label>
-        <span>{t("agentSettings.ticketSource.project")}</span>
-        <Input
-          value={project()}
-          placeholder={t("agentSettings.ticketSource.projectHelp")}
-          disabled={busy()}
-          onInput={(event) => setProject(event.currentTarget.value)}
-        />
-      </label>
-      <label>
-        <span>{t("agentSettings.ticketSource.label")}</span>
-        <Input value={label()} disabled={busy()} onInput={(event) => setLabel(event.currentTarget.value)} />
-      </label>
-      <SwitchField
-        label={t("agentSettings.ticketSource.enabled")}
-        checked={enabled()}
-        disabled={busy()}
-        onChange={(checked) => setEnabled(checked)}
+    <div class="agent-routines-settings agent-ticket-watch">
+      <SettingsPanelHeader
+        title={t("agentSettings.ticketSource.title")}
+        onBack={() => props.onBack()}
+        backLabel={t("common.back")}
+        onClose={() => props.onClose()}
+        closeLabel={t("agentSettings.closeDetails")}
       />
-      <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
-      <div>
-        <Button type="button" disabled={busy() || !project().trim() || !label().trim()} onClick={() => void save()}>
-          {t("agentSettings.ticketSource.save")}
-        </Button>
-        <Show when={saved()}>
-          <Button variant="ghost" type="button" disabled={busy()} onClick={() => void remove()}>
-            {t("agentSettings.ticketSource.remove")}
-          </Button>
-        </Show>
-      </div>
-    </section>
+      <SettingsPanelContent>
+        <div class="agent-settings-page">
+          <Text as="p" class="agent-settings-runtime-note" variant="caption" tone="muted">
+            {t("agentSettings.ticketSource.description")}
+          </Text>
+          <SettingsLinkGroup inset class="agent-settings-runtime-rows">
+            <div class="agent-settings-switch-row">
+              <span class="settings-link-label">{t("agentSettings.ticketSource.provider")}</span>
+              <span class="agent-ticket-watch-provider">{t("agentSettings.ticketSource.github")}</span>
+            </div>
+            <div class="agent-settings-switch-row">
+              <span class="settings-link-label">{t("agentSettings.ticketSource.enabled")}</span>
+              <Switch
+                size="sm"
+                aria-label={t("agentSettings.ticketSource.enabled")}
+                checked={enabled()}
+                disabled={busy()}
+                onChange={(checked) => setEnabled(checked)}
+              />
+            </div>
+          </SettingsLinkGroup>
+          <SettingsField label={t("agentSettings.ticketSource.project")}>
+            <Input
+              value={project()}
+              placeholder={t("agentSettings.ticketSource.projectHelp")}
+              disabled={busy()}
+              onInput={(event) => setProject(event.currentTarget.value)}
+            />
+          </SettingsField>
+          <SettingsField label={t("agentSettings.ticketSource.label")}>
+            <Input value={label()} disabled={busy()} onInput={(event) => setLabel(event.currentTarget.value)} />
+          </SettingsField>
+          <Show when={error()}>
+            {(message) => (
+              <p role="alert" class="agent-settings-save-error">
+                {message()}
+              </p>
+            )}
+          </Show>
+          <div class="agent-ticket-watch-actions">
+            <Show when={saved()}>
+              <Button variant="ghost" type="button" disabled={busy()} onClick={() => void remove()}>
+                {t("agentSettings.ticketSource.remove")}
+              </Button>
+            </Show>
+            <Button type="button" disabled={busy() || !project().trim() || !label().trim()} onClick={() => void save()}>
+              {t("agentSettings.ticketSource.save")}
+            </Button>
+          </div>
+        </div>
+      </SettingsPanelContent>
+    </div>
   );
 }
