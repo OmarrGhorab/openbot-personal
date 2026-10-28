@@ -293,12 +293,7 @@ export function confineSpawnTarget(
       command: SANDBOX_EXEC,
       args: [
         "-p",
-        seatbeltProfile(
-          writable,
-          protectedPaths,
-          state.protectedInProjects,
-          state.lockFolders ?? [],
-        ),
+        seatbeltProfile(writable, protectedPaths, state.protectedInProjects, state.lockFolders ?? []),
         target.command,
         ...target.args,
       ],
