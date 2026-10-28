@@ -4,6 +4,7 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Deferred, Effect, Result, Schema } from "effect";
 import { type AgentProvider, ProviderTurnActiveError } from "../agent-client";
 import type { AgentStore } from "../agent-store";
+import type { AutonomyController } from "../autonomy/autonomy-controller";
 import type { ChannelService } from "../channel-service";
 import { causeHelpers } from "../effect-boundary";
 import type { DeliveryContext, MailboxStore } from "../mailbox-store";
@@ -127,6 +128,8 @@ export interface DrainSchedulerOptions {
   threads: ThreadLifecycle;
   memory: MemoryHold;
   usageLimits: UsageLimitGate;
+  /** Stop all agents and the budgets of the person. Absent in tests that do not set them. */
+  autonomy?: Pick<AutonomyController, "holdFor">;
   tasks: TaskLanes;
   hooks: DrainHooks;
   channels?: ChannelService;
@@ -159,6 +162,7 @@ export class DrainScheduler {
   readonly #threads: ThreadLifecycle;
   readonly #memory: MemoryHold;
   readonly #usageLimits: UsageLimitGate;
+  readonly #autonomy: Pick<AutonomyController, "holdFor"> | undefined;
   readonly #tasks: TaskLanes;
   readonly #slots: TurnSlots;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
@@ -208,6 +212,7 @@ export class DrainScheduler {
     this.#threads = options.threads;
     this.#memory = options.memory;
     this.#usageLimits = options.usageLimits;
+    this.#autonomy = options.autonomy;
     this.#tasks = options.tasks;
     this.#hooks = options.hooks;
     this.#channels = options.channels;
@@ -273,6 +278,9 @@ export class DrainScheduler {
   #heldBy(lane: Lane): string | null {
     const { agentId, taskId } = lane;
     if (this.#settingsHolds.has(agentId)) return "session-settings";
+    // Stop all agents and a reached budget hold every lane before a new turn can start.
+    const autonomyHold = this.#autonomy?.holdFor(agentId, taskId);
+    if (autonomyHold) return autonomyHold;
     if (this.#laneTurnActive(lane)) return "active-turn";
     // A paused task lets its running turn end. Its queued messages wait until `resumeLane`.
     if (taskId !== null && this.isLanePaused(agentId, taskId)) return "paused";

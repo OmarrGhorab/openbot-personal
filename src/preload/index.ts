@@ -10,6 +10,8 @@ import {
   decodeAgentImportResult,
   decodeAgentProfileDraft,
   decodeAgentTaskLimitSettings,
+  decodeAutonomyAuditPage,
+  decodeAutonomySnapshot,
   decodeBrowserProfileList,
   decodeBrowserProfileSummary,
   decodeBrowserTabProfiles,
@@ -852,6 +854,14 @@ const openbotApi: OpenBotDesktopApi = {
     get: decodeRoutineFeed,
     create: decodeRoutineFeed,
     remove: decodeRoutineFeed,
+  }),
+  autonomy: bridgeGroup(IPC_ENDPOINTS.autonomy, {
+    getSnapshot: decodeAutonomySnapshot,
+    setApprovalRules: decodeAutonomySnapshot,
+    setBudgets: decodeAutonomySnapshot,
+    stopAll: decodeAutonomySnapshot,
+    resumeAll: decodeAutonomySnapshot,
+    listAuditLog: decodeAutonomyAuditPage,
   }),
   monitor: bridgeGroup(IPC_ENDPOINTS.monitor, {
     getSnapshot: decodeMonitorSnapshot,

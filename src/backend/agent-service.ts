@@ -196,7 +196,7 @@ import {
 } from "./agent/thread-items";
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
-import { type AgentBrowserHost, TurnLifecycle } from "./agent/turn-lifecycle";
+import { type AgentBrowserHost, TURN_USAGE_MARGIN_MS, TurnLifecycle } from "./agent/turn-lifecycle";
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import type { WebhookRoutineWriter } from "./agent/webhook-routine-tool";
 import type { AgentApiKeys } from "./agent-api-keys";
@@ -210,6 +210,10 @@ import { AgentWorktrees, worktreeChangedFiles } from "./agent-tasks/agent-worktr
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
 import { AgentWaits } from "./agent-waits/agent-waits";
 import { automationRunCommand } from "./automation-command";
+import { AutonomyAuditStore } from "./autonomy/autonomy-audit-store";
+import { AutonomyController, type RunningTurn } from "./autonomy/autonomy-controller";
+import { type AutonomyPolicy, DEFAULT_AUTONOMY_POLICY } from "./autonomy/autonomy-policy";
+import { AutonomyUsageStore } from "./autonomy/autonomy-usage-store";
 import { toChannelOperationError } from "./channel-effects";
 import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
@@ -306,6 +310,11 @@ export interface AgentServiceOptions {
    * is a property of this computer and never crosses the Team API. Omitted, every approval asks.
    */
   approvalAutomation?: ApprovalAutomationPolicy | undefined;
+  /**
+   * The person's graded permissions, budgets and Stop all agents. The main process owns the settings
+   * file. Omitted, the defaults apply: medium and high risk ask, and no budget or stop is set.
+   */
+  autonomy?: AutonomyPolicy | undefined;
   /**
    * The app default for a message sent while its agent works. The main process owns the preference.
    * Omitted, such a message waits in the queue, as every one did before the setting existed.
@@ -411,6 +420,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #hostedSites: HostedSiteCoordinator;
   readonly #conversation: ConversationRuntime;
   readonly #attention: AttentionRegistry;
+  readonly #autonomy: AutonomyController;
   readonly #images: ImageGenRuntime;
   readonly #threads: ThreadLifecycle;
   readonly #memoryHold: MemoryHold;
@@ -774,7 +784,26 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       rotateSession: (agentId, client, threadId) => this.#threads.rotateProviderSession(agentId, client, threadId),
       compacted: (threadId) => this.channels.contextCompacted(threadId),
     });
+    this.#autonomy = new AutonomyController({
+      policy: options.autonomy ?? DEFAULT_AUTONOMY_POLICY,
+      audit: new AutonomyAuditStore(store.database),
+      usage: new AutonomyUsageStore(store.database),
+      readTurnUsage: (agentId, turnId, startedAt) => {
+        try {
+          return store.database.usage.readTurnTotals(
+            agentId,
+            turnId,
+            new Date(startedAt - TURN_USAGE_MARGIN_MS).toISOString(),
+          );
+        } catch (error) {
+          this.#emitError("autonomy_usage_failed", error, agentId);
+          return null;
+        }
+      },
+      stopTurn: (turn) => this.#stopTurnAtBudget(turn),
+    });
     this.#attention = new AttentionRegistry({
+      autonomy: this.#autonomy,
       conversation: this.#conversation,
       browser: this.#browser,
       hostedSites: this.#hostedSites,
@@ -1152,6 +1181,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       threads: this.#threads,
       memory: this.#memoryHold,
       usageLimits: this.#usageLimits,
+      autonomy: this.#autonomy,
       tasks: this.#tasks,
       hooks: {
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
@@ -1241,6 +1271,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       usageLimits: this.#usageLimits,
       hooks: {
         emitFailure: (failure) => this.emit("failure", failure),
+        turnStarted: (turn) => this.#autonomy.turnStarted(turn),
+        turnEnded: (turn) => this.#autonomy.turnEnded(turn),
         emit: (event) => this.#emit(event),
         emitError: (code, error, agentId, context) => this.#emitError(code, error, agentId, context),
         emitRuntimeSnapshot: () => this.#emitRuntimeSnapshot(),
@@ -3470,6 +3502,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     yield* this.#memoryHold.dispose();
     this.#hostedSites.dispose();
     this.#compaction.dispose();
+    this.#autonomy.dispose();
     this.#deltas.dispose();
     this.#conversation.dispose();
     this.#threads.dispose();
@@ -3751,6 +3784,61 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     }
     this.#tasks.changed(task.agentId);
   }).bind(this);
+
+  /**
+   * Stop all agents: every lane of every agent holds, and each running turn is stopped. Queued
+   * messages keep their place. The caller stores the stop before it calls this, so the stop holds after
+   * a restart too. `resumeAll` releases every lane.
+   */
+  readonly stopAll = Effect.fn("AgentService.stopAll")(function* (this: AgentService) {
+    let stopped = 0;
+    for (const agent of this.#store.list()) {
+      const turns: Array<{ turnId: string; threadId: string | null }> = [];
+      const chat = this.#conversation.workingSnapshot(agent.id);
+      if (chat?.activeTurnId) turns.push({ turnId: chat.activeTurnId, threadId: null });
+      for (const snapshot of this.#conversation.workingTaskSnapshots(agent.id)) {
+        if (snapshot.activeTurnId) turns.push({ turnId: snapshot.activeTurnId, threadId: snapshot.threadId });
+      }
+      for (const turn of turns) {
+        stopped += 1;
+        yield* this.interrupt(agent.id, turn.turnId, turn.threadId ?? undefined).pipe(
+          Effect.catch((error) => Effect.sync(() => this.#emitError("stop_all_failed", error, agent.id))),
+        );
+      }
+    }
+    this.#autonomy.record({
+      action: "stop-all.started",
+      risk: null,
+      result: "stopped",
+      target: "all agents",
+      detail: `${stopped} running turns stopped`,
+    });
+    this.#emitRuntimeSnapshot();
+  }).bind(this);
+
+  /** Releases the lanes that `stopAll` held. Each agent's queue starts again. */
+  readonly resumeAll = Effect.fn("AgentService.resumeAll")(function* (this: AgentService) {
+    yield* Effect.sync(() => {
+      for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
+      this.#autonomy.record({
+        action: "stop-all.resumed",
+        risk: null,
+        result: "resumed",
+        target: "all agents",
+        detail: "",
+      });
+      this.#emitRuntimeSnapshot();
+    });
+  }).bind(this);
+
+  /** Stops a turn at a budget limit. The queue then waits behind the budget hold, and the audit log has the row. */
+  #stopTurnAtBudget(turn: RunningTurn): void {
+    Effect.runFork(
+      this.interrupt(turn.agentId, turn.turnId, turn.taskId === null ? undefined : turn.threadId).pipe(
+        Effect.catch((error) => Effect.sync(() => this.#emitError("budget_stop_failed", error, turn.agentId))),
+      ),
+    );
+  }
 
   /**
    * Pauses the task's queue. The running turn is not stopped: it ends, and the next queued message

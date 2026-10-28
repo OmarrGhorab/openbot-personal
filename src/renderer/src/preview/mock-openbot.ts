@@ -173,6 +173,7 @@ import {
 } from "./fixtures";
 import { mockAgentAnalytics, mockHostAnalytics } from "./mock-agent-analytics";
 import { createMockAuth, type MockAuthOptions } from "./mock-auth";
+import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
@@ -1318,6 +1319,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     monitor: createMockMonitor(
       (channelId) => options.channels?.find((seed) => seed.channel.id === channelId)?.channel.name,
     ),
+    autonomy: createMockAutonomy(() => agents),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),

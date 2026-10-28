@@ -41,6 +41,7 @@ import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores
 import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores/updates-store";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
+import { SettingsAutonomyTab } from "../autonomy/SettingsAutonomyTab";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
 import { licenseContactUs, trackLicenseEvent } from "./license-analytics";
 import { createProfileActivityStore } from "./profile-activity-store";
@@ -287,6 +288,9 @@ export function SettingsModal(props: SettingsModalProps) {
         <Tabs.Content value="agents" class="settings-modal-tab-panel" data-tab="agents">
           {preferencesLoadError()}
           <agents.Panel menuMount={modalElement} />
+        </Tabs.Content>
+        <Tabs.Content value="autonomy" class="settings-modal-tab-panel" data-tab="autonomy">
+          <SettingsAutonomyTab />
         </Tabs.Content>
 
         <Tabs.Content value="notifications" class="settings-modal-tab-panel" data-tab="notifications">

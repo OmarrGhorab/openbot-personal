@@ -8,6 +8,7 @@ import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
 import { AGENT_WORK_THREAD_SCHEMA_SQL } from "./agent-tasks/agent-work-thread-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
+import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
@@ -602,7 +603,8 @@ const LATEST_SCHEMA_SQL =
   V43_THREAD_EVENT_TYPE_INDEX_SQL +
   MESSAGING_ALLOWED_ROLES_SCHEMA_SQL +
   BROWSER_PROFILE_SCHEMA_SQL +
-  AGENT_WORK_THREAD_SCHEMA_SQL;
+  AGENT_WORK_THREAD_SCHEMA_SQL +
+  AUTONOMY_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -864,6 +866,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates a table, so no foreign-key pause and no vacuum. No task has a row yet, so every task
     // keeps running in the agent's workspace and is not paused, which is what it did before.
     up: (db) => db.exec(AGENT_WORK_THREAD_SCHEMA_SQL),
+  },
+  {
+    version: 47,
+    // Only creates tables, so no foreign-key pause and no vacuum. The audit log and the turn usage start
+    // empty: no budget counted anything before this version, and no action was recorded.
+    up: (db) => db.exec(AUTONOMY_SCHEMA_SQL),
   },
 ];
 

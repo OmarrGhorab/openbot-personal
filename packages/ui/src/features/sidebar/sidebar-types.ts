@@ -63,6 +63,11 @@ export interface SidebarProps {
    * it is set. `back` and `forward` name the chat that each arrow opens, or are null when there is none.
    */
   chatHistory?: SidebarChatHistory | undefined;
+  /**
+   * The Stop all agents switch of this computer. The top bar shows it when set. `stopped` is the
+   * stop as main holds it; `disabled` is set until main has answered the first read.
+   */
+  stopAll?: SidebarStopAll | undefined;
   /** A new OpenBot version of the server. The header shows a button that opens its update. */
   serverUpdate?: { version: string; running: boolean; onOpen: () => void } | undefined;
   agents: AgentProfile[];
@@ -136,6 +141,12 @@ export interface SidebarProps {
         onSelect: () => void;
       }
     | undefined;
+}
+
+export interface SidebarStopAll {
+  stopped: boolean;
+  disabled: boolean;
+  onToggle: () => void;
 }
 
 export interface SidebarChatHistory {
