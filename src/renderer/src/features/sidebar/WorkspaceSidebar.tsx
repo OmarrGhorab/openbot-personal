@@ -7,8 +7,8 @@ import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommun
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates } from "@openbot/ui/features/sidebar/sidebar-agent-states";
-import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import type { SidebarWorkThreads } from "@openbot/ui/features/sidebar/sidebar-types";
+import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
 import { appPort } from "../../app-port";

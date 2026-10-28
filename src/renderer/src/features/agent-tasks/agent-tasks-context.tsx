@@ -230,7 +230,10 @@ const AgentTasks = createSimpleContext({
     /** Deletes a closed task with its history. The backend refuses an open task. */
     async function deleteTask(agentId: string, taskId: string): Promise<boolean> {
       const deleted = await runAction(
-        () => agentTasksPort().agent.deleteTask({ agentId, taskId }).then(() => true),
+        () =>
+          agentTasksPort()
+            .agent.deleteTask({ agentId, taskId })
+            .then(() => true),
         "conversation.tasks.error.delete",
       );
       if (!deleted || !scopeIsCurrent()) return false;
