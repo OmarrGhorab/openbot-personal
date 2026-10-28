@@ -36,7 +36,7 @@ export interface AutonomyAuditInput {
 const DEFAULT_PAGE_SIZE = 50;
 
 /**
- * Owns `autonomy_audit_log` (migration 47). Every text is redacted here, on the way in, so a caller
+ * Owns `autonomy_audit_log` (migration 48). Every text is redacted here, on the way in, so a caller
  * cannot store a secret by passing the wrong argument. Rows are only added; nothing edits them.
  */
 export class AutonomyAuditStore {

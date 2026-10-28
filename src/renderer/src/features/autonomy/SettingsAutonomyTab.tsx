@@ -96,8 +96,8 @@ export function SettingsAutonomyTab() {
   };
 
   const reload = () =>
-    autonomyPort()
-      .getSnapshot()
+    Promise.resolve()
+      .then(() => autonomyPort().getSnapshot())
       .then(applySnapshot)
       .catch(() => setLoadFailed(true));
 

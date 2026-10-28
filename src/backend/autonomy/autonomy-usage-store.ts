@@ -24,7 +24,7 @@ interface UsageTotalsQuery {
 }
 
 /**
- * Owns `autonomy_turn_usage` (migration 47). A turn is recorded once, when it ends: `INSERT OR IGNORE`
+ * Owns `autonomy_turn_usage` (migration 48). A turn is recorded once, when it ends: `INSERT OR IGNORE`
  * keeps the first record of a turn that two paths end.
  */
 export class AutonomyUsageStore {

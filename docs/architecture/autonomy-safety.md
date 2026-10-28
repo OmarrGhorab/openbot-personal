@@ -12,8 +12,8 @@ is not built yet. Terms follow [the glossary](../glossary.md).
 | Does a low-risk action ask? | No. Never, for any agent that is not Workspace only. |
 | Default for medium and high | Both ask. A person can turn either one off per agent. |
 | Where are the rules stored? | `openbot-autonomy-v1.json` in the profile folder. It is a settings file, like the approval preference. |
-| Where are budgets stored? | Limits in the same settings file. Usage in SQLite (`autonomy_turn_usage`, migration 47). |
-| Where is the audit log? | SQLite (`autonomy_audit_log`, migration 47). Secrets are masked before the write. |
+| Where are budgets stored? | Limits in the same settings file. Usage in SQLite (`autonomy_turn_usage`, migration 48). |
+| Where is the audit log? | SQLite (`autonomy_audit_log`, migration 48). Secrets are masked before the write. |
 | What does Stop all agents do? | Holds every lane of every agent and stops each running turn. Queued messages stay queued. The stop is stored, so it holds after a restart. |
 | Are Workspace only agents affected? | They keep the released card for every approval. The rule does not widen their sandbox. |
 
@@ -110,7 +110,7 @@ The stop covers the agents of this computer only. A joined team server has its o
 | Controller: gate answers, drain holds, budget watcher, turn ledger | `src/backend/autonomy/autonomy-controller.ts` |
 | Audit store and redaction | `src/backend/autonomy/autonomy-audit-store.ts`, `audit-redaction.ts` |
 | Usage store | `src/backend/autonomy/autonomy-usage-store.ts` |
-| Schema, migration 47 | `src/backend/autonomy/autonomy-schema.ts`, `openbot-database-schema.ts` |
+| Schema, migration 48 | `src/backend/autonomy/autonomy-schema.ts`, `openbot-database-schema.ts` |
 | Approval gate | `src/backend/agent/attention-registry.ts` (`surfaceApproval`, `surfaceLegacyApproval`, `respondToApproval`) |
 | Drain hold | `src/backend/agent/drain-scheduler.ts` (`#heldBy`) |
 | Turn hooks | `src/backend/agent/turn-lifecycle.ts` (`turnStarted`, `turnEnded`) |

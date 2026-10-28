@@ -97,6 +97,10 @@ import {
   type OpenBotDesktopApi,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
+  PROJECT_MEMORY_LIMIT,
+  type ProjectMemory,
+  type ProjectMemoryState,
+  type ProjectMemoryUndo,
   type PromptCacheTtlSetting,
   type ProviderAccountStatus,
   type ProviderDetectionSettings,
@@ -640,6 +644,42 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   );
   const memories = new Map<string, AgentMemory[]>(Object.entries(clone(options.memories ?? {})));
   const memorySelections = new Map<string, AgentMemorySelection>();
+  // One project folder for every preview agent, so the preview shows the list that agents share.
+  const previewProjectPath = "/Users/preview/OpenBot/project";
+  const previewAuthor = agents[0]?.id ?? null;
+  let projectMemoryEntries: ProjectMemory[] = [
+    {
+      id: "project-memory-command",
+      kind: "command",
+      text: "Run bun run test:changed before you push.",
+      savedByAgentId: previewAuthor,
+      updatedByAgentId: null,
+      createdAt: "2026-10-20T09:00:00.000Z",
+      updatedAt: "2026-10-20T09:00:00.000Z",
+    },
+    {
+      id: "project-memory-rule",
+      kind: "rule",
+      text: "Keep the renderer-to-main trust boundary unchanged.",
+      savedByAgentId: null,
+      updatedByAgentId: null,
+      createdAt: "2026-10-21T10:30:00.000Z",
+      updatedAt: "2026-10-21T10:30:00.000Z",
+    },
+  ];
+  let projectMemoryBefore: ProjectMemory[] | null = null;
+  let projectMemoryUndo: ProjectMemoryUndo | null = null;
+  const projectMemoryState = (): ProjectMemoryState =>
+    clone({
+      projectPath: previewProjectPath,
+      memories: projectMemoryEntries,
+      limit: PROJECT_MEMORY_LIMIT,
+      undo: projectMemoryUndo,
+    });
+  const recordProjectChange = (action: ProjectMemoryUndo["action"], memoryId: string, before: ProjectMemory[]) => {
+    projectMemoryBefore = clone(before);
+    projectMemoryUndo = { action, memoryId, changedByAgentId: null, changedAt: new Date().toISOString() };
+  };
   for (const entries of memories.values()) {
     const selected: AgentMemory[] = [];
     for (const entry of [...entries].sort((left, right) => {
@@ -2225,6 +2265,46 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         for (const entry of memories.get(agentId) ?? []) memorySelections.delete(entry.id);
         memories.delete(agentId);
         emitAgentEvent({ type: "memories-changed", agentId });
+      },
+      getProjectMemories: async () => projectMemoryState(),
+      createProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        const now = new Date().toISOString();
+        const memory: ProjectMemory = {
+          id: `project-memory-${Date.now()}`,
+          kind: input.kind,
+          text: input.text.trim(),
+          savedByAgentId: null,
+          updatedByAgentId: null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        projectMemoryEntries = [memory, ...before];
+        recordProjectChange("create", memory.id, before);
+        return projectMemoryState();
+      },
+      updateProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        const now = new Date().toISOString();
+        projectMemoryEntries = before.map((memory) =>
+          memory.id === input.memoryId
+            ? { ...memory, kind: input.kind, text: input.text.trim(), updatedByAgentId: null, updatedAt: now }
+            : memory,
+        );
+        recordProjectChange("update", input.memoryId, before);
+        return projectMemoryState();
+      },
+      deleteProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        projectMemoryEntries = before.filter((memory) => memory.id !== input.memoryId);
+        recordProjectChange("delete", input.memoryId, before);
+        return projectMemoryState();
+      },
+      undoProjectMemory: async () => {
+        if (projectMemoryBefore) projectMemoryEntries = clone(projectMemoryBefore);
+        projectMemoryBefore = null;
+        projectMemoryUndo = null;
+        return projectMemoryState();
       },
       listTables: async () => clone(tables),
       deleteTable: async (input) => {

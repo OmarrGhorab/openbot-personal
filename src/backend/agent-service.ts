@@ -41,11 +41,13 @@ import type {
   CreateAgentMemoryInput,
   CreateChannelMemoryInput,
   CreateChannelRoutineInput,
+  CreateProjectMemoryInput,
   CreateRoutineInput,
   CustomProviderRestart,
   DeleteAgentMemoryInput,
   DeleteChannelMemoryInput,
   DeleteChannelRoutineInput,
+  DeleteProjectMemoryInput,
   DeleteRoutineInput,
   DeleteSharedTableInput,
   DraftAttachment,
@@ -61,6 +63,7 @@ import type {
   McpSignInAppState,
   McpSignInState,
   McpTestResult,
+  ProjectMemoryState,
   ProviderCodeLoginStart,
   ProviderUsageResets,
   QueuedMessageReceipt,
@@ -98,6 +101,7 @@ import type {
   UpdateAgentMemoryInput,
   UpdateChannelMemoryInput,
   UpdateChannelRoutineInput,
+  UpdateProjectMemoryInput,
   UpdateQueuedMessageInput,
   UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
@@ -1616,6 +1620,27 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   clearMemories(agentId: string): void {
     this.#memories.clear(agentId);
+  }
+
+  /** The project memory of the agent's folder, shared with every agent in that folder. */
+  getProjectMemories(agentId: string): ProjectMemoryState {
+    return this.#memories.projectState(agentId);
+  }
+
+  createProjectMemory(input: CreateProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.createProjectMemory(input);
+  }
+
+  updateProjectMemory(input: UpdateProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.updateProjectMemory(input);
+  }
+
+  deleteProjectMemory(input: DeleteProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.deleteProjectMemory(input);
+  }
+
+  undoProjectMemory(agentId: string): ProjectMemoryState {
+    return this.#memories.undoProjectMemory(agentId);
   }
 
   listTables(): Effect.Effect<SharedTable[], AgentLifecycleFailed> {

@@ -966,6 +966,7 @@ export class ThreadLifecycle {
       memoriesInTurns: client.provider === "claude",
       teammatesInTurns: client.provider === "claude",
       sectionTeammates: section,
+      projectMemory: this.#memories.projectContextLines(agent.id),
     };
     const instructions = developerInstructions(
       agent,

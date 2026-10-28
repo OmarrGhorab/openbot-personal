@@ -157,6 +157,10 @@ export const messages = {
   "error.backend.interruptNoSession": "OpenBot مش قادر يقاطع الإيجنت ده لأن جلسة المزوّد بتاعته مش متاحة.",
   "error.backend.memoryTextRequired": "لازم تكتب نص الذاكرة.",
   "error.backend.memoryTextTooLong": "نص الذاكرة طويل أوي.",
+  "error.backend.projectMemoryLimit":
+    "المشروع ده وصل للحد الأقصى ({limit} ذكرى). قول للمستخدم؛ هو يقدر يعدّل أو يمسح واحدة.",
+  "error.backend.projectMemoryDuplicate": "المشروع ده فيه ذكرى بنفس النص بالفعل.",
+  "error.backend.projectMemoryUndoEmpty": "مفيش تغيير في ذاكرة المشروع أتراجع عنه.",
   "error.backend.mcpServerGone": "سيرفر MCP ده مبقاش موجود.",
   "error.backend.routineFlowLinkGone": "الربط ده مبقاش موجود.",
   "error.backend.routineFlowSameAgent": "الإيجنت مينفعش يسلّم الشغل لنفسه.",

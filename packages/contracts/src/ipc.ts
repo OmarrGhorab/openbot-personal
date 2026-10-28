@@ -64,6 +64,7 @@ export * from "./ipc-messaging";
 export * from "./ipc-monitor";
 export * from "./ipc-notifications";
 export * from "./ipc-onepassword-connector";
+export * from "./ipc-project-memories";
 export * from "./ipc-prompt-cache";
 export * from "./ipc-provider-admin";
 export * from "./ipc-provider-detection";

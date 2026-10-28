@@ -381,6 +381,13 @@ import type {
   OnePasswordConnectorStatus,
   OnePasswordHostConnectInput,
 } from "./ipc-onepassword-connector";
+import type {
+  CreateProjectMemoryInput,
+  DeleteProjectMemoryInput,
+  ProjectMemoryAgentInput,
+  ProjectMemoryState,
+  UpdateProjectMemoryInput,
+} from "./ipc-project-memories";
 import type { PromptCacheTtl, PromptCacheTtlSetting } from "./ipc-prompt-cache";
 import type {
   DetectedModelServer,
@@ -1392,6 +1399,14 @@ export const IPC_ENDPOINTS = {
     respondToBrowserTakeover: scopedRequest<RespondToBrowserTakeoverInput, void>()("agent:respond-to-browser-takeover"),
     scopedEvent: event<ScopedAgentEvent>()("agent:event"),
   },
+  // Project memory lives on this computer only, so its calls are plain requests, not scoped to a host.
+  projectMemories: {
+    getProjectMemories: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:get-project-memories"),
+    createProjectMemory: request<CreateProjectMemoryInput, ProjectMemoryState>()("agent:create-project-memory"),
+    updateProjectMemory: request<UpdateProjectMemoryInput, ProjectMemoryState>()("agent:update-project-memory"),
+    deleteProjectMemory: request<DeleteProjectMemoryInput, ProjectMemoryState>()("agent:delete-project-memory"),
+    undoProjectMemory: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:undo-project-memory"),
+  },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),
     setMemoryInclusion: scopedRequest<SetAgentMemoryInclusionInput, AgentMemorySelectionState>()(
@@ -1822,6 +1837,7 @@ export const IPC_GROUP_PATHS = {
   notifications: "notifications",
   agent: "agent",
   agentMemories: "agent",
+  projectMemories: "agent",
   sharedTables: "agent",
   agentRoutines: "agent",
   channelMemories: "agent",

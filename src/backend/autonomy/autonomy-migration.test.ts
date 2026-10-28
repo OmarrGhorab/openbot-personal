@@ -3,7 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateOpenBotDatabase } from "../openbot-database-schema";
 
-// Failure modes: the upgrade from 46 changes or loses a row of the agent's own chat; a failed upgrade
+// Failure modes: the upgrade from 47 changes or loses a row of the agent's own chat; a failed upgrade
 // leaves a table or its marker behind; a retry after the failure does not finish; a usage row with a
 // negative count or an unknown risk level is accepted; the audit table lacks its columns. These
 // fixtures cover each. The upgrade only creates tables, so it never copies a row.
@@ -46,9 +46,9 @@ function seedChat(db: DatabaseSync): void {
   );
 }
 
-describe("autonomy schema migration (version 47)", () => {
-  it("keeps every row of a database at version 46 and adds empty tables", () => {
-    const db = databaseAt(46);
+describe("autonomy schema migration (version 48)", () => {
+  it("keeps every row of a database at version 47 and adds empty tables", () => {
+    const db = databaseAt(47);
     seedChat(db);
     expect(tableNames(db)).not.toEqual(expect.arrayContaining(AUTONOMY_TABLES));
 
@@ -59,19 +59,19 @@ describe("autonomy schema migration (version 47)", () => {
     for (const table of AUTONOMY_TABLES) {
       expect(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()).toEqual({ count: 0 });
     }
-    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 47").get()).toEqual({ version: 47 });
+    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 48").get()).toEqual({ version: 48 });
   });
 
   it("rolls back the tables and the marker after a late failure, then retries", () => {
-    const db = databaseAt(46);
+    const db = databaseAt(47);
     seedChat(db);
-    db.exec(`CREATE TEMP TRIGGER fail_autonomy BEFORE INSERT ON schema_migrations WHEN new.version = 47
+    db.exec(`CREATE TEMP TRIGGER fail_autonomy BEFORE INSERT ON schema_migrations WHEN new.version = 48
       BEGIN SELECT RAISE(ABORT, 'fixture stop'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 47 failed");
+    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 48 failed");
     db.exec("DROP TRIGGER fail_autonomy");
 
     for (const table of AUTONOMY_TABLES) expect(tableNames(db)).not.toContain(table);
-    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 47").get()).toBeUndefined();
+    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 48").get()).toBeUndefined();
     expect(db.prepare("SELECT COUNT(*) AS count FROM projection_threads").get()).toEqual({ count: 1 });
 
     migrateOpenBotDatabase(db);
@@ -79,8 +79,8 @@ describe("autonomy schema migration (version 47)", () => {
     expect(db.prepare("SELECT COUNT(*) AS count FROM projection_threads").get()).toEqual({ count: 1 });
   });
 
-  it("leaves a database that is already at 47 unchanged on the next start", () => {
-    const db = databaseAt(46);
+  it("leaves a database that is already at 48 unchanged on the next start", () => {
+    const db = databaseAt(47);
     seedChat(db);
     migrateOpenBotDatabase(db);
     db.prepare(
@@ -91,13 +91,13 @@ describe("autonomy schema migration (version 47)", () => {
     migrateOpenBotDatabase(db);
 
     expect(db.prepare("SELECT COUNT(*) AS count FROM autonomy_turn_usage").get()).toEqual({ count: 1 });
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 47").get()).toEqual({
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 48").get()).toEqual({
       count: 1,
     });
   });
 
   it("refuses a usage row with a negative count and an audit row with an unknown risk", () => {
-    const db = databaseAt(46);
+    const db = databaseAt(47);
     migrateOpenBotDatabase(db);
     expect(() =>
       db

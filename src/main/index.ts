@@ -83,6 +83,7 @@ import { monitorIpcHandlers } from "./ipc/monitor-handlers";
 import { notificationIpcHandlers } from "./ipc/notification-handlers";
 import { onePasswordConnectorIpcHandlers } from "./ipc/onepassword-connector-handlers";
 import { pluginIpcHandlers } from "./ipc/plugin-handlers";
+import { projectMemoryIpcHandlers } from "./ipc/project-memory-handlers";
 import { providerAdminIpcHandlers } from "./ipc/provider-admin-handlers";
 import { providerDetectionIpcHandlers } from "./ipc/provider-detection-handlers";
 import { providerIpcHandlers } from "./ipc/provider-handlers";
@@ -712,6 +713,7 @@ function registerIpcHandlers({
       takePendingPluginSlug: () => takePendingDeepLink("plugin"),
     }),
     ...memoryIpcHandlers({ service, remoteServers }),
+    ...projectMemoryIpcHandlers({ service }),
     ...sharedTableIpcHandlers({ service, remoteServers }),
     ...routineIpcHandlers({ service, remoteServers }),
     ...routineFlowIpcHandlers({ routineFlows, remoteServers }),

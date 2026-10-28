@@ -18,6 +18,7 @@ import {
   MESSAGING_MEMORY_SCHEMA_SQL,
   MESSAGING_SCHEMA_SQL,
 } from "./messaging/messaging-schema";
+import { PROJECT_MEMORY_SCHEMA_SQL } from "./project-memory/project-memory-schema";
 import { ROUTINE_FLOW_SCHEMA_SQL } from "./routine-flows/routine-flow-schema";
 import { ROUTINE_RESULT_SCHEMA_SQL } from "./routine-results/routine-result-schema";
 
@@ -604,6 +605,7 @@ const LATEST_SCHEMA_SQL =
   MESSAGING_ALLOWED_ROLES_SCHEMA_SQL +
   BROWSER_PROFILE_SCHEMA_SQL +
   AGENT_WORK_THREAD_SCHEMA_SQL +
+  PROJECT_MEMORY_SCHEMA_SQL +
   AUTONOMY_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
@@ -869,6 +871,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
   },
   {
     version: 47,
+    // Only creates tables, so no foreign-key pause and no vacuum. No project has a memory yet, so every
+    // agent starts with no project facts and every work thread keeps the prompt it had before.
+    up: (db) => db.exec(PROJECT_MEMORY_SCHEMA_SQL),
+  },
+  {
+    version: 48,
     // Only creates tables, so no foreign-key pause and no vacuum. The audit log and the turn usage start
     // empty: no budget counted anything before this version, and no action was recorded.
     up: (db) => db.exec(AUTONOMY_SCHEMA_SQL),

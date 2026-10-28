@@ -355,6 +355,12 @@ export function toolProgressText(item: ThreadItem, completed: boolean): string |
   if (openBot === "remember" || openBot === "forget_memory" || openBot === "set_memory_inclusion") {
     return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.memoriesUpdating");
   }
+  if (openBot === "search_project_memory") {
+    return completed ? null : sourceText("status.agent.memoriesSearching");
+  }
+  if (openBot === "save_lesson" || openBot === "learn_from_failure") {
+    return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.memoriesUpdating");
+  }
   if (openBot === "read_local_skill") return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.skillReading");
   const skill = getString(item, "name") === "Skill" ? getString(item, "skill") : null;
   if (skill) return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.skillUsing", { name: skill });

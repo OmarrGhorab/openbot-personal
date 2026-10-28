@@ -6,9 +6,13 @@ import type {
   AgentMemorySelectionState,
   ConversationMemoryChange,
   CreateAgentMemoryInput,
+  CreateProjectMemoryInput,
   DeleteAgentMemoryInput,
+  DeleteProjectMemoryInput,
+  ProjectMemoryState,
   SetAgentMemoryInclusionInput,
   UpdateAgentMemoryInput,
+  UpdateProjectMemoryInput,
 } from "@openbot/contracts/ipc";
 import { isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
@@ -21,9 +25,11 @@ import {
 } from "../agent-memory-store";
 import type { AgentStore } from "../agent-store";
 import { normalizeMemoryText } from "../memory-store";
+import { ProjectMemoryError } from "../project-memory/project-memory-store";
 import { type DynamicToolCallParams, isRecord } from "../protocol";
 import type { ConversationRuntime } from "./conversation-runtime";
 import { listMemoriesInput, searchMemoriesInput, setMemoryInclusionInput } from "./memory-tool-inputs";
+import { ProjectMemories } from "./project-memories";
 import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from "./routine-tools";
 
 type PendingMemoryMutation =
@@ -82,6 +88,7 @@ export class AgentMemories {
   readonly #emit: (event: AgentEvent) => void;
   readonly #emitError: (code: string, error: unknown, agentId?: string) => void;
   readonly #memories: AgentMemoryStore;
+  readonly #projects: ProjectMemories;
   readonly #pending = new Map<string, PendingMemoryMutation[]>();
   readonly #epochs = new Map<string, number>();
 
@@ -90,6 +97,33 @@ export class AgentMemories {
     this.#emit = options.emit;
     this.#emitError = options.emitError;
     this.#memories = new AgentMemoryStore(options.store.database, options.limit);
+    this.#projects = new ProjectMemories({ database: options.store.database, conversation: options.conversation });
+  }
+
+  /** The project memory of the agent's folder, for the settings panel. */
+  projectState(agentId: string): ProjectMemoryState {
+    return this.#projects.state(agentId);
+  }
+
+  createProjectMemory(input: CreateProjectMemoryInput): ProjectMemoryState {
+    return this.#projects.create(input);
+  }
+
+  updateProjectMemory(input: UpdateProjectMemoryInput): ProjectMemoryState {
+    return this.#projects.update(input);
+  }
+
+  deleteProjectMemory(input: DeleteProjectMemoryInput): ProjectMemoryState {
+    return this.#projects.delete(input);
+  }
+
+  undoProjectMemory(agentId: string): ProjectMemoryState {
+    return this.#projects.undo(agentId);
+  }
+
+  /** The project block of the developer instructions, read at the start of a work thread. */
+  projectContextLines(agentId: string): string[] {
+    return this.#projects.contextLines(agentId);
   }
 
   limit(): number {
@@ -136,14 +170,15 @@ export class AgentMemories {
 
   create(input: CreateAgentMemoryInput): AgentMemory {
     this.#conversation.requireKnownAgent(input.agentId);
-    const memory = this.#memories.createManual(input.agentId, input.text);
+    // A secret is redacted before it is saved, not only before a prompt reads it.
+    const memory = this.#memories.createManual(input.agentId, redactText(input.text));
     this.stateChanged(input.agentId);
     return memory;
   }
 
   update(input: UpdateAgentMemoryInput): AgentMemory {
     this.#conversation.requireKnownAgent(input.agentId);
-    const memory = this.#memories.updateManual(input.agentId, input.memoryId, input.text);
+    const memory = this.#memories.updateManual(input.agentId, input.memoryId, redactText(input.text));
     this.stateChanged(input.agentId);
     return memory;
   }
@@ -173,10 +208,12 @@ export class AgentMemories {
     redact: (value: string) => string = redactText,
   ): OpenBotToolResponse | null {
     try {
-      return this.#handleTool(params, senderAgentId, redact);
+      return this.#projects.handleTool(params, senderAgentId) ?? this.#handleTool(params, senderAgentId, redact);
     } catch (error) {
       const message =
-        error instanceof AgentMemorySelectionError ? error.message : sourceText("error.backend.memoryOperationFailed");
+        error instanceof AgentMemorySelectionError || error instanceof ProjectMemoryError
+          ? error.message
+          : sourceText("error.backend.memoryOperationFailed");
       return openBotToolFailure(message);
     }
   }
@@ -235,7 +272,8 @@ export class AgentMemories {
       const args = params.arguments;
       if (!isRecord(args) || !isString(args.text))
         return openBotToolFailure(sourceText("error.backend.memoryTextRequired"));
-      const text = args.text.trim();
+      // Redacted before the length check and before the save, so no secret reaches the store.
+      const text = redactText(args.text.trim());
       if (!text) return openBotToolFailure(sourceText("error.backend.memoryTextRequired"));
       if (text.length > INPUT_LIMITS.agentMemoryText)
         return openBotToolFailure(sourceText("error.backend.memoryTextTooLong"));
