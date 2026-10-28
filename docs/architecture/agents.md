@@ -120,8 +120,10 @@ active routine with a weekly or monthly schedule, one click each. The templates 
 `src/renderer/src/features/conversation/routine-templates.ts`. Each instruction is the body of a
 Markdown skill in `resources/autonomy-skills/<name>/SKILL.md`, read with `?raw`. The saved routine
 keeps the instruction, so a user can edit it like any routine. The template saves with
-`limitPolicy: "skip"` and `missedPolicy: "skip"`. A template that is already in the list shows
-**Scheduled** and cannot be saved again. The section is hidden for a remote host and for a channel.
+`limitPolicy: "skip"` and `missedPolicy: "skip"`. The first line of the instruction names the
+template: `<!-- openbot-routine-template: <id> -->`. A routine with that line shows its template as
+**Scheduled**, and the template cannot be saved again. The id does not change with the routine name
+or the app language, and a routine the user wrote has no such line. The section is hidden for a remote host and for a channel.
 
 A coding routine needs no new field. Its repository is the agent's workspace. Its branch is named by
 the instruction. Its work thread is the routine session in the agent chat. It needs `gh` signed in on

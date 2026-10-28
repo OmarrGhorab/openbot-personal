@@ -51,7 +51,8 @@ function skillBody(slug: string): { name: string; body: string } {
   const markdown = readFileSync(join(ROOT, "resources", "autonomy-skills", slug, "SKILL.md"), "utf8");
   const match = /^---\r?\nname: (.+)\r?\ndescription: (.+)\r?\n---\r?\n/u.exec(markdown);
   assert.ok(match, `${slug} has front matter with a name and a description.`);
-  const body = markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "").trim();
+  // The first line names the template, so the settings find it by id rather than by name.
+  const body = `<!-- openbot-routine-template: ${slug} -->\n\n${markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "").trim()}`;
   return { name: match[1] ?? "", body };
 }
 
@@ -317,6 +318,10 @@ try {
     const created = expected.map((item) => ({ item, routine: scheduleTemplate(item.slug, item.schedule) }));
     for (const { item, routine } of created) {
       assert.equal(routine.name, item.name);
+      assert.ok(
+        routine.instruction.startsWith(`<!-- openbot-routine-template: ${item.slug} -->`),
+        "The stored instruction keeps the template id line.",
+      );
       assert.ok(routine.trigger.nextRunAt, "The template has a next run.");
     }
     const monthly = created.find((entry) => entry.item.slug === "clean-todos")?.routine;

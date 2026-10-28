@@ -70,7 +70,7 @@ import { type DesktopAnalyticsScope, desktopAnalytics } from "../../analytics";
 import { writeClipboardText } from "../../clipboard";
 import { HostedUpsellRoutinesNotice, hostedUpsellRoutineCreated } from "../servers/hosted-server-upsell-controller";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
-import { ROUTINE_TEMPLATES, type RoutineTemplate } from "./routine-templates";
+import { ROUTINE_TEMPLATES, type RoutineTemplate, scheduledRoutineTemplateIds } from "./routine-templates";
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
 export interface RoutineSelectionRequest {
@@ -162,6 +162,8 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   const [pendingExit, setPendingExit] = createSignal<PendingRoutineExit | null>(null);
   // The template whose one-click schedule is waiting for the host.
   const [templatePending, setTemplatePending] = createSignal<string | null>(null);
+  // A template counts as scheduled by the id in a routine's instruction, never by the routine name.
+  const scheduledTemplateIds = createMemo(() => scheduledRoutineTemplateIds(routines()));
   const scrollFades = createScrollFades();
   let draftRevision = 0;
   // The saved routine the open draft started from. A field that still matches it is unedited.
@@ -894,11 +896,11 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                     <For each={ROUTINE_TEMPLATES}>
                       {(template) => {
                         const name = () => t(template.nameKey);
-                        const scheduled = () => routines().some((routine) => routine.name === name());
+                        const scheduled = () => scheduledTemplateIds().has(template.id);
                         return (
                           <div class="agent-routine-list-item">
                             <div class="agent-routine-row">
-                              <span>
+                              <span class="agent-routine-status-icon-active">
                                 <Clock3 aria-hidden="true" />
                               </span>
                               <span>
