@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
@@ -21,6 +22,8 @@ import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from 
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import type { AgentTaskOrigin, AgentTaskRecord, AgentTaskStore } from "./agent-task-store";
+import type { AgentWorkThreadStore } from "./agent-work-thread-store";
+import type { AgentWorktrees } from "./agent-worktrees";
 
 const logger = createOpenBotLogger("agent-tasks");
 
@@ -53,6 +56,9 @@ export interface AgentTaskCaller {
 
 export interface AgentTasksOptions {
   store: AgentTaskStore;
+  /** The workspace folder and the pause state of each work thread (migration 46). */
+  workThreads: AgentWorkThreadStore;
+  worktrees: AgentWorktrees;
   mailbox: MailboxStore;
   conversation: ConversationRuntime;
   hooks: AgentTasksHooks;
@@ -67,6 +73,8 @@ export interface AgentTasksOptions {
  */
 export class AgentTasks implements TaskLanes {
   readonly #store: AgentTaskStore;
+  readonly #workThreads: AgentWorkThreadStore;
+  readonly #worktrees: AgentWorktrees;
   readonly #mailbox: MailboxStore;
   readonly #conversation: ConversationRuntime;
   readonly #hooks: AgentTasksHooks;
@@ -77,6 +85,8 @@ export class AgentTasks implements TaskLanes {
 
   constructor(options: AgentTasksOptions) {
     this.#store = options.store;
+    this.#workThreads = options.workThreads;
+    this.#worktrees = options.worktrees;
     this.#mailbox = options.mailbox;
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
@@ -101,6 +111,45 @@ export class AgentTasks implements TaskLanes {
     const agent = this.#hooks.agent(agentId);
     return agent !== undefined && !agentProviderDescriptor(agent.provider).concurrentTurns;
   }
+
+  /** Whether the person paused this open task. The pause is stored, so it outlives a restart. */
+  paused(taskId: string): boolean {
+    const task = this.#store.task(taskId);
+    if (!task || task.closedAt !== null) return false;
+    return this.#workThreads.find(taskId)?.pausedAt != null;
+  }
+
+  /** Stores the pause of the task, or clears it. The drain reads it at its next pass. */
+  setPaused(task: AgentTaskRecord, paused: boolean): void {
+    const current = this.#workThreads.find(task.taskId)?.pausedAt ?? null;
+    if ((current !== null) === paused) return;
+    this.#workThreads.setPaused(task.taskId, task.agentId, paused ? new Date().toISOString() : null);
+  }
+
+  /**
+   * The folder that the provider sessions of this thread run in: the work thread's own git worktree,
+   * or null for the agent workspace (the main thread, and a work thread outside a git repository).
+   * The first session of a work thread makes its worktree; every later session uses it again.
+   */
+  readonly sessionFolder = Effect.fn("AgentTasks.sessionFolder")(function* (
+    this: AgentTasks,
+    agentId: string,
+    threadId: string,
+    workspacePath: string,
+  ): Effect.fn.Return<string | null> {
+    const task = this.#store.taskForThread(threadId);
+    if (!task || task.agentId !== agentId) return null;
+    const record = this.#workThreads.find(task.taskId);
+    if (record?.workspace.mode === "worktree") {
+      // A worktree that the person removed is made again at the same path, on the same branch.
+      if (existsSync(record.workspace.path)) return record.workspace.path;
+    } else if (record) {
+      return null;
+    }
+    const workspace = yield* this.#worktrees.prepare(workspacePath, task.taskId);
+    this.#workThreads.setWorkspace(task.taskId, agentId, workspace);
+    return workspace.mode === "worktree" ? workspace.path : null;
+  });
 
   /** The error of a task turn, redacted by the caller. The panel shows it until the next turn starts. */
   failed(taskId: string, message: string): void {

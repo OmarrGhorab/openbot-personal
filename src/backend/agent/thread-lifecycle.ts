@@ -142,6 +142,12 @@ export interface ThreadLifecycleOptions {
   serverHost?: boolean;
   /** The other agents in an agent's sidebar section, read at each start and resume of a session. */
   sectionTeammates?: (agentId: string) => SectionTeammates | null;
+  /**
+   * The folder that the sessions of a thread run in, when it is not the agent workspace: the git
+   * worktree of a work thread. Null keeps the agent workspace. The writable roots do not change: the
+   * worktree is inside the workspace.
+   */
+  sessionFolder?: (agentId: string, threadId: string, workspacePath: string) => Effect.Effect<string | null>;
 }
 
 /**
@@ -173,6 +179,7 @@ export class ThreadLifecycle {
   readonly #vaultItems: () => VaultContents;
   readonly #serverHost: boolean;
   readonly #sectionTeammates: (agentId: string) => SectionTeammates | null;
+  readonly #sessionFolder: (agentId: string, threadId: string, workspacePath: string) => Effect.Effect<string | null>;
   readonly #pendingHandoffs = new Map<string, string>();
   readonly #pendingRuntimeRefreshes = new Set<string>();
   /**
@@ -201,6 +208,7 @@ export class ThreadLifecycle {
     this.#vaultItems = options.vaultItems ?? (() => ({ available: false, cards: false, contacts: false }));
     this.#serverHost = options.serverHost ?? false;
     this.#sectionTeammates = options.sectionTeammates ?? (() => null);
+    this.#sessionFolder = options.sessionFolder ?? (() => Effect.succeed(null));
   }
 
   /**
@@ -500,6 +508,13 @@ export class ThreadLifecycle {
     this.#pendingHandoffs.set(id, handoff);
   }).bind(this);
 
+  /** The folder that the sessions and turns of this thread run in: a work-thread worktree, or the agent workspace. */
+  sessionCwd(agent: AgentSummary, publicThreadId: string): Effect.Effect<string> {
+    return this.#sessionFolder(agent.id, publicThreadId, agent.workspacePath).pipe(
+      Effect.map((folder) => folder ?? agent.workspacePath),
+    );
+  }
+
   /**
    * What a new provider session of this agent starts with. Each value is read once, so the request
    * and the tool manifest that records it see the same set.
@@ -528,11 +543,13 @@ export class ThreadLifecycle {
     // Read before the configuration, which starts the same listener: both see one port.
     const proxy = client.provider === "codex" ? yield* this.#proxyFingerprint(mcpServers) : null;
     const config = yield* this.codexConfigEffect(agent, client, mcpServers, own, toolRuntimes, environment);
+    // A work thread runs in its own git worktree, so two threads of one agent do not edit the same files.
+    const cwd = yield* this.sessionCwd(agent, publicThreadId);
     const params: DynamicRecord = {
       ...config,
       model: agent.model,
       effort: agent.reasoningEffort,
-      cwd: agent.workspacePath,
+      cwd,
       runtimeWorkspaceRoots: workspaceWritableRoots(agent, this.#store.sharedRoot),
       approvalPolicy: "on-request",
       sandbox: codexSandboxMode(agent),
@@ -984,11 +1001,12 @@ export class ThreadLifecycle {
     const agent = this.#sessionAgent(owner, publicThreadId);
     const configs = this.#agentMcpServers(agent);
     const toolRuntimes = this.#toolRuntimes();
+    const cwd = yield* this.sessionCwd(agent, publicThreadId);
     return {
       threadId: externalThreadId,
       model: agent.model,
       effort: agent.reasoningEffort,
-      cwd: agent.workspacePath,
+      cwd,
       runtimeWorkspaceRoots: workspaceWritableRoots(agent, this.#store.sharedRoot),
       approvalPolicy: "on-request",
       sandbox: codexSandboxMode(agent),

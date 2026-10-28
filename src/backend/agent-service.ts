@@ -203,6 +203,8 @@ import type { AgentProvider } from "./agent-client";
 import type { AgentTables } from "./agent-data/agent-tables";
 import type { AgentStore } from "./agent-store";
 import { AgentTaskStore } from "./agent-tasks/agent-task-store";
+import { AgentWorkThreadStore } from "./agent-tasks/agent-work-thread-store";
+import { AgentWorktrees } from "./agent-tasks/agent-worktrees";
 import { AgentTasks } from "./agent-tasks/agent-tasks";
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
 import { AgentWaits } from "./agent-waits/agent-waits";
@@ -509,6 +511,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     );
     this.#tasks = new AgentTasks({
       store: new AgentTaskStore(store.database),
+      workThreads: new AgentWorkThreadStore(store.database),
+      worktrees: new AgentWorktrees(),
       mailbox,
       conversation: this.#conversation,
       hooks: {
@@ -895,6 +899,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       // Only a server has a memory reading.
       serverHost: hostMemory !== null,
       sectionTeammates: (agentId) => this.sectionTeammates(agentId),
+      sessionFolder: (agentId, threadId, workspacePath) =>
+        this.#tasks.sessionFolder(agentId, threadId, workspacePath),
       hooks: {
         logRecovery: (agentId, provider, outcome) =>
           logger.warn("Recovered an unavailable provider session.", { agentId, provider, outcome }),
@@ -3733,7 +3739,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
-    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    const task = yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    // Stored, so the pause outlives a restart; the drain also holds the lane now.
+    this.#tasks.setPaused(task, true);
     this.#drain.pauseLane(input.agentId, input.taskId);
     this.#tasks.changed(input.agentId);
   }).bind(this);
@@ -3743,7 +3751,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
-    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    const task = yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    this.#tasks.setPaused(task, false);
     this.#drain.resumeLane(input.agentId, input.taskId);
     this.#tasks.changed(input.agentId);
   }).bind(this);
@@ -3768,6 +3777,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         throw new Error(sourceText("error.backend.taskStillRunning"));
       return found;
     });
+    this.#tasks.setPaused(task, false);
     this.#tasks.close(task);
     // A task lane that waited for a free task can start now.
     this.#drain.scheduleDrain(task.agentId);

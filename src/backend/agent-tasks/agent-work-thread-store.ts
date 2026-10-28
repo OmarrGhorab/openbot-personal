@@ -41,10 +41,15 @@ export class AgentWorkThreadStore {
 
   /** The record of the task, or the default of a task that has none. */
   get(taskId: string, agentId: string): AgentWorkThreadRecord {
+    return this.find(taskId) ?? { taskId, agentId, workspace: SHARED, pausedAt: null };
+  }
+
+  /** The record of the task, or null when the task has none yet. */
+  find(taskId: string): AgentWorkThreadRecord | null {
     const row = databaseRow(
       this.#database.connection.prepare("SELECT * FROM projection_agent_work_threads WHERE task_id = ?").get(taskId),
     );
-    return row ? decodeWorkThread(row) : { taskId, agentId, workspace: SHARED, pausedAt: null };
+    return row ? decodeWorkThread(row) : null;
   }
 
   /** The paused work threads of this agent. */
