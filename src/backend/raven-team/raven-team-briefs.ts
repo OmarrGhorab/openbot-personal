@@ -54,7 +54,7 @@ export function roleBrief(input: RoleBriefInput): string {
 }
 
 /** A text cut to the handoff size. The cut is marked, so the reader knows the text is not complete. */
-export function clipHandoff(text: string): string {
+function clipHandoff(text: string): string {
   const trimmed = text.trim();
   if (trimmed.length <= HANDOFF_CHARACTERS) return trimmed;
   return `${trimmed.slice(0, HANDOFF_CHARACTERS - 40)}\n[... cut; the full text is in the thread ...]`;

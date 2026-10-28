@@ -74,7 +74,7 @@ export type RavenTeamAgents = Pick<
   | "preferredProvider"
 >;
 
-export const BUILT_IN_RAVEN_TEAM_TEMPLATE: RavenTeamTemplate = {
+const BUILT_IN_RAVEN_TEAM_TEMPLATE: RavenTeamTemplate = {
   id: RAVEN_STACK_TEAM_TEMPLATE_ID,
   name: "Raven Stack team",
   builtIn: true,
