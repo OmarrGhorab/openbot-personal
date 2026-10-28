@@ -29,6 +29,7 @@ import { createStorageUsage } from "../files/storage-usage";
 import { AgentMemoriesModal } from "./AgentMemoriesModal";
 import { AgentRoutinesSettings, type RoutineSelectionRequest } from "./AgentRoutinesSettings";
 import { AgentSkillsModal, type AgentSkillsMode, assignedSkillCount, type SkillDetail } from "./AgentSkillsModal";
+import { AgentTicketWatchRow } from "./AgentTicketWatchRow";
 import { conversationPort, type SharedTableCalls } from "./conversation-port";
 import type { ConversationRuntime } from "./conversation-runtime";
 import { agentMemoriesPort } from "./memories-port";
@@ -437,6 +438,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                   }
                 />
               </Show>
+              <AgentTicketWatchRow agentId={props.agent.id} onClose={props.onClose} />
               <Show when={!props.remoteClient && props.onOpenUsage}>
                 <SettingsLinkRow
                   icon={<Gauge aria-hidden="true" />}

@@ -813,6 +813,33 @@ routine's model provider, as other routine input does.
 Change a routine to a schedule, or delete it, to stop its URL. Deleting a routine deletes its
 receipts.
 
+## Ticket intake
+
+An agent can watch a GitHub repository for issues with a label, such as `agent`. The watch is off
+until you set it for an agent. OpenBot checks the watched repository every five minutes, from this
+computer. It sends the request to GitHub with the GitHub connection of this computer. Requests do
+not pass through OpenBot's cloud services, and a ticket is not sent to any other ticket system.
+
+For each new matching issue, OpenBot starts a work thread of the agent. The first message of the
+thread holds the issue title, the issue text (up to 8,000 characters) and its link. The agent's
+model provider receives that message, as it receives other messages of the thread. Then OpenBot
+tries to post one comment on the issue. The comment names the agent and the work thread. Every GitHub user
+who can see the issue can read the comment.
+
+OpenBot keeps the watch (the repository, the label and the on or off state) and one link for each
+started issue (the issue key and the work thread) in the local database. The issue text is kept in
+the work thread, as any message is. A watch that is off starts nothing. An issue that already
+started keeps its link, so it does not start again. Deleting a work thread keeps its link.
+
+You set a watch in the agent's settings, under Ticket source. A watch that is off starts nothing.
+
+When the agent opens a pull request for a ticket, it records the pull request with OpenBot. OpenBot stores
+the repository, the pull request number and the work thread. It does not send the pull request to any other
+service.
+
+Linear and Jira watches are not polled yet. Webhook delivery from GitHub is not in this version, so failed
+checks and review comments do not reach a work thread yet.
+
 ## Slack connections
 
 A workspace member installs the OpenBot Slack app in their workspace from OpenBot on their computer.

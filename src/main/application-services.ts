@@ -113,6 +113,11 @@ import { toMcpGatewayFailed } from "../backend/agent/mcp-gateway";
 import { ProviderAccountStore } from "../backend/agent/provider-account-store";
 import { AgentLifecycleFailed, AgentService } from "../backend/agent-service";
 import { AgentStore } from "../backend/agent-store";
+import { AgentTicketIntake, TicketIntakeFailed } from "../backend/agent-tickets/agent-ticket-intake";
+import { AgentTicketSettings } from "../backend/agent-tickets/agent-ticket-settings";
+import { AgentTicketStore } from "../backend/agent-tickets/agent-ticket-store";
+import { GitHubTicketSource } from "../backend/agent-tickets/github-ticket-source";
+import { TicketPullRegistry } from "../backend/agent-tickets/ticket-pull-registry";
 import { AutonomyAuditStore } from "../backend/autonomy/autonomy-audit-store";
 import { AutonomyUsageStore } from "../backend/autonomy/autonomy-usage-store";
 import { BrowserHost } from "../backend/browser-host";
@@ -148,6 +153,7 @@ import {
   reloadingAgentMemoryLimit,
 } from "./agent-memory-limit-preference-store";
 import { AgentTemplateService } from "./agent-template-service";
+import { AgentTicketWatcher } from "./agent-ticket-watcher";
 import { HostAnalytics } from "./analytics";
 import { analyticsInventoryDayStore, collectAnalyticsInventory } from "./analytics-inventory";
 import { catalogPluginSlug, isReportedMcpServerName, loadCatalogPluginServers } from "./analytics-plugin-catalog";
@@ -478,6 +484,8 @@ const TEARDOWN_ORDER = {
   // Before the agent service. It holds no file an agent reads; only a CLI run that waits is stopped.
   onePasswordConnector: 106,
   bitwardenConnector: 106.5,
+  // Before the GitHub connection and the agent service: the ticket intake reads the GitHub token and starts threads.
+  agentTickets: 106.75,
   // Before the agent service, so no agent is handed a token file that is being removed.
   githubConnector: 107,
   // Before the agent service, so no script starts a run while the service stops.
@@ -554,6 +562,8 @@ export interface ApplicationServices {
   /** The Slack and Discord installs that this computer opened for a joined server. */
   relayedMessagingInstalls: RelayedMessagingInstalls;
   githubConnector: GitHubConnectorService;
+  /** The ticket source of each agent, for the settings screen. */
+  agentTicketSettings: AgentTicketSettings;
   onePasswordConnector: OnePasswordConnectorService;
   bitwardenConnector: BitwardenConnectorService;
   vault: VaultService;
@@ -1696,7 +1706,10 @@ export async function createApplicationServices({
   // Outside every workspace. Each saved key is masked in the logs before the first agent starts.
   const agentApiKeys = new AgentApiKeys(join(app.getPath("userData"), "agent-api-keys"));
   await Effect.runPromise(agentApiKeys.registerSaved());
+  // The ticket store is shared by the agent service (pull ownership for the agent's tool) and the watcher.
+  const ticketStore = new AgentTicketStore(store.database);
   const service: AgentService = new AgentService({
+    ticketPulls: new TicketPullRegistry(ticketStore),
     store,
     mailbox,
     browser,
@@ -1815,6 +1828,31 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  // The ticket intake: a timer that starts one work thread per new ticket of each watch. It reads the
+  // GitHub token at each pass, and it stops before the GitHub connection does (see TEARDOWN_ORDER).
+  const ticketWatcher = new AgentTicketWatcher({
+    intake: new AgentTicketIntake({
+      store: ticketStore,
+      sources: {
+        github: new GitHubTicketSource({
+          accessToken: () => githubConnector.accessToken(),
+          fetch: (url, init) => fetch(url, init),
+        }),
+      },
+      startTask: (agentId, text) =>
+        service.startTask({ agentId, text }).pipe(
+          Effect.map((task) => ({ taskId: task.id })),
+          Effect.mapError((cause) => new TicketIntakeFailed({ cause })),
+        ),
+      agentName: (agentId) => service.listAgents().find((agent) => agent.id === agentId)?.name ?? null,
+    }),
+  });
+  const agentTicketSettings = new AgentTicketSettings({
+    store: ticketStore,
+    agentExists: (agentId) => service.listAgents().some((agent) => agent.id === agentId),
+  });
+  ticketWatcher.start();
+  teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
   const monitor = new MonitorService({
     sources: {
       channelPage: (channelId) => service.channels.store.page(channelId),
@@ -3088,6 +3126,7 @@ export async function createApplicationServices({
     signInRelayClient,
     relayedMessagingInstalls: new RelayedMessagingInstalls(remoteServers),
     githubConnector,
+    agentTicketSettings,
     onePasswordConnector,
     bitwardenConnector,
     vault,

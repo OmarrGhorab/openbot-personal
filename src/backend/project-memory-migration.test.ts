@@ -19,10 +19,14 @@ const PROJECT_MEMORY_TABLES = {
   raven_team_jobs: [],
   raven_team_roles: [],
   raven_team_templates: [],
+  projection_agent_ticket_links: [],
+  projection_agent_ticket_watches: [],
+  projection_agent_ticket_pulls: [],
 };
 const LATEST = 47;
-// The newest version of the application. The Raven Stack team (48) and autonomy (49) migrations come after this one.
-const LATEST_SCHEMA = 49;
+const MIGRATION_VERSION = LATEST;
+// The newest version of the application. The Raven Stack team (48), autonomy (49) and agent ticket (50) migrations come after this one.
+const LATEST_SCHEMA = 50;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
@@ -109,12 +113,12 @@ function databaseAtWithSeed(version: number): DatabaseSync {
 }
 
 describe("project memory migration", () => {
-  it.each(Array.from({ length: LATEST - 1 - 8 + 1 }, (_, index) => index + 8))(
+  it.each(Array.from({ length: MIGRATION_VERSION - 1 - 8 + 1 }, (_, index) => index + 8))(
     "preserves every row from released schema %i",
     (version) => {
       const db = databaseAtWithSeed(version);
       // Older migrations run first; the rows at version 46 are what v47 must keep.
-      if (version < LATEST - 1) migrateUpTo(db, LATEST - 1);
+      if (version < MIGRATION_VERSION - 1) migrateUpTo(db, MIGRATION_VERSION - 1);
       if (version < 38) insertTask(db);
       const before = contents(db);
       migrateOpenBotDatabase(db);
@@ -129,14 +133,14 @@ describe("project memory migration", () => {
   );
 
   it("rolls back the tables and the marker after a late failure, then retries", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     const before = contents(db);
-    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=${LATEST}
+    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=${MIGRATION_VERSION}
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${LATEST} failed`);
+    expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${MIGRATION_VERSION} failed`);
     expect(contents(db)).toEqual(before);
     expect(projectMemoryTables(db)).toEqual([]);
-    expect(db.prepare(`SELECT version FROM schema_migrations WHERE version=${LATEST}`).all()).toEqual([]);
+    expect(db.prepare(`SELECT version FROM schema_migrations WHERE version=${MIGRATION_VERSION}`).all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
@@ -144,7 +148,7 @@ describe("project memory migration", () => {
   });
 
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     const before = contents(db);
     db.exec(`INSERT INTO schema_migrations VALUES(${LATEST_SCHEMA + 1},'now')`);
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
@@ -157,7 +161,7 @@ describe("project memory migration", () => {
   });
 
   it("keeps a database that is already at version 47 unchanged on the next start", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     insertMemory(db);
     insertUndo(db, { action: "create", before: null });
@@ -167,7 +171,7 @@ describe("project memory migration", () => {
   });
 
   it("refuses a kind outside the list, an empty or over-long text, and a duplicate normalized text", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     expect(() => insertMemory(db, { kind: "tip" })).toThrow("CHECK constraint failed");
     expect(() => insertMemory(db, { text: "" })).toThrow("CHECK constraint failed");
@@ -180,7 +184,7 @@ describe("project memory migration", () => {
   });
 
   it("refuses an undo slot whose before-state does not match its action", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     insertMemory(db);
     expect(() => insertUndo(db, { action: "create", before: "{}" })).toThrow("CHECK constraint failed");

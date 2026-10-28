@@ -33,7 +33,12 @@ import {
 import { LOCAL_SKILL_TOOL_DEFINITIONS } from "./agent/skill-tools";
 import { CREATE_WEBHOOK_ROUTINE_TOOL, UPDATE_WEBHOOK_ROUTINE_TOOL } from "./agent/webhook-routine-tool";
 import { API_KEY_NAME_PATTERN } from "./agent-api-keys";
-import { START_TASK_TOOL, startTaskToolSchema } from "./agent-tasks/agent-tasks";
+import {
+  REGISTER_PULL_REQUEST_TOOL,
+  registerPullRequestToolSchema,
+  START_TASK_TOOL,
+  startTaskToolSchema,
+} from "./agent-tasks/agent-tasks";
 import {
   AWAIT_EVENT_TOOL,
   awaitEventToolSchema,
@@ -561,6 +566,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       "Call before you report a change or a task as done. OpenBot runs the checks that the user set for you, one after the other, in your workspace or in your task's worktree, and posts each result in this chat. A failed check means the work is not done: fix the cause, then call again. When the user set a reviewer, a passing call first tells you to send the diff to the reviewer. After its findings, fix every high and medium finding and call again with reviewRound set to the round.",
     shape: markDoneToolSchema.shape,
+  },
+  {
+    name: REGISTER_PULL_REQUEST_TOOL,
+    description:
+      "Record the pull request that you opened for this task's ticket. Call it once, right after you open the pull request. OpenBot then sends the failed checks and the review comments of that pull request into this task. Only a task that started from a ticket can record one.",
+    shape: registerPullRequestToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
   ...PROJECT_MEMORY_TOOL_DEFINITIONS,

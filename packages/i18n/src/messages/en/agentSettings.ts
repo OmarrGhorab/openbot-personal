@@ -177,4 +177,21 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.browserProfile.manage": "Manage",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "The whole {provider} process runs in a sandbox, so a write outside fails. Available on macOS only.",
+  "agentSettings.links.ticketSource": "Ticket source",
+  "agentSettings.links.ticketSourceOff": "Off",
+  "agentSettings.links.ticketSourceWatching": "{project} · {label}",
+  "agentSettings.links.ticketSourceOffSuffix": "· Off",
+  "agentSettings.ticketSource.title": "Ticket source",
+  "agentSettings.ticketSource.description":
+    "Start a work thread for each new open issue that has this label. OpenBot comments on the issue. This computer checks the repository every five minutes.",
+  "agentSettings.ticketSource.provider": "Provider",
+  "agentSettings.ticketSource.github": "GitHub",
+  "agentSettings.ticketSource.project": "Repository",
+  "agentSettings.ticketSource.projectHelp": "owner/repo",
+  "agentSettings.ticketSource.label": "Label",
+  "agentSettings.ticketSource.enabled": "Watch this repository",
+  "agentSettings.ticketSource.save": "Save source",
+  "agentSettings.ticketSource.remove": "Remove source",
+  "agentSettings.ticketSource.loadFailed": "Could not load the ticket source.",
+  "agentSettings.ticketSource.saveFailed": "Could not save the ticket source.",
 });

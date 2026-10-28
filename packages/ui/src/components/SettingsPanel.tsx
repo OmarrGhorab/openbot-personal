@@ -177,6 +177,8 @@ export interface SettingsLinkRowProps {
   value?: JSX.Element;
   onClick: (trigger: HTMLButtonElement) => void;
   ref?: (element: HTMLButtonElement) => void;
+  /** Added to the row's own class, for a row whose value needs its own layout. */
+  class?: string;
 }
 
 /** One row of the group: what it opens on the left, where that stands on the right. */
@@ -186,7 +188,7 @@ export function SettingsLinkRow(props: SettingsLinkRowProps): JSX.Element {
       ref={(element) => props.ref?.(element)}
       variant="ghost"
       type="button"
-      class="settings-link"
+      class={props.class ? `settings-link ${props.class}` : "settings-link"}
       data-cuelume-tap="navigate"
       onClick={(event) => props.onClick(event.currentTarget)}
     >

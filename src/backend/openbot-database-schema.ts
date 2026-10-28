@@ -7,6 +7,7 @@ import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "./agent-memory-selection";
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
 import { AGENT_WORK_THREAD_SCHEMA_SQL } from "./agent-tasks/agent-work-thread-schema";
+import { AGENT_TICKET_SCHEMA_SQL } from "./agent-tickets/agent-ticket-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
@@ -608,7 +609,8 @@ const LATEST_SCHEMA_SQL =
   AGENT_WORK_THREAD_SCHEMA_SQL +
   PROJECT_MEMORY_SCHEMA_SQL +
   RAVEN_TEAM_SCHEMA_SQL +
-  AUTONOMY_SCHEMA_SQL;
+  AUTONOMY_SCHEMA_SQL +
+  AGENT_TICKET_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -888,6 +890,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates tables, so no foreign-key pause and no vacuum. The audit log and the turn usage start
     // empty: no budget counted anything before this version, and no action was recorded.
     up: (db) => db.exec(AUTONOMY_SCHEMA_SQL),
+  },
+  {
+    version: 50,
+    // Only creates tables, so no foreign-key pause and no vacuum. No agent has a ticket watch yet, so no
+    // agent starts a work thread from a ticket, and every work thread keeps the behavior it had before.
+    up: (db) => db.exec(AGENT_TICKET_SCHEMA_SQL),
   },
 ];
 

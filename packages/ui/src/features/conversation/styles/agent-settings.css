@@ -1480,3 +1480,42 @@
   font-size: var(--openbot-text-sm);
   line-height: 15px;
 }
+
+/* The ticket source page: the frame of the other agent settings pages, over the settings list. */
+.agent-ticket-watch .settings-panel-content {
+  flex: 1;
+}
+
+.agent-ticket-watch-provider {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.agent-ticket-watch-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+}
+
+/* A long repository name ends in an ellipsis, so it never covers the Ticket source label. */
+.settings-link.agent-ticket-watch-link {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.agent-ticket-watch-link .settings-link-value {
+  min-width: 0;
+  justify-content: flex-end;
+  gap: var(--openbot-space-1);
+}
+
+.agent-ticket-watch-link .settings-link-value > svg,
+.agent-ticket-watch-off {
+  flex: none;
+}
+
+.agent-ticket-watch-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

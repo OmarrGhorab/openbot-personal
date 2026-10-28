@@ -256,7 +256,8 @@ visible to another agent. Project memory is the only store that two agents can s
 ## Agent tasks
 
 [Agent work threads](agent-work-threads.md) has the design of work threads (tasks with their own
-git worktree, pause and rename) and of the side chat.
+git worktree, pause and rename) and of the side chat. [Agent ticket intake](agent-ticket-intake.md)
+starts a work thread for each new ticket that carries a watch label.
 
 A task is a separate execution thread of one agent. The agent keeps one identity, workspace and
 provider settings; each task has its own provider thread, conversation, queue, progress and result.

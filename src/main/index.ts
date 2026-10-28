@@ -97,6 +97,7 @@ import { sharedTableIpcHandlers } from "./ipc/shared-table-handlers";
 import { skillIpcHandlers } from "./ipc/skill-handlers";
 import { storageIpcHandlers } from "./ipc/storage-handlers";
 import { teamIpcHandlers } from "./ipc/team-handlers";
+import { ticketWatchIpcHandlers } from "./ipc/ticket-watch-handlers";
 import { updateIpcHandlers } from "./ipc/update-handlers";
 import { vaultIpcHandlers } from "./ipc/vault-handlers";
 import { voiceIpcHandlers } from "./ipc/voice-handlers";
@@ -566,6 +567,7 @@ function registerIpcHandlers({
   skills,
   hostedSites,
   githubConnector,
+  agentTicketSettings,
   onePasswordConnector,
   bitwardenConnector,
   vault,
@@ -720,6 +722,7 @@ function registerIpcHandlers({
     ...projectMemoryIpcHandlers({ service }),
     ...sharedTableIpcHandlers({ service, remoteServers }),
     ...routineIpcHandlers({ service, remoteServers }),
+    ...ticketWatchIpcHandlers({ settings: agentTicketSettings }),
     ...routineFlowIpcHandlers({ routineFlows, remoteServers }),
     ...ravenTeamIpcHandlers({ ravenTeam }),
     ...routineResultIpcHandlers({ routineResults }),
