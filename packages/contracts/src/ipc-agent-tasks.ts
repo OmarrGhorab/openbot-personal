@@ -97,6 +97,17 @@ export interface AgentTask {
   pausedAt?: string | null;
   /** The folder of the task. Absent from a joined server, because `agent-tasks-v1` does not carry it. */
   workspace?: AgentTaskWorkspace;
+  /**
+   * Set while the turn of the task waits for an answer to a question. The task then holds no turn slot,
+   * so another task of the agent can run. Absent from a joined server, because `agent-tasks-v1` does not
+   * carry it: the state of the task stays `running` there.
+   */
+  question?: AgentTaskQuestion | null;
+}
+
+/** The question that a running task waits on: its first question, as the agent wrote it. */
+export interface AgentTaskQuestion {
+  text: string;
 }
 
 export interface AgentTasksSnapshot {
@@ -142,6 +153,10 @@ function isAgentTaskWorkspace(value: unknown): value is AgentTaskWorkspace {
   );
 }
 
+export function isAgentTaskQuestion(value: unknown): value is AgentTaskQuestion {
+  return isDynamicRecord(value) && isBoundedString(value.text, INPUT_LIMITS.promptQuestion);
+}
+
 function isAgentTaskQueuedMessage(value: unknown): value is AgentTaskQueuedMessage {
   return (
     isDynamicRecord(value) &&
@@ -171,7 +186,8 @@ export function isAgentTask(value: unknown): value is AgentTask {
     isBoundedString(value.updatedAt, 160) &&
     (value.closedAt === null || isBoundedString(value.closedAt, 160)) &&
     (value.pausedAt === undefined || value.pausedAt === null || isBoundedString(value.pausedAt, 160)) &&
-    (value.workspace === undefined || isAgentTaskWorkspace(value.workspace))
+    (value.workspace === undefined || isAgentTaskWorkspace(value.workspace)) &&
+    (value.question === undefined || value.question === null || isAgentTaskQuestion(value.question))
   );
 }
 

@@ -76,6 +76,7 @@ import type {
   SaveAgentProfileInput,
   SaveAgentProfileResult,
 } from "./ipc-agent-profile";
+import type { OpenQuestionsSnapshot } from "./ipc-agent-questions";
 import type { AgentRuntimeSnapshot } from "./ipc-agent-runtime";
 import type { AskSideQuestionInput } from "./ipc-agent-side-question";
 import type {
@@ -1392,6 +1393,11 @@ export const IPC_ENDPOINTS = {
     respondToBrowserTakeover: scopedRequest<RespondToBrowserTakeoverInput, void>()("agent:respond-to-browser-takeover"),
     scopedEvent: event<ScopedAgentEvent>()("agent:event"),
   },
+  // The questions of every agent of this computer, for the Questions list. Local only: a joined server
+  // has no route for them, so its questions reach the phone and the web as prompts, as before.
+  agentQuestions: {
+    listOpenQuestions: request<undefined, OpenQuestionsSnapshot>()("agent:open-questions"),
+  },
   // Project memory lives on this computer only, so its calls are plain requests, not scoped to a host.
   projectMemories: {
     getProjectMemories: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:get-project-memories"),
@@ -1822,6 +1828,7 @@ export const IPC_GROUP_PATHS = {
   agent: "agent",
   agentMemories: "agent",
   projectMemories: "agent",
+  agentQuestions: "agent",
   sharedTables: "agent",
   agentRoutines: "agent",
   channelMemories: "agent",
