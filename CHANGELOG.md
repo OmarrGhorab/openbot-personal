@@ -6,6 +6,68 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-10-28
+
+### Added
+
+- Agents can connect to a system that has no MCP server, such as a REST or GraphQL API, a database, a CLI or local code. A new built-in skill tells the agent to write a small MCP server in `~/OpenBot/mcp-servers/<name>/`, start it once, register it, test it and report its tools. Keys stay in environment variables that you enter in Server settings, MCP. To add a tool or fix an error, the agent changes the same server and does not add a second one.
+- New setting in Server settings, MCP: "Agents can manage MCP servers without asking". It is off by default. When it is on, agents with Full access add, change, turn on or off, and remove MCP servers with no approval card. Workspace only and Ask first agents still ask. Keys stay in Server settings, and sign-ins still show a card. Turn it off to ask again from the next change; servers that agents already added stay.
+- When an agent adds, changes, turns on or off, or removes an MCP server without asking, the conversation shows a note. The note names the server, its address or command, and how to undo the change in Server settings, MCP. Keys in the address or command are masked.
+- `bun run test:mcp-create` checks the whole "connect to a system with no MCP server" flow against a small sample HTTP API: the agent writes the server, starts it, registers it, tests it, calls one tool and updates it without a duplicate. It also checks that each change asks for approval with the new setting off and asks nothing with it on.
+- The sidebar shows the open tasks of an agent under its row, with what each task does now: working, waiting for your approval, paused or done. Click a task to open it, or use "New task" to start one. Right-click a task to rename, pause, resume or close it.
+- In a task, you can pause and resume it, rename it by clicking its title, and delete it after you close it. A task that runs in its own copy of the files shows its branch.
+- Approval and browser cards, and notifications, name the task that asks.
+- "Ask on the side" in a task opens a side chat about that task. The agent reads the task's messages, plan and changed files to answer, while the task continues. The side chat does not change the task. "Send to main thread" puts an answer or your draft into the task as a normal message.
+- Agents keep project memory for their folder: commands that work, rules, known problems with their fixes, and decisions. Each new work thread of the agent starts with these facts. Agents save them at the end of a task (`save_lesson`), and record a check that failed for a new reason (`learn_from_failure`). Agents search them with `search_project_memory`. The settings panel of an agent lists each entry with the agent that saved it and the dates. You can edit or delete an entry, and undo the last change to the folder.
+- Secrets are redacted before an agent memory or a project memory is saved.
+- Questions list on the Tasks page. It shows each question that an agent waits on, from every agent and every task or chat on this computer, and you answer it there with the same card as in the chat.
+- A task that waits for your answer says "Waiting for your answer" and moves to the "Needs you" section. It holds no turn slot while it waits, so another task of the agent can run.
+- Two built-in agent skills: `ask-when-blocked` (when to ask you, and when to decide alone) and `confidence-notes` (the parts an agent is not sure about, listed at the end of a task).
+- Start a Raven Stack team from the search bar, on the computer that runs OpenBot. Write the ticket and name a model for a role, for example `Reviewer: model-name`. Each role runs on its own agent and work thread. A role you do not name uses the template model.
+- Check before the start: each role with its model and access, and a warning when a verifier uses the Builder's model. An unknown model stops the start, and OpenBot asks you for another model. It never picks one for you.
+- Only the Builder changes the branch. The Reviewer and the Quality role check the head commit that the Builder reports. A new commit clears their old verdicts.
+- Two FAIL rounds ask you for a stronger Builder model, or use the fallback model that the ticket names. The third FAIL round stops the team as not done.
+- Stop and resume the whole team. You can change a role's model during a run.
+- Graded permissions per agent, in Settings, Safety and limits. Each action has a risk level: low, medium or high. A medium or high action asks for your approval. Both levels ask by default. Turn either one off for an agent to let its actions of that level run without a card.
+- Budgets per work thread and per agent per day. Set a limit for tokens, minutes or estimated cost. An agent stops at a limit, keeps its queue and waits until you raise the limit or the day changes. Usage per agent and per work thread is in the same settings tab.
+- An audit log of autonomous actions: approvals that a rule answered, approvals that waited for you, budget stops, Stop all agents, and changes of a rule or a budget. Secrets in a command are masked. Filter it by agent, risk or action.
+- A Stop all agents switch in the sidebar header. It stops every running turn and holds every queue on this computer until you choose Resume agents. The stop stays on after a restart.
+- Agents check their own work. In agent settings, set a definition of done: the commands that must pass
+  before the agent reports its work as done. Each command runs in the agent workspace, or in the git
+  worktree of the task.
+- When an agent reports a change as done, OpenBot runs the commands and shows each result in the chat.
+  A failed command means the work is not done. The agent fixes the cause and checks again.
+- Set a reviewer agent for each agent. The reviewer reads the change before the work counts as done.
+  An agent runs at most three review rounds.
+- Start a coding routine from a template in an agent's routines. Each template schedules one job with
+  one click: update dependencies (weekly), triage flaky tests (weekly), clean old TODOs (monthly) and
+  triage stale issues (weekly). Each job tells the agent to work in the agent's repository and to
+  open a draft pull request or a ticket. It needs a Git repository with a GitHub remote, and `gh`
+  signed in on the computer. A run that the provider's plan limit blocks is skipped, not queued.
+- An agent can watch a GitHub repository for open issues with a label. Set it in the agent settings, under Ticket source. For each new matching issue, the agent starts a work thread with the issue as its first message, and OpenBot comments on the issue with the work thread. An issue starts only once.
+- The agent can record the pull request that it opens for a ticket. When pull request events reach the work thread, the thread stops after three failed checks in a row and asks you for the next step. Pull request events are not delivered from GitHub yet.
+
+### Changed
+
+- With the new setting off, each MCP server change that an agent makes asks for your approval, also for an agent with Full access. Before, Full access approved these changes without a card. An MCP server applies to every agent on the server, so it now needs its own permission.
+- Your answer goes to the task that asked. The task then continues in its own conversation.
+- Agents with Ask first no longer ask for low-risk actions: read, run tests, make a branch, and push to a branch that OpenBot made for a work thread. Medium and high risk actions still ask. A Workspace only agent still asks for every approval.
+- A command that OpenBot does not recognise is high risk. It asks by default, like every high risk action.
+
+### Fixed
+
+- Project memory in the agent settings shows the edit and delete buttons of an entry side by side.
+  Before, the delete button sat on its own line under the entry.
+- A password or key in a lesson that an agent saves is also removed from the saved conversation
+  history of the agent's call, not only from project memory.
+- The Questions list on the Tasks page shows who asks as a small one-line label, and each question
+  card is as wide as the task rows.
+
+### Security
+
+- A webhook event is redacted before the agent reads it. Secret patterns, such as a bearer token in
+  a request header, no longer reach the agent or the routine run history.
+
 ## [0.49.3] - 2026-10-27
 
 ### Added
