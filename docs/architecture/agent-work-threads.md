@@ -102,6 +102,36 @@ card ("From task: …", `prompt.workThread.from`). The notification title is "{a
 finds the task only for a local event, and a channel title wins over a task. A click on that
 notification opens the task in the side panel. The main thread shows no label.
 
+## Questions and blocked work threads
+
+A question (`prompt`: `ask_user`, `ask_ui`, an MCP elicitation) waits in the attention registry until
+its answer arrives. Nothing is stored for it; the registry is the source of truth while the turn
+runs.
+
+- **Blocked state.** A work thread whose turn waits for an answer has `AgentTask.question` set to
+  `{ text }`, the first question of the prompt. Its `state` stays `running`, so the released
+  `agent-tasks-v1` states do not change. A joined server omits `question`, as it omits `pausedAt`.
+  The task row reads "Waiting for your answer" and sorts into "Needs you".
+- **Slot.** A blocked task holds no turn slot and does not count toward the task limit, so another
+  task of the agent, or a task of another agent, runs. Its own queue still waits for its turn to end.
+  A provider with `concurrentTurns: false` keeps the full count. A blocked turn keeps its provider
+  session; it does not continue in its own thread until the answer comes.
+- **Answer.** `respondToPrompt` answers the provider request, so the provider resumes the same turn
+  in the same thread. The drain runs again for the agent when a question starts or ends its wait.
+- **Questions list.** `agent:open-questions` (`listOpenQuestions`, local only) returns every open
+  question of this computer, oldest first, with the agent name and the task title of a work thread.
+  It is not the runtime snapshot: that holds four attention items in all. The Tasks page shows the
+  list above the tasks, with the same answer card as the chat. A joined server's questions stay in
+  its own chats, as before.
+- **Notifications.** A question notifies with the released `prompt` rule (`notificationForAgentEvent`).
+  A question of a work thread names the task in the title ("{agent}, task: {task}").
+- **Skills.** Two managed skills tell the agent when to ask (`ask-when-blocked`) and how to end a
+  task with the parts it is not sure about (`confidence-notes`).
+
+Not done: a blocked turn cannot do other work in its own thread; the agent continues in other
+threads only. A question list for a joined server, and a question on mobile with its own list, need
+a new optional capability.
+
 ## Sidebar and task panel
 
 - `SidebarWorkThreads` (`@openbot/ui`) lists the open tasks of each agent whose task list loaded,
@@ -161,6 +191,10 @@ provider runs turns at the same time:
 - `scripts/agent-side-chat-e2e.ts`: a side question with `taskId` answers while the task turn runs,
   the turn then completes, the question is not in the task history, and text sent to the main
   thread reaches the task. Report: `.openbot-build/agent-side-chat-e2e/report.json`.
+- `scripts/question-queue-e2e.ts`: a headless run of the real agent service with a scripted Codex
+  app-server. Two tasks wait for answers, a third task runs to its end, the Questions list shows
+  each question, and each answer resumes the task that asked. Report:
+  `.openbot-build/question-queue-e2e/report.json`.
 
 ## Risks
 

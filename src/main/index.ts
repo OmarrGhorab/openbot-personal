@@ -52,6 +52,7 @@ import { acpRegistryIpcHandlers } from "./ipc/acp-registry-handlers";
 import { agentAdminIpcHandlers } from "./ipc/agent-admin-handlers";
 import { agentIpcHandlers } from "./ipc/agent-handlers";
 import { agentImportIpcHandlers } from "./ipc/agent-import-handlers";
+import { agentQuestionIpcHandlers } from "./ipc/agent-question-handlers";
 import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
@@ -87,6 +88,7 @@ import { projectMemoryIpcHandlers } from "./ipc/project-memory-handlers";
 import { providerAdminIpcHandlers } from "./ipc/provider-admin-handlers";
 import { providerDetectionIpcHandlers } from "./ipc/provider-detection-handlers";
 import { providerIpcHandlers } from "./ipc/provider-handlers";
+import { ravenTeamIpcHandlers } from "./ipc/raven-team-handlers";
 import { routineFeedIpcHandlers } from "./ipc/routine-feed-handlers";
 import { routineFlowIpcHandlers } from "./ipc/routine-flow-handlers";
 import { routineIpcHandlers } from "./ipc/routine-handlers";
@@ -594,6 +596,7 @@ function registerIpcHandlers({
   trace,
   resourceMonitor,
   routineFlows,
+  ravenTeam,
   routineResults,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
@@ -713,10 +716,12 @@ function registerIpcHandlers({
       takePendingPluginSlug: () => takePendingDeepLink("plugin"),
     }),
     ...memoryIpcHandlers({ service, remoteServers }),
+    ...agentQuestionIpcHandlers({ service }),
     ...projectMemoryIpcHandlers({ service }),
     ...sharedTableIpcHandlers({ service, remoteServers }),
     ...routineIpcHandlers({ service, remoteServers }),
     ...routineFlowIpcHandlers({ routineFlows, remoteServers }),
+    ...ravenTeamIpcHandlers({ ravenTeam }),
     ...routineResultIpcHandlers({ routineResults }),
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),

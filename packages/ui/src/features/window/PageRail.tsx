@@ -162,6 +162,7 @@ export type PageRailPage =
   | "routines"
   | "tasks"
   | "schedule"
+  | "team"
   | "usage"
   | "marketplace"
   | "settings";

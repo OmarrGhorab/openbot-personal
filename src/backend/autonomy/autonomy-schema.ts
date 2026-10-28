@@ -1,4 +1,4 @@
-// Shared by migration v48 and the separate new-database schema. IF NOT EXISTS throughout, because
+// Shared by migration v49 and the separate new-database schema. IF NOT EXISTS throughout, because
 // this text is both the migration and the tail of the latest schema.
 //
 // `autonomy_audit_log` records each autonomous action of an agent: an approval that the rules

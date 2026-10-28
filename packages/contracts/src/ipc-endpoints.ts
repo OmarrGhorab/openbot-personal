@@ -83,6 +83,7 @@ import type {
   SaveAgentProfileInput,
   SaveAgentProfileResult,
 } from "./ipc-agent-profile";
+import type { OpenQuestionsSnapshot } from "./ipc-agent-questions";
 import type { AgentRuntimeSnapshot } from "./ipc-agent-runtime";
 import type { AskSideQuestionInput } from "./ipc-agent-side-question";
 import type {
@@ -407,6 +408,15 @@ import type {
   SteerQueuedMessageInput,
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
+import type {
+  PlanRavenTeamInput,
+  RavenTeamChanged,
+  RavenTeamJob,
+  RavenTeamPlan,
+  RavenTeamTemplate,
+  SaveRavenTeamTemplateInput,
+  SetRavenTeamRoleModelInput,
+} from "./ipc-raven-team";
 import type {
   RemoteDesktopSetupAction,
   RemoteDesktopSetupStatus,
@@ -1399,6 +1409,11 @@ export const IPC_ENDPOINTS = {
     respondToBrowserTakeover: scopedRequest<RespondToBrowserTakeoverInput, void>()("agent:respond-to-browser-takeover"),
     scopedEvent: event<ScopedAgentEvent>()("agent:event"),
   },
+  // The questions of every agent of this computer, for the Questions list. Local only: a joined server
+  // has no route for them, so its questions reach the phone and the web as prompts, as before.
+  agentQuestions: {
+    listOpenQuestions: request<undefined, OpenQuestionsSnapshot>()("agent:open-questions"),
+  },
   // Project memory lives on this computer only, so its calls are plain requests, not scoped to a host.
   projectMemories: {
     getProjectMemories: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:get-project-memories"),
@@ -1406,6 +1421,20 @@ export const IPC_ENDPOINTS = {
     updateProjectMemory: request<UpdateProjectMemoryInput, ProjectMemoryState>()("agent:update-project-memory"),
     deleteProjectMemory: request<DeleteProjectMemoryInput, ProjectMemoryState>()("agent:delete-project-memory"),
     undoProjectMemory: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:undo-project-memory"),
+  },
+  // A Raven Stack team runs on this computer; its roles are local agents. The one event carries the
+  // job that changed, so the view reads the job again instead of polling.
+  ravenTeam: {
+    listTemplates: request<undefined, RavenTeamTemplate[]>()("raven-team:list-templates"),
+    saveTemplate: request<SaveRavenTeamTemplateInput, RavenTeamTemplate[]>()("raven-team:save-template"),
+    deleteTemplate: request<string, RavenTeamTemplate[]>()("raven-team:delete-template"),
+    plan: request<PlanRavenTeamInput, RavenTeamPlan>()("raven-team:plan"),
+    start: request<PlanRavenTeamInput, RavenTeamJob>()("raven-team:start"),
+    listJobs: request<undefined, RavenTeamJob[]>()("raven-team:list-jobs"),
+    setRoleModel: request<SetRavenTeamRoleModelInput, RavenTeamJob>()("raven-team:set-role-model"),
+    stop: request<string, RavenTeamJob>()("raven-team:stop"),
+    resume: request<string, RavenTeamJob>()("raven-team:resume"),
+    changed: event<RavenTeamChanged>()("raven-team:changed"),
   },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),
@@ -1826,6 +1855,7 @@ export const IPC_GROUP_PATHS = {
   routineFeed: "routineFeed",
   monitor: "monitor",
   routineFlows: "routineFlows",
+  ravenTeam: "ravenTeam",
   routineResults: "routineResults",
   billing: "billing",
   license: "license",
@@ -1838,6 +1868,7 @@ export const IPC_GROUP_PATHS = {
   agent: "agent",
   agentMemories: "agent",
   projectMemories: "agent",
+  agentQuestions: "agent",
   sharedTables: "agent",
   agentRoutines: "agent",
   channelMemories: "agent",

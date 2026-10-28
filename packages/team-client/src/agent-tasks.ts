@@ -18,8 +18,11 @@ export const isAgentTaskOpen = (task: AgentTask): boolean => task.state !== "clo
 /** A task whose turn runs, or whose next message waits to start. */
 export const isAgentTaskActive = (task: AgentTask): boolean => task.state === "running" || task.state === "queued";
 
-/** A task the user must look at: its last turn ended, as an answer, a failure or a stop. */
-export const taskNeedsYou = (task: AgentTask) => task.state === "idle" && task.outcome !== null;
+/** A task whose running turn waits for the user's answer to a question. Desktop only: a joined server omits `question`. */
+export const taskAsks = (task: AgentTask) => task.state === "running" && task.question != null;
+
+/** A task the user must look at: its last turn ended, as an answer, a failure or a stop, or it asks a question. */
+export const taskNeedsYou = (task: AgentTask) => (task.state === "idle" && task.outcome !== null) || taskAsks(task);
 
 const taskWaits = (task: AgentTask) => task.state === "queued" || (task.state === "idle" && task.outcome === null);
 
@@ -40,7 +43,7 @@ export function taskSections(tasks: readonly AgentTask[], showAllClosed: boolean
     section("needsYou", open.filter(taskNeedsYou)),
     section(
       "working",
-      open.filter((task) => task.state === "running"),
+      open.filter((task) => task.state === "running" && !taskAsks(task)),
     ),
     section("waiting", open.filter(taskWaits)),
     section("closed", showAllClosed ? closed : closed.slice(0, TASKS_CLOSED_SHOWN), closed.length),
@@ -57,6 +60,7 @@ export function taskApproval<Item extends { agentId: string; threadId: string }>
 
 /** The color of a task's state on the page. */
 export function taskTone(task: AgentTask): "working" | "danger" | "attention" | undefined {
+  if (taskAsks(task)) return "attention";
   if (task.state === "running") return "working";
   if (task.state === "idle" && (task.outcome === "failed" || task.outcome === "interrupted")) return "danger";
   return taskNeedsYou(task) ? "attention" : undefined;

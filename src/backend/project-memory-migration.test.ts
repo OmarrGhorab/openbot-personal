@@ -13,10 +13,16 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 
-const PROJECT_MEMORY_TABLES = { project_memories: [], project_memory_undo: [] };
+const PROJECT_MEMORY_TABLES = {
+  project_memories: [],
+  project_memory_undo: [],
+  raven_team_jobs: [],
+  raven_team_roles: [],
+  raven_team_templates: [],
+};
 const LATEST = 47;
-// The newest version of the application. The autonomy migration (48) comes after this one.
-const LATEST_SCHEMA = 48;
+// The newest version of the application. The Raven Stack team (48) and autonomy (49) migrations come after this one.
+const LATEST_SCHEMA = 49;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");

@@ -90,6 +90,8 @@ export interface TaskLanes {
   oneTurnAtATime(agentId: string): boolean;
   /** Whether the person paused this open task. Stored, so a pause outlives a restart. */
   paused(taskId: string): boolean;
+  /** Whether the turn of this open task waits for an answer. Such a task holds no turn slot. */
+  blocked(taskId: string): boolean;
 }
 
 /**
@@ -227,7 +229,7 @@ export class DrainScheduler {
       isRunning: (key) => {
         const lane = laneOf(key);
         // A compaction holds the agent's own session, so it uses the slot of the agent's own chat.
-        return this.#laneRunning(lane) || (lane.taskId === null && !this.#compaction.mayDrain(lane.agentId));
+        return this.#laneHoldsSlot(lane) || (lane.taskId === null && !this.#compaction.mayDrain(lane.agentId));
       },
       isWaiting: (key) => {
         const lane = laneOf(key);
@@ -266,6 +268,17 @@ export class DrainScheduler {
     );
   }
 
+  /**
+   * Whether this lane holds a turn slot and counts toward the task limit: it runs a turn that does not
+   * wait for an answer. A task whose turn waits for the user frees its slot, so another task can run.
+   * Its own queue still waits for that turn (`#heldBy`, "active-turn"). A provider that runs one turn
+   * at a time keeps the full count (`oneTurnAtATime`).
+   */
+  #laneHoldsSlot(lane: Lane): boolean {
+    if (lane.taskId !== null && this.#tasks.blocked(lane.taskId)) return false;
+    return this.#laneRunning(lane);
+  }
+
   #laneTurnActive(lane: Lane): boolean {
     if (lane.taskId === null) return Boolean(this.#conversation.workingSnapshot(lane.agentId)?.activeTurnId);
     const threadId = this.#tasks.threadId(lane.taskId);
@@ -294,7 +307,7 @@ export class DrainScheduler {
       if (this.#tasks.threadId(taskId) === null) return "task-closed";
       const running = this.#tasks
         .openTaskIds(agentId)
-        .filter((other) => other !== taskId && this.#laneRunning({ agentId, taskId: other })).length;
+        .filter((other) => other !== taskId && this.#laneHoldsSlot({ agentId, taskId: other })).length;
       if (running >= this.#tasks.limit(agentId)) return "task-limit";
     }
     // The agent's own process restarts when its access or account changed. A turn of another lane

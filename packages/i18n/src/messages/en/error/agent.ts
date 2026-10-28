@@ -134,4 +134,15 @@ export const messages = defineMessages("error.agent", {
   "error.agent.screenCaptureEmptyWindows":
     "Windows gave an empty image. Ask the user to unlock the computer and close protected content. A policy of the organization can also stop screen capture.",
   "error.agent.screenCaptureFailed": "The screen capture failed. Try again.",
+  // Raven Stack team errors. The model text names what the user typed, so the user can fix it.
+  "error.agent.ravenTeam.builtInTemplate": "The built-in team template cannot be changed. Copy it first.",
+  "error.agent.ravenTeam.templateNotFound": "The team template was not found.",
+  "error.agent.ravenTeam.briefRequired": "Write the ticket before you start the team.",
+  "error.agent.ravenTeam.unknownRole": "The team has no role named {role}.",
+  "error.agent.ravenTeam.unknownModel":
+    'The model "{model}" for the {role} is not available. Name a model that a connected provider lists.',
+  "error.agent.ravenTeam.unknownFallback":
+    'The fallback model "{model}" is not available. Name a model that a connected provider lists.',
+  "error.agent.ravenTeam.noModel": "No model is available for the {role}. Connect a provider first.",
+  "error.agent.ravenTeam.jobNotFound": "The team job was not found.",
 });

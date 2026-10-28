@@ -337,6 +337,15 @@ export type RuntimeAttention = Pick<
   "attentionComplete" | "pendingPrompts" | "pendingApprovals" | "pendingBrowserTakeovers"
 >;
 
+/** A question that waits for an answer, as the registry holds it. The Questions list adds names to it. */
+export interface OpenQuestionSource {
+  requestId: string | number;
+  agentId: string;
+  threadId: string;
+  turnId: string;
+  questions: AgentPromptQuestion[];
+}
+
 export type LocalAttentionResponse =
   | { kind: "prompt"; requestId: string; answers: Record<string, string[]> }
   | { kind: "approval"; requestId: string; decision: "accept" | "decline" };
@@ -463,6 +472,28 @@ export class AttentionRegistry {
     const handle = randomUUID();
     this.#localHandles.set(pending, handle);
     return handle;
+  }
+
+  /**
+   * Every question that waits for an answer, in every agent and thread, oldest first. The runtime
+   * snapshot budgets a few prompts, so the Questions list reads this instead of the snapshot.
+   */
+  openQuestions(): OpenQuestionSource[] {
+    return [...this.#prompts.values()].map((pending) => ({
+      requestId: pending.id,
+      agentId: pending.agentId,
+      threadId: pending.publicThreadId,
+      turnId: pending.turnId,
+      questions: structuredClone(pending.questions),
+    }));
+  }
+
+  /** The first question that waits on this thread, or null. A work thread holds no turn slot while it waits. */
+  questionForThread(threadId: string): AgentPromptQuestion | null {
+    for (const pending of this.#prompts.values()) {
+      if (pending.publicThreadId === threadId) return pending.questions[0] ?? null;
+    }
+    return null;
   }
 
   /** The attention section of the runtime snapshot, budgeted prompts first and takeovers last. */

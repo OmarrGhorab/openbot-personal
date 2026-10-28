@@ -4,6 +4,7 @@ import type {
   AgentTasksSnapshot,
   AttachmentSummary,
   ConversationSnapshot,
+  OpenQuestion,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { plainTaskTitle, taskApproval } from "@openbot/team-client/agent-tasks";
@@ -53,6 +54,11 @@ export interface TasksViewProps {
   /** The waiting approvals of the server's agents. */
   approvals: readonly AgentApproval[];
   onRespondApproval: (approval: AgentApproval, decision: "accept" | "decline") => Promise<boolean>;
+  /**
+   * Whether the page shows the questions of this computer. True only where the page is served by this
+   * computer: a joined server's agents keep their questions in their own chats.
+   */
+  questionsOn?: boolean | undefined;
 }
 
 /** A start that waits for its Undo time. Its task shows in the list as queued. */
@@ -68,6 +74,8 @@ interface PendingStart {
 interface TasksViewState {
   /** The task list of each agent, by agent id. */
   snapshots: Record<string, AgentTasksSnapshot>;
+  /** The questions that wait for an answer on this computer, oldest first. */
+  questions: OpenQuestion[];
   /** The conversation of each opened task, by task id. */
   conversations: Record<string, ConversationSnapshot>;
   pending: AgentTask | null;
@@ -92,6 +100,7 @@ function toastError(error: unknown, fallback: AppTextKey): void {
 export function TasksView(props: TasksViewProps) {
   const [state, setState] = createStore<TasksViewState>({
     snapshots: {},
+    questions: [],
     conversations: {},
     pending: null,
     agentId: "",
@@ -186,6 +195,38 @@ export function TasksView(props: TasksViewProps) {
       const failed = results.find((result) => result.status === "rejected");
       if (failed && current === generation) toastError(failed.reason, "conversation.tasks.error.load");
     });
+  }
+
+  /** Reads the questions of this computer. A failure shows one toast; the list keeps what it had. */
+  function loadQuestions(): void {
+    const current = generation;
+    const openQuestions = props.source.openQuestions;
+    if (!openQuestions) return;
+    openQuestions().then(
+      (snapshot) => {
+        if (current === generation)
+          setState((draft) => {
+            draft.questions = snapshot.questions;
+          });
+      },
+      (error) => {
+        if (current === generation) toastError(error, "conversation.questions.error.load");
+      },
+    );
+  }
+
+  /** Sends the answers of a question. The page reloads the list when the question ends its wait. */
+  async function answerQuestion(question: OpenQuestion, answers: Record<string, string[]>): Promise<boolean> {
+    const answer = props.source.answerQuestion;
+    if (!answer) return false;
+    try {
+      await answer({ requestId: question.requestId, answers }, props.serverId);
+      loadQuestions();
+      return true;
+    } catch (error) {
+      toastError(error, "conversation.questions.error.answer");
+      return false;
+    }
   }
 
   function readTask(task: AgentTask): void {
@@ -362,6 +403,7 @@ export function TasksView(props: TasksViewProps) {
     (serverId) => {
       setState((draft) => {
         draft.snapshots = {};
+        draft.questions = [];
         draft.conversations = {};
         draft.pending = null;
         draft.selectedId = null;
@@ -370,14 +412,19 @@ export function TasksView(props: TasksViewProps) {
         draft.agentId = "";
       });
       untrack(() => loadLists(props.agents.map((agent) => agent.id)));
+      untrack(() => {
+        if (props.questionsOn) loadQuestions();
+      });
       const unsubscribe = props.source.onEvent(serverId, applyEvent, () =>
         loadLists(props.agents.map((agent) => agent.id)),
       );
+      const unsubscribeQuestions = props.questionsOn ? props.source.onQuestionsChanged?.(loadQuestions) : undefined;
       return () => {
         // A waiting start goes to the server it was sent on.
         commitNow();
         generation++;
         unsubscribe();
+        unsubscribeQuestions?.();
       };
     },
   );
@@ -496,6 +543,8 @@ export function TasksView(props: TasksViewProps) {
       onToggleAgents={props.onToggleAgents}
       agents={props.agents}
       tasks={tasks()}
+      questions={props.questionsOn ? state.questions : undefined}
+      onAnswerQuestion={answerQuestion}
       // A list that did not load keeps its agent out, so a failed load does not show the empty page.
       // With no agents yet, the agent list did not load.
       loaded={props.agents.length > 0 && props.agents.every((agent) => state.snapshots[agent.id] !== undefined)}

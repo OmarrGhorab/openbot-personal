@@ -250,6 +250,7 @@
     "test:channel-name-routing": "bun scripts/channel-name-routing-e2e.ts",
     "test:agent-profile-accounts": "bun scripts/agent-profile-accounts-e2e.ts",
     "test:agent-memory": "bun scripts/agent-memory-e2e.ts",
+    "test:question-queue": "bun scripts/question-queue-e2e.ts",
     "test:claude-usage-resume": "bun scripts/claude-usage-resume-e2e.ts",
     "test:claude-cache": "bun scripts/claude-cache-e2e.ts",
     "test:backup-model-failover": "bun scripts/backup-model-failover-e2e.ts",
