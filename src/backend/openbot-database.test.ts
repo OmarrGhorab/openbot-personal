@@ -306,6 +306,8 @@ describe("OpenBotDatabase", () => {
         type: "toolCall",
         name: "execute",
         arguments: { code: `return await tools.openbot.save_lesson(${JSON.stringify({ kind: "rule", text })});` },
+        // OpenCode's Code Mode result echoes the input of each tool call the code made.
+        result: { metadata: { toolCalls: [{ tool: "openbot.save_lesson", status: "completed", input: { text } }] } },
       },
       { id: "other-tool", type: "dynamicToolCall", tool: "remember", arguments: { text } },
     ];
@@ -330,6 +332,8 @@ describe("OpenBotDatabase", () => {
     expect(direct).toContain("password: [redacted]");
     expect(codeMode).not.toContain("hunter2hunter2");
     expect(codeMode).toContain("save_lesson");
+    // The echoed input in the result is redacted too.
+    expect(codeMode).toContain('"input":{"text":"Deploy only from CI. The login password: [redacted] must');
     // Only the project-memory tools change; another tool's input stays as the model wrote it.
     expect(otherTool).toContain("hunter2hunter2");
     database.close();

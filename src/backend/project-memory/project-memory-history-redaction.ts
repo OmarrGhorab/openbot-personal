@@ -8,6 +8,12 @@ const SAVING_TOOLS = ["save_lesson", "learn_from_failure"] as const;
 /** The fields in which a provider keeps the input of a tool call. */
 const INPUT_FIELDS = ["arguments", "input", "rawInput"] as const;
 
+/**
+ * The fields that are redacted. The result is included: OpenCode's Code Mode result echoes the input of
+ * each tool call that the code made (`result.metadata.toolCalls[].input`).
+ */
+const REDACTED_FIELDS = [...INPUT_FIELDS, "result", "rawOutput"] as const;
+
 function isSavingTool(name: string | null): boolean {
   if (!name) return false;
   return SAVING_TOOLS.some((tool) => name === tool || name === `openbot_${tool}` || name === `mcp__openbot__${tool}`);
@@ -46,13 +52,13 @@ function redactStrings(container: DynamicRecord | unknown[]): void {
 
 /**
  * The item as the provider history keeps it. A project-memory tool redacts secrets before it saves an
- * entry; the model's own call input holds the same text, so its input fields are redacted the same
- * way. Every other item, and every other field, is returned unchanged.
+ * entry; the model's own call input, and a result that echoes it, hold the same text, so those fields
+ * are redacted the same way. Every other item, and every other field, is returned unchanged.
  */
 export function redactProjectMemoryToolInput(item: ThreadItem): ThreadItem {
   if (!callsSavingTool(item)) return item;
   const redacted = structuredClone(item);
-  for (const field of INPUT_FIELDS) {
+  for (const field of REDACTED_FIELDS) {
     const value = redacted[field];
     if (typeof value === "string") redacted[field] = redactText(value);
     else if (Array.isArray(value) || isDynamicRecord(value)) redactStrings(value);
