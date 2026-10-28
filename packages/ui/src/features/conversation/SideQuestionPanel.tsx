@@ -6,7 +6,7 @@ import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
 import { formatChatTimestamp } from "@openbot/ui/features/conversation/chat-timestamp";
 import { useText } from "@openbot/ui/text";
-import { For, onSettled, Show } from "solid-js";
+import { createSignal, For, onSettled, Show } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
 
 /** One question of a side question. The answer is null while the agent writes it. */
@@ -31,6 +31,13 @@ export interface SideQuestionPanelProps {
   onAsk: (question: string) => void;
   onClosePanel: () => void;
   onOpenLink: (url: string) => void;
+  /** The title of the work thread (task) that the side chat reads. Absent for the main chat. */
+  taskTitle?: string | undefined;
+  /**
+   * "Send to main thread": puts the text into the task as a user message, where it waits in the
+   * queue while a turn runs. Resolves true when the task took it. Absent for the main chat.
+   */
+  onSendToMain?: ((text: string) => Promise<boolean>) | undefined;
 }
 
 function exchangeMessages(exchange: SideQuestionExchange): AgentMessage[] {
@@ -66,6 +73,25 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
   const fades = createScrollFades();
   onSettled(() => fades.stop);
   const asking = () => props.exchanges.at(-1)?.answer === null;
+  const [sendingToMain, setSendingToMain] = createSignal(false);
+  /** The text that the task took last, so its row says it went. */
+  const [sentToMain, setSentToMain] = createSignal<string | null>(null);
+  const sendToMain = async (text: string, fromDraft: boolean) => {
+    const send = props.onSendToMain;
+    const body = text.trim();
+    if (!send || !body || sendingToMain()) return;
+    setSendingToMain(true);
+    try {
+      if (await send(body)) {
+        setSentToMain(body);
+        if (fromDraft) props.onDraftChange("");
+      }
+    } finally {
+      setSendingToMain(false);
+    }
+  };
+  const answerOf = (message: AgentMessage) =>
+    message.author === "agent" && message.id.endsWith(":answer") ? message.body : null;
   const messages = () => props.exchanges.flatMap(exchangeMessages);
   const ask = () => {
     const question = props.draft.trim();
@@ -84,6 +110,13 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
     >
       <header class="file-preview-header side-panel-pane-header">
         <h2 class="side-panel-pane-title">{t("conversation.sidePanel.pane.question")}</h2>
+        <Show when={props.taskTitle}>
+          {(title) => (
+            <span class="side-question-task" title={title()}>
+              {t("conversation.sideQuestion.taskLabel", { title: title() })}
+            </span>
+          )}
+        </Show>
         <Button
           type="button"
           variant="ghost"
@@ -99,8 +132,18 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
         fallback={
           <div class="side-question-empty">
             <MessageCircleQuestionMark aria-hidden="true" />
-            <strong>{t("conversation.sideQuestion.emptyTitle")}</strong>
-            <p>{t("conversation.sideQuestion.emptyBody", { name: props.agent.name })}</p>
+            <Show
+              when={props.taskTitle}
+              fallback={
+                <>
+                  <strong>{t("conversation.sideQuestion.emptyTitle")}</strong>
+                  <p>{t("conversation.sideQuestion.emptyBody", { name: props.agent.name })}</p>
+                </>
+              }
+            >
+              <strong>{t("conversation.sideQuestion.taskEmptyTitle")}</strong>
+              <p>{t("conversation.sideQuestion.taskEmptyBody", { name: props.agent.name })}</p>
+            </Show>
           </div>
         }
       >
@@ -123,6 +166,21 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
                     onPreview={() => undefined}
                     onAttachmentAction={() => undefined}
                   />
+                  <Show when={props.onSendToMain && answerOf(message())}>
+                    {(answer) => (
+                      <div class="side-question-answer-actions">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          type="button"
+                          disabled={sendingToMain()}
+                          onClick={() => void sendToMain(answer(), false)}
+                        >
+                          {t("conversation.sideQuestion.sendToMain")}
+                        </Button>
+                      </div>
+                    )}
+                  </Show>
                 </div>
               )}
             </For>
@@ -135,6 +193,14 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
         </section>
       </Show>
       <div class="composer-wrap">
+        <Show when={props.taskTitle}>
+          <p class="side-question-note">{t("conversation.sideQuestion.taskNote")}</p>
+        </Show>
+        <Show when={sentToMain()}>
+          <p class="side-question-note" role="status">
+            {t("conversation.sideQuestion.sentToMain")}
+          </p>
+        </Show>
         <Show when={props.error}>
           {(error) => (
             <ComposerNotice
@@ -175,6 +241,17 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
           </div>
           <div class="composer-toolbar">
             <div class="composer-primary-actions">
+              <Show when={props.onSendToMain}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={sendingToMain() || props.draft.trim().length === 0}
+                  onClick={() => void sendToMain(props.draft, true)}
+                >
+                  {t("conversation.sideQuestion.sendDraftToMain")}
+                </Button>
+              </Show>
               <Button
                 type="submit"
                 variant="ghost"
