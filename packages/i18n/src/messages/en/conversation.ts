@@ -115,6 +115,12 @@ export const messages = defineMessages("conversation", {
   "conversation.tasks.state.interrupted": "Stopped",
   "conversation.tasks.state.waitingApproval": "Waiting for your approval",
   "conversation.tasks.state.paused": "Paused",
+  "conversation.tasks.state.waitingAnswer": "Waiting for your answer",
+  "conversation.questions.title": "Questions",
+  "conversation.questions.fromTask": "{agent}, task: {task}",
+  "conversation.questions.fromChat": "{agent}, chat",
+  "conversation.questions.error.load": "Could not load the questions.",
+  "conversation.questions.error.answer": "Could not send your answer.",
   "conversation.tasks.hold.taskLimit": {
     one: "Waiting for a free task. {count} task runs now.",
     other: "Waiting for a free task. {count} tasks run now.",

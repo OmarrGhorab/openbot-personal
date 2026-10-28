@@ -10,6 +10,7 @@ import { EMPTY_DRAFT } from "../conversation/composer-draft";
 import { composerDraftKey } from "../conversation/conversation-keys";
 import type { ComposerDraft } from "../conversation/conversation-types";
 import { createVoiceStore, VOICE_LEVEL_COUNT, type VoiceStoreDeps } from "../conversation/stores/voice-store";
+import { useServers } from "../servers/servers-context";
 import { TasksView, type TasksVoiceAdapter, type TasksVoiceControls } from "./TasksView";
 import { desktopTasksSource } from "./tasks-port";
 
@@ -27,7 +28,10 @@ export interface TasksPanelProps {
 /** The Tasks page on desktop: the agents of the active server, the task IPC, and voice from this computer. */
 export function TasksPanel(props: TasksPanelProps) {
   const { agentList } = useAgents();
+  const { servers } = useServers();
   const { approvals, respondToApprovalRequest } = useTurns();
+  // The questions are this computer's: a joined server's agents answer in their own chats.
+  const questionsOn = () => servers().some((server) => server.id === props.serverId && server.kind === "local");
 
   function openAttachment(attachment: AttachmentSummary, action: "open" | "reveal" | "download"): void {
     window.openbot.agent.openAttachment({ attachmentId: attachment.id, action }, props.serverId).catch((error) => {
@@ -40,6 +44,7 @@ export function TasksPanel(props: TasksPanelProps) {
     <TasksView
       {...props}
       source={desktopTasksSource()}
+      questionsOn={questionsOn()}
       agents={agentList()}
       voice={createTasksVoice}
       onOpenLink={(url) => void appPort().openUrl(url)}

@@ -125,6 +125,12 @@ export const messages = {
   "conversation.tasks.state.interrupted": "اتوقفت",
   "conversation.tasks.state.waitingApproval": "مستنية موافقتك",
   "conversation.tasks.state.paused": "متوقفة مؤقتًا",
+  "conversation.tasks.state.waitingAnswer": "مستنية ردك",
+  "conversation.questions.title": "الأسئلة",
+  "conversation.questions.fromTask": "{agent}، مهمة: {task}",
+  "conversation.questions.fromChat": "{agent}، المحادثة",
+  "conversation.questions.error.load": "معرفناش نحمّل الأسئلة.",
+  "conversation.questions.error.answer": "معرفناش نبعت ردك.",
   "conversation.tasks.hold.taskLimit": {
     one: "بنستنى مهمة تفضى. مهمة واحدة شغالة دلوقتي.",
     two: "بنستنى مهمة تفضى. مهمتين شغالتين دلوقتي.",

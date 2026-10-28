@@ -45,6 +45,7 @@ function taskMarkState(task: AgentTask): TaskMarkState {
  */
 export function agentTaskStatus(task: AgentTask, t: TextValue["t"], waitsForApproval = false): string {
   if (task.state === "running" && waitsForApproval) return t("conversation.tasks.state.waitingApproval");
+  if (task.state === "running" && task.question) return t("conversation.tasks.state.waitingAnswer");
   if (task.state === "running") return task.progress ?? t("conversation.tasks.state.running");
   if (isAgentTaskPaused(task)) return t("conversation.tasks.state.paused");
   if (task.state === "queued") return t("conversation.tasks.state.queued");

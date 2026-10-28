@@ -4,6 +4,8 @@ import type {
   AgentTaskInput,
   AgentTasksSnapshot,
   ConversationSnapshot,
+  OpenQuestionsSnapshot,
+  RespondToPromptInput,
   StartAgentTaskInput,
 } from "@openbot/contracts/ipc";
 
@@ -33,6 +35,15 @@ export interface TasksSource {
   reopen(input: AgentTaskInput, serverId: string): Promise<void>;
   /** Calls `apply` for each task event of the server, and `reload` when the server is back after a disconnect. Returns the unsubscribe. */
   onEvent(serverId: string, apply: (event: TaskEvent) => void, reload: () => void): () => void;
+  /**
+   * The questions that wait for an answer on this computer. Only the desktop has them: a page without
+   * this method shows no Questions section.
+   */
+  openQuestions?: () => Promise<OpenQuestionsSnapshot>;
+  /** Answers a question of `openQuestions`. */
+  answerQuestion?: (input: RespondToPromptInput, serverId: string) => Promise<void>;
+  /** Calls `reload` when a question starts or ends its wait. Returns the unsubscribe. */
+  onQuestionsChanged?: (reload: () => void) => () => void;
 }
 
 /** The tasks on desktop: main reaches the tasks of any server. Read on each call: tests and stories replace `window.openbot` per case. */
@@ -60,5 +71,17 @@ export function desktopTasksSource(): TasksSource {
         reconnect();
       };
     },
+    openQuestions: () => window.openbot.agent.listOpenQuestions(),
+    answerQuestion: (input, serverId) => window.openbot.agent.respondToPrompt(input, serverId),
+    onQuestionsChanged(reload) {
+      return window.openbot.agent.onScopedEvent((scoped) => {
+        if (isQuestionEvent(scoped.event)) reload();
+      });
+    },
   };
+}
+
+/** An event that starts or ends the wait of a question. */
+function isQuestionEvent(event: { type: string }): boolean {
+  return event.type === "prompt" || event.type === "agent-input-resolved";
 }
