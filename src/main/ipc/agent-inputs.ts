@@ -24,8 +24,10 @@ import {
   type InterruptTurnInput,
   isAgentAccess,
   isAgentBackupModels,
+  isAgentDefinitionOfDone,
   isAgentModel,
   isAgentProvider,
+  isAgentReviewerAgentId,
   isAgentTaskLimit,
   isAvatarHue,
   isAvatarSeed,
@@ -691,6 +693,16 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
         ...(providerAccountId === undefined ? {} : { providerAccountId }),
       })),
     };
+  }
+  if (value.definitionOfDone !== undefined) {
+    if (value.definitionOfDone !== null && !isAgentDefinitionOfDone(value.definitionOfDone))
+      throw new Error("Invalid definition of done.");
+    result.definitionOfDone = value.definitionOfDone;
+  }
+  if (value.reviewerAgentId !== undefined) {
+    if (value.reviewerAgentId !== null && !isAgentReviewerAgentId(value.reviewerAgentId))
+      throw new Error("Invalid reviewer agent.");
+    result.reviewerAgentId = value.reviewerAgentId;
   }
   if (value.leaveUsageLimit !== undefined) {
     if (!isBoolean(value.leaveUsageLimit)) throw new Error("Invalid usage limit switch.");

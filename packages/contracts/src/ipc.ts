@@ -9,6 +9,7 @@ export * from "./ipc-acp-registry";
 export * from "./ipc-agent-access";
 export * from "./ipc-agent-admin";
 export * from "./ipc-agent-analytics";
+export * from "./ipc-agent-done-checks";
 export * from "./ipc-agent-events";
 export * from "./ipc-agent-identity";
 export * from "./ipc-agent-import";

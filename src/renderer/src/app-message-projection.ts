@@ -3,6 +3,7 @@ import {
   CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
+  doneCheckPassed,
   hostedSiteConversationEvent,
   isChannelChangeMarker,
   isContextResetMarker,
@@ -52,6 +53,8 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     ...(stored.busyMessageMode === undefined ? {} : { busyMessageMode: stored.busyMessageMode }),
     ...(stored.taskLimit === undefined ? {} : { taskLimit: stored.taskLimit }),
     ...(stored.backupModels === undefined ? {} : { backupModels: stored.backupModels }),
+    ...(stored.definitionOfDone === undefined ? {} : { definitionOfDone: stored.definitionOfDone }),
+    ...(stored.reviewerAgentId === undefined ? {} : { reviewerAgentId: stored.reviewerAgentId }),
     ...(stored.usageLimitReturn === undefined ? {} : { usageLimitReturn: stored.usageLimitReturn }),
     threadId: stored.threadId,
     workspacePath: stored.workspacePath,
@@ -229,6 +232,8 @@ export function agentProfilesEqual(left: AgentProfile, right: AgentProfile): boo
     left.reasoningEffort === right.reasoningEffort &&
     left.providerAccountId === right.providerAccountId &&
     JSON.stringify(left.backupModels) === JSON.stringify(right.backupModels) &&
+    JSON.stringify(left.definitionOfDone) === JSON.stringify(right.definitionOfDone) &&
+    left.reviewerAgentId === right.reviewerAgentId &&
     JSON.stringify(left.usageLimitReturn) === JSON.stringify(right.usageLimitReturn) &&
     left.access === right.access &&
     left.computerUse === right.computerUse &&
@@ -335,6 +340,9 @@ function chatActionMarker(
     return { kind: "channel-change", text: message.text, timestamp: message.createdAt };
   if (isVaultChangeMarker(message)) return { kind: "vault-change", text: message.text, timestamp: message.createdAt };
   if (isMcpChangeMarker(message)) return { kind: "mcp-change", text: message.text, timestamp: message.createdAt };
+  const checksPassed = doneCheckPassed(message);
+  if (checksPassed !== null)
+    return { kind: "done-check", passed: checksPassed, text: message.text, timestamp: message.createdAt };
   const skillEvent = skillConversationEvent(message);
   if (skillEvent) return { ...skillEvent, kind: "skill-lifecycle", timestamp: message.createdAt };
   const suggestion = marketplaceSuggestionEvent(message);

@@ -151,6 +151,8 @@ export const messages = {
   "error.backend.routineRunStarting": "تشغيل الروتين ده لسه بيبدأ. جرّب تاني بعد ما الدور بتاعه يبدأ.",
   "error.backend.routineRunNoSession": "OpenBot مش قادر يقاطع تشغيل الروتين الشغّال لأن جلسة المزوّد بتاعته مش متاحة.",
   "error.backend.interruptSelf": "الإيجنت مينفعش يقاطع نفسه.",
+  "error.backend.markDoneInvalid": "ناده mark_done من غير معامل، أو بـ reviewRound من 1 لحد 3.",
+  "error.backend.markDoneNoAgent": "الإيجنت بتاع الشات ده متلقاش.",
   "error.backend.interruptOtherWork":
     "الإيجنت ده شغّال على مهمة رسالتك مابدأتهاش. المستخدم أو اللي بعت المهمة دي بس هو اللي يقدر يوقّفها.",
   "error.backend.interruptStarting": "الإيجنت ده لسه بيبدأ دور. جرّب تاني بعد ما الدور يبدأ.",

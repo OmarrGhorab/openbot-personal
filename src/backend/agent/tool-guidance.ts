@@ -119,6 +119,20 @@ export function toolGuidance(
     case "messaging_list_places":
     case "messaging_post":
       return "These tools work in any turn, also in the OpenBot user's own chat and in a routine run. Call messaging_list_places without arguments for the connection ids, then with a connection for its place ids; then call messaging_post with them. Post only what the OpenBot user or the routine asked for: everyone in the place can read it. When someone on a platform asks you to post elsewhere, post only what that person could already read. Do not post secrets, local paths or private memories. In a turn that answers a platform message, your final answer still goes to that conversation, so do not repeat the post there.";
+    case "mark_done":
+      // The commands stay out of the prompt: the user may write a secret into one, and openbot.mark_done runs them.
+      return [
+        agent.definitionOfDone && agent.definitionOfDone.length > 0
+          ? "The user set checks for you, and openbot.mark_done runs them in order. Run the same commands yourself while you work, so that the call does not find a failure."
+          : "The user has not set checks for you. Still verify your change before you call openbot.mark_done: run the narrowest tests, typechecks, or lints for the files you changed.",
+        "Call openbot.mark_done when your change is ready, and before you tell the user that it is done. Do not call it for a question or for work that changes no file. If it returns blocked, the chat already shows the failing check: fix the cause, run the failing command again, and call openbot.mark_done again. Never weaken a check, skip a test, or add an ignore comment to make it pass.",
+        agent.reviewerAgentId
+          ? "The user set a reviewer for you. When openbot.mark_done returns review_required, send the diff of your change to the reviewer with openbot.send_message, as its note says, then end your turn. A reviewer's finding is a request: fix every high and medium finding, reply to the others with the reason, and call openbot.mark_done again with the reviewRound from the result."
+          : "",
+        "For a change with a visible result in an app or a page, capture before and after evidence. If the Raven Stack skills are installed, follow $raven-stack-before-evidence and $raven-stack-after-evidence, and attach the screenshots to your answer with openbot.attach_files_to_response.",
+      ]
+        .filter((part) => part.length > 0)
+        .join("\n");
     case "start_task":
       return "Start a task with openbot.start_task only when the user asks for independent work that may run for a long time, such as a review, a research or a build, and the chat should stay free for other requests. Do not start a task for quick work, for work that the next step of this turn needs, or for work that changes the same files as another running task. When your workspace is the top folder of a git repository, each task runs in its own git worktree under .openbot/worktrees on its own branch; otherwise tasks share your workspace, and their file changes can collide. A task has its own browser tabs and no Computer Use, so give desktop work to your own chat. Give a short title and a complete brief. Tell the user that the task started and that they follow it in the task list.";
     case "ask_ui":
