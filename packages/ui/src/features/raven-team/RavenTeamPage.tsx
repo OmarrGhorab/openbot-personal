@@ -65,7 +65,11 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
 
-  const request = (): PlanRavenTeamInput => ({ templateId: templateId(), brief: brief(), models: overrides() });
+  const request = (models: Record<string, string> = overrides()): PlanRavenTeamInput => ({
+    templateId: templateId(),
+    brief: brief(),
+    models,
+  });
   const canStart = () => {
     const current = plan();
     return (
@@ -89,12 +93,17 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     }
   }
 
-  const check = () => run(async () => setPlan(await props.onPlan(request())));
+  const check = (models?: Record<string, string>) => run(async () => setPlan(await props.onPlan(request(models))));
 
-  /** A model the user picks for a role. The plan is checked again, so the question clears or repeats. */
+  /**
+   * A model the user picks for a role. The plan is checked again with the new choice, so the question
+   * clears or repeats. The check gets the choices itself: a signal write shows at the next flush, so
+   * reading `overrides()` here would still give the old ones.
+   */
   const pickModel = (roleId: string, model: string) => {
-    setOverrides({ ...overrides(), [roleId]: model });
-    void check();
+    const next = { ...overrides(), [roleId]: model };
+    setOverrides(next);
+    void check(next);
   };
 
   const start = () =>
