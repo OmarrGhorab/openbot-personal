@@ -40,7 +40,7 @@ class DoneCheckIoFailed extends Schema.TaggedError<DoneCheckIoFailed>()("DoneChe
 const { io: checkIo } = causeHelpers(DoneCheckIoFailed);
 
 /** One check of a definition of done, after it ran. The text is redacted and cut to its tail. */
-export interface DoneCheckRun {
+interface DoneCheckRun {
   command: string;
   status: "passed" | "failed";
   /** Null when the check did not exit, such as a timeout or a program that could not start. */
@@ -48,7 +48,7 @@ export interface DoneCheckRun {
   output: string;
 }
 
-export interface AgentDoneChecksOptions {
+interface AgentDoneChecksOptions {
   /** The agents, for their checks, workspace and reviewer. */
   store: Pick<AgentStore, "list">;
   /** The task of a thread, and the worktree of a task. */
