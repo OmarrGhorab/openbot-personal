@@ -12,24 +12,24 @@ import { useText } from "../../text";
 import type { MonitorStatus } from "./monitor-status";
 import { StatusDot } from "./StatusPill";
 
-/** One team role row. `state` is the role state that the host sends; it can be one this build does not know. */
-export interface MonitorTeamRoleRowData {
-  key: string;
-  label: string;
-  state: string;
-  /** What the role counts as in "Live now". */
-  status: MonitorStatus;
-  /** False before the role has a work thread. */
-  canOpen: boolean;
-}
-
-/** One team job row. `state` is the job state that the host sends; it can be one this build does not know. */
+/**
+ * One team job row. `state` of the job and of each role is the state that the host sends; it can be
+ * one this build does not know.
+ */
 export interface MonitorTeamJobRowData {
   id: string;
   /** The first line of the ticket. */
   title: string;
   state: string;
-  roles: readonly MonitorTeamRoleRowData[];
+  roles: readonly {
+    key: string;
+    label: string;
+    state: string;
+    /** What the role counts as in "Live now". */
+    status: MonitorStatus;
+    /** False before the role has a work thread. */
+    canOpen: boolean;
+  }[];
 }
 
 export interface MonitorTeamJobRowProps {

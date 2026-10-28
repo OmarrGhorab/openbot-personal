@@ -16,20 +16,17 @@ export interface MonitorSource {
   onChange(listener: (change: MonitorChange) => void): () => void;
 }
 
-/** A change that asks the Monitor to read the team jobs again. */
-export interface MonitorTeamChange {
-  /** The work thread whose turn started or ended. Null when a team job changed. */
-  threadId: string | null;
-}
-
 /**
  * What the Monitor reads of the Raven Stack team jobs of this computer. It only reads: the team page
  * starts and stops jobs.
  */
 export interface MonitorTeamSource {
   listJobs(): Promise<RavenTeamJob[]>;
-  /** Calls `listener` when a team job changed, or when a turn of an agent started or ended. Returns the unsubscribe. */
-  onChange(listener: (change: MonitorTeamChange) => void): () => void;
+  /**
+   * Calls `listener` when a team job changed, or when a turn of an agent started or ended. `threadId`
+   * is the work thread of the turn, or null for a job change. Returns the unsubscribe.
+   */
+  onChange(listener: (change: { threadId: string | null }) => void): () => void;
 }
 
 /**

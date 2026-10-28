@@ -17,22 +17,6 @@ const ENDED_JOB_STATES: ReadonlySet<string> = new Set(["done", "not-done", "stop
 /** How long an ended job stays in the list, so the user sees how it ended. */
 export const MONITOR_TEAM_ENDED_VISIBLE_MS = 15 * 60_000;
 
-/** One team role of a job, as the Monitor sidebar shows it. */
-export interface MonitorTeamRole {
-  /** Unique over the jobs: the job id and the role id. */
-  key: string;
-  roleId: string;
-  label: string;
-  /** The role's agent, or null before the role starts. */
-  agentId: string | null;
-  /** The role's work thread, or null before the role starts. */
-  taskId: string | null;
-  /** The state of the role in the job, as the host sends it. */
-  state: string;
-  /** What the role counts as in "Live now". */
-  status: MonitorAgentStatus;
-}
-
 /** One team job, as the Monitor sidebar shows it. */
 export interface MonitorTeamJob {
   id: string;
@@ -42,7 +26,21 @@ export interface MonitorTeamJob {
   state: string;
   /** False when the job is done, not done or stopped. Its roles then count as idle. */
   active: boolean;
-  roles: MonitorTeamRole[];
+  /** Each team role of the job. */
+  roles: {
+    /** Unique over the jobs: the job id and the role id. */
+    key: string;
+    roleId: string;
+    label: string;
+    /** The role's agent, or null before the role starts. */
+    agentId: string | null;
+    /** The role's work thread, or null before the role starts. */
+    taskId: string | null;
+    /** The state of the role in the job, as the host sends it. */
+    state: string;
+    /** What the role counts as in "Live now". */
+    status: MonitorAgentStatus;
+  }[];
   updatedAt: string;
 }
 
@@ -52,7 +50,7 @@ export function isActiveTeamJobState(state: string): boolean {
 }
 
 /** The first line of a ticket, which names the job. */
-export function teamJobTitle(brief: string): string {
+function teamJobTitle(brief: string): string {
   return (brief.split("\n")[0] ?? "").trim();
 }
 
