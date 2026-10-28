@@ -11,13 +11,13 @@ const run = promisify(execFile);
 const logger = createOpenBotLogger("agent-worktrees");
 
 /** The folder of the work-thread worktrees, relative to the agent workspace. */
-export const WORKTREE_FOLDER = ".openbot/worktrees";
+const WORKTREE_FOLDER = ".openbot/worktrees";
 /** The line that keeps the worktrees out of `git status` of the main checkout. */
 const EXCLUDE_LINE = `/${WORKTREE_FOLDER}/`;
 /** A git command that takes longer than this fails, and the work thread shares the workspace. */
 const GIT_TIMEOUT_MS = 30_000;
 
-export class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()("WorktreeOperationFailed", {
+class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()("WorktreeOperationFailed", {
   cause: Schema.Defect(),
 }) {}
 
@@ -34,7 +34,7 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
 }
 
 /** The short id of a task: the end of its UUID, safe in a path and a branch name. */
-export function worktreeName(taskId: string): string {
+function worktreeName(taskId: string): string {
   const id = taskId.replace(/[^a-zA-Z0-9-]/g, "").slice(-12);
   return id.length > 0 ? id : "thread";
 }
