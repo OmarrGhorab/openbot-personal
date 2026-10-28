@@ -12,7 +12,12 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 
-const TASK_TABLES = { projection_agent_tasks: [], projection_messaging_allowed_roles: [], browser_profiles: [], projection_agent_work_threads: [] };
+const TASK_TABLES = {
+  projection_agent_tasks: [],
+  projection_messaging_allowed_roles: [],
+  browser_profiles: [],
+  projection_agent_work_threads: [],
+};
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");

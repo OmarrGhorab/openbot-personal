@@ -100,7 +100,8 @@ function withoutRepeats(rows: Rows): Rows {
     projection_thread_activities: deleted("projection_thread_activities", "activity_id", "activity"),
     // Migrations 44 and 45 add them, empty.
     projection_messaging_allowed_roles: [],
-    browser_profiles: [], projection_agent_work_threads: [],
+    browser_profiles: [],
+    projection_agent_work_threads: [],
   };
 }
 

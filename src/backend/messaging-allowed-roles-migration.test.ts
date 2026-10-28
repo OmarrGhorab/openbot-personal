@@ -83,7 +83,12 @@ describe("messaging allowed roles migration", () => {
       if (version < 25) seedConnection(db);
       const before = contents(db);
       migrateOpenBotDatabase(db);
-      expect(contents(db)).toEqual({ ...before, projection_messaging_allowed_roles: [], browser_profiles: [], projection_agent_work_threads: [] });
+      expect(contents(db)).toEqual({
+        ...before,
+        projection_messaging_allowed_roles: [],
+        browser_profiles: [],
+        projection_agent_work_threads: [],
+      });
       expectHealthy(db);
     },
   );
@@ -101,7 +106,12 @@ describe("messaging allowed roles migration", () => {
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
-    expect(contents(db)).toEqual({ ...before, projection_messaging_allowed_roles: [], browser_profiles: [], projection_agent_work_threads: [] });
+    expect(contents(db)).toEqual({
+      ...before,
+      projection_messaging_allowed_roles: [],
+      browser_profiles: [],
+      projection_agent_work_threads: [],
+    });
     expectHealthy(db);
   });
 
