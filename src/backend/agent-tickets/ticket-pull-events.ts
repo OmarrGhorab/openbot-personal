@@ -8,7 +8,7 @@ import type { TicketSource } from "./ticket-source";
 const logger = createOpenBotLogger("agent-ticket-pulls");
 
 /** After this many CI failures in a row, the work thread stops and a person decides (the stop rule). */
-export const TICKET_FIX_ATTEMPT_LIMIT = 3;
+const TICKET_FIX_ATTEMPT_LIMIT = 3;
 const TEXT_LIMIT = 4000;
 
 /**
