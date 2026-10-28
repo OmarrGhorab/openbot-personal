@@ -165,6 +165,25 @@ try {
   await answerApproval(high.id, "accept");
   check("the person's accept reaches the provider", client.answers.has(high.id));
 
+  // An OpenCode (ACP) approval shows the command line, not the JSON of its tool input.
+  const openCode = commandApproval(
+    '{"command":"gh pr create --title OpenCode","description":"Open a PR","cwd":"/tmp/w"}',
+  );
+  const openCodeCard = events.find((event) => event.type === "approval" && event.approval.requestId === openCode.id);
+  const openCodeCommand = openCodeCard?.type === "approval" ? openCodeCard.approval.command : null;
+  check(
+    "an OpenCode approval card shows the command line",
+    openCodeCommand === "gh pr create --title OpenCode",
+    String(openCodeCommand),
+  );
+  const openCodeRow = audit.list({ limit: 1 }).entries[0];
+  check(
+    "an OpenCode audit row shows the command line",
+    openCodeRow?.target === "gh pr create --title OpenCode",
+    String(openCodeRow?.target),
+  );
+  await answerApproval(openCode.id, "decline");
+
   // 3. A rule lets a high-risk command through, and the audit log says so.
   await runCauseEffect(preferences.setApprovalRules({ agentId: AGENT, approvals: { medium: true, high: false } }));
   const allowed = commandApproval("npx wrangler deploy --env staging");
@@ -227,6 +246,26 @@ try {
 
   const budgetRows = audit.list({ action: "budget.stopped" }).entries;
   check("the budget stop is in the audit log", budgetRows.length >= 1, `${budgetRows.length} rows`);
+
+  // A budget change row keeps the limits the person typed: `tokens` is a number, not a secret.
+  const changed = {
+    perTask: { tokens: 50000, minutes: 30, costUsd: null },
+    perDay: { tokens: null, minutes: 240, costUsd: 2.5 },
+  };
+  audit.record({
+    action: "budgets.changed",
+    agentId: AGENT,
+    risk: null,
+    result: "saved",
+    target: AGENT,
+    detail: JSON.stringify(changed),
+  });
+  const changedRow = audit.list({ action: "budgets.changed" }).entries[0];
+  check(
+    "a budget change row shows the token limit",
+    changedRow?.detail === JSON.stringify(changed),
+    String(changedRow?.detail),
+  );
 
   // 6. Stop all agents holds every lane, and the stop survives a restart.
   await runCauseEffect(preferences.setStoppedAll(true));

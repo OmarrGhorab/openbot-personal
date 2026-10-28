@@ -42,7 +42,7 @@ import { createOpenBotLogger, redactText, toLogValue } from "@openbot/logging";
 import { Deferred, Effect, Result, Schema } from "effect";
 import type { AgentApiKeys } from "../agent-api-keys";
 import type { AgentClient } from "../agent-client";
-import { type ActionRisk, classifyApprovalRisk } from "../autonomy/action-risk";
+import { type ActionRisk, approvalCommandLine, classifyApprovalRisk } from "../autonomy/action-risk";
 import type { AutonomyController } from "../autonomy/autonomy-controller";
 import { type BrowserOperationError, browserFailure } from "../browser-effects";
 import type { PreparedBrowserSecret } from "../browser-host";
@@ -851,7 +851,7 @@ export class AttentionRegistry {
       threadId: this.#conversation.publicThreadId(agentId, threadId),
       turnId,
       kind,
-      command: commandText(request.params),
+      command: displayedCommand(request.params),
       cwd: getString(request.params, "cwd"),
       reason: getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
@@ -952,7 +952,7 @@ export class AttentionRegistry {
       threadId: this.#conversation.publicThreadId(agentId, threadId),
       turnId: getString(request.params, "turnId") ?? String(request.id),
       kind,
-      command: commandText(request.params),
+      command: displayedCommand(request.params),
       cwd: getString(request.params, "cwd"),
       reason: getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
@@ -1877,4 +1877,10 @@ function approvalReply(
   if (method === "applyPatchApproval" || method === "execCommandApproval")
     return { decision: decision === "accept" ? "approved" : { denied: { rejection } } };
   return { decision };
+}
+
+/** The command an approval shows: the command line inside an ACP tool input, not its JSON. */
+function displayedCommand(params: unknown): string | null {
+  const command = commandText(params);
+  return command === null ? null : approvalCommandLine(command);
 }

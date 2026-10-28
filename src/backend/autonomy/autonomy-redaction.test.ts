@@ -38,6 +38,23 @@ describe("audit log redaction", () => {
     expect(masked[3]).toContain("bun run deploy");
   });
 
+  it("keeps the numbers of a budget change and masks a secret under the same key names", () => {
+    const budgets = {
+      perTask: { tokens: 50000, minutes: 30, costUsd: null },
+      perDay: { tokens: null, minutes: 240, costUsd: 2.5 },
+    };
+    expect(redactAuditText(JSON.stringify(budgets))).toBe(JSON.stringify(budgets));
+
+    const secrets = redactAuditText(
+      JSON.stringify({ tokens: SECRET, token: 1234, password: 42, minutes: KEY, apiKey: "plainvalue" }),
+    );
+    expect(secrets).not.toContain(SECRET);
+    expect(secrets).not.toContain(KEY);
+    expect(secrets).not.toContain("1234");
+    expect(secrets).not.toContain("42");
+    expect(secrets).not.toContain("plainvalue");
+  });
+
   it("keeps a plain command as it is", () => {
     expect(redactAuditText("bun test src/backend/foo.test.ts")).toBe("bun test src/backend/foo.test.ts");
   });
