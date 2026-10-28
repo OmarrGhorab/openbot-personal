@@ -172,7 +172,7 @@ export const messages = {
   "agentSettings.links.ticketSource": "مصدر التيكتات",
   "agentSettings.links.ticketSourceOff": "مقفول",
   "agentSettings.links.ticketSourceWatching": "{project} · {label}",
-  "agentSettings.links.ticketSourceWatchingOff": "{project} · {label} · مقفول",
+  "agentSettings.links.ticketSourceOffSuffix": "· مقفول",
   "agentSettings.ticketSource.title": "مصدر التيكتات",
   "agentSettings.ticketSource.description":
     "الإيجنت يبدأ شغل جديد لكل issue مفتوح جديد عليه الـlabel ده، وOpenBot يكتب تعليق على الـissue. الكمبيوتر ده بيفحص الريبو كل خمس دقايق.",

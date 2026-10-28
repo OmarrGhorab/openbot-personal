@@ -1471,9 +1471,11 @@
 .agent-ticket-watch-link .settings-link-value {
   min-width: 0;
   justify-content: flex-end;
+  gap: var(--openbot-space-1);
 }
 
-.agent-ticket-watch-link .settings-link-value > svg {
+.agent-ticket-watch-link .settings-link-value > svg,
+.agent-ticket-watch-off {
   flex: none;
 }
 

@@ -170,7 +170,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.links.ticketSource": "Ticket source",
   "agentSettings.links.ticketSourceOff": "Off",
   "agentSettings.links.ticketSourceWatching": "{project} · {label}",
-  "agentSettings.links.ticketSourceWatchingOff": "{project} · {label} · Off",
+  "agentSettings.links.ticketSourceOffSuffix": "· Off",
   "agentSettings.ticketSource.title": "Ticket source",
   "agentSettings.ticketSource.description":
     "Start a work thread for each new open issue that has this label. OpenBot comments on the issue. This computer checks the repository every five minutes.",
