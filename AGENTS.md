@@ -87,6 +87,15 @@ tokens and contracts; it does not render SolidJS DOM components.
 
 Read [packages/ui/AGENTS.md](packages/ui/AGENTS.md) before changing shared UI.
 
+### Use the app components
+
+Build UI from the app components in `packages/ui`: `Select`, `Input`, `Textarea`, `Button`,
+`Switch`, `Checkbox`, `Field` and `Label`, dialogs, menus, and the settings rows. Do not use native
+browser or OS controls: a raw `<select>`, `<input>`, `<button>` or `<textarea>`, or `NativeSelect`.
+They open OS popups and do not match the app. Do not add an outside UI library. If no component
+fits, add one to `packages/ui` or extend the closest one. `bun run check:ui` rejects native
+controls and `NativeSelect` in the renderer.
+
 ## Interface text
 
 Text that a user reads comes from `@openbot/i18n` catalog keys, on desktop, web and mobile. Do not
