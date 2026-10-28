@@ -304,7 +304,9 @@ again from the next change, and it removes no server. Secrets and sign-in cards 
 Each change that runs without the card posts an `mcp-change` note (`MCP_CHANGE_ITEM_TYPE`, issue
 #107) in the conversation: the action, the server name, its address without the query or its
 command line with known secrets masked, and how to undo it in Server settings, MCP. An approved
-change has its approval card and gets no note. A
+change has its approval card and gets no note. `bun run test:mcp-create` (`scripts/mcp-create-e2e.ts`,
+issue #108) drives the skill flow, the approval with the setting off and on, the notes and the
+preference store on the real modules, and writes `.openbot-build/mcp-create-e2e/report.json`. A
 joined server keeps its own setting, which this desktop does not change. `save_mcp_server` connects
 before it saves (`inspectMcpServer`, the silent Test): a server that does not answer is not saved; a
 server that needs an OAuth sign-in or a key is saved. The tools never take or return a header or
