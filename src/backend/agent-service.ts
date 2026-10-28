@@ -312,6 +312,11 @@ export interface AgentServiceOptions {
    */
   busyMessageMode?: () => BusyMessageMode;
   /**
+   * Whether agents with Full access change MCP servers without an approval card. The main process
+   * owns the preference. Omitted, every MCP change asks.
+   */
+  mcpChangesWithoutApproval?: () => boolean;
+  /**
    * How many memories one agent can hold. The main process owns the preference. Omitted, the
    * default cap, which was the only cap before the setting existed.
    */
@@ -1321,6 +1326,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       ...(options.visualPreview === undefined ? {} : { visualPreview: options.visualPreview }),
       ...(options.screenCapture === undefined ? {} : { screenCapture: options.screenCapture }),
       mcpServers: mcpServersFromGateway(this.#mcp, options.prepareMcpTest),
+      ...(options.mcpChangesWithoutApproval === undefined
+        ? {}
+        : { mcpChangesWithoutApproval: options.mcpChangesWithoutApproval }),
       apiKeys: options.agentApiKeys ?? null,
       hooks: {
         listAgents: () => this.listAgents(),

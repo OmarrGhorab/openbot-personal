@@ -297,7 +297,14 @@ servers, so an agent cannot tell a disabled plugin from a missing one.
 When the user asks for it, an agent adds, changes, turns on or off, tests and removes MCP servers with
 the MCP server tools (`src/backend/agent/mcp-tools.ts`, issue #2673). Each change waits for the
 approval of `AttentionRegistry.awaitToolApproval`, which states that every agent on the server gets
-the tools. Full access answers it, as for other built-in tool approvals. `save_mcp_server` connects
+the tools. The card is `alwaysAsk`: a Full access grant does not answer it, because the change
+reaches every agent (issue #106). The one way past it is the setting "Agents can manage MCP servers
+without asking" (Server settings, MCP, on this computer only; `openbot-agent-mcp-changes-v1.json`,
+`app:get-agent-mcp-changes` / `app:set-agent-mcp-changes`). It is off by default. On, an agent with
+Full access (`AttentionRegistry.hasFullAccess`) changes MCP servers with no card; a Workspace only or
+Ask first agent still asks. The router reads the setting and the grant at each change, so off asks
+again from the next change, and it removes no server. Secrets and sign-in cards do not change. A
+joined server keeps its own setting, which this desktop does not change. `save_mcp_server` connects
 before it saves (`inspectMcpServer`, the silent Test): a server that does not answer is not saved; a
 server that needs an OAuth sign-in or a key is saved. The tools never take or return a header or
 environment value, and show an address without its query: the user enters a key in Server settings,

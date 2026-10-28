@@ -132,6 +132,10 @@ import { AgentImportService } from "./agent-import-service";
 import { AgentInitializationGate } from "./agent-initialization";
 import { AgentMarketplaceService } from "./agent-marketplace-service";
 import {
+  type AgentMcpChangesPreferenceStore,
+  createAgentMcpChangesPreferenceStore,
+} from "./agent-mcp-changes-preference-store";
+import {
   AgentMemoryLimitPreferenceStore,
   type AgentMemoryLimitSetting,
   reloadingAgentMemoryLimit,
@@ -240,8 +244,8 @@ import {
 } from "./main-window";
 import {
   DATA_SKILL_SLUG,
-  MCP_SERVER_CREATOR_SKILL_SLUG,
   ManagedSkillService,
+  MCP_SERVER_CREATOR_SKILL_SLUG,
   SKILL_CREATOR_SKILL_SLUG,
 } from "./managed-skill-service";
 import { McpHostSignIns } from "./mcp-host-sign-ins";
@@ -365,6 +369,7 @@ const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
 const SERVER_TIMEZONE_PREFERENCE_FILE = "openbot-server-timezone-v1.json";
 const PROMPT_CACHE_TTL_PREFERENCE_FILE = "openbot-prompt-cache-ttl-v1.json";
 const REMOTE_SESSION_REUSE_PREFERENCE_FILE = "openbot-remote-session-reuse-preference-v1.json";
+const AGENT_MCP_CHANGES_PREFERENCE_FILE = "openbot-agent-mcp-changes-v1.json";
 const REMOTE_NETWORK_ROUTE_PREFERENCE_FILE = "openbot-remote-network-route-v1.json";
 const APP_BEHAVIOR_PREFERENCE_FILE = "openbot-app-behavior-preference-v1.json";
 const DYNAMIC_ISLAND_PREFERENCE_FILE = "openbot-dynamic-island-preference-v1.json";
@@ -573,6 +578,7 @@ export interface ApplicationServices {
   serverTimezone: ServerTimezonePreferenceStore;
   promptCacheTtl: PromptCacheTtlPreferenceStore;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
+  agentMcpChanges: AgentMcpChangesPreferenceStore;
   remoteNetworkRoute: RemoteNetworkRoutePreferenceStore;
   remoteSessionCache: RemoteSessionCache;
   appBehavior: AppBehaviorService;
@@ -1216,6 +1222,10 @@ export async function createApplicationServices({
     join(app.getPath("userData"), REMOTE_SESSION_REUSE_PREFERENCE_FILE),
   );
   await runCauseEffect(remoteSessionReuse.load());
+  const agentMcpChanges = createAgentMcpChangesPreferenceStore(
+    join(app.getPath("userData"), AGENT_MCP_CHANGES_PREFERENCE_FILE),
+  );
+  await runCauseEffect(agentMcpChanges.load());
   const remoteNetworkRoute = createRemoteNetworkRoutePreferenceStore(
     join(app.getPath("userData"), REMOTE_NETWORK_ROUTE_PREFERENCE_FILE),
   );
@@ -1756,6 +1766,7 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    mcpChangesWithoutApproval: () => agentMcpChanges.get().withoutApproval,
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     timezone: () => serverTimezone.effective(),
     // `host` is built later, after the agent service; a channel tool reads it when it runs.
@@ -3039,6 +3050,7 @@ export async function createApplicationServices({
     serverTimezone,
     promptCacheTtl,
     remoteSessionReuse,
+    agentMcpChanges,
     remoteNetworkRoute,
     remoteSessionCache,
     appBehavior,

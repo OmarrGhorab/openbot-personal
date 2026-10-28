@@ -708,6 +708,11 @@ export class AttentionRegistry {
     return !this.#workspaceSandboxed(agentId) && shouldAutoApprove(this.#approvalAutomation, { agentId });
   }
 
+  /** Whether the agent has Full access, by the rule above. Read at each call, as a grant can change. */
+  hasFullAccess(agentId: string): boolean {
+    return this.#answersForAgent(agentId);
+  }
+
   /**
    * Answers what already waits for an agent that now has Full access. The grant is read when a request
    * arrives, so without this a card stays open after the user moves the agent to Full access, presses

@@ -13,6 +13,7 @@ import {
   type AgentBrowserProfile,
   type AgentDefaults,
   type AgentEvent,
+  type AgentMcpChangesPreference,
   type AgentMemory,
   type AgentMemoryLimitPreference,
   type AgentMemorySelection,
@@ -58,6 +59,7 @@ import {
   createMcpServerId,
   DEFAULT_AGENT_ACCESS,
   DEFAULT_AGENT_DEFAULTS,
+  DEFAULT_AGENT_MCP_CHANGES_PREFERENCE,
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_APP_APPEARANCE,
   DEFAULT_APP_INTERFACE_SIZE,
@@ -398,6 +400,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let agentAccess: AgentAccessChange = { revision: 0, everyone: {}, roles: [] };
   const agentMemoryLimitListeners = new Set<(preference: AgentMemoryLimitPreference) => void>();
   let remoteSessionReuse: RemoteSessionReusePreference = { ...DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE };
+  let agentMcpChanges: AgentMcpChangesPreference = { ...DEFAULT_AGENT_MCP_CHANGES_PREFERENCE };
   // The preview computer has Tailscale, so the private route shows what it finds.
   let remoteNetworkRoute: RemoteNetworkRouteState = { route: DEFAULT_REMOTE_NETWORK_ROUTE, tailscaleConnected: true };
   let appBehavior: AppBehaviorPreference = {
@@ -982,6 +985,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     setAppBehaviorPreference: async (change) => {
       appBehavior = { ...appBehavior, ...change };
       return clone(appBehavior);
+    },
+    getAgentMcpChangesPreference: async () => clone(agentMcpChanges),
+    setAgentMcpChangesPreference: async ({ withoutApproval }) => {
+      agentMcpChanges = { withoutApproval };
+      return clone(agentMcpChanges);
     },
     getRemoteSessionReusePreference: async () => clone(remoteSessionReuse),
     setRemoteSessionReusePreference: async ({ keepBetweenRuns }) => {

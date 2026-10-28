@@ -318,6 +318,7 @@ import type {
   SubmitMarketplaceAgentInput,
 } from "./ipc-marketplace-agents";
 import type {
+  AgentMcpChangesPreference,
   CancelMcpSignInInput,
   CompleteMcpSignInRelayInput,
   McpServerConfig,
@@ -618,6 +619,10 @@ export const IPC_ENDPOINTS = {
     // Server settings set the limit of this computer (`hostAdmin.setAgentMemoryLimit`), here or from a
     // joined admin, so main tells the window.
     agentMemoryLimitPreference: event<AgentMemoryLimitPreference>()("app:agent-memory-limit"),
+    getAgentMcpChangesPreference: request<undefined, AgentMcpChangesPreference>()("app:get-agent-mcp-changes"),
+    setAgentMcpChangesPreference: request<AgentMcpChangesPreference, AgentMcpChangesPreference>()(
+      "app:set-agent-mcp-changes",
+    ),
     getRemoteSessionReusePreference: request<undefined, RemoteSessionReusePreference>()("app:get-remote-session-reuse"),
     setRemoteSessionReusePreference: request<RemoteSessionReusePreference, RemoteSessionReusePreference>()(
       "app:set-remote-session-reuse",

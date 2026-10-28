@@ -64,6 +64,7 @@ import type { McpServerConfig, McpTestResult } from "./mcp-servers";
 import { ServerDesktopPanel } from "./ServerDesktopPanel";
 import { createServerGeneralSection } from "./ServerGeneralSection";
 import { type ServerImportDetail, type ServerImportOptions, ServerImportPanel } from "./ServerImportPanel";
+import { ServerMcpApprovalSetting } from "./ServerMcpApprovalSetting";
 import { type McpPanelDetail, type McpPanelSignIn, ServerMcpPanel } from "./ServerMcpPanel";
 import { createServerMembersSection } from "./ServerMembersSection";
 import type { ServerMemoryLimitOptions } from "./ServerMemoryLimitSetting";
@@ -752,6 +753,10 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         <Show when={props.mcpServers}>
           {(servers) => (
             <Tabs.Content value="mcp" class="settings-modal-tab-panel server-settings-panel" data-tab="mcp">
+              {/* The setting is a preference of this computer; a joined server keeps its own. */}
+              <Show when={local() && canManageMcp()}>
+                <ServerMcpApprovalSetting disabled={!actionsAvailable()} />
+              </Show>
               <ServerMcpPanel
                 servers={servers()}
                 canManage={canManageMcp()}
