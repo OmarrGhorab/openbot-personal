@@ -300,7 +300,11 @@ without asking" (Server settings, MCP, on this computer only; `openbot-agent-mcp
 `app:get-agent-mcp-changes` / `app:set-agent-mcp-changes`). It is off by default. On, an agent with
 Full access (`AttentionRegistry.hasFullAccess`) changes MCP servers with no card; a Workspace only or
 Ask first agent still asks. The router reads the setting and the grant at each change, so off asks
-again from the next change, and it removes no server. Secrets and sign-in cards do not change. A
+again from the next change, and it removes no server. Secrets and sign-in cards do not change.
+Each change that runs without the card posts an `mcp-change` note (`MCP_CHANGE_ITEM_TYPE`, issue
+#107) in the conversation: the action, the server name, its address without the query or its
+command line with known secrets masked, and how to undo it in Server settings, MCP. An approved
+change has its approval card and gets no note. A
 joined server keeps its own setting, which this desktop does not change. `save_mcp_server` connects
 before it saves (`inspectMcpServer`, the silent Test): a server that does not answer is not saved; a
 server that needs an OAuth sign-in or a key is saved. The tools never take or return a header or
