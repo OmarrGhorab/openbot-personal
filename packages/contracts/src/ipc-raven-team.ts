@@ -74,6 +74,42 @@ export const RAVEN_STACK_TEAM_ROLES: readonly RavenTeamRoleDefinition[] = [
   { id: "editor", label: "Editor", skills: ["unslop"], defaultModel: null, access: "write", optional: true },
 ];
 
+/**
+ * The built-in Autopilot lite template, for small tickets. It has no Architect: the Builder plans in its
+ * own turn, then the Reviewer gives the verdict. It has no Quality and no Editor. The FAIL rounds, the
+ * fallback model, the stop and the resume work as in the full template.
+ */
+export const RAVEN_STACK_LITE_TEMPLATE_ID = "raven-stack-lite";
+
+export const RAVEN_STACK_LITE_ROLES: readonly RavenTeamRoleDefinition[] = [
+  {
+    id: "builder",
+    label: "Builder",
+    skills: [
+      "detect",
+      "worktree",
+      "plan",
+      "before-evidence",
+      "build",
+      "gates",
+      "after-evidence",
+      "pr",
+      "ci",
+      "fix-round",
+    ],
+    defaultModel: null,
+    access: "write",
+    optional: false,
+  },
+  { id: "reviewer", label: "Reviewer", skills: ["verify"], defaultModel: null, access: "read-only", optional: false },
+];
+
+/** The ids of the built-in templates. They are code: a user can copy one, not change it. */
+export const RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS: readonly string[] = [
+  RAVEN_STACK_TEAM_TEMPLATE_ID,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+];
+
 export const RAVEN_TEAM_BUILDER_ROLE_ID = "builder";
 
 /** The verdict a role reports. `DONE` is for a role that makes no verdict: the Architect and the Builder. */

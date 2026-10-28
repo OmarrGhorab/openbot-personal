@@ -3,6 +3,8 @@ import {
   type AgentProviderId,
   type AgentReasoningEffort,
   type PlanRavenTeamInput,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+  RAVEN_STACK_TEAM_TEMPLATE_ID,
   type RavenTeamJob,
   type RavenTeamPlan,
   type RavenTeamPlanRole,
@@ -18,6 +20,11 @@ import {
   Badge,
   Button,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SwitchField,
   Textarea,
 } from "@openbot/ui";
@@ -83,9 +90,18 @@ const isTerminal = (job: RavenTeamJob) => job.state === "done" || job.state === 
  */
 export function RavenTeamPage(props: RavenTeamPageProps) {
   const { t, errorMessage } = useText();
-  // The built-in template is first in the list.
-  const templateId = () => props.templates[0]?.id ?? "";
-  const template = () => props.templates.find((candidate) => candidate.id === templateId()) ?? null;
+  // The full built-in template is first in the list, and it is the start choice.
+  const [chosenTemplate, setChosenTemplate] = createSignal<string | null>(null);
+  const template = () =>
+    props.templates.find((candidate) => candidate.id === chosenTemplate()) ?? props.templates[0] ?? null;
+  const templateId = () => template()?.id ?? "";
+  /** The name of a template: a built-in one in the reader's language, a user copy by its own name. */
+  const templateName = (candidate: RavenTeamTemplate) =>
+    candidate.id === RAVEN_STACK_TEAM_TEMPLATE_ID
+      ? t("agent.team.template.full")
+      : candidate.id === RAVEN_STACK_LITE_TEMPLATE_ID
+        ? t("agent.team.template.lite")
+        : candidate.name;
   const [brief, setBrief] = createSignal("");
   const [overrides, setOverrides] = createSignal<Record<string, string>>({});
   // Role id to the effort the user chose. The plan gives the model's default to a role not here.
@@ -192,6 +208,21 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     }
     setOverrides(next);
     void check(next);
+  };
+
+  /**
+   * Another template: its roles replace the list. The choices for the old roles go, and a ticket that
+   * is written is checked again with the new roles.
+   */
+  const pickTemplate = (next: RavenTeamTemplate | null) => {
+    if (!next || next.id === templateId()) return;
+    setChosenTemplate(next.id);
+    setOverrides({});
+    setEfforts({});
+    setFullAccess([]);
+    setPlan(null);
+    setError(null);
+    if (brief().trim() !== "") void check({}, [], {});
   };
 
   /** The one-click answer to the access question on the confirm card. The plan is checked again. */
@@ -370,6 +401,24 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       <div class="raven-team-columns">
         <div class="raven-team-column raven-team-column-ticket">
           <section class="raven-team-form" aria-labelledby="raven-team-ticket-label">
+            <Label class="raven-team-label" id="raven-team-template-label">
+              {t("agent.team.template")}
+            </Label>
+            <Select<RavenTeamTemplate>
+              class="raven-team-template"
+              options={props.templates}
+              optionValue="id"
+              optionTextValue={templateName}
+              value={template()}
+              disabled={busy()}
+              onChange={pickTemplate}
+              itemComponent={(item) => <SelectItem item={item.item}>{templateName(item.item.rawValue)}</SelectItem>}
+            >
+              <SelectTrigger aria-labelledby="raven-team-template-label">
+                <SelectValue<RavenTeamTemplate>>{(state) => templateName(state.selectedOption())}</SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
             <Label class="raven-team-label" id="raven-team-ticket-label" for="raven-team-ticket">
               {t("agent.team.ticket")}
             </Label>

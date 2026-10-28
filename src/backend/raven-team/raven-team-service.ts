@@ -4,9 +4,12 @@ import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } 
 import {
   type PlanRavenTeamInput,
   parseRavenTeamReport,
+  RAVEN_STACK_LITE_ROLES,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_ROLES,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
   RAVEN_TEAM_BUILDER_ROLE_ID,
+  RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS,
   RAVEN_TEAM_ESCALATE_AFTER_FAILS,
   RAVEN_TEAM_ROUND_CAP,
   type RavenTeamJob,
@@ -102,6 +105,16 @@ const BUILT_IN_RAVEN_TEAM_TEMPLATE: RavenTeamTemplate = {
   updatedAt: BUILT_IN_DATE,
 };
 
+/** Autopilot lite: the Builder plans in its own turn, then the Reviewer gives the verdict. */
+const BUILT_IN_RAVEN_TEAM_LITE_TEMPLATE: RavenTeamTemplate = {
+  id: RAVEN_STACK_LITE_TEMPLATE_ID,
+  name: "Autopilot lite",
+  builtIn: true,
+  roles: RAVEN_STACK_LITE_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
+  createdAt: BUILT_IN_DATE,
+  updatedAt: BUILT_IN_DATE,
+};
+
 export interface RavenTeamServiceOptions {
   store: RavenTeamStore;
   agents: RavenTeamAgents;
@@ -156,14 +169,14 @@ export class RavenTeamService {
       options.workspaceOnlySupported ?? ((provider) => workspaceOnlySupported(provider, platform));
   }
 
-  /** The built-in template first, then the user's copies. */
+  /** The built-in templates first, the full one and then Autopilot lite, then the user's copies. */
   templates(): RavenTeamTemplate[] {
-    return [BUILT_IN_RAVEN_TEAM_TEMPLATE, ...this.#store.listUserTemplates()];
+    return [BUILT_IN_RAVEN_TEAM_TEMPLATE, BUILT_IN_RAVEN_TEAM_LITE_TEMPLATE, ...this.#store.listUserTemplates()];
   }
 
-  /** Saves a user template. The built-in template cannot be changed; a copy of it can. */
+  /** Saves a user template. A built-in template cannot be changed; a copy of it can. */
   saveTemplate(input: { id?: string; name: string; roles: RavenTeamTemplate["roles"] }): RavenTeamTemplate[] {
-    if (input.id === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+    if (input.id !== undefined && RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS.includes(input.id)) {
       throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
     }
     const now = this.#now();
@@ -182,7 +195,7 @@ export class RavenTeamService {
   }
 
   deleteTemplate(templateId: string): RavenTeamTemplate[] {
-    if (templateId === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+    if (RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS.includes(templateId)) {
       throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
     }
     this.#store.deleteUserTemplate(templateId);
