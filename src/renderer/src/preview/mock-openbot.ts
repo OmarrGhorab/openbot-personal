@@ -767,7 +767,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       closedAt: null,
       pausedAt: null,
       // The preview has no git repository, so each mock work thread has its own worktree path.
-      workspace: { mode: "worktree", path: `~/OpenBot/Agents/${agentId}/.openbot/worktrees/${messageCounter}`, branch: `openbot/${messageCounter}` },
+      workspace: {
+        mode: "worktree",
+        path: `~/OpenBot/Agents/${agentId}/.openbot/worktrees/${messageCounter}`,
+        branch: `openbot/${messageCounter}`,
+      },
     };
     tasks.set(agentId, [task, ...(tasks.get(agentId) ?? [])]);
     return task;
@@ -2584,7 +2588,12 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       },
       renameTask: async (input) => {
         const task = findTask(input.agentId, input.taskId);
-        const title = input.title.split("\n").find((line) => line.trim())?.trim().slice(0, 120) ?? "";
+        const title =
+          input.title
+            .split("\n")
+            .find((line) => line.trim())
+            ?.trim()
+            .slice(0, 120) ?? "";
         if (!title) throw new Error(sourceText("error.backend.taskTitleRequired"));
         Object.assign(task, { title, updatedAt: new Date().toISOString() });
         emitTasks(input.agentId);

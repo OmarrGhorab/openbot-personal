@@ -5,7 +5,7 @@
  */
 
 import { isAgentTaskActive, isAgentTaskOpen } from "@openbot/team-client/agent-tasks";
-import { buttonVariants, ContextMenu, Pause, Play, Plus, X } from "@openbot/ui";
+import { Button, buttonVariants, ContextMenu, Input, Pause, Play, Plus, X } from "@openbot/ui";
 import { createSignal, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { AgentTaskMark, agentTaskStatus, isAgentTaskPaused } from "../conversation/AgentTasks";
@@ -110,16 +110,16 @@ export function SidebarWorkThreads(props: { agentName: string; threads: SidebarW
                   void submitRename();
                 }}
               >
-                <input
+                <Input
                   class="sidebar-work-thread-rename-input"
+                  size="sm"
                   aria-label={t("sidebar.workThreads.renameLabel")}
                   value={renaming()?.title ?? ""}
                   maxlength={160}
-                  ref={(element) => queueMicrotask(() => element.select())}
-                  onInput={(event) => {
-                    const value = event.currentTarget.value;
-                    setRenaming((current) => (current ? { ...current, title: value } : current));
-                  }}
+                  ref={(element: HTMLInputElement) => queueMicrotask(() => element.select())}
+                  onValueChange={(value) =>
+                    setRenaming((current) => (current ? { ...current, title: value } : current))
+                  }
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setRenaming(null);
                   }}
@@ -131,14 +131,15 @@ export function SidebarWorkThreads(props: { agentName: string; threads: SidebarW
         )}
       </For>
       <li class="sidebar-work-thread">
-        <button
+        <Button
           type="button"
-          class={[buttonVariants({ variant: "ghost" }), "sidebar-work-thread-row", "sidebar-work-thread-new"]}
+          variant="ghost"
+          class={["sidebar-work-thread-row", "sidebar-work-thread-new"]}
           onClick={() => props.threads.onNew()}
         >
           <Plus class="sidebar-work-thread-icon" aria-hidden="true" />
           <span class="sidebar-work-thread-title">{t("sidebar.workThreads.new")}</span>
-        </button>
+        </Button>
       </li>
     </ul>
   );

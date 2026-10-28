@@ -190,7 +190,7 @@ async function withClient<A>(
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
-    cwd: config.workingDirectory || undefined,
+    ...(config.workingDirectory ? { cwd: config.workingDirectory } : {}),
     env: { ...getDefaultEnvironment(), ...Object.fromEntries(config.env.map(({ key, value }) => [key, value])) },
     stderr: "pipe",
   });

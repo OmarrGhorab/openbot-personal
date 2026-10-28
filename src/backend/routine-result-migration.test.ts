@@ -18,7 +18,8 @@ const RESULT_TABLES = {
   routine_result_destinations: [],
   projection_agent_tasks: [],
   projection_messaging_allowed_roles: [],
-  browser_profiles: [], projection_agent_work_threads: [],
+  browser_profiles: [],
+  projection_agent_work_threads: [],
 };
 
 function databaseAt(version: number): DatabaseSync {

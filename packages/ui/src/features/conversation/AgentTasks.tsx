@@ -7,7 +7,7 @@ import type {
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { isAgentTaskActive, isAgentTaskOpen } from "@openbot/team-client/agent-tasks";
-import { ArrowUp, Button, ChevronLeft, ChevronRight, Plus, X } from "@openbot/ui";
+import { ArrowUp, Button, ChevronLeft, ChevronRight, Input, Plus, X } from "@openbot/ui";
 import type { AgentMessage, AgentProfile } from "@openbot/ui/data";
 import { AgentActivityIndicator, nextAgentActivityLabel } from "@openbot/ui/features/conversation/AgentActivity";
 import { ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow";
@@ -393,15 +393,17 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
           fallback={
             <h2 title={title()}>
               <Show when={props.task && props.onRename} fallback={title()}>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   class="agent-tasks-panel-title"
                   aria-label={t("sidebar.workThreads.rename")}
                   title={t("sidebar.workThreads.rename")}
                   onClick={() => setRenaming(props.task?.title ?? "")}
                 >
                   {title()}
-                </button>
+                </Button>
               </Show>
             </h2>
           }
@@ -413,13 +415,14 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
               void submitRename();
             }}
           >
-            <input
+            <Input
               class="agent-tasks-panel-rename-input"
+              size="sm"
               aria-label={t("sidebar.workThreads.renameLabel")}
               value={renaming() ?? ""}
               maxlength={160}
-              ref={(element) => queueMicrotask(() => element.select())}
-              onInput={(event) => setRenaming(event.currentTarget.value)}
+              ref={(element: HTMLInputElement) => queueMicrotask(() => element.select())}
+              onValueChange={(value) => setRenaming(value)}
               onKeyDown={(event) => {
                 if (event.key === "Escape") setRenaming(null);
               }}

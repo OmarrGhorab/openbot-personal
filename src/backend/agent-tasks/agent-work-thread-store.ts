@@ -2,8 +2,7 @@ import { type DynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import { databaseRow, databaseRows, optionalStringColumn, requiredStringColumn } from "../database/database-rows";
 import type { OpenBotDatabase } from "../openbot-database";
 
-export const AGENT_WORK_THREAD_WORKSPACE_MODES = ["shared", "worktree"] as const;
-export type AgentWorkThreadWorkspaceMode = (typeof AGENT_WORK_THREAD_WORKSPACE_MODES)[number];
+const AGENT_WORK_THREAD_WORKSPACE_MODES = ["shared", "worktree"] as const;
 
 /** The workspace folder of one work thread. */
 export type AgentWorkThreadWorkspace =

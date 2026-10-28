@@ -146,9 +146,9 @@ describe("agent work thread migration", () => {
     expect(() => insertWorkThread(db, { mode: "shared" })).toThrow("CHECK constraint failed");
     insertWorkThread(db, { mode: "shared", path: null, branch: null });
     expect(() => insertWorkThread(db)).toThrow("UNIQUE constraint failed");
-    expect(db.prepare("SELECT task_id, workspace_mode, worktree_path FROM projection_agent_work_threads").all()).toEqual(
-      [{ task_id: "task-1", workspace_mode: "shared", worktree_path: null }],
-    );
+    expect(
+      db.prepare("SELECT task_id, workspace_mode, worktree_path FROM projection_agent_work_threads").all(),
+    ).toEqual([{ task_id: "task-1", workspace_mode: "shared", worktree_path: null }]);
   });
 
   it("deletes the row with its task or the task's thread, and keeps the agent's own chat", () => {

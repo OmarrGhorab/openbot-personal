@@ -44,6 +44,7 @@ import {
   type OpenWorkspaceFileInput,
   type PasteMessageLinkInput,
   type ReadConversationPageInput,
+  type RenameAgentTaskInput,
   type ReorderQueueInput,
   type RespondToApprovalInput,
   type RespondToBrowserTakeoverInput,
@@ -71,7 +72,6 @@ import {
   type UpdateChannelRoutineInput,
   type UpdateQueuedMessageInput,
   type UpdateRoutineInput,
-  type RenameAgentTaskInput,
 } from "@openbot/contracts/ipc";
 import { isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { decodeQueueEditRequest } from "@openbot/contracts/team-protocol/queue-edit-v1";

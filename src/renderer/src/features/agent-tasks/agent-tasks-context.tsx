@@ -26,7 +26,7 @@ interface AgentTasksState {
  * chat. The sidebar and a notification send it; the side panel of the chat listens. `sequence`
  * makes a second request for the same task a new value.
  */
-export interface AgentTaskOpenRequest {
+interface AgentTaskOpenRequest {
   agentId: string;
   taskId: string | null;
   sequence: number;
