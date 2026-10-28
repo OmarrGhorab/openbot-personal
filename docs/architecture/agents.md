@@ -113,6 +113,26 @@ short digest of its answer to the chat session's pending handoff (`appendRoutine
 characters for each run, 6,000 in total), so the next chat turn reads it. The chat session keeps its
 id and its context. A restart during a run marks the run interrupted: the session is not saved.
 
+## Routine templates
+
+The routine list of an agent on this computer has **Start from a template**. Each template saves an
+active routine with a weekly or monthly schedule, one click each. The templates are in
+`src/renderer/src/features/conversation/routine-templates.ts`. Each instruction is the body of a
+Markdown skill in `resources/autonomy-skills/<name>/SKILL.md`, read with `?raw`. The saved routine
+keeps the instruction, so a user can edit it like any routine. The template saves with
+`limitPolicy: "skip"` and `missedPolicy: "skip"`. The first line of the instruction names the
+template: `<!-- openbot-routine-template: <id> -->`. A routine with that line shows its template as
+**Scheduled**, and the template cannot be saved again. The id does not change with the routine name
+or the app language, and a routine the user wrote has no such line. The section is hidden for a remote host and for a channel.
+
+A coding routine needs no new field. Its repository is the agent's workspace. Its branch is named by
+the instruction. Its work thread is the routine session in the agent chat. It needs `gh` signed in on
+the computer. The instruction tells the agent to call `routine_no_update` when nothing changed and
+`routine_report_failure` when the job cannot run.
+
+A webhook event is redacted with `redactText` in `webhookRunInstruction` before it is stored and
+sent to the agent (`src/backend/webhook-trigger.ts`).
+
 ## Routine calendar feed
 
 `src/main/routine-feed-server.ts` is a loopback HTTP listener that serves the routines of this
