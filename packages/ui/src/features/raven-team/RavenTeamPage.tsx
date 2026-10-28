@@ -308,7 +308,9 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                 {(role) => (
                   <Alert tone="danger" role="alert" class="raven-team-access-question">
                     <AlertContent>
-                      <AlertDescription>{accessText(role().label, role().provider, question().platform)}</AlertDescription>
+                      <AlertDescription>
+                        {accessText(role().label, role().provider, question().platform)}
+                      </AlertDescription>
                     </AlertContent>
                     <AlertActions>
                       <Button
@@ -540,7 +542,10 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                       <Alert tone="warning">
                         <AlertContent>
                           <AlertDescription>
-                            {t("agent.team.warning.sameModel", { role: roleLabel(warning.roleId), model: warning.model })}
+                            {t("agent.team.warning.sameModel", {
+                              role: roleLabel(warning.roleId),
+                              model: warning.model,
+                            })}
                           </AlertDescription>
                         </AlertContent>
                       </Alert>

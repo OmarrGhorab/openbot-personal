@@ -82,9 +82,7 @@ it("puts the ticket on the left and the roles with provider, model and effort on
   // The Reviewer's model has no effort levels: the effort field is disabled and says so.
   const reviewerEffort = field("Effort for Reviewer");
   expect(reviewerEffort.textContent).toContain("No effort levels");
-  expect(reviewerEffort.hasAttribute("disabled") || reviewerEffort.getAttribute("aria-disabled") === "true").toBe(
-    true,
-  );
+  expect(reviewerEffort.hasAttribute("disabled") || reviewerEffort.getAttribute("aria-disabled") === "true").toBe(true);
   // No wall of model chips: a role offers its model only through the model field.
   expect(view.queryAllByRole("button", { name: "Claude Sonnet 5.5" })).toHaveLength(0);
   expect(field("Provider for Reviewer").textContent).toContain("Claude");
