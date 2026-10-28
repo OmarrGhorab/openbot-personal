@@ -70,6 +70,7 @@ import { type DesktopAnalyticsScope, desktopAnalytics } from "../../analytics";
 import { writeClipboardText } from "../../clipboard";
 import { HostedUpsellRoutinesNotice, hostedUpsellRoutineCreated } from "../servers/hosted-server-upsell-controller";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
+import { ROUTINE_TEMPLATES, type RoutineTemplate } from "./routine-templates";
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
 export interface RoutineSelectionRequest {
@@ -159,6 +160,8 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   // The list rows whose Pause or Resume waits for the host.
   const [togglingIds, setTogglingIds] = createSignal<ReadonlySet<string>>(new Set());
   const [pendingExit, setPendingExit] = createSignal<PendingRoutineExit | null>(null);
+  // The template whose one-click schedule is waiting for the host.
+  const [templatePending, setTemplatePending] = createSignal<string | null>(null);
   const scrollFades = createScrollFades();
   let draftRevision = 0;
   // The saved routine the open draft started from. A field that still matches it is unedited.
@@ -595,6 +598,39 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   }
 
   /**
+   * Schedules a template as an active routine of this agent in one step. A template runs weekly or
+   * monthly, and a spent plan skips its run, so a failing job cannot run every few minutes.
+   */
+  async function scheduleTemplate(template: RoutineTemplate): Promise<void> {
+    if (templatePending()) return;
+    const name = t(template.nameKey);
+    setTemplatePending(template.id);
+    setError(null);
+    try {
+      const result = await props.port.save({
+        routineId: null,
+        name,
+        instruction: template.instruction,
+        active: true,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        schedule: template.schedule,
+        limitPolicy: "skip",
+        missedPolicy: "skip",
+      });
+      setRoutines((items) => {
+        const next = [result.routine, ...items.filter((routine) => routine.id !== result.routine.id)];
+        props.onCountChange(next.length);
+        return next;
+      });
+      toast.success(t("routine.template.scheduledNotice", { name }));
+    } catch (caught) {
+      setError(errorMessage(caught, t("routine.template.failed")));
+    } finally {
+      setTemplatePending(null);
+    }
+  }
+
+  /**
    * Pauses or resumes a routine from the list. It saves the routine as the editor does, with only
    * `active` changed, so the host keeps every other field.
    */
@@ -849,6 +885,49 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                     </For>
                   </div>
                 </Show>
+              </Show>
+              <Show when={props.port.ownerNoun === "agent" && props.port.limitPolicy && !loading()}>
+                <section class="agent-routine-templates" aria-labelledby="agent-routine-templates-heading">
+                  <h3 id="agent-routine-templates-heading">{t("routine.template.title")}</h3>
+                  <p class="agent-routines-empty">{t("routine.template.description")}</p>
+                  <div class="agent-routines-list">
+                    <For each={ROUTINE_TEMPLATES}>
+                      {(template) => {
+                        const name = () => t(template.nameKey);
+                        const scheduled = () => routines().some((routine) => routine.name === name());
+                        return (
+                          <div class="agent-routine-list-item">
+                            <div class="agent-routine-row">
+                              <span>
+                                <Clock3 aria-hidden="true" />
+                              </span>
+                              <span>
+                                <strong>{name()}</strong>
+                                <small>{t(template.summaryKey)}</small>
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              type="button"
+                              size="sm"
+                              class="agent-routine-row-action"
+                              aria-label={
+                                scheduled()
+                                  ? t("routine.template.scheduled")
+                                  : t("routine.template.scheduleNamed", { name: name() })
+                              }
+                              disabled={scheduled()}
+                              loading={templatePending() === template.id}
+                              onClick={() => void scheduleTemplate(template)}
+                            >
+                              {scheduled() ? t("routine.template.scheduled") : t("routine.template.schedule")}
+                            </Button>
+                          </div>
+                        );
+                      }}
+                    </For>
+                  </div>
+                </section>
               </Show>
             </div>
           }

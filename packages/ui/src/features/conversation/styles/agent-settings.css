@@ -134,6 +134,18 @@
   font-size: var(--openbot-text-sm);
 }
 
+.agent-routine-templates {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.agent-routine-templates h3 {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: 500;
+}
+
 .agent-routine-action-buttons svg {
   width: 15px;
   height: 15px;
