@@ -305,6 +305,16 @@ the conversation. Its Sign in opens Server settings, MCP, and starts the row's n
 joined server signs in through its relay or live page. Continue sends a message that tells the agent
 to test again. A saved change reaches the agents from their next turn.
 
+For a system that has no MCP server, OpenBot writes the managed skill `openbot-mcp-server-creator`
+(`resources/managed-skills/openbot-mcp-server-creator/SKILL.md`, issue #105) into every agent
+workspace with the other managed skills (`ManagedSkillService`). The skill tells the agent to read
+the system, write a stdio server in `~/OpenBot/mcp-servers/<name>/` (TypeScript
+`@modelcontextprotocol/sdk` by default), read secrets from environment variables only, start it once,
+then register it with `save_mcp_server` and test it. A server it made has an `openbot-mcp.json`
+beside the code with names only, never values. An update changes that folder and keeps the row's
+name, command, arguments and folder, so it never adds a duplicate and a row that holds keys keeps
+them. The MCP tool guidance points to the skill.
+
 When its own tools fail, the agent checks its teammates. When a teammate reports that it is blocked
 or waits for the user, the requester does not repeat that work or send the same request again; it
 gives the user the blocker and the unblock action. A blocked task reply adds a fourth line,
