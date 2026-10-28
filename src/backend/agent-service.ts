@@ -531,7 +531,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     );
     this.#tasks = new AgentTasks({
       store: new AgentTaskStore(store.database),
-      pulls: options.ticketPulls ?? undefined,
+      pulls: options.ticketPulls ?? null,
       workThreads: new AgentWorkThreadStore(store.database),
       worktrees: this.#worktrees,
       mailbox,

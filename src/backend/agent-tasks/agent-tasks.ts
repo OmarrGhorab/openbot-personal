@@ -85,7 +85,7 @@ export interface AgentTasksOptions {
   conversation: ConversationRuntime;
   hooks: AgentTasksHooks;
   /** Pull requests of ticket work threads. Null when the composition root has no ticket intake. */
-  pulls?: AgentTaskPullRegistry;
+  pulls?: AgentTaskPullRegistry | null;
 }
 
 /**
