@@ -205,6 +205,9 @@ name it. See [Browser sessions](browser.md#browser-sessions) for the storage and
 
 ## Agent tasks
 
+[Agent work threads](agent-work-threads.md) has the design of work threads (tasks with their own
+git worktree, pause and rename) and of the side chat.
+
 A task is a separate execution thread of one agent. The agent keeps one identity, workspace and
 provider settings; each task has its own provider thread, conversation, queue, progress and result.
 `projection_agent_tasks` (migration 38) links a task to its thread. A mailbox message with a
