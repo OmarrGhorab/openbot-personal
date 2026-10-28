@@ -12,6 +12,12 @@
 // clears the old verdicts; the job ends done on one head with PASS and 10/10; a Builder that keeps
 // failing asks for a stronger model, and the third FAIL round stops the job as not done.
 //
+// Workspace only access: the check makes the scripted provider stand for one that cannot run Workspace
+// only on this computer (OpenCode on Linux). The confirm card then asks about each read-only role and
+// the start is refused; Full access on the card starts the team. A provider that changes mid-job holds
+// the role with the access question instead of Working with no turn; Full access, from the question or
+// from the agent settings, sends the message that waited.
+//
 // `bun scripts/raven-team-e2e.ts`. Writes .openbot-build/autonomy-6/raven-team-e2e.json.
 
 import assert from "node:assert/strict";
@@ -203,6 +209,7 @@ const report: {
     "The fan-out of several tickets (ticket 6.13). Not built.",
     "The stop and resume of a job. Covered by the code only, not by this run.",
     "The read-only access of the non-Builder roles. The brief asks for it; the runtime does not check the branch.",
+    "A real provider that cannot run Workspace only. The check makes the scripted Codex stand for one.",
     "The Reviewer port rule (Builder port plus 5). The brief asks for it; no port is checked.",
     "The team view and the confirm card in the running app. Not run in this check.",
   ],
@@ -272,12 +279,16 @@ const agents = new AgentService({
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
 });
 let changes = 0;
+/** True while the scripted provider stands for one that cannot run Workspace only here. */
+let workspaceOnlyRefused = false;
 const team = new RavenTeamService({
   store: new RavenTeamStore(database),
   agents,
   changed: () => {
     changes += 1;
   },
+  platform: "linux",
+  workspaceOnlySupported: () => !workspaceOnlyRefused,
 });
 const seenEvents: SeenEvent[] = [];
 agents.on("turn", (event) => {
@@ -285,6 +296,10 @@ agents.on("turn", (event) => {
     seenEvents.push({ type: event.type, threadId: event.threadId, agentId: event.agentId });
   }
   Effect.runFork(team.notice(event));
+});
+// An agent change can answer the access question, as in the app.
+agents.on("event", (event) => {
+  if (event.type === "agents-changed" || event.type === "error") Effect.runFork(team.notice(event));
 });
 
 const ASSIGNMENTS =
@@ -517,6 +532,118 @@ try {
     afterStop: stopped.state,
     afterResume: resumed.state,
     end: resumedEnd.state,
+  });
+
+  // 7. Workspace only that this computer cannot run: the confirm card asks, and Full access starts it.
+  workspaceOnlyRefused = true;
+  const jobsBeforeAccess = team.listJobs().length;
+  const blockedPlan = team.plan({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: ASSIGNMENTS });
+  check(
+    "the plan asks about every read-only role",
+    JSON.stringify(blockedPlan.accessProblems.map((problem) => problem.roleId)) ===
+      JSON.stringify(["architect", "reviewer", "quality"]),
+    JSON.stringify(blockedPlan.accessProblems),
+  );
+  const accessRefusal = await runCauseEffect(
+    team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: `${ASSIGNMENTS} ${TICKET_TEXT}` }),
+  ).then(
+    () => null,
+    (error: unknown) => String(error instanceof Error ? error.message : error),
+  );
+  check(
+    "the start stops at the access question",
+    /^Architect can't run read-only with .+ on Linux, so the team did not start\./.test(accessRefusal ?? ""),
+    accessRefusal ?? "started",
+  );
+  check("no job is kept after the access refusal", team.listJobs().length === jobsBeforeAccess);
+  const fullAccess = ["architect", "reviewer", "quality"];
+  const clearedPlan = team.plan({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: ASSIGNMENTS, fullAccess });
+  check(
+    "Full access on the card clears the question",
+    clearedPlan.accessProblems.length === 0 && clearedPlan.roles.every((role) => role.fullAccess),
+    JSON.stringify(clearedPlan.accessProblems),
+  );
+  const fullJob = await runCauseEffect(
+    team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: `${ASSIGNMENTS} ${TICKET_TEXT}`, fullAccess }),
+  );
+  const fullEnd = await waitFor("the Full access job to end", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === fullJob.id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  });
+  check("the Full access job ends done", fullEnd.state === "done", fullEnd.state);
+  check(
+    "each role agent of that job has Full access",
+    fullEnd.roles.every((role) => agents.listAgents().find((agent) => agent.id === role.agentId)?.access === "full"),
+    JSON.stringify(fullEnd.roles.map((role) => agents.listAgents().find((agent) => agent.id === role.agentId)?.access)),
+  );
+  record("access question on the confirm card", {
+    asked: blockedPlan.accessProblems,
+    refusal: accessRefusal,
+    afterFullAccess: { jobId: fullEnd.id, state: fullEnd.state },
+  });
+
+  // 8. The provider changes mid-job: the verifiers wait with the question, not Working with no turn.
+  workspaceOnlyRefused = false;
+  const midJob = await runCauseEffect(
+    team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: `${ASSIGNMENTS} ${TICKET_TEXT}` }),
+  );
+  workspaceOnlyRefused = true;
+  const turnsBeforeQuestion = turnLog().length;
+  const accessAsked = await waitFor("the access question mid-job", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === midJob.id);
+    const held = job?.roles.filter((role) => role.state === "blocked").length ?? 0;
+    return job?.question?.kind === "workspace-access" && held === 2 ? job : null;
+  });
+  check("the job waits for the user", accessAsked.state === "waiting-user", accessAsked.state);
+  check(
+    "the question names the Reviewer and the system",
+    accessAsked.question?.roleId === "reviewer" && accessAsked.question.platform === "linux",
+    JSON.stringify(accessAsked.question),
+  );
+  check(
+    "no verifier shows Working with no turn",
+    accessAsked.roles
+      .filter((role) => role.roleId === "reviewer" || role.roleId === "quality")
+      .every((role) => role.state === "blocked" && role.taskId === null),
+    JSON.stringify(accessAsked.roles.map((role) => [role.roleId, role.state, role.taskId])),
+  );
+  await new Promise((done) => setTimeout(done, 300));
+  check(
+    "no verifier turn ran while the question waits",
+    !turnLog()
+      .slice(turnsBeforeQuestion)
+      .some((turn) => turn.role === "Reviewer" || turn.role === "Quality"),
+  );
+  // The one-click answer: the Reviewer gets Full access and its waiting message is sent.
+  await runCauseEffect(team.giveRoleFullAccess({ jobId: midJob.id, roleId: "reviewer" }));
+  const qualityAsked = await waitFor("the question to move to Quality", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === midJob.id);
+    return job?.question?.kind === "workspace-access" && job.question.roleId === "quality" ? job : null;
+  });
+  check("the question moves to the next role", qualityAsked.state === "waiting-user", qualityAsked.state);
+  // The agent settings answer it too: Full access on the Quality agent sends its waiting message.
+  const qualityRole = qualityAsked.roles.find((role) => role.roleId === "quality");
+  await runCauseEffect(agents.updateAgent({ agentId: qualityRole?.agentId ?? "", access: "full" }));
+  const accessEnd = await waitFor("the job to end after Full access", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === midJob.id);
+    return job && (job.state === "done" || job.state === "not-done") ? job : null;
+  });
+  check("the job ends done after the access answers", accessEnd.state === "done", accessEnd.state);
+  const roleTurnsAfter = turnLog()
+    .slice(turnsBeforeQuestion)
+    .map((turn) => turn.role);
+  check(
+    "the waiting Reviewer and Quality messages ran after Full access",
+    roleTurnsAfter.includes("Reviewer") && roleTurnsAfter.includes("Quality"),
+    JSON.stringify(roleTurnsAfter),
+  );
+  workspaceOnlyRefused = false;
+  record("access question mid-job", {
+    jobId: accessEnd.id,
+    question: accessAsked.question,
+    rolesWhileAsked: accessAsked.roles.map((role) => [role.roleId, role.state]),
+    end: accessEnd.state,
+    roleTurnsAfterQuestion: roleTurnsAfter,
   });
 
   report.passed = true;

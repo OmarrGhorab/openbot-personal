@@ -3,6 +3,7 @@ import {
   type AgentModelOption,
   defaultProviderModel,
   RAVEN_TEAM_BUILDER_ROLE_ID,
+  type RavenTeamAccessProblem,
   type RavenTeamPlan,
   type RavenTeamPlanRole,
   type RavenTeamPlanWarning,
@@ -80,12 +81,20 @@ export interface BuildRavenTeamPlanInput {
   /** Every model that a connected provider lists. */
   models: readonly AgentModelOption[];
   preferredProvider: AgentProviderId;
+  /** Ids of read-only roles that the user gave Full access. */
+  fullAccess?: readonly string[];
+  /** Whether a Workspace only agent of the provider can run on this computer. */
+  workspaceOnlySupported: (provider: AgentProviderId) => boolean;
+  /** `process.platform` of this computer, for the question. */
+  platform: string;
 }
 
 /**
  * The plan for a start: each role with its model, the warnings, and the names that cannot start. A
  * model that no provider lists is never swapped for another one: it goes into `unknownModels`, and the
- * caller asks the user. The plan is ready to start when both unknown lists are empty.
+ * caller asks the user. A read-only role whose provider cannot run Workspace only here goes into
+ * `accessProblems`: its agent would never start a turn. The plan is ready to start when all three
+ * lists are empty.
  */
 export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPlan {
   const { template, named, overrides, models } = input;
@@ -97,6 +106,8 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
   const unknownRoles = [...requested.keys()].filter((roleId) => !roleIds.has(roleId));
   const unknownModels: RavenTeamUnknownModel[] = [];
   const roles: RavenTeamPlanRole[] = [];
+  const accessProblems: RavenTeamAccessProblem[] = [];
+  const fullAccess = new Set(input.fullAccess ?? []);
   const appDefault = appDefaultModel(models, input.preferredProvider);
 
   for (const role of template.roles) {
@@ -113,6 +124,10 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
       unknownModels.push({ roleId: role.id, model: modelId });
       continue;
     }
+    const roleFullAccess = role.access === "write" || fullAccess.has(role.id);
+    if (!roleFullAccess && !input.workspaceOnlySupported(option.provider)) {
+      accessProblems.push({ roleId: role.id, provider: option.provider, platform: input.platform });
+    }
     roles.push({
       roleId: role.id,
       label: role.label,
@@ -122,6 +137,7 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
       skills: [...role.skills],
       optional: role.optional,
       named: isNamed,
+      fullAccess: roleFullAccess,
     });
   }
 
@@ -139,6 +155,7 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
     warnings: sameModelWarnings(roles),
     unknownRoles,
     unknownModels,
+    accessProblems,
     fallbackModel,
   };
 }
@@ -153,7 +170,12 @@ function sameModelWarnings(roles: readonly RavenTeamPlanRole[]): RavenTeamPlanWa
     .map((role) => ({ kind: "same-model", roleId: role.roleId, builderRoleId: builder.roleId, model: role.model }));
 }
 
-/** Whether a plan can start: no name is unknown and every role has a model. */
+/** Whether a plan can start: no name is unknown, every role can run its access, and every role has a model. */
 export function ravenTeamPlanReady(plan: RavenTeamPlan): boolean {
-  return plan.unknownRoles.length === 0 && plan.unknownModels.length === 0 && plan.roles.length > 0;
+  return (
+    plan.unknownRoles.length === 0 &&
+    plan.unknownModels.length === 0 &&
+    plan.accessProblems.length === 0 &&
+    plan.roles.length > 0
+  );
 }

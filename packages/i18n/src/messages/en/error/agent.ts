@@ -145,4 +145,8 @@ export const messages = defineMessages("error.agent", {
     'The fallback model "{model}" is not available. Name a model that a connected provider lists.',
   "error.agent.ravenTeam.noModel": "No model is available for the {role}. Connect a provider first.",
   "error.agent.ravenTeam.jobNotFound": "The team job was not found.",
+  "error.agent.ravenTeam.workspaceAccess":
+    "{role} can't run read-only with {provider} on {os}, so the team did not start. Give it Full access on the confirm card or pick a provider that supports read-only.",
+  "error.agent.ravenTeam.workspaceAccessHere":
+    "On this computer, {role} can't run read-only with {provider}, so the team did not start. Give it Full access on the confirm card or pick a provider that supports read-only.",
 });

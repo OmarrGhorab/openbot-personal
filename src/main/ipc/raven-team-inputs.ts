@@ -1,5 +1,6 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type GiveRavenTeamRoleFullAccessInput,
   isRavenTeamRoleDefinition,
   type PlanRavenTeamInput,
   RAVEN_TEAM_BRIEF_LIMIT,
@@ -50,13 +51,32 @@ function parseModelOverrides(value: unknown): Record<string, string> | undefined
   );
 }
 
+/** The `fullAccess` list of a plan: ids of read-only roles that the user gave Full access. */
+function parseFullAccess(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length > RAVEN_TEAM_TEMPLATE_ROLE_LIMIT) {
+    throw new Error("Invalid team access choices.");
+  }
+  return [...new Set(value.map((roleId) => requireString(roleId, "roleId", INPUT_LIMITS.identifier)))];
+}
+
 export function parsePlanRavenTeam(value: unknown): PlanRavenTeamInput {
   if (!isObject(value)) throw new Error("Invalid team plan request.");
   const models = parseModelOverrides(value.models);
+  const fullAccess = parseFullAccess(value.fullAccess);
   return {
     templateId: parseRavenTemplateId(value.templateId),
     brief: requireString(value.brief, "brief", RAVEN_TEAM_BRIEF_LIMIT),
     ...(models ? { models } : {}),
+    ...(fullAccess ? { fullAccess } : {}),
+  };
+}
+
+export function parseGiveRavenRoleFullAccess(value: unknown): GiveRavenTeamRoleFullAccessInput {
+  if (!isObject(value)) throw new Error("Invalid team role access request.");
+  return {
+    jobId: parseRavenJobId(value.jobId),
+    roleId: requireString(value.roleId, "roleId", INPUT_LIMITS.identifier),
   };
 }
 

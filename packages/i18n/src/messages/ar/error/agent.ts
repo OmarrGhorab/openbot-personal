@@ -126,4 +126,8 @@ export const messages = {
   "error.agent.screenCaptureEmptyWindows":
     "Windows رجّع صورة فاضية. اطلب من المستخدم يفتح قفل الكمبيوتر ويقفل المحتوى المحمي. وكمان سياسة المؤسسة ممكن توقّف التقاط الشاشة.",
   "error.agent.screenCaptureFailed": "التقاط الشاشة فشل. جرّب تاني.",
+  "error.agent.ravenTeam.workspaceAccess":
+    "{role} مينفعش يشتغل قراءة بس مع {provider} على {os}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
+  "error.agent.ravenTeam.workspaceAccessHere":
+    "على الجهاز ده، {role} مينفعش يشتغل قراءة بس مع {provider}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
 } as const satisfies PartialTranslation<typeof source>;

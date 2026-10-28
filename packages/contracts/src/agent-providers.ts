@@ -480,6 +480,16 @@ export function pasteCodeSignInSupported(platform: string): boolean {
 }
 
 /**
+ * Whether a Workspace only agent of `provider` can run on a computer on `platform`. A
+ * `confined-process` provider runs in an operating system sandbox that only macOS has now
+ * (`process-confinement.ts`), so on Linux and Windows its Workspace only agent does not start and
+ * only Full access runs it.
+ */
+export function workspaceOnlySupported(provider: AgentProviderId, platform: string): boolean {
+  return agentProviderDescriptor(provider).workspaceEnforcement !== "confined-process" || platform === "darwin";
+}
+
+/**
  * A custom agent id: the first segment of its model ids. No `_`, which `isAgentModel` refuses, and
  * no `/`, which separates the agent from its model.
  */

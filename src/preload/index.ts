@@ -728,6 +728,7 @@ const openbotApi: OpenBotDesktopApi = {
     start: decodeRavenJob,
     listJobs: decodeRavenJobs,
     setRoleModel: decodeRavenJob,
+    giveRoleFullAccess: decodeRavenJob,
     stop: decodeRavenJob,
     resume: decodeRavenJob,
     changed: decodeRavenChanged,

@@ -402,6 +402,7 @@ import type {
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
 import type {
+  GiveRavenTeamRoleFullAccessInput,
   PlanRavenTeamInput,
   RavenTeamChanged,
   RavenTeamJob,
@@ -1425,6 +1426,7 @@ export const IPC_ENDPOINTS = {
     start: request<PlanRavenTeamInput, RavenTeamJob>()("raven-team:start"),
     listJobs: request<undefined, RavenTeamJob[]>()("raven-team:list-jobs"),
     setRoleModel: request<SetRavenTeamRoleModelInput, RavenTeamJob>()("raven-team:set-role-model"),
+    giveRoleFullAccess: request<GiveRavenTeamRoleFullAccessInput, RavenTeamJob>()("raven-team:give-role-full-access"),
     stop: request<string, RavenTeamJob>()("raven-team:stop"),
     resume: request<string, RavenTeamJob>()("raven-team:resume"),
     changed: event<RavenTeamChanged>()("raven-team:changed"),

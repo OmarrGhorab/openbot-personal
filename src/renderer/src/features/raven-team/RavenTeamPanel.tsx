@@ -40,6 +40,7 @@ export function RavenTeamPanel(props: { serverId: string; onBack?: (() => void) 
         onStop={(jobId) => window.openbot.ravenTeam.stop(jobId)}
         onResume={(jobId) => window.openbot.ravenTeam.resume(jobId)}
         onSetRoleModel={(input) => window.openbot.ravenTeam.setRoleModel(input)}
+        onGiveRoleFullAccess={(input) => window.openbot.ravenTeam.giveRoleFullAccess(input)}
         onBack={props.onBack}
       />
     </Show>
