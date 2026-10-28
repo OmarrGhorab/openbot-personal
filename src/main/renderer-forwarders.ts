@@ -68,7 +68,7 @@ export interface RendererForwarderDependencies {
   getChatWindows: () => BrowserWindow[];
   /** The global voice window: it waits for the voice model on its first dictation. */
   getGlobalVoiceWindow: () => BrowserWindow | null;
-  getAgentService: () => Pick<AgentService, "listAgents"> | null;
+  getAgentService: () => Pick<AgentService, "listAgents" | "listTasks"> | null;
   getHostService: () => HostService | null;
   getHostAnalytics: () => HostAnalytics | null;
   getRemoteServerManager: () => Pick<RemoteServerManager, "list" | "request" | "readAgentConversationPage"> | null;
@@ -307,6 +307,24 @@ export function createRendererForwarders({
     }
   }
 
+  /**
+   * The agent task (work thread) that owns the thread of a local event, for the notification title.
+   * A joined server does not send the task of a thread, so its events name only the agent.
+   */
+  function localWorkThread(serverId: string, event: AgentEvent): { title: string } | null {
+    if (serverId !== LOCAL_SERVER_ID) return null;
+    const ids = workThreadEventIds(event);
+    if (!ids) return null;
+    try {
+      const task = getAgentService()
+        ?.listTasks(ids.agentId)
+        .tasks.find((candidate) => candidate.threadId === ids.threadId);
+      return task ? { title: task.title } : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function showAgentNotification(
     serverId: string,
     event: AgentEvent,
@@ -329,6 +347,7 @@ export function createRendererForwarders({
     const lookup = eventChannel(serverId, event);
     const channel = lookup instanceof Promise ? await lookup : lookup;
     const level = notifyLevel();
+    const workThread = channel ? null : localWorkThread(serverId, event);
     const content = !level
       ? null
       : event.type === "usage-limit-reached"
@@ -341,6 +360,7 @@ export function createRendererForwarders({
             // The switch is read again: the user can turn it off while the lookups run.
             preview && notificationPreviewEnabled() ? { reply, redact: redactText } : null,
             channel,
+            workThread,
           );
     // An answer from another device came in while the lookups ran.
     if (!content || (requestKey && !requestNotifications.has(requestKey))) return;
@@ -514,4 +534,20 @@ export function createRendererForwarders({
     forwardDirectMessage,
     forwardDirectTyping,
   };
+}
+
+/** The agent and thread of an event that can notify, or null when it names no thread. */
+function workThreadEventIds(event: AgentEvent): { agentId: string; threadId: string } | null {
+  switch (event.type) {
+    case "prompt":
+      return { agentId: event.agentId, threadId: event.threadId };
+    case "approval":
+      return { agentId: event.approval.agentId, threadId: event.approval.threadId };
+    case "browser-takeover-requested":
+      return { agentId: event.request.agentId, threadId: event.request.threadId };
+    case "turn-completed":
+      return { agentId: event.agentId, threadId: event.threadId };
+    default:
+      return null;
+  }
 }

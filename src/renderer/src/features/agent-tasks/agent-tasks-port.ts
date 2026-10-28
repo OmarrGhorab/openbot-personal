@@ -5,9 +5,13 @@ export interface AgentTasksPort {
   agent: Pick<
     OpenBotDesktopApi["agent"],
     | "closeTask"
+    | "deleteTask"
     | "listTasks"
+    | "pauseTask"
     | "readTask"
+    | "renameTask"
     | "reopenTask"
+    | "resumeTask"
     | "runQueuedMessageAsTask"
     | "sendMessage"
     | "startTask"

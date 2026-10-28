@@ -52,3 +52,13 @@
     animation: none;
   }
 }
+
+/* The work thread (task) that an approval or a browser request comes from. */
+.conversation-interaction-thread {
+  margin: 0;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

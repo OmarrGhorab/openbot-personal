@@ -5,6 +5,7 @@ import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
 import { usePlatform } from "../../platform";
 import { createSimpleContext } from "../../simple-context";
+import { useAgentTasks } from "../agent-tasks/agent-tasks-context";
 import { useAgents } from "../agents/agents-context";
 import { useConversationController } from "../conversation/conversation-controller-context";
 import { useDirectMessages } from "../conversation/direct-messages-context";
@@ -38,6 +39,7 @@ const ServerSelection = createSimpleContext({
   name: "Server selection",
   init: () => {
     const { servers, setServers, beginServerSelection } = useServers();
+    const agentTasks = useAgentTasks();
     const { pendingInviteUrl, setPendingInviteUrl, saveSetup } = useSetup();
     const { setSkillsMarketplaceOpen } = useSettings();
     const { disconnectRemoteDesktopWorkspace } = useRemoteDesktop();
@@ -150,7 +152,16 @@ const ServerSelection = createSimpleContext({
       if (!onServer && !(await selectServer(event.serverId, false))) return;
       // Published for the same reason as the marketplace agent above.
       if (event.channelId) setPendingChannelSelection(event.channelId);
-      else setPendingAgentSelection(event.agentId);
+      else {
+        setPendingAgentSelection(event.agentId);
+        // A notification from a work thread opens that task in the side panel of the agent's chat.
+        const threadId = event.threadId;
+        const task =
+          event.serverId === "local" && threadId
+            ? agentTasks.snapshot(event.agentId)?.tasks.find((candidate) => candidate.threadId === threadId)
+            : undefined;
+        if (task) agentTasks.requestOpenTask(event.agentId, task.id);
+      }
     }
 
     onSettled(() =>

@@ -1,7 +1,7 @@
 import type { AgentEvent, AgentTask, AgentTasksSnapshot, ConversationSnapshot } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
-import { createEffect, createStore } from "solid-js";
+import { createEffect, createSignal, createStore } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { createScopeGuard } from "../../scope-lifetime";
 import { createSimpleContext } from "../../simple-context";
@@ -22,6 +22,17 @@ interface AgentTasksState {
 }
 
 /**
+ * A request to show one task, or a new task when `taskId` is null, in the side panel of the agent's
+ * chat. The sidebar and a notification send it; the side panel of the chat listens. `sequence`
+ * makes a second request for the same task a new value.
+ */
+export interface AgentTaskOpenRequest {
+  agentId: string;
+  taskId: string | null;
+  sequence: number;
+}
+
+/**
  * The tasks of each agent on this computer: their list, the conversation of each opened task, and the
  * task actions. Only the local host shows tasks in the chat; the Tasks page reads a joined server's
  * tasks through the `agent-tasks-v1` routes. Only the active agent's list loads; an
@@ -36,6 +47,8 @@ const AgentTasks = createSimpleContext({
     const [state, setState] = createStore<AgentTasksState>({ snapshots: {}, conversations: {} });
     const listRequests = new Map<string, number>();
     const readRequests = new Map<string, number>();
+    const [openRequest, setOpenRequest] = createSignal<AgentTaskOpenRequest | null>(null);
+    let openSequence = 0;
 
     const available = () => {
       const server = activeServer();
@@ -190,6 +203,59 @@ const AgentTasks = createSimpleContext({
       void runAction(() => agentTasksPort().agent.reopenTask({ agentId, taskId }), "conversation.tasks.error.reopen");
     }
 
+    function pauseTask(agentId: string, taskId: string): void {
+      void runAction(() => agentTasksPort().agent.pauseTask({ agentId, taskId }), "conversation.tasks.error.pause");
+    }
+
+    function resumeTask(agentId: string, taskId: string): void {
+      void runAction(() => agentTasksPort().agent.resumeTask({ agentId, taskId }), "conversation.tasks.error.resume");
+    }
+
+    /** Gives the task a new title. The returned task replaces the stored one before the list event arrives. */
+    async function renameTask(agentId: string, taskId: string, title: string): Promise<boolean> {
+      const trimmed = title.trim();
+      if (!trimmed) return false;
+      const task = await runAction(
+        () => agentTasksPort().agent.renameTask({ agentId, taskId, title: trimmed }),
+        "conversation.tasks.error.rename",
+      );
+      if (!task || !scopeIsCurrent()) return false;
+      setState((current) => {
+        const stored = current.snapshots[agentId]?.tasks.find((entry) => entry.id === taskId);
+        if (stored) stored.title = task.title;
+      });
+      return true;
+    }
+
+    /** Deletes a closed task with its history. The backend refuses an open task. */
+    async function deleteTask(agentId: string, taskId: string): Promise<boolean> {
+      const deleted = await runAction(
+        () =>
+          agentTasksPort()
+            .agent.deleteTask({ agentId, taskId })
+            .then(() => true),
+        "conversation.tasks.error.delete",
+      );
+      if (!deleted || !scopeIsCurrent()) return false;
+      setState((current) => {
+        const snapshot = current.snapshots[agentId];
+        if (snapshot) snapshot.tasks = snapshot.tasks.filter((entry) => entry.id !== taskId);
+        delete current.conversations[taskId];
+      });
+      return true;
+    }
+
+    /** Asks the agent's chat to show the task, or a new task, in its side panel. */
+    function requestOpenTask(agentId: string, taskId: string | null): void {
+      openSequence += 1;
+      setOpenRequest({ agentId, taskId, sequence: openSequence });
+    }
+
+    /** The chat showed the requested task, so a chat that mounts later does not open it again. */
+    function finishOpenRequest(sequence: number): void {
+      if (openRequest()?.sequence === sequence) setOpenRequest(null);
+    }
+
     return {
       available,
       snapshot: (agentId: string): AgentTasksSnapshot | undefined => state.snapshots[agentId],
@@ -202,6 +268,13 @@ const AgentTasks = createSimpleContext({
       stopTask,
       closeTask,
       reopenTask,
+      pauseTask,
+      resumeTask,
+      renameTask,
+      deleteTask,
+      openRequest,
+      requestOpenTask,
+      finishOpenRequest,
     };
   },
 });

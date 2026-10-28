@@ -404,6 +404,19 @@ export interface ConversationTasks {
   onStop: (taskId: string) => void;
   onClose: (taskId: string) => void;
   onReopen: (taskId: string) => void;
+  onPause: (taskId: string) => void;
+  onResume: (taskId: string) => void;
+  /** Resolves false when the title did not change. */
+  onRename: (taskId: string, title: string) => Promise<boolean>;
+  /** Deletes a closed task with its history. Resolves true when the task is gone. */
+  onDelete: (taskId: string) => Promise<boolean>;
+  /**
+   * The newest request, from the sidebar or a notification, to show a task of this agent in the side
+   * panel. Null for a new task. Its `sequence` changes on each request.
+   */
+  openRequest: { taskId: string | null; sequence: number } | null;
+  /** The side panel showed the requested task. */
+  onOpenRequestHandled: (sequence: number) => void;
   /** The approval that the task's turn waits for. */
   approval: (task: AgentTask) => AgentApproval | undefined;
   onRespondApproval: (approval: AgentApproval, decision: "accept" | "decline") => Promise<boolean>;

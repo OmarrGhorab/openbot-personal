@@ -1,4 +1,5 @@
 import type {
+  AgentTask,
   AvatarHue,
   ChannelSummary,
   DirectThreadSummary,
@@ -113,6 +114,11 @@ export interface SidebarProps {
   onOpenAgentWindow?: ((agentId: string) => void) | undefined;
   /** The agents whose chat is open in a window of its own. Their rows show a window mark. */
   windowAgentIds?: ReadonlySet<string> | undefined;
+  /**
+   * The work threads (tasks) of an agent, shown under its row. Undefined for an agent whose tasks
+   * did not load, and for a host without tasks.
+   */
+  workThreads?: ((agentId: string) => SidebarWorkThreads | undefined) | undefined;
   compact: boolean;
   /** A card under the chat list, such as an announcement. The compact sidebar has no room for it. */
   footer?: JSX.Element;
@@ -167,3 +173,19 @@ export type ResolvedPinnedItem = { ref: SidebarPinnedItem; chat: SidebarChatItem
 export type SidebarChatItem =
   | { kind: "agent"; id: string; agent: AgentProfile }
   | { kind: "channel"; id: string; channel: ChannelSummary };
+
+/** The open tasks of one agent in the sidebar, and the actions on them. */
+export interface SidebarWorkThreads {
+  /** The tasks of the agent. The sidebar shows only the open ones. */
+  tasks: readonly AgentTask[];
+  /** The task that the side panel of the chat shows. */
+  activeTaskId?: string | null | undefined;
+  waitsForApproval?: ((task: AgentTask) => boolean) | undefined;
+  onOpen: (taskId: string) => void;
+  onNew: () => void;
+  /** Resolves false when the title did not change. */
+  onRename?: ((taskId: string, title: string) => Promise<boolean>) | undefined;
+  onPause?: ((taskId: string) => void) | undefined;
+  onResume?: ((taskId: string) => void) | undefined;
+  onClose?: ((taskId: string) => void) | undefined;
+}

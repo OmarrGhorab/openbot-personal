@@ -374,6 +374,15 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
       onStop: (taskId) => agentTasks.stopTask(agentId, taskId),
       onClose: (taskId) => agentTasks.closeTask(agentId, taskId),
       onReopen: (taskId) => agentTasks.reopenTask(agentId, taskId),
+      onPause: (taskId) => agentTasks.pauseTask(agentId, taskId),
+      onResume: (taskId) => agentTasks.resumeTask(agentId, taskId),
+      onRename: (taskId, title) => agentTasks.renameTask(agentId, taskId, title),
+      onDelete: (taskId) => agentTasks.deleteTask(agentId, taskId),
+      openRequest: (() => {
+        const request = agentTasks.openRequest();
+        return request?.agentId === agentId ? { taskId: request.taskId, sequence: request.sequence } : null;
+      })(),
+      onOpenRequestHandled: (sequence) => agentTasks.finishOpenRequest(sequence),
       approval: (task) => taskApproval(task, approvals()),
       onRespondApproval: (approval, decision) =>
         respondToApprovalRequest(approval.agentId, approval.requestId, decision),

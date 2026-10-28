@@ -262,6 +262,9 @@ export function ConversationTimeline() {
         toggleSpokenReply({ serverId: props.server?.id ?? "local", agentId, messageId: message.id }, message.body),
     };
   };
+  /** The title of the task whose thread a request comes from. Undefined for the main chat. */
+  const workThreadTitle = (threadId: string | undefined) =>
+    threadId ? props.tasks?.snapshot?.tasks.find((task) => task.threadId === threadId)?.title : undefined;
   const openTasks = () => props.tasks?.snapshot?.tasks.filter((task) => task.state !== "closed") ?? [];
   const compaction = (): ContextCompactionView | null => {
     const state = props.contextState;
@@ -1440,6 +1443,7 @@ export function ConversationTimeline() {
                 <ApprovalCard
                   approval={approval}
                   agentName={interactionAgentName()}
+                  threadTitle={workThreadTitle(approval.threadId)}
                   onApprove={() => props.onRespondToApproval("accept")}
                   onReject={() => props.onRespondToApproval("decline")}
                   onAlwaysAllow={props.onAlwaysAllowApproval}
@@ -1463,6 +1467,7 @@ export function ConversationTimeline() {
             <Loading>
               <BrowserTakeoverCard
                 request={props.browserTakeover}
+                threadTitle={workThreadTitle(props.browserTakeover?.threadId)}
                 agentName={interactionAgentName() ?? t("chat.message.agentFallback")}
                 tab={browserTakeoverTab()}
                 preview={browserTakeoverPreview().preview}

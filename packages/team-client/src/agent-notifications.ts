@@ -18,6 +18,14 @@ export interface AgentNotificationContent {
   channelId?: string;
 }
 
+/**
+ * The work thread (agent task) that owns the thread of an event, as the caller found it. Only the
+ * computer that runs the agent knows its tasks, so a joined server passes null.
+ */
+export interface AgentNotificationWorkThread {
+  title: string;
+}
+
 /** The channel that owns the thread of an event, as the caller found it. */
 export interface AgentNotificationChannel {
   id: string;
@@ -136,6 +144,8 @@ export function agentEventRequestThread(event: AgentEvent): string | null {
  * What a server's agent event says to the user, or null when the server level or the agent's own
  * switch keeps it quiet. "needs-me" keeps only the events that wait for the user. `channel` is the
  * channel that owns the thread of the event (see `agentEventRequestThread`): the title then names it.
+ * `workThread` is the task that owns the thread of the event: the title then names the task. A
+ * channel wins over a task.
  */
 export function notificationForAgentEvent(
   event: AgentEvent,
@@ -144,6 +154,7 @@ export function notificationForAgentEvent(
   level: ServerNotificationLevel,
   preview: AgentNotificationPreview | null = null,
   channel: AgentNotificationChannel | null = null,
+  workThread: AgentNotificationWorkThread | null = null,
 ): AgentNotificationContent | null {
   if (level === "nothing") return null;
   const subject = notificationSubject(event, level, translate, preview);
@@ -155,6 +166,11 @@ export function notificationForAgentEvent(
       title: translate("notification.channelTitle", { agent: agent.name, channel: channel.name }),
       ...subject,
       channelId: channel.id,
+    };
+  if (workThread && subject.threadId)
+    return {
+      title: translate("notification.workThreadTitle", { agent: agent.name, thread: workThread.title }),
+      ...subject,
     };
   // A start failure names no thread, so it opens the agent's own chat.
   return { title: agent.name, ...subject, threadId: subject.threadId ?? agent.threadId ?? null };
