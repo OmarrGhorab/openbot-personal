@@ -17,10 +17,9 @@ const EXCLUDE_LINE = `/${WORKTREE_FOLDER}/`;
 /** A git command that takes longer than this fails, and the work thread shares the workspace. */
 const GIT_TIMEOUT_MS = 30_000;
 
-export class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()(
-  "WorktreeOperationFailed",
-  { cause: Schema.Defect() },
-) {}
+export class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()("WorktreeOperationFailed", {
+  cause: Schema.Defect(),
+}) {}
 
 const { io: worktreeIo } = causeHelpers(WorktreeOperationFailed);
 

@@ -66,6 +66,7 @@ import type {
   QueuedMessageReceipt,
   QueueSnapshot,
   RemoveMcpServerInput,
+  RenameAgentTaskInput,
   ReorderQueueInput,
   ResetAgentSessionSettingInput,
   RespondToApprovalInput,
@@ -73,7 +74,6 @@ import type {
   RespondToPromptInput,
   Routine,
   RoutineRun,
-  RenameAgentTaskInput,
   RunQueuedMessageAsTaskInput,
   SaveAgentProfileInput,
   SaveAgentProfileResult,
@@ -204,9 +204,9 @@ import type { AgentProvider } from "./agent-client";
 import type { AgentTables } from "./agent-data/agent-tables";
 import type { AgentStore } from "./agent-store";
 import { AgentTaskStore } from "./agent-tasks/agent-task-store";
+import { AgentTasks } from "./agent-tasks/agent-tasks";
 import { AgentWorkThreadStore } from "./agent-tasks/agent-work-thread-store";
 import { AgentWorktrees, worktreeChangedFiles } from "./agent-tasks/agent-worktrees";
-import { AgentTasks } from "./agent-tasks/agent-tasks";
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
 import { AgentWaits } from "./agent-waits/agent-waits";
 import { automationRunCommand } from "./automation-command";
@@ -901,8 +901,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       // Only a server has a memory reading.
       serverHost: hostMemory !== null,
       sectionTeammates: (agentId) => this.sectionTeammates(agentId),
-      sessionFolder: (agentId, threadId, workspacePath) =>
-        this.#tasks.sessionFolder(agentId, threadId, workspacePath),
+      sessionFolder: (agentId, threadId, workspacePath) => this.#tasks.sessionFolder(agentId, threadId, workspacePath),
       hooks: {
         logRecovery: (agentId, provider, outcome) =>
           logger.warn("Recovered an unavailable provider session.", { agentId, provider, outcome }),
@@ -2049,8 +2048,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       const thread: SideQuestionWorkThread | null = task
         ? {
             title: task.title,
-            changedFiles:
-              task.workspace?.mode === "worktree" ? yield* worktreeChangedFiles(task.workspace.path) : null,
+            changedFiles: task.workspace?.mode === "worktree" ? yield* worktreeChangedFiles(task.workspace.path) : null,
           }
         : null;
       const client = this.#providers.createProfileClient(agent.provider);

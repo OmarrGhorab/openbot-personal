@@ -82,7 +82,8 @@ export const messages = {
   "conversation.sideQuestion.failed": "معرفناش نجيب إجابة",
   "conversation.sideQuestion.error": "الإيجنت مارَدّش. سؤالك رجع في الخانة اللي تحت.",
   "conversation.sideQuestion.taskEmptyTitle": "اسأل عن المهمة دي",
-  "conversation.sideQuestion.taskEmptyBody": "{name} بيقرا رسائل المهمة وخطتها والملفات اللي اتغيرت علشان يجاوب. والمهمة بتكمّل.",
+  "conversation.sideQuestion.taskEmptyBody":
+    "{name} بيقرا رسائل المهمة وخطتها والملفات اللي اتغيرت علشان يجاوب. والمهمة بتكمّل.",
   "conversation.sideQuestion.taskLabel": "عن المهمة: {title}",
   "conversation.sideQuestion.taskNote": "الشات الجانبي مش بيغيّر المهمة.",
   "conversation.sideQuestion.sendToMain": "ابعت للمحادثة الأساسية",
