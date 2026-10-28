@@ -22,7 +22,7 @@ import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from 
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import type { AgentTaskOrigin, AgentTaskRecord, AgentTaskStore } from "./agent-task-store";
-import type { AgentWorkThreadStore } from "./agent-work-thread-store";
+import type { AgentWorkThreadRecord, AgentWorkThreadStore } from "./agent-work-thread-store";
 import type { AgentWorktrees } from "./agent-worktrees";
 
 const logger = createOpenBotLogger("agent-tasks");
@@ -218,6 +218,33 @@ export class AgentTasks implements TaskLanes {
     return this.#publicTask(task);
   }
 
+  /** Gives the task a new title, cut to the title limit. */
+  rename(task: AgentTaskRecord, text: string): AgentTaskRecord {
+    const title = taskTitle(text);
+    if (!title) throw new Error(sourceText("error.backend.taskTitleRequired"));
+    this.#store.rename(task.taskId, title);
+    this.changed(task.agentId);
+    return this.require(task.agentId, task.taskId);
+  }
+
+  /** The workspace record of the task, for a delete that removes its worktree. */
+  workspace(taskId: string, agentId: string): AgentWorkThreadRecord["workspace"] {
+    return this.#workThreads.get(taskId, agentId).workspace;
+  }
+
+  /**
+   * Removes a closed task with its thread and history. The caller releases its provider sessions
+   * first, and removes its worktree after.
+   */
+  delete(task: AgentTaskRecord): void {
+    if (task.closedAt === null) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+    this.#conversation.forgetExecutionThread(task.threadId);
+    this.#store.delete(task.taskId);
+    this.#progress.delete(task.taskId);
+    this.#stoppedTurns.delete(task.taskId);
+    this.changed(task.agentId);
+  }
+
   close(task: AgentTaskRecord): void {
     this.#store.close(task.taskId);
     this.#progress.delete(task.taskId);
@@ -400,6 +427,7 @@ export class AgentTasks implements TaskLanes {
     const state =
       task.closedAt !== null ? "closed" : running ? "running" : queuedMessages.length > 0 ? "queued" : "idle";
     const hold = state === "queued" ? publicHold(this.#hooks.hold(task.agentId, task.taskId)) : null;
+    const workThread = this.#workThreads.get(task.taskId, task.agentId);
     return {
       id: task.taskId,
       agentId: task.agentId,
@@ -416,6 +444,8 @@ export class AgentTasks implements TaskLanes {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       closedAt: task.closedAt,
+      pausedAt: task.closedAt === null ? workThread.pausedAt : null,
+      workspace: workThread.workspace,
     };
   }
 }

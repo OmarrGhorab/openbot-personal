@@ -73,6 +73,7 @@ import type {
   RespondToPromptInput,
   Routine,
   RoutineRun,
+  RenameAgentTaskInput,
   RunQueuedMessageAsTaskInput,
   SaveAgentProfileInput,
   SaveAgentProfileResult,
@@ -390,6 +391,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #memories: AgentMemories;
   readonly #waits: AgentWaits;
   readonly #tasks: AgentTasks;
+  readonly #worktrees = new AgentWorktrees();
   readonly #tables: AgentTables | null;
   readonly #routines: RoutineScheduler;
   readonly #routineTimer: RoutineTimer;
@@ -512,7 +514,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#tasks = new AgentTasks({
       store: new AgentTaskStore(store.database),
       workThreads: new AgentWorkThreadStore(store.database),
-      worktrees: new AgentWorktrees(),
+      worktrees: this.#worktrees,
       mailbox,
       conversation: this.#conversation,
       hooks: {
@@ -3781,6 +3783,36 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#tasks.close(task);
     // A task lane that waited for a free task can start now.
     this.#drain.scheduleDrain(task.agentId);
+  }).bind(this);
+
+  /** Gives a task a new title. The task, its thread and its queue do not change. */
+  renameTask(input: RenameAgentTaskInput): AgentTask {
+    const task = this.#tasks.rename(this.#tasks.require(input.agentId, input.taskId), input.title);
+    return this.#tasks.publicTask(task);
+  }
+
+  /**
+   * Deletes a closed task: its provider sessions, thread, history and attachments. Its git worktree
+   * goes only when it has no change; a worktree with changes stays with its branch.
+   */
+  readonly deleteTask = Effect.fn("AgentService.deleteTask")(function* (
+    this: AgentService,
+    input: AgentTaskInput,
+  ): Effect.fn.Return<void, AgentLifecycleFailed> {
+    const task = yield* lifecycleStep("find task", () => {
+      const found = this.#tasks.require(input.agentId, input.taskId);
+      if (found.closedAt === null) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+      if (this.#mailbox.taskBusy(found.agentId, found.taskId))
+        throw new Error(sourceText("error.backend.taskStillRunning"));
+      return found;
+    });
+    const workspace = this.#tasks.workspace(task.taskId, task.agentId);
+    yield* this.#forgetExecutionThread(task.threadId).pipe(
+      Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "deleteTask", cause: failure.cause })),
+    );
+    yield* lifecycleStep("delete task", () => this.#tasks.delete(task));
+    const agent = this.listAgents().find((candidate) => candidate.id === task.agentId);
+    if (workspace.mode === "worktree" && agent) yield* this.#worktrees.remove(agent.workspacePath, workspace.path);
   }).bind(this);
 
   reopenTask(input: AgentTaskInput): void {

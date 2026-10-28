@@ -147,6 +147,13 @@ export class AgentTaskStore {
       .run(outcome, new Date().toISOString(), taskId);
   }
 
+  /** Gives the task a new title. The event log holds no title, so only the row changes. */
+  rename(taskId: string, title: string): void {
+    this.#database.connection
+      .prepare("UPDATE projection_agent_tasks SET title = ?, updated_at = ? WHERE task_id = ?")
+      .run(title, new Date().toISOString(), taskId);
+  }
+
   /** Keeps the error of the task's last turn, or clears it when a turn starts. */
   setError(taskId: string, error: string | null): void {
     this.#database.connection
@@ -195,6 +202,35 @@ export class AgentTaskStore {
         deleteAggregateHistory(db, "agent-task", [taskId]);
         deleteAggregateHistory(db, "thread", [task.threadId]);
         // The thread row takes the task row with it.
+        db.prepare("DELETE FROM projection_threads WHERE thread_id = ?").run(task.threadId);
+        return null;
+      },
+    );
+  }
+
+  /**
+   * Removes one closed task with its thread, its history and its attachments. The caller releases the
+   * task's provider sessions first. The work-thread row goes with the task row.
+   */
+  delete(taskId: string): void {
+    const task = this.task(taskId);
+    if (!task) return;
+    this.#database.dispatch(
+      `agent-task-deleted:${taskId}`,
+      // Recorded on the agent: the task's own history goes below.
+      [
+        {
+          aggregateType: "agent-tasks",
+          aggregateId: task.agentId,
+          eventType: "agent-task.deleted",
+          payload: { threadIds: [task.threadId] },
+        },
+      ],
+      (db) => {
+        deleteAggregateHistory(db, "agent-task", [taskId]);
+        deleteAggregateHistory(db, "thread", [task.threadId]);
+        deleteThreadAttachments(db, task.threadId);
+        // The thread row takes the task row, and the task row its work-thread row.
         db.prepare("DELETE FROM projection_threads WHERE thread_id = ?").run(task.threadId);
         return null;
       },

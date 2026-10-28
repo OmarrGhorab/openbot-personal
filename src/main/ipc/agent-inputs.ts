@@ -71,6 +71,7 @@ import {
   type UpdateChannelRoutineInput,
   type UpdateQueuedMessageInput,
   type UpdateRoutineInput,
+  type RenameAgentTaskInput,
 } from "@openbot/contracts/ipc";
 import { isBoolean, isNumber, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { decodeQueueEditRequest } from "@openbot/contracts/team-protocol/queue-edit-v1";
@@ -564,6 +565,14 @@ export function parseAgentTask(value: unknown): AgentTaskInput {
   return {
     agentId: requireString(value.agentId, "agentId"),
     taskId: requireString(value.taskId, "taskId"),
+  };
+}
+
+export function parseRenameAgentTask(value: unknown): RenameAgentTaskInput {
+  if (!isObject(value)) throw new Error("Invalid task request.");
+  return {
+    ...parseAgentTask(value),
+    title: requireString(value.title, "title", INPUT_LIMITS.messageText),
   };
 }
 

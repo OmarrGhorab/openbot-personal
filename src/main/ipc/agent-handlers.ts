@@ -83,6 +83,7 @@ import {
   parseAcknowledgeFailedTurn,
   parseAgentId,
   parseAgentTask,
+  parseRenameAgentTask,
   parseApprovalResponse,
   parseBrowserTakeoverResponse,
   parseCancelAgentWait,
@@ -657,6 +658,15 @@ export function agentIpcHandlers({
         local: (parsed) => service.reopenTask(parsed),
         remote: (parsed, serverId) =>
           remoteTaskRequest(serverId, AGENT_TASKS_ROUTES.reopen, acceptEmpty, agentTaskBody(parsed)),
+      }),
+      // Local only: `agent-tasks-v1` has no rename or delete route.
+      renameTask: scopedHandler(parseRenameAgentTask, {
+        local: (parsed) => service.renameTask(parsed),
+        remote: taskRemoteUnsupported,
+      }),
+      deleteTask: scopedHandler(parseAgentTask, {
+        local: (parsed) => runCauseEffect(service.deleteTask(parsed)),
+        remote: taskRemoteUnsupported,
       }),
       acknowledgeFailedTurn: scopedHandler(parseAcknowledgeFailedTurn, {
         local: (parsed) => service.acknowledgeFailedTurn(parsed.agentId, parsed.turnId),
