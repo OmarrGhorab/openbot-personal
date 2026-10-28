@@ -342,7 +342,7 @@ function prepareText(value: string): string {
 }
 
 /** Case, spacing and ends do not make a second entry. */
-export function normalizeProjectMemoryText(value: string): string {
+function normalizeProjectMemoryText(value: string): string {
   return value.trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
