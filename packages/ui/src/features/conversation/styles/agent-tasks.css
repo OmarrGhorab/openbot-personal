@@ -198,3 +198,37 @@
     transition: none;
   }
 }
+
+/* The task title opens its rename field. */
+.agent-tasks-panel-title {
+  max-width: 100%;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.agent-tasks-panel-rename {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.agent-tasks-panel-rename-input {
+  width: 100%;
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-sm);
+  background: transparent;
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font: inherit;
+}
+
+.agent-tasks-panel-branch {
+  font-variant-numeric: tabular-nums;
+}

@@ -27,3 +27,67 @@
   height: var(--openbot-icon-sm);
   flex: none;
 }
+
+/* The open work threads (tasks) of an agent, under its row. */
+.sidebar-work-threads {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0 0 var(--openbot-space-1) var(--openbot-space-6);
+  list-style: none;
+}
+
+.sidebar-work-thread-row {
+  display: grid;
+  width: 100%;
+  height: var(--openbot-control-sm);
+  align-items: center;
+  border-radius: var(--openbot-radius-sm);
+  padding: 0 var(--openbot-space-2);
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  text-align: start;
+}
+
+.sidebar-work-thread-row-active {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-text-primary);
+}
+
+.sidebar-work-thread-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-work-thread-status {
+  max-width: 9em;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-work-thread-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.sidebar-work-thread-new {
+  color: var(--openbot-text-muted);
+}
+
+.sidebar-work-thread-rename-input {
+  width: 100%;
+  height: var(--openbot-control-sm);
+  border: 1px solid var(--openbot-border-strong);
+  border-radius: var(--openbot-radius-sm);
+  background: var(--openbot-bg-surface);
+  padding: 0 var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+}
