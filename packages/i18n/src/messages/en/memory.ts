@@ -51,4 +51,33 @@ export const messages = defineMessages("memory", {
   "memory.inclusion.explanation":
     "All memories stay saved. Only essential memories enter every prompt. The agent can search the others.",
   "memory.inclusion.capacity": "Essential memory capacity: {used} of {total}",
+
+  "memory.project.open": "Project memory",
+  "memory.project.title": "Project memory",
+  "memory.project.description": "Shared by every agent in {path}",
+  "memory.project.empty":
+    "No project memory yet. Agents save commands, rules, known problems and decisions here when they finish a task.",
+  "memory.project.kind.label": "Kind",
+  "memory.project.kind.rule": "Rule",
+  "memory.project.kind.command": "Command",
+  "memory.project.kind.known-problem": "Known problem",
+  "memory.project.kind.decision": "Decision",
+  "memory.project.savedByAgent": "Saved by {name}",
+  "memory.project.savedByUser": "Saved by you",
+  "memory.project.savedByDeleted": "Saved by an agent that was deleted",
+  "memory.project.updated": "Updated {date}",
+  "memory.project.count": "{count} of {limit} memories",
+  "memory.project.add": "Add project memory",
+  "memory.project.newPlaceholder": "Write one short fact for this folder",
+  "memory.project.undo": "Undo last change",
+  "memory.project.undoLast": "Last change: {action}, {date}",
+  "memory.project.undoAction.create": "added",
+  "memory.project.undoAction.update": "edited",
+  "memory.project.undoAction.delete": "deleted",
+  "memory.project.undone": "The last change is undone.",
+  "memory.project.undoFailed": "Could not undo the change.",
+  "memory.project.loadFailed": "Could not load the project memory.",
+  "memory.project.close": "Close project memory",
+  "memory.project.limitReached":
+    "This project has reached its limit of {limit} memories. Edit or delete one before you add another.",
 });

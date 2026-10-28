@@ -96,6 +96,7 @@ import {
   decodeMemory,
   decodeMemorySelection,
   decodeOptionalMemorySelection,
+  decodeProjectMemoryState,
   decodeProviderApiKeyState,
   decodeProviderCodeLoginStart,
   decodeProviderUsageResetOutcomeFromMain,
@@ -1042,6 +1043,13 @@ const openbotApi: OpenBotDesktopApi = {
       updateMemory: decodeMemory,
       deleteMemory: decodeVoid,
       clearMemories: decodeVoid,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.projectMemories, {
+      getProjectMemories: decodeProjectMemoryState,
+      createProjectMemory: decodeProjectMemoryState,
+      updateProjectMemory: decodeProjectMemoryState,
+      deleteProjectMemory: decodeProjectMemoryState,
+      undoProjectMemory: decodeProjectMemoryState,
     }),
     ...bridgeGroup(IPC_ENDPOINTS.sharedTables, {
       listTables: decodeTables,

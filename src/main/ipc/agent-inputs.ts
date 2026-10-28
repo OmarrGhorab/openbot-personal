@@ -12,10 +12,12 @@ import {
   type CreateAgentMemoryInput,
   type CreateChannelMemoryInput,
   type CreateChannelRoutineInput,
+  type CreateProjectMemoryInput,
   type CreateRoutineInput,
   type DeleteAgentMemoryInput,
   type DeleteChannelMemoryInput,
   type DeleteChannelRoutineInput,
+  type DeleteProjectMemoryInput,
   type DeleteRoutineInput,
   type DownloadAttachmentsInput,
   type EditQueuedMessageInput,
@@ -43,6 +45,9 @@ import {
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
   type PasteMessageLinkInput,
+  PROJECT_MEMORY_KINDS,
+  type ProjectMemoryAgentInput,
+  type ProjectMemoryKind,
   type ReadConversationPageInput,
   type RenameAgentTaskInput,
   type ReorderQueueInput,
@@ -70,6 +75,7 @@ import {
   type UpdateAgentMemoryInput,
   type UpdateChannelMemoryInput,
   type UpdateChannelRoutineInput,
+  type UpdateProjectMemoryInput,
   type UpdateQueuedMessageInput,
   type UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
@@ -235,6 +241,43 @@ export function parseUpdateAgentMemory(value: unknown): UpdateAgentMemoryInput {
 
 export function parseDeleteAgentMemory(value: unknown): DeleteAgentMemoryInput {
   if (!isObject(value)) throw new Error("Invalid memory deletion request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),
+  };
+}
+
+export function parseProjectMemoryAgent(value: unknown): ProjectMemoryAgentInput {
+  if (!isObject(value)) throw new Error("Invalid project memory request.");
+  return { agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier) };
+}
+
+function parseProjectMemoryKind(value: unknown): ProjectMemoryKind {
+  if (!isOneOf(PROJECT_MEMORY_KINDS, value)) throw new Error("Invalid project memory kind.");
+  return value;
+}
+
+export function parseCreateProjectMemory(value: unknown): CreateProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory creation request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    kind: parseProjectMemoryKind(value.kind),
+    text: requireString(value.text, "text", INPUT_LIMITS.agentMemoryText),
+  };
+}
+
+export function parseUpdateProjectMemory(value: unknown): UpdateProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory update request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),
+    kind: parseProjectMemoryKind(value.kind),
+    text: requireString(value.text, "text", INPUT_LIMITS.agentMemoryText),
+  };
+}
+
+export function parseDeleteProjectMemory(value: unknown): DeleteProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory deletion request.");
   return {
     agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
     memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),

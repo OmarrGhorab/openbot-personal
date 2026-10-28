@@ -165,6 +165,10 @@ export const messages = defineMessages("error.backend", {
     "OpenBot cannot interrupt this agent because its provider session is unavailable.",
   "error.backend.memoryTextRequired": "Memory text is required.",
   "error.backend.memoryTextTooLong": "Memory text is too long.",
+  "error.backend.projectMemoryLimit":
+    "This project has reached the limit of {limit} memories. Tell the user; they can edit or delete one.",
+  "error.backend.projectMemoryDuplicate": "This project already has a memory with this text.",
+  "error.backend.projectMemoryUndoEmpty": "There is no project memory change to undo.",
   "error.backend.mcpServerGone": "This MCP server no longer exists.",
   "error.backend.routineFlowLinkGone": "This connection no longer exists.",
   "error.backend.routineFlowSameAgent": "An agent cannot hand work to itself.",
