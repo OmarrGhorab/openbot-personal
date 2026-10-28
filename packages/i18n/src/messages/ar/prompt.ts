@@ -28,6 +28,7 @@ export const messages = {
   "prompt.approval.grantFailed": "معرفناش نحفظ الموافقة الدائمة. حاول تاني.",
   "prompt.approval.label": "موافقة الإيجنت",
   "prompt.approval.badge": "موافقة",
+  "prompt.workThread.from": "من المهمة: {title}",
   "prompt.approval.files": "الملفات",
   "prompt.approval.agentWorkspace": "مساحة عمل الإيجنت",
   "prompt.approval.allow": "سماح",

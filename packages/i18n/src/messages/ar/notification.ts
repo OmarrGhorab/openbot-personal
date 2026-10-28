@@ -9,6 +9,7 @@ export const messages = {
   "notification.finished": "خلّص الشغل.",
   "notification.failed": "وقف بسبب خطأ.",
   "notification.channelTitle": "{agent} في {channel}",
+  "notification.workThreadTitle": "{agent}، مهمة: {thread}",
   "notification.channelMessage": "بعت رسالة.",
   "notification.usageLimit.title": "حساب {provider} وصل للحد الأقصى",
   "notification.usageLimit.body": {
