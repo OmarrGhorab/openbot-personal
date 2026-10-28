@@ -193,6 +193,19 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     [],
     { key: "id" },
   );
+  /** The sidebar asks to show a task of this agent: the side panel opens it. */
+  let handledOpenRequest = 0;
+  createEffect(
+    () => props.tasks?.openRequest ?? null,
+    (request) => {
+      if (!request || request.sequence === handledOpenRequest) return;
+      handledOpenRequest = request.sequence;
+      untrack(() => {
+        openTaskPanel(request.taskId);
+        props.tasks?.onOpenRequestHandled(request.sequence);
+      });
+    },
+  );
   /** A message in a task steers or continues it. In a new task, the first message starts it. */
   async function sendToTaskPanel(text: string): Promise<boolean> {
     const tasks = props.tasks;
@@ -379,6 +392,25 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
             onReopen={() => {
               const task = panelTask();
               if (task) props.tasks?.onReopen(task.id);
+            }}
+            onPause={() => {
+              const task = panelTask();
+              if (task) props.tasks?.onPause(task.id);
+            }}
+            onResume={() => {
+              const task = panelTask();
+              if (task) props.tasks?.onResume(task.id);
+            }}
+            onRename={async (title) => {
+              const task = panelTask();
+              return task && props.tasks ? props.tasks.onRename(task.id, title) : false;
+            }}
+            onDelete={() => {
+              const task = panelTask();
+              if (!task || !props.tasks) return;
+              void props.tasks.onDelete(task.id).then((deleted) => {
+                if (deleted) showTaskList();
+              });
             }}
             onClosePanel={() => closeSidePanelPane("tasks")}
             onBack={showTaskList}

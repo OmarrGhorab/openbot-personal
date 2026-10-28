@@ -1,5 +1,6 @@
 import type { ChatWindowTarget } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
+import { taskApproval } from "@openbot/team-client/agent-tasks";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
@@ -7,6 +8,7 @@ import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobile
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates } from "@openbot/ui/features/sidebar/sidebar-agent-states";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
+import type { SidebarWorkThreads } from "@openbot/ui/features/sidebar/sidebar-types";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
 import { appPort } from "../../app-port";
@@ -16,6 +18,7 @@ import { DirectConversation } from "../../lazy-views";
 import { useNavigation } from "../../navigation";
 import { usePlatform } from "../../platform";
 import { useTurns } from "../../turns";
+import { useAgentTasks } from "../agent-tasks/agent-tasks-context";
 import { useAgentActions } from "../agents/agent-actions";
 import { agentThreadAttention } from "../agents/agent-thread-attention";
 import { useAgents } from "../agents/agents-context";
@@ -172,6 +175,32 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     }),
   );
 
+  const agentTasks = useAgentTasks();
+  /**
+   * The open tasks of an agent whose task list loaded on this computer. A task row selects the agent
+   * and asks its chat to show the task in the side panel.
+   */
+  const workThreads = (agentId: string): SidebarWorkThreads | undefined => {
+    if (!agentTasks.available()) return undefined;
+    const snapshot = agentTasks.snapshot(agentId);
+    if (!snapshot || snapshot.tasks.length === 0) return undefined;
+    const show = (taskId: string | null) => {
+      if (activeAgent()?.id !== agentId || tasksOpen() || channels.state.selectedId || activeDirectMember())
+        selectAgent(agentId);
+      agentTasks.requestOpenTask(agentId, taskId);
+    };
+    return {
+      tasks: snapshot.tasks,
+      waitsForApproval: (task) => taskApproval(task, approvals()) !== undefined,
+      onOpen: show,
+      onNew: () => show(null),
+      onRename: (taskId, title) => agentTasks.renameTask(agentId, taskId, title),
+      onPause: (taskId) => agentTasks.pauseTask(agentId, taskId),
+      onResume: (taskId) => agentTasks.resumeTask(agentId, taskId),
+      onClose: (taskId) => agentTasks.closeTask(agentId, taskId),
+    };
+  };
+
   return (
     <Sidebar
       channels={visibleChannels()}
@@ -268,6 +297,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
           : (agentId) => void appPort().openChatWindow({ serverId: activeServerId(), agentId })
       }
       windowAgentIds={windowAgentIds()}
+      workThreads={workThreads}
       compact={layout.leftPanelCompact()}
       onExpand={layout.expandSidebar}
       onOpenSearch={() => setGlobalSearchVisibility(true)}

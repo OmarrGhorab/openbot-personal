@@ -114,7 +114,7 @@ export function SidebarWorkThreads(props: { agentName: string; threads: SidebarW
                   class="sidebar-work-thread-rename-input"
                   aria-label={t("sidebar.workThreads.renameLabel")}
                   value={renaming()?.title ?? ""}
-                  maxLength={160}
+                  maxlength={160}
                   ref={(element) => queueMicrotask(() => element.select())}
                   onInput={(event) => {
                     const value = event.currentTarget.value;

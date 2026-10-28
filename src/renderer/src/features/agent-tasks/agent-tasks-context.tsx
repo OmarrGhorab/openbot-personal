@@ -248,6 +248,11 @@ const AgentTasks = createSimpleContext({
       setOpenRequest({ agentId, taskId, sequence: openSequence });
     }
 
+    /** The chat showed the requested task, so a chat that mounts later does not open it again. */
+    function finishOpenRequest(sequence: number): void {
+      if (openRequest()?.sequence === sequence) setOpenRequest(null);
+    }
+
     return {
       available,
       snapshot: (agentId: string): AgentTasksSnapshot | undefined => state.snapshots[agentId],
@@ -266,6 +271,7 @@ const AgentTasks = createSimpleContext({
       deleteTask,
       openRequest,
       requestOpenTask,
+      finishOpenRequest,
     };
   },
 });

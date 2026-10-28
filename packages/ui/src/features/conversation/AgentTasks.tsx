@@ -415,7 +415,7 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
               class="agent-tasks-panel-rename-input"
               aria-label={t("sidebar.workThreads.renameLabel")}
               value={renaming() ?? ""}
-              maxLength={160}
+              maxlength={160}
               ref={(element) => queueMicrotask(() => element.select())}
               onInput={(event) => setRenaming(event.currentTarget.value)}
               onKeyDown={(event) => {
