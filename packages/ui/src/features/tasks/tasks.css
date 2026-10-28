@@ -250,6 +250,31 @@
   color: var(--openbot-danger-text);
 }
 
+/* A question in the Questions list: a small label naming who asks, then the card, as wide as a task row. */
+.tasks-page-question {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.tasks-page-question-from {
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0 var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tasks-page-question .question-prompt-bubble.ui-bubble {
+  width: 100%;
+  max-width: 100%;
+}
+
 .tasks-page-show-all.ui-button {
   align-self: flex-start;
   color: var(--openbot-text-muted);

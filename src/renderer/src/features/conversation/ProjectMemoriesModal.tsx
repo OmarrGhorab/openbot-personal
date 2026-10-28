@@ -258,7 +258,7 @@ export function ProjectMemoriesModal(props: ProjectMemoriesModalProps) {
                 <ul class="agent-memory-list">
                   <For each={state()?.memories ?? []} keyed={(memory) => memory.id}>
                     {(memory) => (
-                      <li class="agent-memory-row">
+                      <li class="agent-memory-row project-memory-row">
                         <Show
                           when={editingId() === memory().id}
                           fallback={
@@ -267,23 +267,26 @@ export function ProjectMemoriesModal(props: ProjectMemoriesModalProps) {
                                 <span class="agent-memory-text">{memory().text}</span>
                                 <span class="agent-memory-meta">{metaLine(memory())}</span>
                               </div>
-                              <IconButton
-                                label={t("memory.edit")}
-                                variant="ghost"
-                                disabled={busy()}
-                                onClick={() => startEditing(memory())}
-                              >
-                                <Pencil />
-                              </IconButton>
-                              <IconButton
-                                label={t("memory.delete")}
-                                class="agent-memory-delete-button"
-                                variant="destructive-ghost"
-                                disabled={busy()}
-                                onClick={() => void remove(memory())}
-                              >
-                                <Trash2 />
-                              </IconButton>
+                              <div class="project-memory-row-actions">
+                                <IconButton
+                                  label={t("memory.edit")}
+                                  class="project-memory-edit-button"
+                                  variant="ghost"
+                                  disabled={busy()}
+                                  onClick={() => startEditing(memory())}
+                                >
+                                  <Pencil />
+                                </IconButton>
+                                <IconButton
+                                  label={t("memory.delete")}
+                                  class="agent-memory-delete-button"
+                                  variant="destructive-ghost"
+                                  disabled={busy()}
+                                  onClick={() => void remove(memory())}
+                                >
+                                  <Trash2 />
+                                </IconButton>
+                              </div>
                             </>
                           }
                         >
