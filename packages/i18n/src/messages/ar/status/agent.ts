@@ -43,6 +43,16 @@ export const messages = {
   "status.agent.mcpServerEnable": "تشغيل سيرفر MCP {name} لكل إيجنت على السيرفر ده.",
   "status.agent.mcpServerDisable": "إيقاف سيرفر MCP {name} لكل إيجنت على السيرفر ده.",
   "status.agent.mcpServerRemove": "مسح سيرفر MCP {name} وتسجيل الدخول بتاعه من كل إيجنت على السيرفر ده.",
+  "status.agent.mcpServerAddedWithoutApproval":
+    "اتضاف سيرفر MCP {name} من غير موافقة: {target}. كل إيجنت على السيرفر ده بياخد أدواته. عشان ترجّع ده، شيله من إعدادات السيرفر، MCP.",
+  "status.agent.mcpServerChangedWithoutApproval":
+    "اتغيّر سيرفر MCP {name} من غير موافقة: {target}. عشان ترجّع ده، عدّله من إعدادات السيرفر، MCP.",
+  "status.agent.mcpServerEnabledWithoutApproval":
+    "اتشغّل سيرفر MCP {name} من غير موافقة: {target}. عشان ترجّع ده، اقفله من إعدادات السيرفر، MCP.",
+  "status.agent.mcpServerDisabledWithoutApproval":
+    "اتقفل سيرفر MCP {name} من غير موافقة: {target}. عشان ترجّع ده، شغّله من إعدادات السيرفر، MCP.",
+  "status.agent.mcpServerRemovedWithoutApproval":
+    "اتشال سيرفر MCP {name} من غير موافقة: {target}. عشان ترجّع ده، ضيفه تاني من إعدادات السيرفر، MCP.",
   "status.agent.mcpSignInRequested": "سيرفر MCP {name} محتاج تسجيل دخول. سجّل دخول من إعدادات السيرفر، MCP.",
   "status.agent.vaultAdded": "اتحفظ في Vault: {name}",
   "status.agent.vaultUpdated": "اتغيّر في Vault: {name}",

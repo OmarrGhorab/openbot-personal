@@ -154,6 +154,8 @@ export type ChatActionMarkerModel =
   /** A member agent changed the channel at a person's request. `text` is the host's note. */
   | { kind: "channel-change"; text: string; timestamp: string }
   | { kind: "vault-change"; text: string; timestamp: string }
+  /** An agent changed an MCP server without an approval card. `text` is the host's note. */
+  | { kind: "mcp-change"; text: string; timestamp: string }
   | {
       kind: "unavailable";
       label: string;

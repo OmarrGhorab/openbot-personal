@@ -153,6 +153,7 @@ try {
         tool,
         arguments: args,
         withoutApproval: false,
+        recordChange: () => Effect.void,
         approve: (reason) =>
           Effect.sync(() => {
             approvals.push(reason);

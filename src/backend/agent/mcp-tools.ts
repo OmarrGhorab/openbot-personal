@@ -144,6 +144,11 @@ export interface McpServerToolCall {
    */
   withoutApproval: boolean;
   /**
+   * Puts the note of a change made without approval in the conversation, so the user sees it and
+   * can undo it. `text` names the action, the server and its target, with the secrets masked.
+   */
+  recordChange(text: string): Effect.Effect<void, ToolOperationFailed>;
+  /**
    * Asks the user to approve the change that `reason` states. `cwd` is the folder a stdio server
    * starts in, when it names one. True when it is approved.
    */
@@ -203,6 +208,7 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
           servers.redact(sourceText("error.agent.mcpServerNotSaved", { error: outcome.error })),
         );
       yield* servers.save(config);
+      yield* noteChange(servers, call, existing ? "changed" : "added", config);
       return yield* report(servers, call, config, outcome, true);
     }
     case "set_mcp_server_enabled": {
@@ -212,6 +218,7 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
       if (!(yield* confirm(call, sourceText(key, { name: config.name }))))
         return openBotToolFailure(sourceText("error.agent.mcpServerDeclined"));
       yield* servers.setEnabled(config.id, enabled);
+      yield* noteChange(servers, call, enabled ? "enabled" : "disabled", config);
       return openBotToolResult({ name: config.name, enabled, appliesFrom: "the next turn of each agent" });
     }
     case "remove_mcp_server": {
@@ -220,6 +227,7 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
       if (!(yield* confirm(call, sourceText("status.agent.mcpServerRemove", { name: config.name }))))
         return openBotToolFailure(sourceText("error.agent.mcpServerDeclined"));
       yield* servers.remove(config.id);
+      yield* noteChange(servers, call, "removed", config);
       return openBotToolResult({ name: config.name, removed: true, appliesFrom: "the next turn of each agent" });
     }
   }
@@ -228,6 +236,31 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
 /** The user's approval, or true at once when the change runs without it. */
 const confirm = (call: McpServerToolCall, reason: string, cwd?: string | null) =>
   call.withoutApproval ? Effect.succeed(true) : call.approve(reason, cwd);
+
+const CHANGE_NOTES = {
+  added: "status.agent.mcpServerAddedWithoutApproval",
+  changed: "status.agent.mcpServerChangedWithoutApproval",
+  enabled: "status.agent.mcpServerEnabledWithoutApproval",
+  disabled: "status.agent.mcpServerDisabledWithoutApproval",
+  removed: "status.agent.mcpServerRemovedWithoutApproval",
+} as const;
+
+/**
+ * The note of a change that ran without approval: the action, the server, and its address or
+ * command line, which a removal no longer holds anywhere else. A change that the user approved has
+ * its approval card instead, so it gets no note.
+ */
+const noteChange = (
+  servers: AgentMcpServers,
+  call: McpServerToolCall,
+  action: keyof typeof CHANGE_NOTES,
+  config: McpServerConfig,
+) =>
+  call.withoutApproval
+    ? call.recordChange(
+        servers.redact(sourceText(CHANGE_NOTES[action], { name: config.name, target: serverTarget(config) })),
+      )
+    : Effect.void;
 
 const findServer = (servers: AgentMcpServers, name: string) => {
   const config = servers.list().find((candidate) => candidate.name === name);

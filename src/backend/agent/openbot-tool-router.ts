@@ -19,6 +19,7 @@ import {
   agentQuickAcknowledgementEnabled,
   CONNECTOR_IDS,
   isMessageReaction,
+  MCP_CHANGE_ITEM_TYPE,
   marketplaceSuggestionItemType,
   mcpSignInItemType,
   skillConversationEventItemType,
@@ -1227,6 +1228,15 @@ export class OpenBotToolRouter {
             Effect.map((decision) => decision === "accept"),
             toToolOperationFailed,
           ),
+      recordChange: (text) =>
+        toolStep(() =>
+          this.#postSystemCard(agentId, threadId, params.turnId, {
+            itemType: MCP_CHANGE_ITEM_TYPE,
+            text,
+            eventType: "mcp.changed_without_approval",
+            detail: {},
+          }),
+        ),
       requestSignIn: (config) =>
         toolStep(() =>
           this.#postSystemCard(agentId, threadId, params.turnId, {
