@@ -126,6 +126,11 @@ export function checkUiFoundation(
     if (/<(?:button|input|textarea|select)\b/u.test(source)) {
       failures.push(`${label}: use a components/ui control instead of a native element`);
     }
+    // NativeSelect opens the OS popup, which does not match the app. Shared feature UI still has
+    // a few uses (vault, chat forms); app code outside the shared layer uses the app Select.
+    if (!file.startsWith(`${uiRoot}${sep}`) && /<NativeSelect\b/u.test(source)) {
+      failures.push(`${label}: use the app Select instead of NativeSelect`);
+    }
     if (/from\s+["'](?:@kobalte\/core|lucide-solid)(?:\/[^"']*)?["']/u.test(source)) {
       failures.push(`${label}: Kobalte/Lucide imports are allowed only in components/ui`);
     }

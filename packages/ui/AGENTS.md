@@ -15,6 +15,11 @@ Receive data and actions through typed props and callbacks. Move components; do 
 The one exception is interface text: call `useText()` from `@openbot/ui/text` for `t`, `format`
 and `errorMessage`. Do not add a `t` prop. See [docs/i18n.md](../../docs/i18n.md).
 Preserve existing markup, styles, and behavior unless the user requests a design change.
+Feature UI here uses the primitives of this package: `Select`, `Input`, `Textarea`, `Button`,
+`Switch`, `Checkbox`, `Field`, `Label`, dialogs and menus. Do not use a raw `<select>`, `<input>`,
+`<button>` or `<textarea>` outside the primitives, or an outside UI library. Use `Select`, not
+`NativeSelect`, for a new picker; `NativeSelect` opens the OS popup. If a primitive is missing, add
+it in `src/` and give it a story.
 Shared feature CSS lives in this package. The app stylesheet imports it in the existing order.
 `features/conversation/conversation.css` is the ordered style manifest. Keep component rules in
 its `styles/` directory and preserve override order. Do not import those fragments separately.

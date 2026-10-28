@@ -291,7 +291,7 @@ export function SettingsModal(props: SettingsModalProps) {
           <agents.Panel menuMount={modalElement} />
         </Tabs.Content>
         <Tabs.Content value="autonomy" class="settings-modal-tab-panel" data-tab="autonomy">
-          <SettingsAutonomyTab />
+          <SettingsAutonomyTab selectMount={modalElement} />
         </Tabs.Content>
 
         <Tabs.Content value="notifications" class="settings-modal-tab-panel" data-tab="notifications">

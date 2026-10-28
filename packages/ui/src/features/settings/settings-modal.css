@@ -495,6 +495,33 @@
   width: 112px;
 }
 
+/* A number field in a settings row: the width and surface of the settings select beside it. */
+.app-settings-modal-shell .settings-modal-number-input.ui-input {
+  width: 168px;
+  background: var(--openbot-bg-surface-raised);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  appearance: textfield;
+}
+
+.app-settings-modal-shell .settings-modal-number-input.ui-input::-webkit-inner-spin-button,
+.app-settings-modal-shell .settings-modal-number-input.ui-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+/* The budget actions under the Budgets card: the cost note, then Reset and Save limits at the end. */
+.app-settings-modal-shell .settings-autonomy-budget-actions {
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+}
+
+.app-settings-modal-shell .settings-autonomy-budget-actions > .ui-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
 .app-settings-modal-shell .settings-modal-update-actions {
   flex-wrap: wrap;
 }
@@ -769,7 +796,8 @@
   }
 
   .app-settings-modal-shell .settings-modal-row .ui-item-actions,
-  .app-settings-modal-shell :is(.settings-modal-select, .settings-modal-update-track-select) {
+  .app-settings-modal-shell :is(.settings-modal-select, .settings-modal-update-track-select),
+  .app-settings-modal-shell .settings-modal-number-input.ui-input {
     width: 100%;
   }
 

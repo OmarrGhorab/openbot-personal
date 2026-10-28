@@ -104,6 +104,14 @@ reference is the reactive unit: write a collection held in a signal by copying
 
 ## Component reuse
 
+**Use the app components, never native controls.** Every control comes from `@openbot/ui`:
+`Select`, `Input`, `Textarea`, `Button`, `Switch`, `Checkbox`, `Field` and `Label`, dialogs and
+menus. Do not write a raw `<select>`, `<input>`, `<button>` or `<textarea>`, and do not use
+`NativeSelect`: it opens the OS popup, which does not match the app. A settings page uses the
+settings rows (`ItemGroup class="settings-modal-card"`, `Item class="settings-modal-row"`) and
+`settings-modal-select` for a `Select`, as `SettingsGeneralTab.tsx` does. Do not add an outside UI
+library. If no component fits, add or extend one in `packages/ui`.
+
 Search for an existing component, hook, style, utility or story first, and prefer reuse, composition
 or a small extension. The shared layer is `packages/ui/src` over patched Kobalte:
 extend a primitive there rather than copying one into a feature, and update its story when it gains

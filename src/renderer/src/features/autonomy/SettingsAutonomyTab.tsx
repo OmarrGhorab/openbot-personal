@@ -23,7 +23,11 @@ import {
   ItemDescription,
   ItemGroup,
   ItemTitle,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SettingsSection,
   SwitchField,
   Text,
@@ -71,11 +75,25 @@ const SCOPE_LABEL = {
 
 const PAGE_SIZE = 50;
 
+/** The value of the "All ..." choice of an audit filter. It is never an agent id, a risk or an action. */
+const ANY = "*";
+
+/** One choice of a settings select: the stored value and its visible name. */
+interface Choice {
+  id: string;
+  label: string;
+}
+
+interface SettingsAutonomyTabProps {
+  /** The dialog element the Select popovers portal into, captured when the tab was created. */
+  selectMount?: HTMLElement | undefined;
+}
+
 /**
  * The safety settings of the agents on this computer: the approval rules and budgets of each agent,
  * its usage, and the audit log. Stop all agents is in the sidebar header, where it is always in reach.
  */
-export function SettingsAutonomyTab() {
+export function SettingsAutonomyTab(props: SettingsAutonomyTabProps) {
   const i18n = useI18n();
   const [snapshot, setSnapshot] = createSignal<AutonomySnapshot | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
@@ -142,16 +160,16 @@ export function SettingsAutonomyTab() {
   };
 
   // The audit log has its own filters and paging, apart from the selected agent.
-  const [auditAgent, setAuditAgent] = createSignal("");
-  const [auditRisk, setAuditRisk] = createSignal("");
-  const [auditAction, setAuditAction] = createSignal("");
+  const [auditAgent, setAuditAgent] = createSignal(ANY);
+  const [auditRisk, setAuditRisk] = createSignal(ANY);
+  const [auditAction, setAuditAction] = createSignal(ANY);
   const [entries, setEntries] = createSignal<AutonomyAuditEntry[]>([]);
   const [nextBefore, setNextBefore] = createSignal<number | null>(null);
   const [auditFailed, setAuditFailed] = createSignal(false);
 
   const auditFilter = (before?: number): AutonomyAuditFilter => {
     const filter: AutonomyAuditFilter = { limit: PAGE_SIZE };
-    if (auditAgent()) filter.agentId = auditAgent();
+    if (auditAgent() !== ANY) filter.agentId = auditAgent();
     const risk = auditRisk();
     if (isOneOf(ACTION_RISK_LEVELS, risk)) filter.risk = risk;
     const action = auditAction();
@@ -172,6 +190,26 @@ export function SettingsAutonomyTab() {
       .catch(() => setAuditFailed(true));
 
   const agentName = (agentId: string | null) => agents().find((agent) => agent.agentId === agentId)?.agentName;
+
+  const agentChoices = (): Choice[] => agents().map((agent) => ({ id: agent.agentId, label: agent.agentName }));
+  const auditAgentChoices = (): Choice[] => [
+    { id: ANY, label: i18n.t("autonomy.audit.filter.allAgents") },
+    ...agentChoices(),
+  ];
+  const auditRiskChoices = (): Choice[] => [
+    { id: ANY, label: i18n.t("autonomy.audit.filter.allRisks") },
+    ...RISKS.map((risk) => ({ id: risk, label: i18n.t(RISK_LABEL[risk]) })),
+  ];
+  const auditActionChoices = (): Choice[] => [
+    { id: ANY, label: i18n.t("autonomy.audit.filter.allActions") },
+    ...ACTIONS.map((action) => ({ id: action, label: i18n.t(ACTION_LABEL[action]) })),
+  ];
+
+  /** Sets one audit filter and loads the first page again. */
+  const filterAudit = (set: (value: string) => void) => (value: string) => {
+    set(value);
+    void loadAudit();
+  };
 
   onSettled(() => {
     void reload();
@@ -202,16 +240,25 @@ export function SettingsAutonomyTab() {
         {(agent) => (
           <>
             <SettingsSection title={i18n.t("autonomy.tab.agent")}>
-              <NativeSelect
-                aria-label={i18n.t("autonomy.tab.agent")}
-                value={agent().agentId}
-                onChange={(event) => {
-                  setChosenAgentId(event.currentTarget.value);
-                  setDraft(null);
-                }}
-              >
-                <For each={agents()}>{(item) => <option value={item.agentId}>{item.agentName}</option>}</For>
-              </NativeSelect>
+              <ItemGroup class="settings-modal-card">
+                <Item class="settings-modal-row">
+                  <ItemContent>
+                    <ItemDescription>{i18n.t("autonomy.tab.agentDescription")}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <ChoiceSelect
+                      label={i18n.t("autonomy.tab.agent")}
+                      choices={agentChoices()}
+                      value={agent().agentId}
+                      mount={props.selectMount}
+                      onChange={(agentId) => {
+                        setChosenAgentId(agentId);
+                        setDraft(null);
+                      }}
+                    />
+                  </ItemActions>
+                </Item>
+              </ItemGroup>
             </SettingsSection>
 
             <SettingsSection
@@ -248,18 +295,21 @@ export function SettingsAutonomyTab() {
                   {(scope) => (
                     <For each={LIMITS}>
                       {(kind) => (
-                        <Item>
+                        <Item class="settings-modal-row">
                           <ItemContent>
-                            <ItemTitle>{`${i18n.t(SCOPE_LABEL[scope])} · ${i18n.t(LIMIT_LABEL[kind])}`}</ItemTitle>
+                            <ItemTitle>{i18n.t(LIMIT_LABEL[kind])}</ItemTitle>
+                            <ItemDescription>{i18n.t(SCOPE_LABEL[scope])}</ItemDescription>
                           </ItemContent>
                           <ItemActions>
                             <Input
+                              class="settings-modal-number-input"
                               aria-label={`${i18n.t(SCOPE_LABEL[scope])} ${i18n.t(LIMIT_LABEL[kind])}`}
                               type="number"
+                              inputmode="decimal"
                               min="0"
                               step="any"
                               value={fields()?.[scope][kind] ?? ""}
-                              onInput={(event) => typeBudget(scope, kind, event.currentTarget.value)}
+                              onValueChange={(text) => typeBudget(scope, kind, text)}
                             />
                           </ItemActions>
                         </Item>
@@ -268,14 +318,23 @@ export function SettingsAutonomyTab() {
                   )}
                 </For>
               </ItemGroup>
-              <div>
-                <Button type="button" variant="secondary" disabled={draft() === null} onClick={saveBudgets}>
+              <div class="settings-modal-save-actions settings-autonomy-budget-actions">
+                <Text as="p" variant="caption" tone="muted">
+                  {i18n.t("autonomy.budgets.costNote")}
+                </Text>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={draft() === null}
+                  onClick={() => setDraft(null)}
+                >
+                  {i18n.t("autonomy.budgets.reset")}
+                </Button>
+                <Button type="button" size="sm" variant="default" disabled={draft() === null} onClick={saveBudgets}>
                   {i18n.t("autonomy.budgets.save")}
                 </Button>
               </div>
-              <Text as="p" variant="caption" tone="muted">
-                {i18n.t("autonomy.budgets.costNote")}
-              </Text>
             </SettingsSection>
 
             <SettingsSection title={i18n.t("autonomy.usage.title")}>
@@ -323,39 +382,50 @@ export function SettingsAutonomyTab() {
       </Show>
 
       <SettingsSection title={i18n.t("autonomy.audit.title")} description={i18n.t("autonomy.audit.description")}>
-        <NativeSelect
-          aria-label={i18n.t("autonomy.audit.filter.agent")}
-          value={auditAgent()}
-          onChange={(event) => {
-            setAuditAgent(event.currentTarget.value);
-            void loadAudit();
-          }}
-        >
-          <option value="">{i18n.t("autonomy.audit.filter.allAgents")}</option>
-          <For each={agents()}>{(item) => <option value={item.agentId}>{item.agentName}</option>}</For>
-        </NativeSelect>
-        <NativeSelect
-          aria-label={i18n.t("autonomy.audit.filter.risk")}
-          value={auditRisk()}
-          onChange={(event) => {
-            setAuditRisk(event.currentTarget.value);
-            void loadAudit();
-          }}
-        >
-          <option value="">{i18n.t("autonomy.audit.filter.allRisks")}</option>
-          <For each={RISKS}>{(risk) => <option value={risk}>{i18n.t(RISK_LABEL[risk])}</option>}</For>
-        </NativeSelect>
-        <NativeSelect
-          aria-label={i18n.t("autonomy.audit.filter.action")}
-          value={auditAction()}
-          onChange={(event) => {
-            setAuditAction(event.currentTarget.value);
-            void loadAudit();
-          }}
-        >
-          <option value="">{i18n.t("autonomy.audit.filter.allActions")}</option>
-          <For each={ACTIONS}>{(action) => <option value={action}>{i18n.t(ACTION_LABEL[action])}</option>}</For>
-        </NativeSelect>
+        <ItemGroup class="settings-modal-card">
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("autonomy.audit.filter.agent")}</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <ChoiceSelect
+                label={i18n.t("autonomy.audit.filter.agent")}
+                choices={auditAgentChoices()}
+                value={auditAgent()}
+                mount={props.selectMount}
+                onChange={filterAudit(setAuditAgent)}
+              />
+            </ItemActions>
+          </Item>
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("autonomy.audit.filter.risk")}</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <ChoiceSelect
+                label={i18n.t("autonomy.audit.filter.risk")}
+                choices={auditRiskChoices()}
+                value={auditRisk()}
+                mount={props.selectMount}
+                onChange={filterAudit(setAuditRisk)}
+              />
+            </ItemActions>
+          </Item>
+          <Item class="settings-modal-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("autonomy.audit.filter.action")}</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <ChoiceSelect
+                label={i18n.t("autonomy.audit.filter.action")}
+                choices={auditActionChoices()}
+                value={auditAction()}
+                mount={props.selectMount}
+                onChange={filterAudit(setAuditAction)}
+              />
+            </ItemActions>
+          </Item>
+        </ItemGroup>
 
         <Show when={auditFailed()}>
           <Text as="p" variant="caption" tone="muted">
@@ -408,6 +478,38 @@ export function SettingsAutonomyTab() {
         </Show>
       </SettingsSection>
     </>
+  );
+}
+
+/** A settings select of plain choices, in the size and width of the other settings rows. */
+function ChoiceSelect(props: {
+  label: string;
+  choices: Choice[];
+  value: string;
+  mount: HTMLElement | undefined;
+  onChange: (id: string) => void;
+}) {
+  const selected = () => props.choices.find((choice) => choice.id === props.value) ?? null;
+  return (
+    <Select<Choice>
+      class="settings-modal-select"
+      options={props.choices}
+      value={selected()}
+      optionValue="id"
+      optionTextValue="label"
+      placement="bottom-end"
+      onChange={(choice) => {
+        if (choice) props.onChange(choice.id);
+      }}
+      itemComponent={(selectProps) => (
+        <SelectItem item={selectProps.item}>{selectProps.item.rawValue.label}</SelectItem>
+      )}
+    >
+      <SelectTrigger size="sm" aria-label={props.label}>
+        <SelectValue<Choice>>{(state) => state.selectedOption()?.label}</SelectValue>
+      </SelectTrigger>
+      <SelectContent mount={props.mount} />
+    </Select>
   );
 }
 

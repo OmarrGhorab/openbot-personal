@@ -49,6 +49,9 @@ describe("ui foundation check", () => {
         "components/branches/NativeInput.tsx: use a components/ui control instead of a native element",
         "components/branches/NativeSelect.tsx: use a components/ui control instead of a native element",
         "components/branches/NativeTextarea.tsx: use a components/ui control instead of a native element",
+        // A shared control that opens the OS popup. The same use inside components/ui/features is
+        // allowed, and ../renderer-clean holds that neighbour.
+        "components/branches/NativeSelectControl.tsx: use the app Select instead of NativeSelect",
         "components/branches/ColourBackgroundRgb.tsx: a colour literal in an inline style is forbidden; use a palette token",
         "components/branches/ColourBackgroundRgba.tsx: a colour literal in an inline style is forbidden; use a palette token",
         "components/branches/ColourTextHsla.tsx: a colour literal in an inline style is forbidden; use a palette token",
