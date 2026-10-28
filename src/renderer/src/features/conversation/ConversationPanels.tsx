@@ -273,6 +273,13 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       };
     },
   );
+  /**
+   * The pane that the side panel header shows as selected. Kobalte's Tabs reads it inside an effect
+   * callback when a pane opens beside another one. A condition written in the JSX prop compiles to a
+   * memo that would be created there, which halts the reactive system: "Ask on the side" in the Tasks
+   * pane did that, and the side chat then took no typing. A memo made here is created once.
+   */
+  const sidePanelHeaderSelected = createMemo(() => (activeRightPanel() === "side-panel" ? null : sidePanel().selected));
   createEffect(browserSidebarOpen, (open, previous) => {
     if (open && previous === false) onSettled(() => browserPreviewTrigger?.focus());
   });
@@ -281,7 +288,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       <Show when={sidePanelOpen()}>
         <SidePanelHeader
           panes={sidePanel().panes}
-          selected={activeRightPanel() === "side-panel" ? null : sidePanel().selected}
+          selected={sidePanelHeaderSelected()}
           available={sidePanelPanes()}
           maximized={sidePanel().maximized}
           settingsLabel={channel ? t("channel.settings.title") : undefined}
