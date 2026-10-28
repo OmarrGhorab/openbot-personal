@@ -19,6 +19,7 @@ import type { AgentService } from "../../backend/agent-service";
 import type { BrowserHost } from "../../backend/browser-host";
 import type { MailboxStore } from "../../backend/mailbox-store";
 import type { AgentDefaultsPreferenceStore } from "../agent-defaults-preference-store";
+import type { AgentMcpChangesPreferenceStore } from "../agent-mcp-changes-preference-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
 import { readAnalyticsPreference, writeAnalyticsPreference } from "../analytics-preference-store";
 import type { AppBehaviorService } from "../app-behavior-service";
@@ -38,6 +39,7 @@ import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
 import {
   parseAgentDefaults,
+  parseAgentMcpChangesPreference,
   parseAnalyticsPreference,
   parseAppAppearancePreference,
   parseAppBehaviorPreferenceChange,
@@ -99,6 +101,8 @@ export interface AppIpcDependencies {
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
+  /** Whether agents with Full access change MCP servers without an approval card. */
+  agentMcpChanges: AgentMcpChangesPreferenceStore;
   remoteNetworkRoute: RemoteNetworkRoutePreferenceStore;
   /** Applies a changed network route to the devices that are connected to this computer now. */
   applyRemoteNetworkRoute: () => Promise<void>;
@@ -131,6 +135,7 @@ export function appIpcHandlers({
   agentDefaults,
   agentMemoryLimit,
   remoteSessionReuse,
+  agentMcpChanges,
   remoteNetworkRoute,
   applyRemoteNetworkRoute,
   remoteSessionCache,
@@ -194,6 +199,11 @@ export function appIpcHandlers({
         return saved;
       }),
       getAgentMemoryLimitPreference: handler(() => agentMemoryLimit.get()),
+      getAgentMcpChangesPreference: handler(() => agentMcpChanges.get()),
+      // The backend reads the value at each MCP change, so off asks again from the next change.
+      setAgentMcpChangesPreference: payloadHandler(parseAgentMcpChangesPreference, (parsed) =>
+        runCauseEffect(agentMcpChanges.set(parsed)),
+      ),
       getRemoteSessionReusePreference: handler(() => remoteSessionReuse.get()),
       // Off removes the kept sessions at once. The sessions of this run then end when the app quits.
       setRemoteSessionReusePreference: payloadHandler(parseRemoteSessionReusePreference, async (parsed) => {

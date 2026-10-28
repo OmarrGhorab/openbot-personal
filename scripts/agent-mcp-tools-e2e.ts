@@ -152,6 +152,7 @@ try {
       handleMcpServerTool(tools, {
         tool,
         arguments: args,
+        withoutApproval: false,
         approve: (reason) =>
           Effect.sync(() => {
             approvals.push(reason);

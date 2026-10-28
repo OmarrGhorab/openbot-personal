@@ -196,6 +196,11 @@ export interface OpenBotToolRouterOptions {
   screenCapture?: ScreenCaptureHost | null | undefined;
   /** The MCP servers of this OpenBot server, for the MCP tools; null where nothing holds them. */
   mcpServers?: AgentMcpServers | null | undefined;
+  /**
+   * Whether the user lets agents with Full access change MCP servers without an approval card. Read
+   * at each MCP change. Omitted, every change asks.
+   */
+  mcpChangesWithoutApproval?: (() => boolean) | undefined;
   /** The API keys that users saved for agents; null where nothing can save them. */
   apiKeys?: AgentApiKeys | null | undefined;
   hooks: OpenBotToolRouterHooks;
@@ -234,6 +239,7 @@ export class OpenBotToolRouter {
   readonly #visualPreview: ChatVisualPreviewHost | null;
   readonly #screenCapture: ScreenCaptureHost | null;
   readonly #mcpServers: AgentMcpServers | null;
+  readonly #mcpChangesWithoutApproval: () => boolean;
   readonly #apiKeys: AgentApiKeys | null;
   readonly #hooks: OpenBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
@@ -268,6 +274,7 @@ export class OpenBotToolRouter {
     this.#visualPreview = options.visualPreview ?? null;
     this.#screenCapture = options.screenCapture ?? null;
     this.#mcpServers = options.mcpServers ?? null;
+    this.#mcpChangesWithoutApproval = options.mcpChangesWithoutApproval ?? (() => false);
     this.#apiKeys = options.apiKeys ?? null;
     this.#hooks = options.hooks;
     this.#interruptTool = new AgentInterruptTool({
@@ -1173,9 +1180,12 @@ export class OpenBotToolRouter {
   });
 
   /**
-   * The MCP tools. A change waits for the user's approval, given at once for an agent with Full
-   * access, and a server that needs a sign-in gets a card in the conversation. Every failure is a
-   * result the agent can correct, with the MCP secrets masked.
+   * The MCP tools. A change always waits for the user's approval, also for an agent with Full access,
+   * because a server applies to every agent on this OpenBot server. Only when the user turned on
+   * "Agents can manage MCP servers without asking" does an agent with Full access skip it. Both are
+   * read at each change, so turning the setting off or leaving Full access asks from the next one.
+   * A server that needs a sign-in gets a card in the conversation. Every failure is a result the
+   * agent can correct, with the MCP secrets masked.
    */
   readonly #mcpServerTool = Effect.fn("OpenBotToolRouter.mcpServerTool")(function* (
     this: OpenBotToolRouter,
@@ -1188,23 +1198,31 @@ export class OpenBotToolRouter {
     if (!agentId || !servers || !isMcpServerTool(params.tool))
       return openBotToolFailure(sourceText("error.agent.toolRequestInvalid"));
     const threadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const withoutApproval = this.#mcpChangesWithoutApproval() && this.#attention.hasFullAccess(agentId);
     return yield* handleMcpServerTool(servers, {
       tool: params.tool,
       arguments: params.arguments,
+      withoutApproval,
       approve: (reason, cwd) =>
         this.#attention
-          .awaitToolApproval(client, request, {
-            requestId: request.id,
-            agentId,
-            threadId,
-            turnId: params.turnId,
-            kind: "permissions",
-            command: null,
-            cwd: cwd ?? null,
-            reason,
-            grantRoot: null,
-            permissions: null,
-          })
+          .awaitToolApproval(
+            client,
+            request,
+            {
+              requestId: request.id,
+              agentId,
+              threadId,
+              turnId: params.turnId,
+              kind: "permissions",
+              command: null,
+              cwd: cwd ?? null,
+              reason,
+              grantRoot: null,
+              permissions: null,
+            },
+            // A Full access grant does not answer it: the setting above is the only way past the card.
+            { alwaysAsk: true },
+          )
           .pipe(
             Effect.map((decision) => decision === "accept"),
             toToolOperationFailed,

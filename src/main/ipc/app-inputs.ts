@@ -1,6 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentDefaults,
+  AgentMcpChangesPreference,
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
@@ -118,6 +119,12 @@ export function parseAgentMemoryLimitPreference(input: unknown): AgentMemoryLimi
 export function parseChatWindowTarget(input: unknown): ChatWindowTarget {
   if (!isDynamicRecord(input)) throw new Error("A chat is required.");
   return { serverId: requireString(input.serverId, "Server"), agentId: requireString(input.agentId, "Agent") };
+}
+
+export function parseAgentMcpChangesPreference(input: unknown): AgentMcpChangesPreference {
+  if (!isDynamicRecord(input) || !isBoolean(input.withoutApproval))
+    throw new Error("The MCP approval setting is required.");
+  return { withoutApproval: input.withoutApproval };
 }
 
 export function parseRemoteSessionReusePreference(input: unknown): RemoteSessionReusePreference {
