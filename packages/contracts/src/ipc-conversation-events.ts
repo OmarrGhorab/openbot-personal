@@ -357,6 +357,22 @@ export function isVaultChangeMarker(message: ConversationMessage): boolean {
 }
 
 /**
+ * The item type of the note that an agent changed an MCP server without an approval card, because
+ * the user lets agents with Full access do that. The text is a readable sentence that names the
+ * action, the server and its address or command line with known secrets masked, and how to undo it.
+ */
+export const MCP_CHANGE_ITEM_TYPE = "mcp-change";
+
+export function isMcpChangeMarker(message: ConversationMessage): boolean {
+  return (
+    message.author === "system" &&
+    message.source === "system" &&
+    message.status === "completed" &&
+    message.itemType === MCP_CHANGE_ITEM_TYPE
+  );
+}
+
+/**
  * The item type of a message that one agent sends to another, in the sender's thread and in the
  * recipient's thread. It is traffic between agents, not a message to the user.
  */

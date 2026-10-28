@@ -43,6 +43,16 @@ export const messages = defineMessages("status.agent", {
   "status.agent.mcpServerEnable": "Turn on the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerDisable": "Turn off the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerRemove": "Remove the MCP server {name} and its sign-in from every agent on this server.",
+  "status.agent.mcpServerAddedWithoutApproval":
+    "Added the MCP server {name} without asking: {target}. Every agent on this server gets its tools. To undo, remove it in Server settings, MCP.",
+  "status.agent.mcpServerChangedWithoutApproval":
+    "Changed the MCP server {name} without asking: {target}. To undo, edit it in Server settings, MCP.",
+  "status.agent.mcpServerEnabledWithoutApproval":
+    "Turned on the MCP server {name} without asking: {target}. To undo, turn it off in Server settings, MCP.",
+  "status.agent.mcpServerDisabledWithoutApproval":
+    "Turned off the MCP server {name} without asking: {target}. To undo, turn it on in Server settings, MCP.",
+  "status.agent.mcpServerRemovedWithoutApproval":
+    "Removed the MCP server {name} without asking: {target}. To undo, add it again in Server settings, MCP.",
   "status.agent.mcpSignInRequested": "The MCP server {name} needs a sign-in. Sign in from Server settings, MCP.",
   "status.agent.vaultAdded": "Saved to Vault: {name}",
   "status.agent.vaultUpdated": "Changed in Vault: {name}",

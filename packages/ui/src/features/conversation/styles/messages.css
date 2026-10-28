@@ -816,6 +816,21 @@ button.chat-action-target:active,
   padding-inline-end: var(--openbot-space-1-5);
 }
 
+/* An automatic MCP change says what changed and how to undo it, which takes more than one line. */
+.chat-action-marker-mcp-change .chat-action-marker-content {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-width: 0;
+}
+
+.chat-action-marker-mcp-change .chat-action-marker-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .chat-action-target-name,
 .chat-action-target > span:last-child {
   min-width: 0;
