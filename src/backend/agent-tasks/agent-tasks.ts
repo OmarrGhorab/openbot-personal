@@ -33,6 +33,23 @@ const AGENT_STARTED_OPEN_TASKS = 8;
 
 export const START_TASK_TOOL = "start_task";
 
+/** The agent calls it in a ticket work thread after it opens its pull request. */
+export const REGISTER_PULL_REQUEST_TOOL = "register_pull_request";
+
+export const registerPullRequestToolSchema = z.strictObject({
+  project: z.string().trim().min(1).max(300),
+  pullNumber: z.number().int().positive(),
+});
+
+/** Records which work thread owns a pull request. The composition root gives the ticket store. */
+export interface AgentTaskPullRegistry {
+  registerForTask(
+    taskId: string,
+    project: string,
+    pullNumber: number,
+  ): "registered" | "not-a-ticket-task" | "owned-by-another";
+}
+
 export const startTaskToolSchema = z.strictObject({
   title: z.string().trim().min(1).max(INPUT_LIMITS.agentTaskTitle),
   brief: z.string().trim().min(1).max(INPUT_LIMITS.messageText),
@@ -67,6 +84,8 @@ export interface AgentTasksOptions {
   mailbox: MailboxStore;
   conversation: ConversationRuntime;
   hooks: AgentTasksHooks;
+  /** Pull requests of ticket work threads. Null when the composition root has no ticket intake. */
+  pulls?: AgentTaskPullRegistry;
 }
 
 /**
@@ -83,6 +102,7 @@ export class AgentTasks implements TaskLanes {
   readonly #mailbox: MailboxStore;
   readonly #conversation: ConversationRuntime;
   readonly #hooks: AgentTasksHooks;
+  readonly #pulls: AgentTaskPullRegistry | null;
   /** The last progress line of each running task turn, by task id. */
   readonly #progress = new Map<string, string>();
   /** The last turn of each task that the user stopped, by task id. */
@@ -95,6 +115,7 @@ export class AgentTasks implements TaskLanes {
     this.#mailbox = options.mailbox;
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
+    this.#pulls = options.pulls ?? null;
   }
 
   threadId(taskId: string): string | null {
@@ -324,6 +345,7 @@ export class AgentTasks implements TaskLanes {
     params: DynamicToolCallParams,
     caller: AgentTaskCaller,
   ): Effect.fn.Return<OpenBotToolResponse | null> {
+    if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -433,6 +455,25 @@ export class AgentTasks implements TaskLanes {
       default:
         return false;
     }
+  }
+
+  /** Answers `register_pull_request` from the work thread that calls it. */
+  #registerPull(params: DynamicToolCallParams, agentId: string): OpenBotToolResponse {
+    const parsed = registerPullRequestToolSchema.safeParse(params.arguments);
+    if (!parsed.success) return openBotToolFailure(sourceText("error.backend.pullRequestToolInvalid"));
+    // The provider's thread ID is not OpenBot's; the router maps it the same way before it checks a thread.
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    if (!task || !this.#pulls) return openBotToolFailure(sourceText("error.backend.pullRequestNotTicketTask"));
+    const outcome = this.#pulls.registerForTask(task.taskId, parsed.data.project, parsed.data.pullNumber);
+    if (outcome === "registered") {
+      return openBotToolResult({
+        status: "registered",
+        project: parsed.data.project,
+        pullNumber: parsed.data.pullNumber,
+      });
+    }
+    if (outcome === "owned-by-another") return openBotToolFailure(sourceText("error.backend.pullRequestOwned"));
+    return openBotToolFailure(sourceText("error.backend.pullRequestNotTicketTask"));
   }
 
   #taskOf(threadId: string | null): AgentTaskRecord | null {

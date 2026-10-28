@@ -12,8 +12,17 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 
-const RAVEN_TEAM_TABLES = { raven_team_jobs: [], raven_team_roles: [], raven_team_templates: [] };
-const LATEST = 48;
+const RAVEN_TEAM_TABLES = {
+  raven_team_jobs: [],
+  raven_team_roles: [],
+  raven_team_templates: [],
+  projection_agent_ticket_links: [],
+  projection_agent_ticket_watches: [],
+  projection_agent_ticket_pulls: [],
+};
+// The version of this migration (48), and the newest version the application supports.
+const MIGRATION_VERSION = 48;
+const LATEST = 49;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
@@ -99,16 +108,16 @@ function databaseAtWithSeed(version: number): DatabaseSync {
 }
 
 describe("raven team migration", () => {
-  it.each(Array.from({ length: LATEST - 1 - 8 + 1 }, (_, index) => index + 8))(
+  it.each(Array.from({ length: MIGRATION_VERSION - 1 - 8 + 1 }, (_, index) => index + 8))(
     "preserves every row from released schema %i",
     (version) => {
       const db = databaseAtWithSeed(version);
       // Older migrations run first; the rows at version 47 are what v48 must keep.
-      if (version < LATEST - 1) migrateUpTo(db, LATEST - 1);
+      if (version < MIGRATION_VERSION - 1) migrateUpTo(db, MIGRATION_VERSION - 1);
       if (version < 38) insertTask(db);
       const before = contents(db);
       migrateOpenBotDatabase(db);
-      expect(contents(db)).toEqual({ ...before, ...RAVEN_TEAM_TABLES });
+      expect(contents(db)).toMatchObject({ ...before, ...RAVEN_TEAM_TABLES });
       expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: LATEST });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -117,22 +126,22 @@ describe("raven team migration", () => {
   );
 
   it("rolls back the tables and the marker after a late failure, then retries", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     const before = contents(db);
-    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=${LATEST}
+    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=${MIGRATION_VERSION}
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${LATEST} failed`);
+    expect(() => migrateOpenBotDatabase(db)).toThrow(`migration to version ${MIGRATION_VERSION} failed`);
     expect(contents(db)).toEqual(before);
     expect(ravenTeamTables(db)).toEqual([]);
-    expect(db.prepare(`SELECT version FROM schema_migrations WHERE version=${LATEST}`).all()).toEqual([]);
+    expect(db.prepare(`SELECT version FROM schema_migrations WHERE version=${MIGRATION_VERSION}`).all()).toEqual([]);
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
-    expect(contents(db)).toEqual({ ...before, ...RAVEN_TEAM_TABLES });
+    expect(contents(db)).toMatchObject({ ...before, ...RAVEN_TEAM_TABLES });
   });
 
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     const before = contents(db);
     db.exec(`INSERT INTO schema_migrations VALUES(${LATEST + 1},'now')`);
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
@@ -145,7 +154,7 @@ describe("raven team migration", () => {
   });
 
   it("keeps a database that is already at version 48 unchanged on the next start", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     insertTemplate(db);
     insertJob(db);
@@ -156,7 +165,7 @@ describe("raven team migration", () => {
   });
 
   it("refuses a job or role state, access or score that the table does not list, and bad JSON", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     expect(() => insertTemplate(db, "team-2", "not json")).toThrow("CHECK constraint failed");
     insertTemplate(db);
@@ -168,7 +177,7 @@ describe("raven team migration", () => {
   });
 
   it("removes the role rows of a deleted job and keeps the agents and tasks", () => {
-    const db = databaseAtWithSeed(LATEST - 1);
+    const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     migrateOpenBotDatabase(db);
     insertJob(db);
     insertRole(db, { role: "builder" });

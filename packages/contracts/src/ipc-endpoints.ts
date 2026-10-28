@@ -10,6 +10,7 @@ import type {
   ResetAgentSessionSettingInput,
   SetAgentSessionSettingInput,
 } from "./ipc-agent-session-settings";
+import type { AgentTicketWatch, AgentTicketWatchInput } from "./ipc-agent-ticket-watch";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
 // is a request the renderer invokes or an event the main process sends. That is what lets a
 // registrar bind its handlers as an object keyed by endpoint, so a channel with no handler, and a
@@ -1446,6 +1447,12 @@ export const IPC_ENDPOINTS = {
     listTables: scopedQuery<SharedTable[]>()("shared:list-tables"),
     deleteTable: scopedRequest<DeleteSharedTableInput, void>()("shared:delete-table"),
   },
+  agentTicketWatch: {
+    // The ticket source of an agent. It is local to this computer.
+    ticketWatch: request<string, AgentTicketWatch | null>()("agent:ticket-watch:get"),
+    setTicketWatch: request<AgentTicketWatchInput, AgentTicketWatch>()("agent:ticket-watch:set"),
+    clearTicketWatch: request<string, void>()("agent:ticket-watch:clear"),
+  },
   agentRoutines: {
     listRoutines: scopedRequest<string, Routine[]>()("agent:list-routines"),
     createRoutine: scopedRequest<CreateRoutineInput, Routine>()("agent:create-routine"),
@@ -1855,6 +1862,7 @@ export const IPC_GROUP_PATHS = {
   agentQuestions: "agent",
   sharedTables: "agent",
   agentRoutines: "agent",
+  agentTicketWatch: "agent",
   channelMemories: "agent",
   channelRoutines: "agent",
   agentAttachments: "agent",

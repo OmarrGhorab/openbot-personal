@@ -2,6 +2,7 @@ import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbo
 import type {
   AcpRegistryEntry,
   AgentSessionSettings,
+  AgentTicketWatch,
   HiddenAgentsSnapshot,
   McpSignInApp,
   McpSignInAppState,
@@ -721,6 +722,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
 
   let tables: SharedTable[] = clone(options.tables ?? STORY_SHARED_TABLES);
   const routines = new Map<string, Routine[]>(Object.entries(clone(options.routines ?? {})));
+  const ticketWatches = new Map<string, AgentTicketWatch>();
   const routineRuns = new Map<string, RoutineRun[]>(Object.entries(clone(options.routineRuns ?? {})));
 
   function emitAgentEvent(event: AgentEvent): void {
@@ -2309,6 +2311,17 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       listTables: async () => clone(tables),
       deleteTable: async (input) => {
         tables = tables.filter((table) => table.name !== input.name);
+      },
+      ticketWatch: async (agentId) => ticketWatches.get(agentId) ?? null,
+      setTicketWatch: async (input) => {
+        const now = new Date().toISOString();
+        const previous = ticketWatches.get(input.agentId);
+        const watch: AgentTicketWatch = { ...input, createdAt: previous?.createdAt ?? now, updatedAt: now };
+        ticketWatches.set(input.agentId, watch);
+        return clone(watch);
+      },
+      clearTicketWatch: async (agentId) => {
+        ticketWatches.delete(agentId);
       },
       listRoutines: async (agentId) => clone(routines.get(agentId) ?? []),
       createRoutine: async (input) => {

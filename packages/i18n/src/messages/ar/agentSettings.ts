@@ -169,4 +169,20 @@ export const messages = {
   "agentSettings.browserProfile.manage": "إدارة",
   "agentSettings.runtime.workspaceEnforcedProcess":
     "عملية {provider} كلها بتشتغل في بيئة معزولة، فأي كتابة برّه بتفشل. متاح على macOS بس.",
+  "agentSettings.links.ticketSource": "مصدر التيكتات",
+  "agentSettings.links.ticketSourceOff": "مقفول",
+  "agentSettings.links.ticketSourceWatching": "{project} · {label}",
+  "agentSettings.ticketSource.title": "مصدر التيكتات",
+  "agentSettings.ticketSource.description":
+    "الإيجنت يبدأ شغل جديد لكل issue مفتوح جديد عليه الـlabel ده، وOpenBot يكتب تعليق على الـissue. الكمبيوتر ده بيفحص الريبو كل خمس دقايق.",
+  "agentSettings.ticketSource.provider": "المزود",
+  "agentSettings.ticketSource.github": "GitHub",
+  "agentSettings.ticketSource.project": "الريبو",
+  "agentSettings.ticketSource.projectHelp": "owner/repo",
+  "agentSettings.ticketSource.label": "الـlabel",
+  "agentSettings.ticketSource.enabled": "راقب الريبو ده",
+  "agentSettings.ticketSource.save": "احفظ المصدر",
+  "agentSettings.ticketSource.remove": "شيل المصدر",
+  "agentSettings.ticketSource.loadFailed": "ماقدرناش نحمل مصدر التيكتات.",
+  "agentSettings.ticketSource.saveFailed": "ماقدرناش نحفظ مصدر التيكتات.",
 } as const satisfies PartialTranslation<typeof source>;

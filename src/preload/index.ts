@@ -298,6 +298,7 @@ import {
   decodeTeamPresenceSnapshot,
   decodeTeamSessions,
 } from "./team-decoding";
+import { decodeAgentTicketWatch, decodeAgentTicketWatchOrNull } from "./ticket-watch-decoding";
 import { decodeVaultImportResult, decodeVaultSecret, decodeVaultState } from "./vault-decoding";
 
 const attachmentImportListeners = new Set<(event: AttachmentImportEvent) => void>();
@@ -1077,6 +1078,11 @@ const openbotApi: OpenBotDesktopApi = {
     ...bridgeGroup(IPC_ENDPOINTS.sharedTables, {
       listTables: decodeTables,
       deleteTable: decodeVoid,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.agentTicketWatch, {
+      ticketWatch: decodeAgentTicketWatchOrNull,
+      setTicketWatch: decodeAgentTicketWatch,
+      clearTicketWatch: decodeVoid,
     }),
     ...bridgeGroup(IPC_ENDPOINTS.agentRoutines, {
       listRoutines: decodeRoutines,

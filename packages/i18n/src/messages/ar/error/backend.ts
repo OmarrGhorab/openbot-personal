@@ -306,6 +306,10 @@ export const messages = {
   "error.backend.taskStillRunning": "المهمة دي لسه شغّالة. استنى لحد ما توقف، وبعدين اقفلها.",
   "error.backend.taskTitleRequired": "اكتب عنوان قصير للمهمة.",
   "error.backend.taskToolInvalid": "اكتب للمهمة عنوان 120 حرف على الأكتر وملخص بيقول المطلوب عمله.",
+  "error.backend.pullRequestToolInvalid": "اكتب المشروع بصيغة owner/repo ورقم الـ pull request.",
+  "error.backend.pullRequestNotTicketTask": "المهمة اللي بدأت من تيكت بس هي اللي تقدر تملك pull request.",
+  "error.backend.pullRequestOwned": "مهمة تانية شغالة بالفعل على الـ pull request ده.",
+  "error.backend.ticketWatchInvalid": "راجع المشروع والـ label. في GitHub، المشروع بصيغة owner/repo.",
   "error.backend.taskOwnChatOnly": "ابدأ مهمة من الشات بتاعك بس. قناة أو محادثة مراسلة أو مهمة تانية مينفعش تبدأ مهمة.",
   "error.backend.taskOpenLimit":
     "الإيجنت ده عنده {count} مهمة مفتوحة بالفعل. استنى لحد ما المستخدم يقفل واحدة قبل ما تبدأ مهمة تانية.",

@@ -32,7 +32,12 @@ import {
 import { LOCAL_SKILL_TOOL_DEFINITIONS } from "./agent/skill-tools";
 import { CREATE_WEBHOOK_ROUTINE_TOOL, UPDATE_WEBHOOK_ROUTINE_TOOL } from "./agent/webhook-routine-tool";
 import { API_KEY_NAME_PATTERN } from "./agent-api-keys";
-import { START_TASK_TOOL, startTaskToolSchema } from "./agent-tasks/agent-tasks";
+import {
+  REGISTER_PULL_REQUEST_TOOL,
+  registerPullRequestToolSchema,
+  START_TASK_TOOL,
+  startTaskToolSchema,
+} from "./agent-tasks/agent-tasks";
 import {
   AWAIT_EVENT_TOOL,
   awaitEventToolSchema,
@@ -554,6 +559,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
     shape: startTaskToolSchema.shape,
+  },
+  {
+    name: REGISTER_PULL_REQUEST_TOOL,
+    description:
+      "Record the pull request that you opened for this task's ticket. Call it once, right after you open the pull request. OpenBot then sends the failed checks and the review comments of that pull request into this task. Only a task that started from a ticket can record one.",
+    shape: registerPullRequestToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
   ...PROJECT_MEMORY_TOOL_DEFINITIONS,
