@@ -646,7 +646,6 @@ try {
             record("changeProviderCredential", provider);
             return change().pipe(Effect.as(NO_STATUS));
           },
-          clearProviderCredential: (_provider, change) => change().pipe(Effect.as(NO_STATUS)),
         },
         credentials: {
           status: (provider) => (providerKeys.has(provider) ? "saved" : "missing"),
@@ -1801,12 +1800,13 @@ try {
     );
     // No Pi process runs while Pi downloads, so a restart of the provider would fail on the missing CLI.
     piDownloading = true;
+    const restarts = callsOf("changeProviderCredential").length;
     const pending = await call("POST", PROVIDERS_V8_ROUTES.apiKeySet, { ...v8, json: { provider: "inception", key } });
     check(
       "while the host downloads Pi, a key-only provider's key is saved without a provider restart",
       pending.status === 200 &&
         isDeepStrictEqual(callsOf("setProviderKey").at(-1), ["inception", key]) &&
-        isDeepStrictEqual(callsOf("changeProviderCredential"), [["inception"]]),
+        callsOf("changeProviderCredential").length === restarts,
       summary(pending),
     );
   }
