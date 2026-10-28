@@ -264,6 +264,11 @@ export type { ResolvedSharedFile } from "./workspace-paths";
 interface AgentServiceEvents {
   failure: [failure: FailureSignal];
   event: [event: AgentEvent];
+  /**
+   * Each turn start and end, of any thread, including a work thread. `event` leaves these out when the
+   * task module takes them, so a listener that follows a work thread (the Raven Stack team) reads them here.
+   */
+  turn: [event: AgentEvent];
   /** Finished tool steps for the local host's product analytics. Never forwarded to a client. */
   toolUsage: [usage: ToolUsageSignal];
 }
@@ -4418,6 +4423,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   #emit(event: AgentEvent): void {
     recordAgentRestartActivity(event);
+    if (event.type === "turn-started" || event.type === "turn-completed") this.emit("turn", event);
     if (this.channels?.event(event) || this.messaging?.event(event, this.#scope) || this.#tasks?.event(event)) return;
     this.emit("event", event);
   }

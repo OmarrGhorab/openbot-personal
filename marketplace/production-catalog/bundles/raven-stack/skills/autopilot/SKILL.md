@@ -33,6 +33,18 @@ Three rules carry the rest:
 
 Steps 10 and 11 may run in parallel on the same commit. Use separate agents for them when the harness can spawn them. When it can't, do each pass in a fresh detached worktree as if someone else wrote the code.
 
+## Team roles in OpenBot
+
+When OpenBot starts this task as a team, your brief begins with "You are the <Role> of a Raven Stack team". Then:
+
+- Do only the steps of your role, from the table above. Run only the skills your brief lists.
+- Only the Builder commits and pushes. Read-only roles change no file.
+- End your final message with one `RAVEN-REPORT:` line, as the brief says. OpenBot reads the verdict and the commit from that line. A message without it is asked once more, then the role is blocked.
+- A verifier reviews only the commit that the brief names. A new commit makes the old verdicts void.
+- After a FAIL, the Builder gets the findings. Fix them in the fix round, push a new commit and report it.
+
+Without such a brief, use the one-agent flow above.
+
 ## Several tasks at once
 
 When you coordinate more than one task, own the queue and the verdicts, never the code. Every branch has exactly one writer.

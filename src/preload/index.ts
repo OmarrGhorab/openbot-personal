@@ -242,6 +242,13 @@ import {
 } from "./messaging-decoding";
 import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
+import {
+  decodeRavenChanged,
+  decodeRavenJob,
+  decodeRavenJobs,
+  decodeRavenPlan,
+  decodeRavenTemplates,
+} from "./raven-team-decoding";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
 import {
   decodeRoutineResultDeliveries,
@@ -712,6 +719,18 @@ const openbotApi: OpenBotDesktopApi = {
     cancel: decodeProviderRuntimeSnapshot,
     checkForUpdates: decodeProviderRuntimeSnapshot,
     event: decodeProviderRuntimeSnapshot,
+  }),
+  ravenTeam: bridgeGroup(IPC_ENDPOINTS.ravenTeam, {
+    listTemplates: decodeRavenTemplates,
+    saveTemplate: decodeRavenTemplates,
+    deleteTemplate: decodeRavenTemplates,
+    plan: decodeRavenPlan,
+    start: decodeRavenJob,
+    listJobs: decodeRavenJobs,
+    setRoleModel: decodeRavenJob,
+    stop: decodeRavenJob,
+    resume: decodeRavenJob,
+    changed: decodeRavenChanged,
   }),
   routineFlows: bridgeGroup(IPC_ENDPOINTS.routineFlows, {
     canvas: decodeRoutineFlowCanvas,

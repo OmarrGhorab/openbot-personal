@@ -12,6 +12,7 @@ export type WindowPage =
   | "monitor"
   | "tasks"
   | "schedule"
+  | "team"
   | "usage"
   | "marketplace"
   | "settings"
