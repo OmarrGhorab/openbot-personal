@@ -10,6 +10,7 @@ export const messages = defineMessages("status.agent", {
   "status.agent.modelReturnedAfterError": "Switched back to {model} after the provider error.",
   "status.agent.marketplaceSuggested": "Suggested a Marketplace app: {app}.",
   "status.agent.doneChecksPassed": "Checks passed: {count}.",
+  "status.agent.doneChecksPassedReview": "Checks passed: {count} · waiting for review by {reviewer}.",
   "status.agent.doneCheckFailed": "Check failed: {command} (exit {exitCode}).",
   "status.agent.doneCheckStopped": "Check stopped before it finished: {command}.",
   "status.agent.channelMemberAdded": "{agent} added {member} to the channel. {person} asked for it.",

@@ -10,6 +10,7 @@ export const messages = {
   "status.agent.modelReturnedAfterError": "رجع تاني لـ {model} بعد خطأ المزوّد.",
   "status.agent.marketplaceSuggested": "اقترح تطبيق من السوق: {app}.",
   "status.agent.doneChecksPassed": "نجحت الفحوصات: {count}.",
+  "status.agent.doneChecksPassedReview": "نجحت الفحوصات: {count} · بانتظار مراجعة {reviewer}.",
   "status.agent.doneCheckFailed": "فشل فحص: {command} (خروج {exitCode}).",
   "status.agent.doneCheckStopped": "الفحص وقف قبل ما يخلص: {command}.",
   "status.agent.channelMemberAdded": "{agent} ضاف {member} للقناة. {person} طلب ده.",

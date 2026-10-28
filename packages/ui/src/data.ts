@@ -156,8 +156,12 @@ export type ChatActionMarkerModel =
   | { kind: "vault-change"; text: string; timestamp: string }
   /** An agent changed an MCP server without an approval card. `text` is the host's note. */
   | { kind: "mcp-change"; text: string; timestamp: string }
-  /** A `mark_done` call ran the agent's checks. `text` is the host's headline; `passed` says whether all passed. */
-  | { kind: "done-check"; passed: boolean; text: string; timestamp: string }
+  /**
+   * A `mark_done` call ran the agent's checks. `text` is the host's headline. `result` is `passed` when
+   * the work is done, `review` when every check passed and the work waits for the reviewer, and
+   * `failed` when a check failed.
+   */
+  | { kind: "done-check"; result: "passed" | "review" | "failed"; text: string; timestamp: string }
   | {
       kind: "unavailable";
       label: string;

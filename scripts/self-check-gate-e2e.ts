@@ -11,7 +11,12 @@
 import assert from "node:assert/strict";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { type AgentSummary, DONE_CHECK_FAILED_ITEM_TYPE, DONE_CHECK_PASSED_ITEM_TYPE } from "@openbot/contracts/ipc";
+import {
+  type AgentSummary,
+  DONE_CHECK_FAILED_ITEM_TYPE,
+  DONE_CHECK_PASSED_ITEM_TYPE,
+  DONE_CHECK_REVIEW_ITEM_TYPE,
+} from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { AgentDoneChecks, type DoneCheckCard } from "../src/backend/agent/agent-done-checks";
 import type { OpenBotToolResponse } from "../src/backend/agent/routine-tools";
@@ -164,9 +169,15 @@ try {
     assert.equal(awaitingReview.body.status, "review_required");
     assert.ok(awaitingReview.text.includes("reviewer"), "the review note names no reviewer");
   });
+  const reviewCard = cards.at(-1);
+  step("the chat card says the work waits for review", "a review card that names the reviewer", () => {
+    assert.equal(reviewCard?.itemType, DONE_CHECK_REVIEW_ITEM_TYPE);
+    assert.ok(reviewCard?.text.includes("waiting for review by"), "the review card reads as done");
+  });
   const reviewed = await markDone("reviewed", "main-thread", { reviewRound: 1 });
   step("a review round of one ends the gate", "status done with round 1", () => {
     assert.equal(reviewed.body.status, "done");
+    assert.equal(cards.at(-1)?.itemType, DONE_CHECK_PASSED_ITEM_TYPE, "the last round does not show done");
   });
 
   // 5. An agent without checks is done, and the note says that no check ran.

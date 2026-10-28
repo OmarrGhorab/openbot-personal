@@ -373,17 +373,22 @@ export function isMcpChangeMarker(message: ConversationMessage): boolean {
 }
 
 /**
- * The item types of the note that a `mark_done` call posts: every check passed, or one check failed.
- * The text is a readable sentence with the redacted end of the failing output, never a secret.
+ * The item types of the note that a `mark_done` call posts: every check passed and the work is done,
+ * every check passed and the work waits for the reviewer, or one check failed. The text is a readable
+ * sentence with the redacted end of the failing output, never a secret.
  */
 export const DONE_CHECK_PASSED_ITEM_TYPE = "done-check-passed";
+export const DONE_CHECK_REVIEW_ITEM_TYPE = "done-check-review";
 export const DONE_CHECK_FAILED_ITEM_TYPE = "done-check-failed";
 
-/** Whether the checks of a check note passed: true or false. Null when the message is not a check note. */
-export function doneCheckPassed(message: ConversationMessage): boolean | null {
+export type DoneCheckResult = "passed" | "review" | "failed";
+
+/** What a check note says: done, waiting for review, or failed. Null when the message is not a check note. */
+export function doneCheckResult(message: ConversationMessage): DoneCheckResult | null {
   if (message.author !== "system" || message.source !== "system" || message.status !== "completed") return null;
-  if (message.itemType === DONE_CHECK_PASSED_ITEM_TYPE) return true;
-  if (message.itemType === DONE_CHECK_FAILED_ITEM_TYPE) return false;
+  if (message.itemType === DONE_CHECK_PASSED_ITEM_TYPE) return "passed";
+  if (message.itemType === DONE_CHECK_REVIEW_ITEM_TYPE) return "review";
+  if (message.itemType === DONE_CHECK_FAILED_ITEM_TYPE) return "failed";
   return null;
 }
 

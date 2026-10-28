@@ -3,7 +3,7 @@ import {
   CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
-  doneCheckPassed,
+  doneCheckResult,
   hostedSiteConversationEvent,
   isChannelChangeMarker,
   isContextResetMarker,
@@ -340,9 +340,9 @@ function chatActionMarker(
     return { kind: "channel-change", text: message.text, timestamp: message.createdAt };
   if (isVaultChangeMarker(message)) return { kind: "vault-change", text: message.text, timestamp: message.createdAt };
   if (isMcpChangeMarker(message)) return { kind: "mcp-change", text: message.text, timestamp: message.createdAt };
-  const checksPassed = doneCheckPassed(message);
-  if (checksPassed !== null)
-    return { kind: "done-check", passed: checksPassed, text: message.text, timestamp: message.createdAt };
+  const checkResult = doneCheckResult(message);
+  if (checkResult !== null)
+    return { kind: "done-check", result: checkResult, text: message.text, timestamp: message.createdAt };
   const skillEvent = skillConversationEvent(message);
   if (skillEvent) return { ...skillEvent, kind: "skill-lifecycle", timestamp: message.createdAt };
   const suggestion = marketplaceSuggestionEvent(message);

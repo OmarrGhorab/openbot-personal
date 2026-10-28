@@ -5,6 +5,7 @@ import {
   type AgentSummary,
   DONE_CHECK_FAILED_ITEM_TYPE,
   DONE_CHECK_PASSED_ITEM_TYPE,
+  DONE_CHECK_REVIEW_ITEM_TYPE,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
@@ -112,7 +113,9 @@ export class AgentDoneChecks {
     const failed = runs.find((run) => run.status === "failed");
     const reviewer = this.#reviewer(agent);
     if (commands.length > 0) {
-      this.#postCard(agentId, threadId, params.turnId, checkCard(runs, commands.length, failed));
+      // The first passing run with a reviewer is not done yet: its card names the review it waits for.
+      const waitsFor = reviewer && parsed.data.reviewRound === undefined ? reviewer : null;
+      this.#postCard(agentId, threadId, params.turnId, checkCard(runs, commands.length, failed, waitsFor));
       logger.info("Ran the definition of done.", { agentId, checks: commands.length, passed: failed === undefined });
     }
     return openBotToolResult(
@@ -199,7 +202,20 @@ function tail(text: string, characters = OUTPUT_TAIL_CHARACTERS): string {
   return text.length > characters ? `…${text.slice(text.length - characters)}` : text;
 }
 
-function checkCard(runs: readonly DoneCheckRun[], total: number, failed: DoneCheckRun | undefined): DoneCheckCard {
+function checkCard(
+  runs: readonly DoneCheckRun[],
+  total: number,
+  failed: DoneCheckRun | undefined,
+  reviewer: { name: string } | null,
+): DoneCheckCard {
+  if (!failed && reviewer) {
+    return {
+      itemType: DONE_CHECK_REVIEW_ITEM_TYPE,
+      text: sourceText("status.agent.doneChecksPassedReview", { count: total, reviewer: reviewer.name }),
+      eventType: "done.checks_passed",
+      detail: { passed: true, checks: total },
+    };
+  }
   if (!failed) {
     return {
       itemType: DONE_CHECK_PASSED_ITEM_TYPE,
