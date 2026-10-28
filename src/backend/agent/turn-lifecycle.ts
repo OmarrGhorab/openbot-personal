@@ -84,7 +84,7 @@ import { USAGE_LIMIT_METHOD, type UsageLimitGate } from "./usage-limit-gate";
 const logger = createOpenBotLogger("turn-lifecycle");
 const ENDED_TURN_LIMIT = 256;
 /** How long before a turn's start its usage records can be, as in host analytics. */
-const TURN_USAGE_MARGIN_MS = 60 * 60 * 1_000;
+export const TURN_USAGE_MARGIN_MS = 60 * 60 * 1_000;
 /**
  * The provider errors that move an agent set to switch without asking to its next backup model. Each
  * one can pass on another provider, account or model; a request the model refuses fails on each.
@@ -129,11 +129,25 @@ export interface AgentBrowserHost extends AttentionBrowserHost, BrowserUploadTar
   awaitUserControlRelease(tabId: string): Effect.Effect<void>;
 }
 
+/** When a turn ran, and in which lane. `taskId` is null for the agent's own chat. */
+interface TurnTiming {
+  agentId: string;
+  threadId: string;
+  taskId: string | null;
+  turnId: string;
+  /** Epoch milliseconds. */
+  startedAt: number;
+}
+
 export interface TurnHooks {
   emitFailure?(failure: FailureSignal): void;
   emit(event: AgentEvent): void;
   emitError(code: string, error: unknown, agentId?: string, context?: FailureContext): void;
   emitRuntimeSnapshot(): void;
+  /** A turn started. Budgets and Stop all agents count it while it runs. */
+  turnStarted?(turn: TurnTiming): void;
+  /** A running turn left `#runningTurns`, once. Budgets record how long it ran and what it used. */
+  turnEnded?(turn: TurnTiming & { endedAt: number }): void;
   scheduleDrain(agentId: string): void;
   /** Closes a provider session the provider refuses; the next turn opens a new one with the transcript. */
   dropRefusedSession(agentId: string, externalThreadId: string): Effect.Effect<void, TurnOperationFailed>;
@@ -369,6 +383,7 @@ export class TurnLifecycle {
   ) {
     for (const [turnId, turn] of this.#runningTurns) {
       if (turn.client !== client) continue;
+      this.#reportTurnEnded(turnId, turn);
       this.#runningTurns.delete(turnId);
       // A routine run's own session saves no history, so its turn ends now and closes the session.
       if (
@@ -483,15 +498,23 @@ export class TurnLifecycle {
         const taskId = this.#taskForThread(agentId, threadId);
         const starting = unprompted ? undefined : this.#mailbox.startingDeliveryForAgent(agentId, taskId)?.delivery;
         const sentAt = starting ? Date.parse(starting.createdAt) : Number.NaN;
+        const startedAt = Date.now();
         this.#runningTurns.set(turnId, {
           client: source,
           agentId,
           threadId,
-          startedAt: Date.now(),
+          startedAt,
           sentAt: Number.isFinite(sentAt) ? sentAt : null,
           firstOutputAt: null,
           produced: false,
           acted: false,
+        });
+        this.#hooks.turnStarted?.({
+          agentId,
+          threadId: this.#conversation.publicThreadId(agentId, threadId),
+          taskId,
+          turnId,
+          startedAt,
         });
         this.#traces.begin(turnId, new Date().toISOString());
         const publicThreadId = this.#conversation.publicThreadId(agentId, threadId);
@@ -832,6 +855,7 @@ export class TurnLifecycle {
   readonly #completeTurn = Effect.fn("TurnLifecycle.completeTurn")(
     function* (this: TurnLifecycle, agentId: string, threadId: string, turnId: string, status: string) {
       const running = this.#runningTurns.get(turnId);
+      if (running) this.#reportTurnEnded(turnId, running);
       this.#runningTurns.delete(turnId);
       this.#markEnded(turnId);
       this.#completingTurns.add(turnId);
@@ -1107,6 +1131,8 @@ export class TurnLifecycle {
     const report = (cause: Cause.Cause<TurnOperationFailed>) =>
       reportOriginalFailure(cause, (failure) => this.#hooks.emitError("turn_completion_failed", failure, agentId));
     const runningThreadId = this.#runningTurns.get(turnId)?.threadId ?? threadId;
+    const ended = this.#runningTurns.get(turnId);
+    if (ended) this.#reportTurnEnded(turnId, ended);
     this.#runningTurns.delete(turnId);
     this.#reportedFailures.delete(turnId);
     this.#markEnded(turnId);
@@ -1186,6 +1212,18 @@ export class TurnLifecycle {
       this.#hooks.scheduleDrain(agentId);
     }).pipe(Effect.catchCause(report));
   }, Effect.uninterruptible);
+
+  /** Tells the hooks that a running turn ended. The caller removes the turn from `#runningTurns` next. */
+  #reportTurnEnded(turnId: string, turn: { agentId: string; threadId: string; startedAt: number }): void {
+    this.#hooks.turnEnded?.({
+      agentId: turn.agentId,
+      threadId: this.#conversation.publicThreadId(turn.agentId, turn.threadId),
+      taskId: this.#taskForThread(turn.agentId, turn.threadId),
+      turnId,
+      startedAt: turn.startedAt,
+      endedAt: Date.now(),
+    });
+  }
 
   #markEnded(turnId: string): void {
     this.#endedTurns.add(turnId);

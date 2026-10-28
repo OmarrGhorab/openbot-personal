@@ -42,6 +42,8 @@ import { createOpenBotLogger, redactText, toLogValue } from "@openbot/logging";
 import { Deferred, Effect, Result, Schema } from "effect";
 import type { AgentApiKeys } from "../agent-api-keys";
 import type { AgentClient } from "../agent-client";
+import { type ActionRisk, approvalCommandLine, classifyApprovalRisk } from "../autonomy/action-risk";
+import type { AutonomyController } from "../autonomy/autonomy-controller";
 import { type BrowserOperationError, browserFailure } from "../browser-effects";
 import type { PreparedBrowserSecret } from "../browser-host";
 import type { BrowserCardVault } from "../browser-tool-actions";
@@ -156,6 +158,8 @@ interface PendingApproval {
   alwaysAsk?: boolean;
   /** Only the owner can answer, because the approval lets agents use what is the owner's alone. */
   ownerOnly?: boolean;
+  /** The risk of a provider's command, file or permission request. Built-in tools have none. */
+  risk?: ActionRisk;
 }
 
 type ToolApprovalDecision = "accept" | "decline" | "cancel";
@@ -295,6 +299,11 @@ export interface AttentionRegistryOptions {
   /** Read at each approval, so a grant the user gives now applies to the next request. */
   approvalAutomation?: ApprovalAutomationPolicy | undefined;
   /**
+   * The person's graded permissions. A low-risk approval never asks, and a medium or high one asks
+   * unless the rule of the agent says otherwise. Every decision goes to the audit log.
+   */
+  autonomy?: Pick<AutonomyController, "answersWithoutAsking" | "record"> | undefined;
+  /**
    * Whether the agent runs in the workspace sandbox now. Each approval it raises asks to go outside
    * the limit the user chose, so Full access does not answer it.
    */
@@ -360,6 +369,7 @@ export class AttentionRegistry {
   readonly #routines: RoutineAttention;
   readonly #approvalAutomation: ApprovalAutomationPolicy;
   readonly #workspaceSandboxed: (agentId: string) => boolean;
+  readonly #autonomy: Pick<AutonomyController, "answersWithoutAsking" | "record"> | undefined;
   readonly #messagingThread: (threadId: string) => boolean;
   readonly #emit: (event: AgentEvent) => void;
   readonly #emitError: (code: string, error: unknown, agentId?: string) => void;
@@ -379,6 +389,7 @@ export class AttentionRegistry {
     this.#hostedSites = options.hostedSites;
     this.#routines = options.routines;
     this.#approvalAutomation = options.approvalAutomation ?? NO_APPROVAL_AUTOMATION;
+    this.#autonomy = options.autonomy;
     this.#workspaceSandboxed = options.workspaceSandboxed ?? (() => false);
     this.#messagingThread = options.messagingThread ?? (() => false);
     this.#emit = options.emit;
@@ -608,6 +619,8 @@ export class AttentionRegistry {
     this: AttentionRegistry,
     input: RespondToApprovalInput,
     responder?: ApprovalResponder,
+    /** "policy" when a rule that changed answers a request that already waits. */
+    source?: "policy",
   ) {
     const pending = yield* attentionStep(() => {
       const value = this.#approvals.get(input.requestId);
@@ -637,6 +650,16 @@ export class AttentionRegistry {
       );
     }
     this.#approvals.delete(input.requestId);
+    if (source === "policy")
+      this.#recordApproval("approval.auto", pending.approval, pending.risk, "approved", "rule-changed");
+    else
+      this.#recordApproval(
+        input.decision === "accept" ? "approval.accepted" : "approval.declined",
+        pending.approval,
+        pending.risk,
+        input.decision === "accept" ? "accepted" : "declined",
+        responder && !responder.owner ? "team member" : "this computer",
+      );
     this.#emitInputResolved("approval", input.requestId, pending.approval.agentId);
     this.#emitRuntimeSnapshot();
   }, Effect.uninterruptible).bind(this);
@@ -724,10 +747,45 @@ export class AttentionRegistry {
    *
    * The response shape is the one `respondToApproval` uses for an accepted request.
    */
-  #answerWithoutAsking(client: AgentClient, request: AppServerRequest, approval: AgentApproval): boolean {
-    if (!this.#answersForAgent(approval.agentId)) return false;
+  #answerWithoutAsking(
+    client: AgentClient,
+    request: AppServerRequest,
+    approval: AgentApproval,
+    risk: ActionRisk,
+  ): boolean {
+    const fullAccess = this.#answersForAgent(approval.agentId);
+    if (!fullAccess && !this.#answersByRule(approval.agentId, risk.level)) return false;
     client.respond(request.id, approvalReply(request.method, request.params, "accept", ""));
+    this.#recordApproval("approval.auto", approval, risk, "approved", fullAccess ? "full-access" : "rule");
     return true;
+  }
+
+  /**
+   * Whether the person's rule answers an action at this level for the agent. A Workspace only agent
+   * still asks for every approval: its limit is the user's choice, and the rule does not widen it.
+   */
+  #answersByRule(agentId: string, level: ActionRisk["level"]): boolean {
+    return !this.#workspaceSandboxed(agentId) && (this.#autonomy?.answersWithoutAsking(agentId, level) ?? false);
+  }
+
+  /** One audit row for an approval. Built-in tools have no risk level, so their rows have none. */
+  #recordApproval(
+    action: "approval.auto" | "approval.asked" | "approval.accepted" | "approval.declined",
+    approval: AgentApproval,
+    risk: ActionRisk | undefined,
+    result: "approved" | "asked" | "accepted" | "declined",
+    detail: string,
+  ): void {
+    this.#autonomy?.record({
+      action,
+      agentId: approval.agentId,
+      threadId: approval.threadId,
+      taskId: null,
+      risk: risk?.level ?? null,
+      result,
+      target: approval.command ?? approval.kind,
+      detail: risk ? `${detail}:${risk.rule}` : detail,
+    });
   }
 
   /**
@@ -756,9 +814,11 @@ export class AttentionRegistry {
       Effect.sync(() => this.#emitError("auto_approval_failed", error, agentId));
     for (const pending of [...this.#approvals.values()]) {
       const agentId = pending.approval.agentId;
-      if (pending.alwaysAsk || !this.#answersForAgent(agentId)) continue;
+      if (pending.alwaysAsk) continue;
+      const byRule = pending.risk !== undefined && this.#answersByRule(agentId, pending.risk.level);
+      if (!this.#answersForAgent(agentId) && !byRule) continue;
       Effect.runFork(
-        this.respondToApproval({ requestId: pending.id, decision: "accept" }).pipe(
+        this.respondToApproval({ requestId: pending.id, decision: "accept" }, undefined, "policy").pipe(
           Effect.catch(report(agentId)),
           Effect.catchDefect(report(agentId)),
         ),
@@ -791,20 +851,23 @@ export class AttentionRegistry {
       threadId: this.#conversation.publicThreadId(agentId, threadId),
       turnId,
       kind,
-      command: commandText(request.params),
+      command: displayedCommand(request.params),
       cwd: getString(request.params, "cwd"),
       reason: getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: kind === "permissions" ? approvalPermissions(request.params) : null,
     };
-    if (this.#answerWithoutAsking(client, request, approval)) return;
+    const risk = classifyApprovalRisk(approval);
+    if (this.#answerWithoutAsking(client, request, approval, risk)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
+      risk,
     });
+    this.#recordApproval("approval.asked", approval, risk, "asked", "waits for the person");
     this.#routines.markNeedsAttention(turnId);
     this.#emit({ type: "approval", approval });
   }
@@ -823,7 +886,11 @@ export class AttentionRegistry {
   ) {
     if (request.signal?.aborted) return "cancel" as const;
     const alwaysAsk = options.alwaysAsk || options.ownerOnly;
-    if (!alwaysAsk && this.#answersForAgent(approval.agentId)) return "accept" as const;
+    if (!alwaysAsk && this.#answersForAgent(approval.agentId)) {
+      this.#recordApproval("approval.auto", approval, undefined, "approved", "full-access");
+      return "accept" as const;
+    }
+    this.#recordApproval("approval.asked", approval, undefined, "asked", "waits for the person");
     const decision = Deferred.makeUnsafe<ToolApprovalDecision>();
     this.#approvals.set(request.id, {
       client,
@@ -885,20 +952,23 @@ export class AttentionRegistry {
       threadId: this.#conversation.publicThreadId(agentId, threadId),
       turnId: getString(request.params, "turnId") ?? String(request.id),
       kind,
-      command: commandText(request.params),
+      command: displayedCommand(request.params),
       cwd: getString(request.params, "cwd"),
       reason: getString(request.params, "reason"),
       grantRoot: getString(request.params, "grantRoot"),
       permissions: null,
     };
-    if (this.#answerWithoutAsking(client, request, approval)) return;
+    const risk = classifyApprovalRisk(approval);
+    if (this.#answerWithoutAsking(client, request, approval, risk)) return;
     this.#approvals.set(request.id, {
       client,
       id: request.id,
       method: request.method,
       params: request.params,
       approval,
+      risk,
     });
+    this.#recordApproval("approval.asked", approval, risk, "asked", "waits for the person");
     this.#routines.markNeedsAttention(approval.turnId);
     this.#emit({ type: "approval", approval });
   }
@@ -1807,4 +1877,10 @@ function approvalReply(
   if (method === "applyPatchApproval" || method === "execCommandApproval")
     return { decision: decision === "accept" ? "approved" : { denied: { rejection } } };
   return { decision };
+}
+
+/** The command an approval shows: the command line inside an ACP tool input, not its JSON. */
+function displayedCommand(params: unknown): string | null {
+  const command = commandText(params);
+  return command === null ? null : approvalCommandLine(command);
 }

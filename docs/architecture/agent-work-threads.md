@@ -85,6 +85,9 @@ merge or remove them. Merging the results of two threads is out of scope.
   next to the main thread. A provider with `concurrentTurns: false` runs one turn at a time.
 - Pause: the drain holds every delivery of a paused lane with the reason `paused`. A turn that
   already runs continues to its end; Stop interrupts it. Resume clears `paused_at` and wakes the drain.
+- Budget and Stop all: a work thread that reaches its budget, or the Stop all agents switch of this
+  computer, holds its lane the same way (reasons `budget` and `stopped`). See
+  [autonomy safety](autonomy-safety.md).
 - Archive: close/reopen as released. A closed work thread takes no message.
 - Rename: sets the task title.
 - Delete: only a closed work thread. It removes the thread, its history and attachments, the task

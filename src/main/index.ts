@@ -56,6 +56,7 @@ import { agentQuestionIpcHandlers } from "./ipc/agent-question-handlers";
 import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
+import { autonomyIpcHandlers } from "./ipc/autonomy-handlers";
 import { billingIpcHandlers } from "./ipc/billing-handlers";
 import { bitwardenConnectorIpcHandlers } from "./ipc/bitwarden-connector-handlers";
 import { browserDockIpcHandlers } from "./ipc/browser-dock-handlers";
@@ -535,6 +536,7 @@ function registerIpcHandlers({
   requestedUpdate,
   idleRestart,
   approvalAutomation,
+  autonomy,
   agentAdminSettings,
   agentHostSettings,
   browserProfiles,
@@ -723,6 +725,7 @@ function registerIpcHandlers({
     ...routineResultIpcHandlers({ routineResults }),
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
+    ...autonomyIpcHandlers({ autonomy }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

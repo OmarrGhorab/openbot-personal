@@ -21,6 +21,8 @@ const PROJECT_MEMORY_TABLES = {
   raven_team_templates: [],
 };
 const LATEST = 47;
+// The newest version of the application. The Raven Stack team (48) and autonomy (49) migrations come after this one.
+const LATEST_SCHEMA = 49;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
@@ -89,7 +91,7 @@ function contents(db: DatabaseSync): Record<string, unknown[]> {
   const tables = db
     .prepare(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'
-       AND name <> 'schema_migrations' AND name NOT LIKE 'agent_memory_search%' ORDER BY name`,
+       AND name <> 'schema_migrations' AND name NOT LIKE 'agent_memory_search%' AND name NOT LIKE 'autonomy_%' ORDER BY name`,
     )
     .all()
     .map((row) => String(row.name));
@@ -118,7 +120,7 @@ describe("project memory migration", () => {
       migrateOpenBotDatabase(db);
       expect(contents(db)).toEqual({ ...before, ...PROJECT_MEMORY_TABLES });
       expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-        version: LATEST + 1,
+        version: LATEST_SCHEMA,
       });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -144,10 +146,10 @@ describe("project memory migration", () => {
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
     const db = databaseAtWithSeed(LATEST - 1);
     const before = contents(db);
-    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST + 2},'now')`);
+    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST_SCHEMA + 1},'now')`);
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
     db.exec(
-      `DELETE FROM schema_migrations WHERE version=${LATEST + 2}; DELETE FROM schema_migrations WHERE version=38`,
+      `DELETE FROM schema_migrations WHERE version=${LATEST_SCHEMA + 1}; DELETE FROM schema_migrations WHERE version=38`,
     );
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 38");
     expect(contents(db)).toEqual(before);
