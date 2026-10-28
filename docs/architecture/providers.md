@@ -777,7 +777,7 @@ Inception is a provider of its own that runs on Pi's managed CLI. Its driver set
 so it resolves Pi's downloaded binary and has no runtime or download of its own. After a Pi update, a
 running Inception process restarts on the new binary when its turns end. Connect and Reconnect on the
 row open the key dialog, and the composer's sign-in opens the Providers settings, because a key is the
-only sign-in. The key is stored as the `inception` API key. `pi-inception.ts` writes a key-free extension that
+only sign-in. The key is stored as the `inception` API key. `pi-key-providers.ts` writes a key-free extension that
 calls `pi.registerProvider("inception", …)` with the Mercury models; the key is in the process
 environment and a `globalThis` slot, because Pi runs extensions again on `switch_session`. The
 Inception client lists only the `inception` models, with bare ids such as `mercury-3`. The Pi client

@@ -471,6 +471,17 @@ export function isLocalOnlyProvider(provider: AgentProviderId): boolean {
 }
 
 /**
+ * The providers that sign in only with an API key that the user saves in OpenBot. They run in the Pi
+ * CLI, so their Connect and Reconnect open the key dialog. Upstream also lists DeepSeek and OpenRouter.
+ */
+export const KEY_ONLY_PROVIDERS = ["inception"] as const satisfies readonly AgentProviderId[];
+export type KeyOnlyProviderId = (typeof KEY_ONLY_PROVIDERS)[number];
+
+export function isKeyOnlyProvider(provider: AgentProviderRef): provider is KeyOnlyProviderId {
+  return isOneOf(KEY_ONLY_PROVIDERS, provider);
+}
+
+/**
  * Whether a computer on `platform` can run a sign-in whose code the user pastes back (Claude). The
  * CLI shows its prompt only on a terminal, and only the util-linux `script` gives it one there: see
  * the backend `startCliCodeLogin`.

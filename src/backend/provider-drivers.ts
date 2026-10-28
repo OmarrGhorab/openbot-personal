@@ -7,6 +7,7 @@ import {
   type AgentModelOption,
   type AgentProviderId,
   DEFAULT_PROMPT_CACHE_TTL,
+  type KeyOnlyProviderId,
   type PromptCacheTtl,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
@@ -476,9 +477,9 @@ export interface BuiltInProviderDriver {
   validateAccount(account: NonNullable<AccountReadResult["account"]>): void;
 }
 
-/** Pi and Inception run the same Pi client. Inception adds its key, which loads its extension. */
+/** Pi and the key-only providers run the same Pi client. A key-only provider adds its key extension. */
 function piClient(
-  provider: "pi" | "inception",
+  provider: "pi" | KeyOnlyProviderId,
   cli: AgentCliInfo,
   timeout: number,
   context: ProviderClientContext,
@@ -497,7 +498,7 @@ function piClient(
         }
       : {}),
     extraEnv: () => ({ ...context.agentEnvironment?.() }),
-    ...(provider === "inception" ? { inceptionApiKey: () => context.apiKey("inception") } : {}),
+    ...piKeyProvider(provider, context),
     ...(context.providerStateDirectory ? { providerStateDirectory: context.providerStateDirectory } : {}),
     mcpServers: context.mcpServers,
     ...(context.reportMcpDrops ? { reportMcpDrops: context.reportMcpDrops } : {}),
@@ -507,8 +508,12 @@ function piClient(
   });
 }
 
+function piKeyProvider(provider: "pi" | KeyOnlyProviderId, context: ProviderClientContext) {
+  return provider === "pi" ? {} : { keyProvider: { id: provider, apiKey: () => context.apiKey(provider) } };
+}
+
 function piProfileClient(
-  provider: "pi" | "inception",
+  provider: "pi" | KeyOnlyProviderId,
   cli: AgentCliInfo,
   timeout: number,
   context: ProviderClientContext,
@@ -516,7 +521,7 @@ function piProfileClient(
   return new PiAgentClient(cli, {
     requestTimeoutMs: timeout,
     profileGeneration: true,
-    ...(provider === "inception" ? { inceptionApiKey: () => context.apiKey("inception") } : {}),
+    ...piKeyProvider(provider, context),
     ...(context.providerStateDirectory ? { providerStateDirectory: context.providerStateDirectory } : {}),
   });
 }
