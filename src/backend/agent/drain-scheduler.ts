@@ -87,6 +87,8 @@ export interface TaskLanes {
   limit(agentId: string): number;
   /** Whether the agent's provider runs one turn at a time, across its own chat and its tasks. */
   oneTurnAtATime(agentId: string): boolean;
+  /** Whether the person paused this open task. Stored, so a pause outlives a restart. */
+  paused(taskId: string): boolean;
 }
 
 /**
@@ -273,7 +275,7 @@ export class DrainScheduler {
     if (this.#settingsHolds.has(agentId)) return "session-settings";
     if (this.#laneTurnActive(lane)) return "active-turn";
     // A paused task lets its running turn end. Its queued messages wait until `resumeLane`.
-    if (taskId !== null && this.#pausedLanes.has(laneKey(lane))) return "paused";
+    if (taskId !== null && this.isLanePaused(agentId, taskId)) return "paused";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
@@ -348,7 +350,7 @@ export class DrainScheduler {
   }
 
   isLanePaused(agentId: string, taskId: string): boolean {
-    return this.#pausedLanes.has(laneKey({ agentId, taskId }));
+    return this.#pausedLanes.has(laneKey({ agentId, taskId })) || this.#tasks.paused(taskId);
   }
 
   /** `followUsageLimit` is false after a move that failed, so that the drain does not try it again. */
@@ -732,6 +734,8 @@ export class DrainScheduler {
       }
       this.#conversation.emitConversation(snapshot);
 
+      // A work thread's turn runs in its own git worktree; every other turn in the agent workspace.
+      const turnCwd = taskThreadId ? yield* this.#threads.sessionCwd(agent, taskThreadId) : agent.workspacePath;
       const startTurn = (providerThreadId: string) =>
         Effect.gen({ self: this }, function* () {
           // Read again here, not only above: the provider, the thread and the channel are prepared in
@@ -756,7 +760,7 @@ export class DrainScheduler {
                 answerOptional:
                   delivery.sender.kind === "agent" && delivery.expectsReply === false && !delivery.replyToMessageId,
                 input: inputForThread(providerThreadId),
-                cwd: agent.workspacePath,
+                cwd: turnCwd,
                 runtimeWorkspaceRoots: workspaceWritableRoots(agent, this.#store.sharedRoot),
                 approvalPolicy: "on-request",
                 sandboxPolicy: codexSandboxPolicy(agent, this.#store.sharedRoot),
