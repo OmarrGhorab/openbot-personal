@@ -1,0 +1,736 @@
+import { randomUUID } from "node:crypto";
+import type { AgentEvent, AgentModelId } from "@openbot/contracts/ipc";
+import {
+  type PlanRavenTeamInput,
+  parseRavenTeamReport,
+  RAVEN_STACK_TEAM_ROLES,
+  RAVEN_STACK_TEAM_TEMPLATE_ID,
+  RAVEN_TEAM_BUILDER_ROLE_ID,
+  RAVEN_TEAM_ESCALATE_AFTER_FAILS,
+  RAVEN_TEAM_ROUND_CAP,
+  type RavenTeamJob,
+  type RavenTeamPlan,
+  type RavenTeamQuestion,
+  type RavenTeamQuestionKind,
+  type RavenTeamReport,
+  type RavenTeamRoleAccess,
+  type RavenTeamTemplate,
+  type RavenTeamVerdict,
+} from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
+import { createOpenBotLogger, redactText } from "@openbot/logging";
+import { Effect, Schema, Semaphore } from "effect";
+import type { AgentService } from "../agent-service";
+import {
+  commitHandoff,
+  editorNotesHandoff,
+  findingsHandoff,
+  planHandoff,
+  reportReminder,
+  resumeNotice,
+  roleBrief,
+  staleCommitNotice,
+} from "./raven-team-briefs";
+import {
+  buildRavenTeamPlan,
+  FALLBACK_MODEL_KEY,
+  ravenTeamPlanReady,
+  readRavenTeamNamedModels,
+} from "./raven-team-plan";
+import {
+  publicRavenTeamJob,
+  type RavenTeamJobRecord,
+  type RavenTeamRoleRecord,
+  type RavenTeamStore,
+} from "./raven-team-store";
+
+const logger = createOpenBotLogger("raven-team");
+
+/** The built-in template's date. It is code, so it does not change. */
+const BUILT_IN_DATE = "2026-10-28T00:00:00.000Z";
+/** The agent name of a role's agent. The model is in the name, so a role on another model is another agent. */
+const ROLE_AGENT_NAME_LIMIT = 80;
+/** The message that starts a role agent's first turn. The role's work starts in a task. */
+const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the team.";
+
+export class RavenTeamFailed extends Schema.TaggedError<RavenTeamFailed>()("RavenTeamFailed", {
+  operation: Schema.String,
+  cause: Schema.Defect(),
+}) {}
+
+/** The agent operations the team uses. A narrow type, so the team does not hold the whole service. */
+export type RavenTeamAgents = Pick<
+  AgentService,
+  | "listAgents"
+  | "createAgent"
+  | "updateAgent"
+  | "startTask"
+  | "sendMessage"
+  | "pauseTask"
+  | "resumeTask"
+  | "stopTask"
+  | "readTask"
+  | "listModels"
+  | "preferredProvider"
+>;
+
+export const BUILT_IN_RAVEN_TEAM_TEMPLATE: RavenTeamTemplate = {
+  id: RAVEN_STACK_TEAM_TEMPLATE_ID,
+  name: "Raven Stack team",
+  builtIn: true,
+  roles: RAVEN_STACK_TEAM_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
+  createdAt: BUILT_IN_DATE,
+  updatedAt: BUILT_IN_DATE,
+};
+
+export interface RavenTeamServiceOptions {
+  store: RavenTeamStore;
+  agents: RavenTeamAgents;
+  /** Called after each change to a job or a template, so the view reads it again. */
+  changed: (jobId: string | null) => void;
+  now?: () => string;
+}
+
+function isVerifier(role: RavenTeamRoleRecord): boolean {
+  return role.skills.includes("verify") || role.skills.includes("quality");
+}
+
+function isTerminal(job: RavenTeamJobRecord): boolean {
+  return job.state === "done" || job.state === "not-done";
+}
+
+/**
+ * The Raven Stack team runtime: one job per ticket, one agent per role, one work thread per role.
+ *
+ * The runtime is the orchestrator. It starts each role, passes the output of one role to the next,
+ * reads each verdict from the role's own report line, and decides the next step. A role never
+ * approves its own commit: a verifier passes only on the head commit that the Builder reported. A new
+ * Builder commit clears the old verdicts. Two FAIL rounds move the Builder to a stronger model, from
+ * the message or from the user. At the round cap the job stops as `not-done`.
+ *
+ * Every state change is one locked operation, so a turn event and a user action never interleave.
+ */
+export class RavenTeamService {
+  readonly #store: RavenTeamStore;
+  readonly #agents: RavenTeamAgents;
+  readonly #changed: (jobId: string | null) => void;
+  readonly #now: () => string;
+  readonly #lock = Semaphore.makeUnsafe(1);
+
+  constructor(options: RavenTeamServiceOptions) {
+    this.#store = options.store;
+    this.#agents = options.agents;
+    this.#changed = options.changed;
+    this.#now = options.now ?? (() => new Date().toISOString());
+  }
+
+  /** The built-in template first, then the user's copies. */
+  templates(): RavenTeamTemplate[] {
+    return [BUILT_IN_RAVEN_TEAM_TEMPLATE, ...this.#store.listUserTemplates()];
+  }
+
+  /** Saves a user template. The built-in template cannot be changed; a copy of it can. */
+  saveTemplate(input: { id?: string; name: string; roles: RavenTeamTemplate["roles"] }): RavenTeamTemplate[] {
+    if (input.id === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+      throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
+    }
+    const now = this.#now();
+    const existing = input.id ? this.#store.findUserTemplate(input.id) : null;
+    const template: RavenTeamTemplate = {
+      id: existing?.id ?? input.id ?? randomUUID(),
+      name: input.name.trim(),
+      builtIn: false,
+      roles: input.roles.map((role) => ({ ...role, skills: [...role.skills] })),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.#store.saveUserTemplate(template);
+    this.#changed(null);
+    return this.templates();
+  }
+
+  deleteTemplate(templateId: string): RavenTeamTemplate[] {
+    if (templateId === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+      throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
+    }
+    this.#store.deleteUserTemplate(templateId);
+    this.#changed(null);
+    return this.templates();
+  }
+
+  /**
+   * The plan of a start, read only: the message's `Role: model` pairs, the template defaults, the
+   * warnings, and the names that cannot start. Nothing is started and no agent is changed.
+   */
+  plan(input: PlanRavenTeamInput): RavenTeamPlan {
+    return this.#planFor(input);
+  }
+
+  listJobs(): RavenTeamJob[] {
+    return this.#store.listJobs(50).map(publicRavenTeamJob);
+  }
+
+  /** Starts a job from a confirmed plan. The plan is checked again here, so a stale card cannot start a bad model. */
+  start(input: PlanRavenTeamInput): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const plan = this.#planFor(input);
+        const unknownRole = plan.unknownRoles[0];
+        if (unknownRole !== undefined) {
+          return yield* new RavenTeamFailed({
+            operation: "start team",
+            cause: new Error(sourceText("error.agent.ravenTeam.unknownRole", { role: unknownRole })),
+          });
+        }
+        const unknown = plan.unknownModels[0];
+        if (unknown !== undefined) {
+          return yield* new RavenTeamFailed({
+            operation: "start team",
+            cause: new Error(this.#unknownModelText(unknown.roleId, unknown.model)),
+          });
+        }
+        if (!ravenTeamPlanReady(plan)) {
+          return yield* new RavenTeamFailed({
+            operation: "start team",
+            cause: new Error(sourceText("error.agent.ravenTeam.noModel", { role: "team" })),
+          });
+        }
+        const now = this.#now();
+        const jobId = randomUUID();
+        const roles: RavenTeamRoleRecord[] = [];
+        for (const role of plan.roles) {
+          const agent = yield* this.#ensureRoleAgent(role.roleId, role.label, role.model, role.provider, role.access);
+          roles.push({
+            roleId: role.roleId,
+            label: role.label,
+            skills: [...role.skills],
+            agentId: agent.id,
+            taskId: null,
+            threadId: null,
+            provider: agent.provider,
+            model: agent.model,
+            access: role.access,
+            state: "waiting",
+            verdict: null,
+            score: null,
+            commit: null,
+            fails: 0,
+            reminders: 0,
+            pendingMessage: null,
+            updatedAt: now,
+          });
+        }
+        const record: RavenTeamJobRecord = {
+          id: jobId,
+          templateId: plan.templateId,
+          brief: redactText(plan.brief),
+          state: "running",
+          headCommit: null,
+          fixRounds: 0,
+          roundCap: RAVEN_TEAM_ROUND_CAP,
+          fallbackModel: plan.fallbackModel,
+          question: null,
+          roles,
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.#store.insertJob(record);
+        this.#changed(jobId);
+        // The first stage: the Architect, or the Builder when the template has no Architect.
+        const first =
+          roles.find((role) => role.roleId === "architect") ??
+          roles.find((role) => role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+        if (first) {
+          yield* this.#engage(jobId, first.roleId, null).pipe(
+            Effect.catch((error) => this.#blockRole(jobId, first.roleId, "blocked", error)),
+          );
+        }
+        return publicRavenTeamJob(this.#job(jobId));
+      }),
+    );
+  }
+
+  /** Changes the model of one role of a job. It applies from the role's next turn. */
+  setRoleModel(input: { jobId: string; roleId: string; model: string }): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const job = this.#job(input.jobId);
+        const role = job.roles.find((candidate) => candidate.roleId === input.roleId);
+        if (!role) {
+          return yield* new RavenTeamFailed({
+            operation: "set role model",
+            cause: new Error(sourceText("error.agent.ravenTeam.unknownRole", { role: input.roleId })),
+          });
+        }
+        yield* this.#switchRoleModel(job.id, role.roleId, input.model);
+        const question = job.question;
+        if (question?.kind === "fallback-model" && question.roleId === role.roleId) {
+          // The user chose the stronger model. The findings that were waiting go to the Builder now.
+          this.#store.updateJob(job.id, { question: null, state: "running" }, this.#now());
+          const pending = this.#job(job.id).roles.find((candidate) => candidate.roleId === role.roleId)?.pendingMessage;
+          if (pending) yield* this.#deliver(job.id, role.roleId, pending);
+        }
+        this.#changed(job.id);
+        return publicRavenTeamJob(this.#job(job.id));
+      }),
+    );
+  }
+
+  /** Stops the whole team: each role's queue is held, and each running turn is stopped. */
+  stop(jobId: string): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const job = this.#job(jobId);
+        if (isTerminal(job)) return publicRavenTeamJob(job);
+        for (const role of job.roles) {
+          if (!role.agentId || !role.taskId) continue;
+          yield* this.#call("pause role", this.#agents.pauseTask({ agentId: role.agentId, taskId: role.taskId }));
+          if (role.state === "working") {
+            yield* this.#call("stop role", this.#agents.stopTask({ agentId: role.agentId, taskId: role.taskId }));
+            this.#store.updateRole(job.id, role.roleId, { state: "stopped" }, this.#now());
+          }
+        }
+        this.#store.updateJob(job.id, { state: "stopped" }, this.#now());
+        this.#changed(job.id);
+        return publicRavenTeamJob(this.#job(job.id));
+      }),
+    );
+  }
+
+  /** Resumes the team: each queue is released, and each stopped role gets its pending message or a notice. */
+  resume(jobId: string): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const job = this.#job(jobId);
+        if (isTerminal(job) || job.state !== "stopped") return publicRavenTeamJob(job);
+        const now = this.#now();
+        this.#store.updateJob(job.id, { state: job.question ? "waiting-user" : "running" }, now);
+        for (const role of job.roles) {
+          if (!role.agentId || !role.taskId) continue;
+          yield* this.#call("resume role", this.#agents.resumeTask({ agentId: role.agentId, taskId: role.taskId }));
+        }
+        for (const role of this.#job(job.id).roles) {
+          if (role.state !== "stopped") continue;
+          const text = role.pendingMessage ?? (role.taskId ? resumeNotice() : null);
+          if (text) yield* this.#deliver(job.id, role.roleId, text);
+          else this.#store.updateRole(job.id, role.roleId, { state: "waiting" }, now);
+        }
+        this.#changed(job.id);
+        return publicRavenTeamJob(this.#job(job.id));
+      }),
+    );
+  }
+
+  /** Reacts to an agent event. Only turn events of a team role matter; every other event is ignored. */
+  notice(event: AgentEvent): Effect.Effect<void> {
+    if (event.type !== "turn-started" && event.type !== "turn-completed") return Effect.void;
+    return this.#lock
+      .withPermit(
+        Effect.gen({ self: this }, function* () {
+          const found = this.#store.findRoleByThread(event.threadId);
+          if (!found) return;
+          if (event.type === "turn-started") {
+            this.#store.updateRole(found.jobId, found.roleId, { pendingMessage: null }, this.#now());
+            return;
+          }
+          yield* this.#turnCompleted(found.jobId, found.roleId, event.status);
+        }),
+      )
+      .pipe(
+        Effect.catch((error) =>
+          Effect.sync(() => logger.warn("A Raven Stack team event failed.", { cause: String(error) })),
+        ),
+      );
+  }
+
+  // ---- internals ----
+
+  #planFor(input: PlanRavenTeamInput): RavenTeamPlan {
+    const template = this.templates().find((candidate) => candidate.id === input.templateId);
+    if (!template) throw new Error(sourceText("error.agent.ravenTeam.templateNotFound"));
+    const brief = input.brief.trim();
+    if (!brief) throw new Error(sourceText("error.agent.ravenTeam.briefRequired"));
+    return buildRavenTeamPlan({
+      template,
+      brief,
+      named: readRavenTeamNamedModels(brief, template.roles),
+      overrides: input.models ?? {},
+      models: this.#agents.listModels(),
+      preferredProvider: this.#agents.preferredProvider(),
+    });
+  }
+
+  #unknownModelText(roleId: string, model: string): string {
+    if (roleId === FALLBACK_MODEL_KEY) return sourceText("error.agent.ravenTeam.unknownFallback", { model });
+    return sourceText("error.agent.ravenTeam.unknownModel", { role: roleId, model });
+  }
+
+  #job(jobId: string): RavenTeamJobRecord {
+    const job = this.#store.findJob(jobId);
+    if (!job) throw new Error(sourceText("error.agent.ravenTeam.jobNotFound"));
+    return job;
+  }
+
+  /** Makes the role's agent, or reuses the agent with the same role and model. A new agent starts on that model. */
+  #ensureRoleAgent(
+    roleId: string,
+    label: string,
+    model: AgentModelId,
+    provider: RavenTeamRoleRecord["provider"],
+    access: RavenTeamRoleAccess,
+  ) {
+    const name = `Raven ${label} (${model})`.slice(0, ROLE_AGENT_NAME_LIMIT);
+    return Effect.gen({ self: this }, function* () {
+      const existing = this.#agents
+        .listAgents()
+        .find((agent) => agent.name === name && agent.provider === provider && agent.model === model);
+      const agent =
+        existing ??
+        (yield* this.#call(
+          "create role agent",
+          this.#agents.createAgent({
+            name,
+            description: `Raven Stack team role: ${label}.`,
+            avatarSeed: `raven-${roleId}`,
+            avatarHue: null,
+            initialMessage: ROLE_AGENT_GREETING,
+            provider,
+            model,
+          }),
+        ));
+      yield* this.#call(
+        "set role access",
+        this.#agents.updateAgent({ agentId: agent.id, access: access === "write" ? "full" : "workspace" }),
+      );
+      return { id: agent.id, provider: agent.provider, model: agent.model };
+    });
+  }
+
+  /** Changes the model of a role's agent, and records it. An unknown model is refused, never replaced. */
+  #switchRoleModel(jobId: string, roleId: string, model: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role?.agentId) {
+        return yield* new RavenTeamFailed({
+          operation: "set role model",
+          cause: new Error(sourceText("error.agent.ravenTeam.unknownRole", { role: roleId })),
+        });
+      }
+      const option = this.#agents.listModels().find((candidate) => candidate.id === model);
+      if (!option) {
+        return yield* new RavenTeamFailed({
+          operation: "set role model",
+          cause: new Error(this.#unknownModelText(roleId, model)),
+        });
+      }
+      yield* this.#call(
+        "change role model",
+        this.#agents.updateAgent({ agentId: role.agentId, provider: option.provider, model: option.id }),
+      );
+      this.#store.updateRole(jobId, roleId, { provider: option.provider, model: option.id }, this.#now());
+    });
+  }
+
+  /**
+   * Sends a message to a role. A role with no task starts its work thread with `text`; a role that
+   * has one gets `text` as its next message. The text is redacted and kept as the pending message
+   * until its turn starts.
+   */
+  #deliver(jobId: string, roleId: string, text: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role?.agentId) {
+        return yield* new RavenTeamFailed({
+          operation: "send to role",
+          cause: new Error(sourceText("error.agent.ravenTeam.unknownRole", { role: roleId })),
+        });
+      }
+      const safe = redactText(text);
+      const now = this.#now();
+      if (role.taskId === null) {
+        const task = yield* this.#call(
+          "start role task",
+          this.#agents.startTask({ agentId: role.agentId, text: safe }),
+        );
+        this.#store.updateRole(
+          jobId,
+          roleId,
+          { taskId: task.id, threadId: task.threadId, state: "working", pendingMessage: safe },
+          now,
+        );
+      } else {
+        yield* this.#call(
+          "send to role",
+          this.#agents.sendMessage({ agentId: role.agentId, taskId: role.taskId, text: safe, attachmentDraftIds: [] }),
+        );
+        this.#store.updateRole(jobId, roleId, { state: "working", pendingMessage: safe }, now);
+      }
+      this.#changed(jobId);
+    });
+  }
+
+  /** The role's first message, or its next one. A role's first message carries its brief. */
+  #engage(jobId: string, roleId: string, extra: string | null) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role) return;
+      const text =
+        role.taskId === null
+          ? [
+              roleBrief({
+                jobId,
+                roleId,
+                label: role.label,
+                skills: role.skills,
+                access: role.access,
+                ticket: job.brief,
+              }),
+              extra,
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : (extra ?? resumeNotice());
+      yield* this.#deliver(jobId, roleId, text);
+    });
+  }
+
+  /** Runs an agent call and types its failure as a team failure. */
+  #call<A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, RavenTeamFailed> {
+    return effect.pipe(Effect.mapError((cause) => new RavenTeamFailed({ operation, cause })));
+  }
+
+  /** Marks a role blocked and asks the user. The error is logged redacted; its text is not shown raw. */
+  #blockRole(jobId: string, roleId: string, kind: RavenTeamQuestionKind, error: unknown) {
+    return Effect.sync(() => {
+      logger.warn("A Raven Stack role could not run.", { cause: redactText(String(error)) });
+      this.#blockedAt(jobId, roleId, kind);
+    });
+  }
+
+  #blockedAt(jobId: string, roleId: string, kind: RavenTeamQuestionKind): void {
+    const now = this.#now();
+    this.#store.updateRole(jobId, roleId, { state: "blocked" }, now);
+    this.#store.updateJob(
+      jobId,
+      { state: "waiting-user", question: { kind, roleId } satisfies RavenTeamQuestion },
+      now,
+    );
+    this.#changed(jobId);
+  }
+
+  #turnCompleted(jobId: string, roleId: string, status: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (role?.state !== "working" || !role.agentId || !role.taskId) return;
+      const now = this.#now();
+      if (status !== "completed") {
+        if (isTerminal(job)) return;
+        if (job.state === "stopped" || status === "interrupted") {
+          this.#store.updateRole(jobId, roleId, { state: "stopped" }, now);
+          this.#changed(jobId);
+          return;
+        }
+        this.#blockedAt(jobId, roleId, "blocked");
+        return;
+      }
+      const text = this.#lastReply(role.agentId, role.taskId);
+      const report = parseRavenTeamReport(text);
+      if (isTerminal(job)) {
+        this.#store.updateRole(jobId, roleId, { state: "reported" }, now);
+        this.#changed(jobId);
+        return;
+      }
+      if (job.state === "stopped") {
+        this.#store.updateRole(jobId, roleId, { state: "stopped" }, now);
+        this.#changed(jobId);
+        return;
+      }
+      if (!report) {
+        yield* this.#askReport(jobId, roleId);
+        return;
+      }
+      yield* this.#dispatch(jobId, roleId, report, text);
+    });
+  }
+
+  /** The text of the role's last reply in its task. Empty when the task has none. */
+  #lastReply(agentId: string, taskId: string): string {
+    const reply = this.#agents
+      .readTask(agentId, taskId)
+      .messages.filter((message) => message.author === "assistant")
+      .at(-1);
+    return reply?.text ?? "";
+  }
+
+  /** The role's report is missing. It is asked once more; a second miss blocks the role. */
+  #askReport(jobId: string, roleId: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role) return;
+      if (role.reminders >= 1) {
+        this.#blockedAt(jobId, roleId, "no-report");
+        return;
+      }
+      this.#store.updateRole(jobId, roleId, { reminders: role.reminders + 1 }, this.#now());
+      yield* this.#deliver(jobId, roleId, reportReminder(roleId));
+    });
+  }
+
+  #dispatch(jobId: string, roleId: string, report: RavenTeamReport, text: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role) return;
+      const now = this.#now();
+      if (report.verdict === "BLOCKED") {
+        this.#blockedAt(jobId, roleId, "blocked");
+        return;
+      }
+      if (roleId === RAVEN_TEAM_BUILDER_ROLE_ID) {
+        yield* this.#builderReported(jobId, report, text);
+        return;
+      }
+      if (isVerifier(role)) {
+        yield* this.#verifierReported(jobId, roleId, report, text);
+        return;
+      }
+      // The Architect and the Editor, and any other role, report DONE with their text.
+      this.#store.updateRole(jobId, roleId, { state: "reported", verdict: "DONE", reminders: 0 }, now);
+      if (roleId === "architect") {
+        const builder = job.roles.find((candidate) => candidate.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+        if (builder && builder.taskId === null) {
+          yield* this.#engage(jobId, builder.roleId, planHandoff(role.label, text));
+        }
+      } else if (roleId === "editor") {
+        const builder = job.roles.find((candidate) => candidate.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+        if (builder?.taskId) yield* this.#deliver(jobId, builder.roleId, editorNotesHandoff(text));
+      }
+      this.#changed(jobId);
+    });
+  }
+
+  #builderReported(jobId: string, report: RavenTeamReport, text: string) {
+    return Effect.gen({ self: this }, function* () {
+      const now = this.#now();
+      if (report.verdict !== "DONE" || report.commit === null) {
+        yield* this.#askReport(jobId, RAVEN_TEAM_BUILDER_ROLE_ID);
+        return;
+      }
+      const commit = report.commit;
+      this.#store.updateRole(
+        jobId,
+        RAVEN_TEAM_BUILDER_ROLE_ID,
+        { state: "reported", verdict: "DONE", commit, reminders: 0 },
+        now,
+      );
+      const job = this.#job(jobId);
+      if (job.headCommit === commit) {
+        this.#changed(jobId);
+        return;
+      }
+      // A new commit is a new head. Every verdict of the old head is stale, so the verifiers check this one.
+      this.#store.updateJob(jobId, { headCommit: commit, state: "running", question: null }, now);
+      for (const role of job.roles) {
+        if (role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID || !(isVerifier(role) || role.roleId === "editor")) continue;
+        this.#store.updateRole(jobId, role.roleId, { verdict: null, score: null, commit: null, state: "waiting" }, now);
+        yield* this.#engage(jobId, role.roleId, commitHandoff(commit, text)).pipe(
+          Effect.catch((error) => this.#blockRole(jobId, role.roleId, "blocked", error)),
+        );
+      }
+      this.#changed(jobId);
+    });
+  }
+
+  #verifierReported(jobId: string, roleId: string, report: RavenTeamReport, text: string) {
+    return Effect.gen({ self: this }, function* () {
+      const now = this.#now();
+      const job = this.#job(jobId);
+      const role = job.roles.find((candidate) => candidate.roleId === roleId);
+      if (!role || job.headCommit === null) return;
+      const isQuality = role.skills.includes("quality");
+      const verdictOk = report.verdict === "PASS" || report.verdict === "PASS+NOTES" || report.verdict === "FAIL";
+      if (!verdictOk || (isQuality && report.score === null)) {
+        yield* this.#askReport(jobId, roleId);
+        return;
+      }
+      const reported = report.commit ?? job.headCommit;
+      if (reported !== job.headCommit) {
+        // A verdict on an old commit counts for nothing. The role checks the head.
+        this.#store.updateRole(jobId, roleId, { state: "working" }, now);
+        yield* this.#deliver(jobId, roleId, staleCommitNotice(reported, job.headCommit)).pipe(
+          Effect.catch((error) => this.#blockRole(jobId, roleId, "blocked", error)),
+        );
+        return;
+      }
+      const failed = report.verdict === "FAIL" || (isQuality && (report.score ?? 0) < 10);
+      const verdict: RavenTeamVerdict = failed ? "FAIL" : report.verdict;
+      this.#store.updateRole(
+        jobId,
+        roleId,
+        {
+          state: failed ? "failed" : "passed",
+          verdict,
+          score: report.score,
+          commit: reported,
+          fails: failed ? role.fails + 1 : role.fails,
+          reminders: 0,
+        },
+        now,
+      );
+      if (failed) {
+        yield* this.#failRound(jobId, roleId, text);
+        return;
+      }
+      const after = this.#job(jobId);
+      const verifiers = after.roles.filter(isVerifier);
+      if (
+        verifiers.length > 0 &&
+        verifiers.every((candidate) => candidate.state === "passed" && candidate.commit === after.headCommit)
+      ) {
+        this.#store.updateJob(jobId, { state: "done" }, now);
+      }
+      this.#changed(jobId);
+    });
+  }
+
+  /** One FAIL round: the findings go to the Builder. The second round asks for a stronger model; the cap stops the job. */
+  #failRound(jobId: string, failedRoleId: string, text: string) {
+    return Effect.gen({ self: this }, function* () {
+      const now = this.#now();
+      const job = this.#job(jobId);
+      const failed = job.roles.find((candidate) => candidate.roleId === failedRoleId);
+      const rounds = job.fixRounds + 1;
+      this.#store.updateJob(jobId, { fixRounds: rounds }, now);
+      const builder = job.roles.find((candidate) => candidate.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+      if (rounds >= RAVEN_TEAM_ROUND_CAP || !builder || !failed) {
+        this.#store.updateJob(jobId, { state: "not-done" }, now);
+        this.#changed(jobId);
+        return;
+      }
+      const findings = findingsHandoff(failed.label, job.headCommit, text);
+      if (rounds === RAVEN_TEAM_ESCALATE_AFTER_FAILS) {
+        if (job.fallbackModel) {
+          yield* this.#switchRoleModel(jobId, builder.roleId, job.fallbackModel);
+          yield* this.#deliver(jobId, builder.roleId, findings);
+          this.#changed(jobId);
+          return;
+        }
+        // No stronger model was named: the Builder waits, and the user names one.
+        this.#store.updateRole(jobId, builder.roleId, { state: "waiting", pendingMessage: redactText(findings) }, now);
+        this.#store.updateJob(
+          jobId,
+          { state: "waiting-user", question: { kind: "fallback-model", roleId: builder.roleId } },
+          now,
+        );
+        this.#changed(jobId);
+        return;
+      }
+      yield* this.#deliver(jobId, builder.roleId, findings);
+    });
+  }
+}

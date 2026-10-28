@@ -1,0 +1,106 @@
+/* The Raven Stack team page in RavenTeamPage.tsx: one column with the ticket, the check, and the jobs. */
+.raven-team-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--openbot-space-6);
+  color: var(--openbot-text-primary);
+}
+
+.raven-team-title {
+  margin: 0;
+  font-size: var(--openbot-text-2xl);
+  font-weight: 600;
+}
+
+.raven-team-intro,
+.raven-team-empty {
+  margin: var(--openbot-space-1) 0 0;
+  color: var(--openbot-text-secondary);
+}
+
+.raven-team-subtitle {
+  margin: 0 0 var(--openbot-space-3);
+  font-size: var(--openbot-text-xl);
+  font-weight: 600;
+}
+
+.raven-team-form,
+.raven-team-confirm,
+.raven-team-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+}
+
+.raven-team-label {
+  font-weight: 500;
+}
+
+.raven-team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-plan,
+.raven-team-roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-team-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-role-head,
+.raven-team-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-role-label,
+.raven-team-job-state {
+  font-weight: 600;
+}
+
+.raven-team-role-state,
+.raven-team-role-score,
+.raven-team-job-rounds,
+.raven-team-role-verdict {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-lg);
+}
+
+.raven-team-role-commit {
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-models {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+}
+
+.raven-team-job {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4);
+  border-radius: var(--openbot-radius-lg, 0.75rem);
+  background: var(--openbot-bg-surface, transparent);
+}

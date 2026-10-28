@@ -13,7 +13,13 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 
-const PROJECT_MEMORY_TABLES = { project_memories: [], project_memory_undo: [] };
+const PROJECT_MEMORY_TABLES = {
+  project_memories: [],
+  project_memory_undo: [],
+  raven_team_jobs: [],
+  raven_team_roles: [],
+  raven_team_templates: [],
+};
 const LATEST = 47;
 
 function databaseAt(version: number): DatabaseSync {
@@ -111,7 +117,9 @@ describe("project memory migration", () => {
       const before = contents(db);
       migrateOpenBotDatabase(db);
       expect(contents(db)).toEqual({ ...before, ...PROJECT_MEMORY_TABLES });
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: LATEST });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
+        version: LATEST + 1,
+      });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -136,10 +144,10 @@ describe("project memory migration", () => {
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
     const db = databaseAtWithSeed(LATEST - 1);
     const before = contents(db);
-    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST + 1},'now')`);
+    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST + 2},'now')`);
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
     db.exec(
-      `DELETE FROM schema_migrations WHERE version=${LATEST + 1}; DELETE FROM schema_migrations WHERE version=38`,
+      `DELETE FROM schema_migrations WHERE version=${LATEST + 2}; DELETE FROM schema_migrations WHERE version=38`,
     );
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 38");
     expect(contents(db)).toEqual(before);

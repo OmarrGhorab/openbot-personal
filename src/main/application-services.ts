@@ -1,4 +1,5 @@
 import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
+import type { AgentEvent } from "@openbot/contracts/ipc";
 import { ANALYTICS_GENERATIONS, openPanelTransport, ReportQueue } from "@openbot/telemetry";
 import { fileReportStorage } from "@openbot/telemetry/node";
 import { Effect, Fiber } from "effect";
@@ -10,6 +11,8 @@ import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
+import { RavenTeamService } from "../backend/raven-team/raven-team-service";
+import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
 import { RoutineFlowStore } from "../backend/routine-flows/routine-flow-store";
 import { createRoutineFlows, type RoutineFlowsHandle } from "../backend/routine-flows/routine-flows";
@@ -460,6 +463,9 @@ const TEARDOWN_ORDER = {
   teamWebRtcBridge: 100,
   // Before the agent service, so no handoff is sent to an agent while the service stops.
   routineFlows: 103,
+  // After the agent events it listens to, and before the agent service stops, so no team turn is
+  // answered while the service stops.
+  ravenTeam: 103.5,
   // Before the agent service, so no calendar read finds it stopping.
   routineFeed: 104,
   mcpOAuthRedirect: 105,
@@ -529,6 +535,7 @@ export interface ApplicationServiceContext {
 export interface ApplicationServices {
   service: AgentService;
   routineFlows: RoutineFlowsHandle;
+  ravenTeam: RavenTeamService;
   routineResults: RoutineResultsHandle;
   providerRuntimes: ProviderRuntimeManager;
   providerCredentials: ProviderCredentialStore;
@@ -1837,6 +1844,21 @@ export async function createApplicationServices({
     }),
   );
   teardown.push(TEARDOWN_ORDER.routineFlows, "the routine flows", () => Effect.runPromise(routineFlowRuntime.close()));
+  // A team's roles are local agents, and their turns arrive as the same agent events. The view reads a
+  // job again when it changes, so no window polls.
+  const ravenTeam = new RavenTeamService({
+    store: new RavenTeamStore(store.database),
+    agents: service,
+    changed: (jobId) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenTeam.changed, { jobId }),
+  });
+  const ravenTeamListener = (event: AgentEvent) => {
+    Effect.runFork(ravenTeam.notice(event));
+  };
+  // The turn channel: a work thread's turns leave `event` for the task module, and the team needs them.
+  service.on("turn", ravenTeamListener);
+  teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    service.off("turn", ravenTeamListener);
+  });
   // An agent routine's answer sent on to a messaging place; see `routine-results.ts`.
   const routineResultRuntime = await Effect.runPromise(
     createRoutineResults({
@@ -3012,6 +3034,7 @@ export async function createApplicationServices({
   return {
     service,
     routineFlows: routineFlowRuntime,
+    ravenTeam,
     routineResults: routineResultRuntime,
     providerRuntimes,
     providerCredentials,

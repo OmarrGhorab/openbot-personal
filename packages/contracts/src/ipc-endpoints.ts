@@ -401,6 +401,15 @@ import type {
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
 import type {
+  PlanRavenTeamInput,
+  RavenTeamChanged,
+  RavenTeamJob,
+  RavenTeamPlan,
+  RavenTeamTemplate,
+  SaveRavenTeamTemplateInput,
+  SetRavenTeamRoleModelInput,
+} from "./ipc-raven-team";
+import type {
   RemoteDesktopSetupAction,
   RemoteDesktopSetupStatus,
   RemoteDesktopTestInput,
@@ -1400,6 +1409,20 @@ export const IPC_ENDPOINTS = {
     deleteProjectMemory: request<DeleteProjectMemoryInput, ProjectMemoryState>()("agent:delete-project-memory"),
     undoProjectMemory: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:undo-project-memory"),
   },
+  // A Raven Stack team runs on this computer; its roles are local agents. The one event carries the
+  // job that changed, so the view reads the job again instead of polling.
+  ravenTeam: {
+    listTemplates: request<undefined, RavenTeamTemplate[]>()("raven-team:list-templates"),
+    saveTemplate: request<SaveRavenTeamTemplateInput, RavenTeamTemplate[]>()("raven-team:save-template"),
+    deleteTemplate: request<string, RavenTeamTemplate[]>()("raven-team:delete-template"),
+    plan: request<PlanRavenTeamInput, RavenTeamPlan>()("raven-team:plan"),
+    start: request<PlanRavenTeamInput, RavenTeamJob>()("raven-team:start"),
+    listJobs: request<undefined, RavenTeamJob[]>()("raven-team:list-jobs"),
+    setRoleModel: request<SetRavenTeamRoleModelInput, RavenTeamJob>()("raven-team:set-role-model"),
+    stop: request<string, RavenTeamJob>()("raven-team:stop"),
+    resume: request<string, RavenTeamJob>()("raven-team:resume"),
+    changed: event<RavenTeamChanged>()("raven-team:changed"),
+  },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),
     setMemoryInclusion: scopedRequest<SetAgentMemoryInclusionInput, AgentMemorySelectionState>()(
@@ -1810,6 +1833,7 @@ export const IPC_GROUP_PATHS = {
   routineFeed: "routineFeed",
   monitor: "monitor",
   routineFlows: "routineFlows",
+  ravenTeam: "ravenTeam",
   routineResults: "routineResults",
   billing: "billing",
   license: "license",
