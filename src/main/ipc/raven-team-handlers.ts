@@ -5,6 +5,7 @@ import { runCauseEffect } from "../../backend/effect-boundary";
 import type { RavenTeamService } from "../../backend/raven-team/raven-team-service";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import {
+  parseGiveRavenRoleFullAccess,
   parsePlanRavenTeam,
   parseRavenJobId,
   parseRavenTemplateId,
@@ -26,6 +27,9 @@ export function ravenTeamIpcHandlers({ ravenTeam }: RavenTeamIpcDependencies): P
       start: payloadHandler(parsePlanRavenTeam, (input) => runCauseEffect(ravenTeam.start(input))),
       listJobs: handler(() => ravenTeam.listJobs()),
       setRoleModel: payloadHandler(parseSetRavenRoleModel, (input) => runCauseEffect(ravenTeam.setRoleModel(input))),
+      giveRoleFullAccess: payloadHandler(parseGiveRavenRoleFullAccess, (input) =>
+        runCauseEffect(ravenTeam.giveRoleFullAccess(input)),
+      ),
       stop: payloadHandler(parseRavenJobId, (jobId) => runCauseEffect(ravenTeam.stop(jobId))),
       resume: payloadHandler(parseRavenJobId, (jobId) => runCauseEffect(ravenTeam.resume(jobId))),
     },

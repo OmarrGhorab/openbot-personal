@@ -1,11 +1,14 @@
-import type {
-  PlanRavenTeamInput,
-  RavenTeamJob,
-  RavenTeamPlan,
-  RavenTeamRoleRun,
-  RavenTeamTemplate,
+import { agentProviderName } from "@openbot/contracts/agent-providers";
+import {
+  type AgentProviderId,
+  type PlanRavenTeamInput,
+  type RavenTeamJob,
+  type RavenTeamPlan,
+  type RavenTeamRoleRun,
+  type RavenTeamTemplate,
+  ravenTeamPlatformName,
 } from "@openbot/contracts/ipc";
-import { Alert, AlertContent, AlertDescription, Button, Label, Textarea } from "@openbot/ui";
+import { Alert, AlertActions, AlertContent, AlertDescription, Button, Label, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, Show } from "solid-js";
 
@@ -24,6 +27,8 @@ export interface RavenTeamPageProps {
   onStop: (jobId: string) => Promise<unknown>;
   onResume: (jobId: string) => Promise<unknown>;
   onSetRoleModel: (input: { jobId: string; roleId: string; model: string }) => Promise<unknown>;
+  /** Gives a role of a job Full access, from the job's access question. */
+  onGiveRoleFullAccess: (input: { jobId: string; roleId: string }) => Promise<unknown>;
   /** Shows a Back button that returns to the page that opened the team. */
   onBack?: (() => void) | undefined;
 }
@@ -61,19 +66,38 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const templateId = () => props.templates[0]?.id ?? "";
   const [brief, setBrief] = createSignal("");
   const [overrides, setOverrides] = createSignal<Record<string, string>>({});
+  // Read-only roles that the user gave Full access on the confirm card.
+  const [fullAccess, setFullAccess] = createSignal<string[]>([]);
   const [plan, setPlan] = createSignal<RavenTeamPlan | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
 
-  const request = (): PlanRavenTeamInput => ({ templateId: templateId(), brief: brief(), models: overrides() });
+  const request = (
+    models: Record<string, string> = overrides(),
+    access: string[] = fullAccess(),
+  ): PlanRavenTeamInput => ({
+    templateId: templateId(),
+    brief: brief(),
+    models,
+    fullAccess: access,
+  });
   const canStart = () => {
     const current = plan();
     return (
       current !== null &&
       current.unknownRoles.length === 0 &&
       current.unknownModels.length === 0 &&
+      current.accessProblems.length === 0 &&
       current.roles.length > 0
     );
+  };
+  /** The access question: a read-only role whose provider cannot run Workspace only on this computer. */
+  const accessText = (role: string, provider: AgentProviderId, platform: string | undefined) => {
+    const os = platform ? ravenTeamPlatformName(platform) : null;
+    const values = { role, provider: agentProviderName(provider) };
+    return os
+      ? t("agent.team.question.workspaceAccess", { ...values, os })
+      : t("agent.team.question.workspaceAccessHere", values);
   };
   const roleLabel = (roleId: string) => plan()?.roles.find((role) => role.roleId === roleId)?.label ?? roleId;
 
@@ -89,12 +113,25 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     }
   }
 
-  const check = () => run(async () => setPlan(await props.onPlan(request())));
+  const check = (models?: Record<string, string>, access?: string[]) =>
+    run(async () => setPlan(await props.onPlan(request(models, access))));
 
-  /** A model the user picks for a role. The plan is checked again, so the question clears or repeats. */
+  /**
+   * A model the user picks for a role. The plan is checked again with the new choice, so the question
+   * clears or repeats. The check gets the choices itself: a signal write shows at the next flush, so
+   * reading `overrides()` here would still give the old ones.
+   */
   const pickModel = (roleId: string, model: string) => {
-    setOverrides({ ...overrides(), [roleId]: model });
-    void check();
+    const next = { ...overrides(), [roleId]: model };
+    setOverrides(next);
+    void check(next);
+  };
+
+  /** The one-click answer to the access question on the confirm card. The plan is checked again. */
+  const giveFullAccess = (roleId: string) => {
+    const next = [...new Set([...fullAccess(), roleId])];
+    setFullAccess(next);
+    void check(overrides(), next);
   };
 
   const start = () =>
@@ -103,6 +140,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       setPlan(null);
       setBrief("");
       setOverrides({});
+      setFullAccess([]);
     });
 
   function ModelChoices(choice: { value: string; label: string; onPick: (model: string) => void }) {
@@ -217,6 +255,22 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                 </Alert>
               )}
             </For>
+            <For each={current().accessProblems}>
+              {(problem) => (
+                <Alert tone="danger" role="alert" class="raven-team-access-question">
+                  <AlertContent>
+                    <AlertDescription>
+                      {accessText(roleLabel(problem.roleId), problem.provider, problem.platform)}
+                    </AlertDescription>
+                  </AlertContent>
+                  <AlertActions>
+                    <Button size="sm" disabled={busy()} onClick={() => giveFullAccess(problem.roleId)}>
+                      {t("agent.team.access.giveFull", { role: roleLabel(problem.roleId) })}
+                    </Button>
+                  </AlertActions>
+                </Alert>
+              )}
+            </For>
             <For each={current().unknownRoles}>
               {(roleId) => (
                 <Alert tone="warning" role="alert">
@@ -244,7 +298,11 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                     <div class="raven-team-role-head">
                       <span class="raven-team-role-label">{role.label}</span>
                       <span class="raven-team-role-state">
-                        {role.access === "write" ? t("agent.team.access.write") : t("agent.team.access.readOnly")}
+                        {role.access === "write"
+                          ? t("agent.team.access.write")
+                          : role.fullAccess
+                            ? t("agent.team.access.readOnlyFull")
+                            : t("agent.team.access.readOnly")}
                       </span>
                       <span class="raven-team-role-verdict">{role.model}</span>
                     </div>
@@ -289,19 +347,51 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                   </span>
                 </div>
                 <Show when={job.question}>
-                  {(question) => (
-                    <Alert tone="warning">
-                      <AlertContent>
-                        <AlertDescription>
-                          {question().kind === "fallback-model"
-                            ? t("agent.team.question.fallback")
-                            : question().kind === "no-report"
-                              ? t("agent.team.question.noReport")
-                              : t("agent.team.question.blocked")}
-                        </AlertDescription>
-                      </AlertContent>
-                    </Alert>
-                  )}
+                  {(question) => {
+                    const accessRole = () =>
+                      question().kind === "workspace-access"
+                        ? job.roles.find((role) => role.roleId === question().roleId)
+                        : undefined;
+                    return (
+                      <Show
+                        when={accessRole()}
+                        fallback={
+                          <Alert tone="warning">
+                            <AlertContent>
+                              <AlertDescription>
+                                {question().kind === "fallback-model"
+                                  ? t("agent.team.question.fallback")
+                                  : question().kind === "no-report"
+                                    ? t("agent.team.question.noReport")
+                                    : t("agent.team.question.blocked")}
+                              </AlertDescription>
+                            </AlertContent>
+                          </Alert>
+                        }
+                      >
+                        {(role) => (
+                          <Alert tone="danger" role="alert" class="raven-team-access-question">
+                            <AlertContent>
+                              <AlertDescription>
+                                {accessText(role().label, role().provider, question().platform)}
+                              </AlertDescription>
+                            </AlertContent>
+                            <AlertActions>
+                              <Button
+                                size="sm"
+                                disabled={busy()}
+                                onClick={() =>
+                                  void run(() => props.onGiveRoleFullAccess({ jobId: job.id, roleId: role().roleId }))
+                                }
+                              >
+                                {t("agent.team.access.giveFull", { role: role().label })}
+                              </Button>
+                            </AlertActions>
+                          </Alert>
+                        )}
+                      </Show>
+                    );
+                  }}
                 </Show>
                 <ul class="raven-team-roles">
                   <For each={job.roles}>{(role) => <RoleRow job={job} role={role} />}</For>

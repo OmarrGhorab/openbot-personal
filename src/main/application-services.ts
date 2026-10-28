@@ -1887,8 +1887,16 @@ export async function createApplicationServices({
   };
   // The turn channel: a work thread's turns leave `event` for the task module, and the team needs them.
   service.on("turn", ravenTeamListener);
+  // The event channel: an agent change can answer the access question, and a message that did not
+  // start a turn must not leave a role Working.
+  // Turn events come from the turn channel only, so a turn is never read twice.
+  const ravenTeamAgentListener = (event: AgentEvent) => {
+    if (event.type === "agents-changed" || event.type === "error") ravenTeamListener(event);
+  };
+  service.on("event", ravenTeamAgentListener);
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
     service.off("turn", ravenTeamListener);
+    service.off("event", ravenTeamAgentListener);
   });
   // An agent routine's answer sent on to a messaging place; see `routine-results.ts`.
   const routineResultRuntime = await Effect.runPromise(

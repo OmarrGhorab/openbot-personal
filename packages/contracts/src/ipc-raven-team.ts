@@ -96,7 +96,13 @@ export const RAVEN_TEAM_JOB_STATES = ["running", "stopped", "waiting-user", "don
 export type RavenTeamJobState = (typeof RAVEN_TEAM_JOB_STATES)[number];
 
 /** Why a job waits for the user. */
-export const RAVEN_TEAM_QUESTIONS = ["fallback-model", "blocked", "unknown-model", "no-report"] as const;
+export const RAVEN_TEAM_QUESTIONS = [
+  "fallback-model",
+  "blocked",
+  "unknown-model",
+  "no-report",
+  "workspace-access",
+] as const;
 export type RavenTeamQuestionKind = (typeof RAVEN_TEAM_QUESTIONS)[number];
 
 /** The model of one role, from the message or from the template. */
@@ -110,6 +116,12 @@ export interface RavenTeamPlanRole {
   optional: boolean;
   /** True when the message or the user named the model. False when the template default gave it. */
   named: boolean;
+  /**
+   * The agent access of the role's agent: true for Full access, false for Workspace only. A `write`
+   * role always has Full access. A `read-only` role has it only when the user gave it, and its brief
+   * still tells it not to change the branch.
+   */
+  fullAccess: boolean;
 }
 
 export interface RavenTeamPlanWarning {
@@ -120,14 +132,25 @@ export interface RavenTeamPlanWarning {
   model: AgentModelId;
 }
 
+/**
+ * A read-only role whose provider cannot run Workspace only on this computer. Its agent would never
+ * start a turn, so the plan cannot start until the user gives the role Full access or another model.
+ */
+export interface RavenTeamAccessProblem {
+  roleId: string;
+  provider: AgentProviderId;
+  /** `process.platform` of the computer that runs the team. */
+  platform: string;
+}
+
 export interface RavenTeamUnknownModel {
   roleId: string;
   model: string;
 }
 
 /**
- * What the confirm card shows before the start. A plan is ready to start when `unknownRoles` and
- * `unknownModels` are both empty and every role has a model.
+ * What the confirm card shows before the start. A plan is ready to start when `unknownRoles`,
+ * `unknownModels` and `accessProblems` are all empty and every role has a model.
  */
 export interface RavenTeamPlan {
   templateId: string;
@@ -138,6 +161,8 @@ export interface RavenTeamPlan {
   unknownRoles: string[];
   /** Models that the message or the user names and that no connected provider lists. */
   unknownModels: RavenTeamUnknownModel[];
+  /** Read-only roles that cannot run Workspace only with their provider on this computer. */
+  accessProblems: RavenTeamAccessProblem[];
   /** The stronger model the Builder moves to after two FAIL rounds. Null when the message names none. */
   fallbackModel: AgentModelId | null;
 }
@@ -165,6 +190,8 @@ export interface RavenTeamRoleRun {
 export interface RavenTeamQuestion {
   kind: RavenTeamQuestionKind;
   roleId: string | null;
+  /** `workspace-access` only: `process.platform` of the computer that cannot run the role Workspace only. */
+  platform?: string;
 }
 
 export interface RavenTeamJob {
@@ -199,6 +226,8 @@ export interface PlanRavenTeamInput {
   brief: string;
   /** Role id to model. Overrides a model that the message names for the same role. */
   models?: Record<string, string>;
+  /** Ids of read-only roles that the user gave Full access on the confirm card. */
+  fullAccess?: string[];
 }
 
 export interface SetRavenTeamRoleModelInput {
@@ -207,9 +236,22 @@ export interface SetRavenTeamRoleModelInput {
   model: string;
 }
 
+/** Gives one role of a job Full access, and sends the role the message that waited for it. */
+export interface GiveRavenTeamRoleFullAccessInput {
+  jobId: string;
+  roleId: string;
+}
+
 /** The change event: the job that changed, or null when the template list changed. */
 export interface RavenTeamChanged {
   jobId: string | null;
+}
+
+const PLATFORM_NAMES: Readonly<Record<string, string>> = { linux: "Linux", win32: "Windows", darwin: "macOS" };
+
+/** The name of an operating system in the access question, or null for one the text does not name. */
+export function ravenTeamPlatformName(platform: string): string | null {
+  return Object.hasOwn(PLATFORM_NAMES, platform) ? (PLATFORM_NAMES[platform] ?? null) : null;
 }
 
 export function isRavenTeamRoleAccess(value: unknown): value is RavenTeamRoleAccess {
@@ -289,7 +331,8 @@ export function isRavenTeamQuestion(value: unknown): value is RavenTeamQuestion 
   return (
     isDynamicRecord(value) &&
     isOneOf(RAVEN_TEAM_QUESTIONS, value.kind) &&
-    (value.roleId === null || isString(value.roleId))
+    (value.roleId === null || isString(value.roleId)) &&
+    (value.platform === undefined || isBoundedString(value.platform, 40))
   );
 }
 
@@ -315,7 +358,8 @@ export function isRavenTeamPlan(value: unknown): value is RavenTeamPlan {
         Array.isArray(role.skills) &&
         role.skills.every(isString) &&
         typeof role.optional === "boolean" &&
-        typeof role.named === "boolean",
+        typeof role.named === "boolean" &&
+        typeof role.fullAccess === "boolean",
     ) &&
     Array.isArray(value.warnings) &&
     Array.isArray(value.unknownRoles) &&
@@ -323,6 +367,14 @@ export function isRavenTeamPlan(value: unknown): value is RavenTeamPlan {
     Array.isArray(value.unknownModels) &&
     value.unknownModels.every(
       (unknown) => isDynamicRecord(unknown) && isString(unknown.roleId) && isString(unknown.model),
+    ) &&
+    Array.isArray(value.accessProblems) &&
+    value.accessProblems.every(
+      (problem) =>
+        isDynamicRecord(problem) &&
+        isString(problem.roleId) &&
+        isAgentProvider(problem.provider) &&
+        isBoundedString(problem.platform, 40),
     ) &&
     (value.fallbackModel === null || isAgentModel(value.fallbackModel))
   );

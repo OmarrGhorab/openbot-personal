@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { AgentEvent, AgentModelId } from "@openbot/contracts/ipc";
+import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/agent-providers";
+import type { AgentEvent, AgentModelId, AgentProviderId } from "@openbot/contracts/ipc";
 import {
   type PlanRavenTeamInput,
   parseRavenTeamReport,
@@ -13,9 +14,10 @@ import {
   type RavenTeamQuestion,
   type RavenTeamQuestionKind,
   type RavenTeamReport,
-  type RavenTeamRoleAccess,
   type RavenTeamTemplate,
   type RavenTeamVerdict,
+  ravenTeamPlatformName,
+  workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
@@ -50,6 +52,8 @@ const logger = createOpenBotLogger("raven-team");
 const BUILT_IN_DATE = "2026-10-28T00:00:00.000Z";
 /** The agent name of a role's agent. The model is in the name, so a role on another model is another agent. */
 const ROLE_AGENT_NAME_LIMIT = 80;
+/** The error code of a message that did not start a turn (`drain-scheduler.ts`). */
+const DELIVERY_START_FAILED = "delivery_start_failed";
 /** The message that starts a role agent's first turn. The role's work starts in a task. */
 const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the team.";
 
@@ -89,6 +93,13 @@ export interface RavenTeamServiceOptions {
   /** Called after each change to a job or a template, so the view reads it again. */
   changed: (jobId: string | null) => void;
   now?: () => string;
+  /** `process.platform` of this computer. A test sets another one. */
+  platform?: string;
+  /**
+   * Whether a Workspace only agent of the provider can run here. Defaults to `workspaceOnlySupported`
+   * on `platform`. A test sets it to stand for a provider that cannot.
+   */
+  workspaceOnlySupported?: (provider: AgentProviderId) => boolean;
 }
 
 function isVerifier(role: RavenTeamRoleRecord): boolean {
@@ -115,6 +126,8 @@ export class RavenTeamService {
   readonly #agents: RavenTeamAgents;
   readonly #changed: (jobId: string | null) => void;
   readonly #now: () => string;
+  readonly #platform: string;
+  readonly #workspaceOnlySupported: (provider: AgentProviderId) => boolean;
   readonly #lock = Semaphore.makeUnsafe(1);
 
   constructor(options: RavenTeamServiceOptions) {
@@ -122,6 +135,10 @@ export class RavenTeamService {
     this.#agents = options.agents;
     this.#changed = options.changed;
     this.#now = options.now ?? (() => new Date().toISOString());
+    const platform = options.platform ?? process.platform;
+    this.#platform = platform;
+    this.#workspaceOnlySupported =
+      options.workspaceOnlySupported ?? ((provider) => workspaceOnlySupported(provider, platform));
   }
 
   /** The built-in template first, then the user's copies. */
@@ -189,6 +206,14 @@ export class RavenTeamService {
             cause: new Error(this.#unknownModelText(unknown.roleId, unknown.model)),
           });
         }
+        const accessProblem = plan.accessProblems[0];
+        if (accessProblem !== undefined) {
+          const label = plan.roles.find((role) => role.roleId === accessProblem.roleId)?.label ?? accessProblem.roleId;
+          return yield* new RavenTeamFailed({
+            operation: "start team",
+            cause: new Error(this.#workspaceAccessText(label, accessProblem.provider)),
+          });
+        }
         if (!ravenTeamPlanReady(plan)) {
           return yield* new RavenTeamFailed({
             operation: "start team",
@@ -199,7 +224,13 @@ export class RavenTeamService {
         const jobId = randomUUID();
         const roles: RavenTeamRoleRecord[] = [];
         for (const role of plan.roles) {
-          const agent = yield* this.#ensureRoleAgent(role.roleId, role.label, role.model, role.provider, role.access);
+          const agent = yield* this.#ensureRoleAgent(
+            role.roleId,
+            role.label,
+            role.model,
+            role.provider,
+            role.fullAccess,
+          );
           roles.push({
             roleId: role.roleId,
             label: role.label,
@@ -270,6 +301,32 @@ export class RavenTeamService {
           const pending = this.#job(job.id).roles.find((candidate) => candidate.roleId === role.roleId)?.pendingMessage;
           if (pending) yield* this.#deliver(job.id, role.roleId, pending);
         }
+        // A model on a provider that runs Workspace only here answers the access question too.
+        yield* this.#settleAccess(job.id);
+        this.#changed(job.id);
+        return publicRavenTeamJob(this.#job(job.id));
+      }),
+    );
+  }
+
+  /**
+   * Gives one role Full access, from the access question of a running job. The role's brief still
+   * says read-only; only the agent access changes, so its provider can start. The message that waited
+   * for the access is sent now.
+   */
+  giveRoleFullAccess(input: { jobId: string; roleId: string }): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const job = this.#job(input.jobId);
+        const role = job.roles.find((candidate) => candidate.roleId === input.roleId);
+        if (!role?.agentId) {
+          return yield* new RavenTeamFailed({
+            operation: "give role full access",
+            cause: new Error(sourceText("error.agent.ravenTeam.unknownRole", { role: input.roleId })),
+          });
+        }
+        yield* this.#call("give role full access", this.#agents.updateAgent({ agentId: role.agentId, access: "full" }));
+        yield* this.#settleAccess(job.id);
         this.#changed(job.id);
         return publicRavenTeamJob(this.#job(job.id));
       }),
@@ -323,19 +380,30 @@ export class RavenTeamService {
 
   /** Reacts to an agent event. Only turn events of a team role matter; every other event is ignored. */
   notice(event: AgentEvent): Effect.Effect<void> {
+    if (event.type === "agents-changed") return this.#guarded(this.#settleAllAccess());
+    if (event.type === "error") {
+      const agentId = event.agentId;
+      if (event.code !== DELIVERY_START_FAILED || agentId === undefined) return Effect.void;
+      return this.#guarded(this.#startFailed(agentId));
+    }
     if (event.type !== "turn-started" && event.type !== "turn-completed") return Effect.void;
+    return this.#guarded(
+      Effect.gen({ self: this }, function* () {
+        const found = this.#store.findRoleByThread(event.threadId);
+        if (!found) return;
+        if (event.type === "turn-started") {
+          this.#store.updateRole(found.jobId, found.roleId, { pendingMessage: null }, this.#now());
+          return;
+        }
+        yield* this.#turnCompleted(found.jobId, found.roleId, event.status);
+      }),
+    );
+  }
+
+  /** One locked reaction to an agent event. A failure is logged; the event source never sees it. */
+  #guarded(effect: Effect.Effect<void, RavenTeamFailed>): Effect.Effect<void> {
     return this.#lock
-      .withPermit(
-        Effect.gen({ self: this }, function* () {
-          const found = this.#store.findRoleByThread(event.threadId);
-          if (!found) return;
-          if (event.type === "turn-started") {
-            this.#store.updateRole(found.jobId, found.roleId, { pendingMessage: null }, this.#now());
-            return;
-          }
-          yield* this.#turnCompleted(found.jobId, found.roleId, event.status);
-        }),
-      )
+      .withPermit(effect)
       .pipe(
         Effect.catch((error) =>
           Effect.sync(() => logger.warn("A Raven Stack team event failed.", { cause: String(error) })),
@@ -357,6 +425,107 @@ export class RavenTeamService {
       overrides: input.models ?? {},
       models: this.#agents.listModels(),
       preferredProvider: this.#agents.preferredProvider(),
+      fullAccess: input.fullAccess ?? [],
+      workspaceOnlySupported: this.#workspaceOnlySupported,
+      platform: this.#platform,
+    });
+  }
+
+  /** The access question: the role, its provider, and this computer's system when the text can name it. */
+  #workspaceAccessText(label: string, provider: AgentProviderId): string {
+    const os = ravenTeamPlatformName(this.#platform);
+    const values = { role: label, provider: agentProviderName(provider) };
+    return os
+      ? sourceText("error.agent.ravenTeam.workspaceAccess", { ...values, os })
+      : sourceText("error.agent.ravenTeam.workspaceAccessHere", values);
+  }
+
+  /**
+   * Whether the role's agent is set to Workspace only on a provider that cannot run it here. The
+   * agent is read now, so a change in the agent settings or of the role's model counts at once.
+   */
+  #cannotRunAccess(role: RavenTeamRoleRecord): boolean {
+    if (!role.agentId) return false;
+    const agent = this.#agents.listAgents().find((candidate) => candidate.id === role.agentId);
+    if (!agent || !workspaceAccessEnforced(agent)) return false;
+    return !this.#workspaceOnlySupported(agent.provider);
+  }
+
+  /**
+   * The role waits for the user with the access question. Its message is kept as the pending
+   * message, so a change of access sends it. Nothing reaches the provider, so no turn hangs.
+   */
+  #askAccess(jobId: string, roleId: string, pendingMessage: string | null): void {
+    const now = this.#now();
+    this.#store.updateRole(jobId, roleId, { state: "blocked", pendingMessage }, now);
+    const job = this.#job(jobId);
+    // One question at a time: a second role waits blocked, and is asked when the first one is answered.
+    if (job.question?.kind !== "workspace-access" || job.question.roleId === roleId) {
+      const question: RavenTeamQuestion = { kind: "workspace-access", roleId, platform: this.#platform };
+      this.#store.updateJob(jobId, { state: job.state === "stopped" ? "stopped" : "waiting-user", question }, now);
+    }
+    this.#changed(jobId);
+  }
+
+  /**
+   * Answers the access question when the role can run now: after Full access, after a model on
+   * another provider, or after a change in the agent settings. The waiting message is sent again.
+   */
+  #settleAccess(jobId: string) {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#job(jobId);
+      const question = job.question;
+      if (question?.kind !== "workspace-access" || question.roleId === null || isTerminal(job)) return;
+      const role = job.roles.find((candidate) => candidate.roleId === question.roleId);
+      if (!role || this.#cannotRunAccess(role)) return;
+      const now = this.#now();
+      const stopped = job.state === "stopped";
+      this.#store.updateJob(jobId, { question: null, state: stopped ? "stopped" : "running" }, now);
+      if (stopped) {
+        // A stopped team sends the message at its resume.
+        this.#store.updateRole(jobId, role.roleId, { state: "stopped" }, now);
+      } else if (role.pendingMessage) {
+        yield* this.#deliver(jobId, role.roleId, role.pendingMessage);
+      } else {
+        yield* this.#engage(jobId, role.roleId, null);
+      }
+      // The next role that waits on the same question is asked now.
+      const next = this.#job(jobId).roles.find(
+        (candidate) =>
+          candidate.roleId !== role.roleId &&
+          candidate.state === "blocked" &&
+          candidate.pendingMessage !== null &&
+          this.#cannotRunAccess(candidate),
+      );
+      if (next) this.#askAccess(jobId, next.roleId, next.pendingMessage);
+      this.#changed(jobId);
+    });
+  }
+
+  /** An agent changed: each job that waits on the access question checks its role again. */
+  #settleAllAccess() {
+    return Effect.gen({ self: this }, function* () {
+      for (const job of this.#store.listJobs(50)) {
+        if (job.question?.kind === "workspace-access") yield* this.#settleAccess(job.id);
+      }
+    });
+  }
+
+  /**
+   * A message to a role's agent did not start. The role would show Working with no turn, so it asks
+   * the user: the access question when its provider cannot run Workspace only here, the blocked
+   * question otherwise. Only a role whose message has not started a turn is matched.
+   */
+  #startFailed(agentId: string) {
+    return Effect.sync(() => {
+      for (const job of this.#store.listJobs(50)) {
+        if (isTerminal(job) || job.state === "stopped") continue;
+        for (const role of job.roles) {
+          if (role.agentId !== agentId || role.state !== "working" || role.pendingMessage === null) continue;
+          if (this.#cannotRunAccess(role)) this.#askAccess(job.id, role.roleId, role.pendingMessage);
+          else this.#blockedAt(job.id, role.roleId, "blocked");
+        }
+      }
     });
   }
 
@@ -377,7 +546,7 @@ export class RavenTeamService {
     label: string,
     model: AgentModelId,
     provider: RavenTeamRoleRecord["provider"],
-    access: RavenTeamRoleAccess,
+    fullAccess: boolean,
   ) {
     const name = `Raven ${label} (${model})`.slice(0, ROLE_AGENT_NAME_LIMIT);
     return Effect.gen({ self: this }, function* () {
@@ -400,7 +569,7 @@ export class RavenTeamService {
         ));
       yield* this.#call(
         "set role access",
-        this.#agents.updateAgent({ agentId: agent.id, access: access === "write" ? "full" : "workspace" }),
+        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace" }),
       );
       return { id: agent.id, provider: agent.provider, model: agent.model };
     });
@@ -449,6 +618,11 @@ export class RavenTeamService {
       }
       const safe = redactText(text);
       const now = this.#now();
+      if (this.#cannotRunAccess(role)) {
+        // The provider would refuse the turn, and the role would show Working forever. It asks instead.
+        this.#askAccess(jobId, roleId, safe);
+        return;
+      }
       if (role.taskId === null) {
         const task = yield* this.#call(
           "start role task",

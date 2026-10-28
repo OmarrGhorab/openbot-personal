@@ -40,7 +40,12 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
   const allTemplates = () => [BUILT_IN, ...templates];
   const now = () => new Date().toISOString();
 
-  function plan(input: { templateId: string; brief: string; models?: Record<string, string> }): RavenTeamPlan {
+  function plan(input: {
+    templateId: string;
+    brief: string;
+    models?: Record<string, string>;
+    fullAccess?: string[];
+  }): RavenTeamPlan {
     const template = allTemplates().find((candidate) => candidate.id === input.templateId) ?? BUILT_IN;
     const named = new Map<string, string>();
     for (const role of template.roles) {
@@ -68,6 +73,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         skills: [...role.skills],
         optional: role.optional,
         named: named.has(role.id),
+        fullAccess: role.access === "write" || (input.fullAccess ?? []).includes(role.id),
       });
     }
     const builder = roles.find((role) => role.roleId === "builder");
@@ -87,6 +93,8 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       warnings,
       unknownRoles: [],
       unknownModels,
+      // The preview models run Workspace only everywhere, so the preview has no access question.
+      accessProblems: [],
       fallbackModel: null,
     };
   }
@@ -163,6 +171,19 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
           ? { ...role, model: option.id, provider: option.provider, updatedAt: now() }
           : role,
       );
+      emitChanged(job.id);
+      return job;
+    },
+    giveRoleFullAccess: async (input) => {
+      const job = jobs.find((candidate) => candidate.id === input.jobId);
+      if (!job) throw new Error("The team job was not found.");
+      if (job.question?.kind === "workspace-access" && job.question.roleId === input.roleId) {
+        job.question = null;
+        job.state = "running";
+        job.roles = job.roles.map((role) =>
+          role.roleId === input.roleId ? { ...role, state: "working", updatedAt: now() } : role,
+        );
+      }
       emitChanged(job.id);
       return job;
     },
