@@ -1,6 +1,7 @@
 import type { ChatWindowTarget } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { taskApproval } from "@openbot/team-client/agent-tasks";
+import { toast } from "@openbot/ui";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
@@ -22,6 +23,7 @@ import { useAgentTasks } from "../agent-tasks/agent-tasks-context";
 import { useAgentActions } from "../agents/agent-actions";
 import { agentThreadAttention } from "../agents/agent-thread-attention";
 import { useAgents } from "../agents/agents-context";
+import { createStopAllControl } from "../autonomy/stop-all-control";
 import { useChannels } from "../channels/channels-context";
 import { useConversation } from "../conversation/conversation-context";
 import { useDirectMessages } from "../conversation/direct-messages-context";
@@ -54,6 +56,9 @@ const MOBILE_APP_DISMISSED_STORAGE_KEY = "openbot:mobile-app-card-dismissed";
  */
 export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { t } = useText();
+  // Stop all agents of this computer. The switch is in the top bar, so the sidebar owns its state.
+  const stopAll = createStopAllControl();
+  onSettled(() => void stopAll.refresh());
   const layout = useLayout();
   const windowPage = useWindowPage();
   /** The Tasks page shows beside the list. No row is open, so a click on a row opens its chat. */
@@ -226,6 +231,16 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       onOpenServerSettings={(trigger) => {
         const server = activeServer();
         if (server) openServerSettings(server.id, trigger);
+      }}
+      stopAll={{
+        stopped: stopAll.stopped(),
+        disabled: !stopAll.ready(),
+        onToggle: () =>
+          void stopAll.toggle().catch(() =>
+            toast.error(t("autonomy.stopAll.failed"), {
+              report: { operation: "agent", source: "system", cause_code: "unknown" },
+            }),
+          ),
       }}
       chatHistory={{
         back: chatName(chatHistory.previous()),

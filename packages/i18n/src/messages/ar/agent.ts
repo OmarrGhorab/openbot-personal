@@ -73,4 +73,10 @@ export const messages = {
   "agent.color.indigo": "نيلي",
   "agent.color.violet": "بنفسجي",
   "agent.color.magenta": "أرجواني",
+  "agent.team.access.readOnlyFull": "قراءة بس، وصول كامل",
+  "agent.team.access.giveFull": "ادّي {role} وصول كامل",
+  "agent.team.question.workspaceAccess":
+    "{role} مينفعش يشتغل قراءة بس مع {provider} على {os}. ادّيله وصول كامل أو اختار مزوّد بيدعم القراءة بس.",
+  "agent.team.question.workspaceAccessHere":
+    "{role} مينفعش يشتغل قراءة بس مع {provider} على الجهاز ده. ادّيله وصول كامل أو اختار مزوّد بيدعم القراءة بس.",
 } as const satisfies PartialTranslation<typeof source>;

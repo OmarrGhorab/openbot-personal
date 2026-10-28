@@ -23,6 +23,8 @@ import { type AgentAdminSettingsService, createAgentAdminSettings } from "./agen
 import { spawnAgentDatabaseHost } from "./agent-database-host-process";
 import { agentDisplayEnvironment, hasSeparateAgentDisplay } from "./agent-display";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
+import { type AutonomyAdmin, createAutonomyAdmin } from "./autonomy-admin";
+import { AUTONOMY_PREFERENCE_FILE, AutonomyPreferences } from "./autonomy-preferences";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
 import { HostReleaseService, readInstallationMode } from "./host-release-service";
 import {
@@ -116,6 +118,8 @@ import { AgentTicketSettings } from "../backend/agent-tickets/agent-ticket-setti
 import { AgentTicketStore } from "../backend/agent-tickets/agent-ticket-store";
 import { GitHubTicketSource } from "../backend/agent-tickets/github-ticket-source";
 import { TicketPullRegistry } from "../backend/agent-tickets/ticket-pull-registry";
+import { AutonomyAuditStore } from "../backend/autonomy/autonomy-audit-store";
+import { AutonomyUsageStore } from "../backend/autonomy/autonomy-usage-store";
 import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
@@ -582,6 +586,7 @@ export interface ApplicationServices {
   analyticsPreferenceFile: string;
   updatePreferenceFile: string;
   approvalAutomation: ApprovalAutomation;
+  autonomy: AutonomyAdmin;
   agentAdminSettings: AgentAdminSettingsService;
   agentHostSettings: AgentHostSettingsService;
   browserProfiles: BrowserProfileService;
@@ -1290,6 +1295,9 @@ export async function createApplicationServices({
   forgetSignedOutSessions(centralAuth.getState());
   centralAuth.on("changed", forgetSignedOutSessions);
   const updatePreference = await runCauseEffect(readUpdatePreference(updatePreferenceFile));
+  // Graded permissions, budgets and Stop all agents. Loaded before the agent service reads them.
+  const autonomyPreferences = new AutonomyPreferences(join(app.getPath("userData"), AUTONOMY_PREFERENCE_FILE));
+  await runCauseEffect(autonomyPreferences.load());
   const approvalAutomationFile = join(app.getPath("userData"), APPROVAL_AUTOMATION_FILE);
   const approvalAutomation = new ApprovalAutomation({
     path: approvalAutomationFile,
@@ -1807,6 +1815,7 @@ export async function createApplicationServices({
     // `events` is built later, after the account service and the relay.
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
+    autonomy: autonomyPreferences,
     busyMessageMode: () => busyMessageMode.get().mode,
     mcpChangesWithoutApproval: () => agentMcpChanges.get().withoutApproval,
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
@@ -1916,8 +1925,16 @@ export async function createApplicationServices({
   };
   // The turn channel: a work thread's turns leave `event` for the task module, and the team needs them.
   service.on("turn", ravenTeamListener);
+  // The event channel: an agent change can answer the access question, and a message that did not
+  // start a turn must not leave a role Working.
+  // Turn events come from the turn channel only, so a turn is never read twice.
+  const ravenTeamAgentListener = (event: AgentEvent) => {
+    if (event.type === "agents-changed" || event.type === "error") ravenTeamListener(event);
+  };
+  service.on("event", ravenTeamAgentListener);
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
     service.off("turn", ravenTeamListener);
+    service.off("event", ravenTeamAgentListener);
   });
   // An agent routine's answer sent on to a messaging place; see `routine-results.ts`.
   const routineResultRuntime = await Effect.runPromise(
@@ -2186,6 +2203,12 @@ export async function createApplicationServices({
     }),
   );
   const agentAdminSettings = createAgentAdminSettings({ agents: service, approvalAutomation });
+  const autonomy = createAutonomyAdmin({
+    preferences: autonomyPreferences,
+    service,
+    audit: new AutonomyAuditStore(store.database),
+    usage: new AutonomyUsageStore(store.database),
+  });
   const agentHostSettings = createAgentHostSettings({ agents: service, busyMessageMode, agentDefaults });
   const browserProfiles = createBrowserProfileService({ store: browserProfileStore, agents: service, browser });
   const customProviderChanges = createCustomProviderChanges({ service, customProviders });
@@ -3119,6 +3142,7 @@ export async function createApplicationServices({
     analyticsPreferenceFile,
     updatePreferenceFile,
     approvalAutomation,
+    autonomy,
     agentAdminSettings,
     agentHostSettings,
     browserProfiles,

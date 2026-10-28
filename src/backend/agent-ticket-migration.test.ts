@@ -3,9 +3,9 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateOpenBotDatabase } from "./openbot-database-schema";
 
-// Failure modes of migration 49: the upgrade changes or loses a row of any table, a thread or a task
+// Failure modes of migration 50: the upgrade changes or loses a row of any table, a thread or a task
 // included; a failed upgrade leaves a ticket table or its marker; a newer or incomplete history is
-// accepted. Migration 48 only creates the two ticket tables, so every released row must be unchanged.
+// accepted. Migration 50 only creates the ticket tables, so every released row must be unchanged.
 const databases: DatabaseSync[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) db.close();
@@ -59,7 +59,7 @@ function contents(db: DatabaseSync): Record<string, unknown[]> {
 }
 
 describe("agent ticket migration", () => {
-  it.each(Array.from({ length: 40 }, (_, index) => index + 8))(
+  it.each(Array.from({ length: 42 }, (_, index) => index + 8))(
     "preserves every row from released schema %i",
     (version) => {
       const db = databaseAt(version);
@@ -70,7 +70,7 @@ describe("agent ticket migration", () => {
       const after = contents(db);
       expect(Object.fromEntries(Object.keys(before).map((table) => [table, after[table]]))).toEqual(before);
       expect(after).toMatchObject(TICKET_TABLES);
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 49 });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 50 });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -81,16 +81,16 @@ describe("agent ticket migration", () => {
     const db = databaseAt(47);
     seed(db, 47);
     const before = contents(db);
-    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=49
+    db.exec(`CREATE TEMP TRIGGER fail_marker BEFORE INSERT ON schema_migrations WHEN new.version=50
       BEGIN SELECT RAISE(ABORT, 'late failure'); END;`);
-    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 49 failed");
+    expect(() => migrateOpenBotDatabase(db)).toThrow("migration to version 50 failed");
     expect(contents(db)).toMatchObject(before);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%ticket%'").all()).toEqual([]);
-    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 49").all()).toEqual([]);
+    expect(db.prepare("SELECT version FROM schema_migrations WHERE version = 50").all()).toEqual([]);
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
     expect(contents(db)).toMatchObject({ ...before, ...TICKET_TABLES });
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 49 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 50 });
   });
 
   it("refuses a history that is missing a version, and leaves the ticket tables out", () => {

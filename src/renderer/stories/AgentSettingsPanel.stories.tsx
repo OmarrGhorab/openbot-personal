@@ -1,4 +1,5 @@
 import { type BrowserProfileSummary, nextBrowserProfileHue } from "@openbot/contracts/ipc";
+import type { AgentProfile } from "@openbot/ui/data";
 import AgentSettingsPanel from "@openbot/ui/features/conversation/AgentSettingsPanel";
 import { createStore } from "solid-js";
 import { fn } from "storybook/test";
@@ -52,6 +53,37 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const Working: Story = { args: { working: true } };
+/** An agent with its own definition of done and reviewer. It is written out here, not read from the shared fixtures. */
+const CHECKS_AGENT: AgentProfile = {
+  id: "checks-agent",
+  provider: "codex",
+  name: "Chief",
+  title: "Chief of staff",
+  description: "Coordinates projects, priorities, and next steps across the workspace.",
+  notifications: true,
+  model: "gpt-5.6-luna",
+  reasoningEffort: "medium",
+  access: "full",
+  threadId: "thread-checks",
+  workspacePath: "/mock/OpenBot/Agents/checks",
+  preview: "",
+  time: "",
+  updatedAt: null,
+  avatarSeed: "checks",
+  avatarHue: 245,
+  avatarUrl: null,
+  definitionOfDone: ["bun run lint", "bun run typecheck:node"],
+  reviewerAgentId: "story-reviewer",
+};
+
+/** The definition of done and the reviewer of an agent on this computer: the row shows the commands. */
+export const DefinitionOfDone: Story = {
+  args: {
+    agent: CHECKS_AGENT,
+    definitionOfDoneEditable: true,
+    reviewerAgents: [{ id: "story-reviewer", name: "Code Review Partner" }],
+  },
+};
 export const WorkspaceOnly: Story = { args: { agent: { ...STORY_AGENT, access: "workspace" } } };
 /** Full reach, but the agent asks before it acts. */
 export const AskFirst: Story = { args: { agent: { ...STORY_AGENT, access: "full" }, autoApprove: false } };

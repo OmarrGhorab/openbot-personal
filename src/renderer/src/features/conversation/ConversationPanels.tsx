@@ -568,6 +568,14 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
               quickAcknowledgementEditable={props.server?.kind === "local"}
               taskLimitEditable={props.server?.kind === "local" || props.remoteTaskLimitLoaded === true}
               backupModelsEditable={props.server?.kind === "local" || props.remoteBackupModelsLoaded === true}
+              definitionOfDoneEditable={props.server?.kind === "local"}
+              reviewerAgents={
+                props.server?.kind === "local"
+                  ? (props.agents ?? [])
+                      .filter((candidate) => candidate.id !== agent().id)
+                      .map((candidate) => ({ id: candidate.id, name: candidate.name }))
+                  : undefined
+              }
               usageLimited={props.usageLimited}
               defaultBusyMessageMode={props.defaultBusyMessageMode}
               agentDefaults={localAgentDefaults()}

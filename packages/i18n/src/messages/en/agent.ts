@@ -90,6 +90,8 @@ export const messages = defineMessages("agent", {
   "agent.team.confirm": "Check before the start",
   "agent.team.access.readOnly": "Read only",
   "agent.team.access.write": "Writes the branch",
+  "agent.team.access.readOnlyFull": "Read only, Full access",
+  "agent.team.access.giveFull": "Give {role} Full access",
   "agent.team.model": "Model",
   "agent.team.warning.sameModel": "{role} uses the Builder model {model}. A second model checks the work better.",
   "agent.team.question.unknownModel":
@@ -118,4 +120,8 @@ export const messages = defineMessages("agent", {
   "agent.team.question.fallback": "The Builder failed two rounds. Pick a stronger model for the Builder.",
   "agent.team.question.blocked": "A role is blocked. Open its thread, then resume the team.",
   "agent.team.question.noReport": "A role gave no report line. Open its thread, then resume the team.",
+  "agent.team.question.workspaceAccess":
+    "{role} can't run read-only with {provider} on {os}. Give it Full access or pick a provider that supports read-only.",
+  "agent.team.question.workspaceAccessHere":
+    "{role} can't run read-only with {provider} on this computer. Give it Full access or pick a provider that supports read-only.",
 });

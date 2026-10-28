@@ -158,6 +158,8 @@ export const messages = defineMessages("error.backend", {
   "error.backend.routineRunNoSession":
     "OpenBot cannot interrupt the active routine run because its provider session is unavailable.",
   "error.backend.interruptSelf": "An agent cannot interrupt itself.",
+  "error.backend.markDoneInvalid": "Call mark_done with no argument, or with reviewRound from 1 to 3.",
+  "error.backend.markDoneNoAgent": "The agent of this chat was not found.",
   "error.backend.interruptOtherWork":
     "This agent works on a task that your message did not start. Only the user or the sender of that task can stop it.",
   "error.backend.interruptStarting": "This agent is still starting a turn. Try again after the turn starts.",

@@ -11,6 +11,13 @@ import type {
   SetAgentSessionSettingInput,
 } from "./ipc-agent-session-settings";
 import type { AgentTicketWatch, AgentTicketWatchInput } from "./ipc-agent-ticket-watch";
+import type {
+  AutonomyAuditFilter,
+  AutonomyAuditPage,
+  AutonomySnapshot,
+  SetAgentApprovalRulesInput,
+  SetAgentBudgetsInput,
+} from "./ipc-autonomy";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
 // is a request the renderer invokes or an event the main process sends. That is what lets a
 // registrar bind its handlers as an object keyed by endpoint, so a channel with no handler, and a
@@ -403,6 +410,7 @@ import type {
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
 import type {
+  GiveRavenTeamRoleFullAccessInput,
   PlanRavenTeamInput,
   RavenTeamChanged,
   RavenTeamJob,
@@ -1426,6 +1434,7 @@ export const IPC_ENDPOINTS = {
     start: request<PlanRavenTeamInput, RavenTeamJob>()("raven-team:start"),
     listJobs: request<undefined, RavenTeamJob[]>()("raven-team:list-jobs"),
     setRoleModel: request<SetRavenTeamRoleModelInput, RavenTeamJob>()("raven-team:set-role-model"),
+    giveRoleFullAccess: request<GiveRavenTeamRoleFullAccessInput, RavenTeamJob>()("raven-team:give-role-full-access"),
     stop: request<string, RavenTeamJob>()("raven-team:stop"),
     resume: request<string, RavenTeamJob>()("raven-team:resume"),
     changed: event<RavenTeamChanged>()("raven-team:changed"),
@@ -1651,6 +1660,15 @@ export const IPC_ENDPOINTS = {
       "agent:admin:add-template-agent",
     ),
   },
+  // Graded permissions, budgets, the audit log and Stop all agents, for the agents of this computer.
+  autonomy: {
+    getSnapshot: request<undefined, AutonomySnapshot>()("autonomy:get-snapshot"),
+    setApprovalRules: request<SetAgentApprovalRulesInput, AutonomySnapshot>()("autonomy:set-approval-rules"),
+    setBudgets: request<SetAgentBudgetsInput, AutonomySnapshot>()("autonomy:set-budgets"),
+    stopAll: request<undefined, AutonomySnapshot>()("autonomy:stop-all"),
+    resumeAll: request<undefined, AutonomySnapshot>()("autonomy:resume-all"),
+    listAuditLog: request<AutonomyAuditFilter, AutonomyAuditPage>()("autonomy:list-audit-log"),
+  },
   // A separate group, not part of `servers`: a group is what one registrar covers in full, and
   // `servers` is bound against `RemoteServerManager` while these are bound against `AgentService`.
   mcpServers: {
@@ -1872,6 +1890,7 @@ export const IPC_GROUP_PATHS = {
   browserInput: "browser",
   servers: "servers",
   agentAdmin: "agent",
+  autonomy: "autonomy",
   mcpServers: "agent",
   storage: "storage",
   agentImport: "agentImport",

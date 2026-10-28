@@ -178,6 +178,7 @@ import {
 } from "./fixtures";
 import { mockAgentAnalytics, mockHostAnalytics } from "./mock-agent-analytics";
 import { createMockAuth, type MockAuthOptions } from "./mock-auth";
+import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
@@ -1362,6 +1363,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     monitor: createMockMonitor(
       (channelId) => options.channels?.find((seed) => seed.channel.id === channelId)?.channel.name,
     ),
+    autonomy: createMockAutonomy(() => agents),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
@@ -2132,9 +2134,16 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           allowAutomation,
           allowNewChat,
           quickAcknowledgement,
+          definitionOfDone,
+          reviewerAgentId,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
+        // Same rules as the store: `null` or an empty list clears the checks, and `null` clears the reviewer.
+        if (definitionOfDone === null || definitionOfDone?.length === 0) delete updated.definitionOfDone;
+        else if (definitionOfDone !== undefined) updated.definitionOfDone = definitionOfDone;
+        if (reviewerAgentId === null) delete updated.reviewerAgentId;
+        else if (reviewerAgentId !== undefined) updated.reviewerAgentId = reviewerAgentId;
         // `null` returns the agent to the account default, which an agent records by having no value.
         const flags = { allowAutomation, allowNewChat, quickAcknowledgement };
         for (const key of AGENT_DEFAULT_KEYS) {

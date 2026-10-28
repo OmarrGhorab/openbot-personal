@@ -1022,6 +1022,26 @@ Full access also permits that agent to publish, update and delete public hosted 
 another confirmation. Publishing makes the selected site content publicly accessible. At Workspace
 only or Ask first, hosted-site changes require confirmation. Site ownership and source validation still apply.
 
+## Autonomy safety records
+
+OpenBot keeps three records of the agents on this computer for graded permissions, budgets and Stop
+all agents. They stay on this computer. They are not sent to the account service, a team server or a
+provider by this feature, and this feature adds no network request.
+
+- **Settings file** (`openbot-autonomy-v1.json` in the profile folder): the approval rule and the
+  budget limits of each agent, and whether Stop all agents is on.
+- **Audit log** (table `autonomy_audit_log`): one row for each autonomous action of an agent, such as
+  an approval that a rule answered, a budget stop, or a change of a rule. A row holds the time, the
+  agent, the conversation and work thread ids, the action, the risk level, the result, and the command,
+  file or setting that the action touched. Secrets, such as tokens in a command, are masked before the
+  row is written. The log keeps every row until the profile is deleted. It has no automatic retention yet.
+- **Usage records** (table `autonomy_turn_usage`): one row for each finished turn: the agent, the
+  conversation and work thread ids, the start and end time, the tokens and the estimated cost. A model
+  with no known price has no cost.
+
+These records are in the same profile folder as the other OpenBot data. They are removed when that
+folder is removed.
+
 ## Exports
 
 The account menu can export a local ZIP containing agent profiles, conversation snapshots, queues,

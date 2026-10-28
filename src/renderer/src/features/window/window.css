@@ -520,6 +520,16 @@
     pointer-events: auto;
   }
 
+  /* The Raven Stack team page has no title in the top row. It starts below the top row, takes clicks
+   * and scrolls, so the confirm card and the jobs below the form stay in reach. */
+  .app-frame-edge[data-window-page-kind="titled"] > .window-page > .raven-team-page {
+    box-sizing: border-box;
+    height: calc(100% - var(--left-header-height));
+    margin-top: var(--left-header-height);
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+
   /* The Marketplace page: its crumbs go in the top row, as the usage title does, and the rest of the
    * Marketplace scrolls in the card below it. */
   .app-window > .app-frame-edge > .window-page > .skills-marketplace-page {

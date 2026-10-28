@@ -10,6 +10,7 @@ import {
   PanelTop,
   Server,
   Settings,
+  ShieldCheck,
   Smartphone,
   UserRound,
 } from "@openbot/ui";
@@ -17,6 +18,7 @@ import {
 export type SettingsTab =
   | "general"
   | "agents"
+  | "autonomy"
   | "notifications"
   | "voice"
   | "dynamic-island"
@@ -81,6 +83,17 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
       { titleKey: "agentSettings.agentNewChat.title" },
       { titleKey: "agentSettings.quickAcknowledgement.title" },
       { titleKey: "settings.busyMessage.title", descriptionKey: "settings.busyMessage.description" },
+    ],
+  },
+  {
+    value: "autonomy",
+    titleKey: "autonomy.tab.title",
+    descriptionKey: "autonomy.tab.description",
+    icon: ShieldCheck,
+    rows: [
+      { titleKey: "autonomy.approvals.title", descriptionKey: "autonomy.approvals.description" },
+      { titleKey: "autonomy.budgets.title", descriptionKey: "autonomy.budgets.description" },
+      { titleKey: "autonomy.audit.title", descriptionKey: "autonomy.audit.description" },
     ],
   },
   {

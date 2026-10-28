@@ -20,9 +20,10 @@ const RAVEN_TEAM_TABLES = {
   projection_agent_ticket_watches: [],
   projection_agent_ticket_pulls: [],
 };
-// The version of this migration (48), and the newest version the application supports.
-const MIGRATION_VERSION = 48;
-const LATEST = 49;
+const LATEST = 48;
+const MIGRATION_VERSION = LATEST;
+// The newest version of the application. The autonomy (49) and agent ticket (50) migrations come after this one.
+const LATEST_SCHEMA = 50;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
@@ -90,7 +91,7 @@ function contents(db: DatabaseSync): Record<string, unknown[]> {
   const tables = db
     .prepare(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'
-       AND name <> 'schema_migrations' AND name NOT LIKE 'agent_memory_search%' ORDER BY name`,
+       AND name <> 'schema_migrations' AND name NOT LIKE 'agent_memory_search%' AND name NOT LIKE 'autonomy_%' ORDER BY name`,
     )
     .all()
     .map((row) => String(row.name));
@@ -117,8 +118,10 @@ describe("raven team migration", () => {
       if (version < 38) insertTask(db);
       const before = contents(db);
       migrateOpenBotDatabase(db);
-      expect(contents(db)).toMatchObject({ ...before, ...RAVEN_TEAM_TABLES });
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: LATEST });
+      expect(contents(db)).toEqual({ ...before, ...RAVEN_TEAM_TABLES });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
+        version: LATEST_SCHEMA,
+      });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -143,10 +146,10 @@ describe("raven team migration", () => {
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
     const db = databaseAtWithSeed(MIGRATION_VERSION - 1);
     const before = contents(db);
-    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST + 1},'now')`);
+    db.exec(`INSERT INTO schema_migrations VALUES(${LATEST_SCHEMA + 1},'now')`);
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
     db.exec(
-      `DELETE FROM schema_migrations WHERE version=${LATEST + 1}; DELETE FROM schema_migrations WHERE version=38`,
+      `DELETE FROM schema_migrations WHERE version=${LATEST_SCHEMA + 1}; DELETE FROM schema_migrations WHERE version=38`,
     );
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 38");
     expect(contents(db)).toEqual(before);

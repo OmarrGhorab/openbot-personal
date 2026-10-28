@@ -42,7 +42,9 @@ import {
   defaultProviderModel,
   isAgentAccess,
   isAgentBackupModels,
+  isAgentDefinitionOfDone,
   isAgentModel,
+  isAgentReviewerAgentId,
   isAgentSessionSettingOverrides,
   isAgentSessionSettingResets,
   isAgentTaskLimit,
@@ -107,6 +109,10 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   usageLimitReturn?: AgentUsageLimitReturn;
   // Present only while a user hides the agent. Absent on every agent stored before hiding existed.
   hiddenAt?: string;
+  // The commands that must pass before the agent's work counts as done. Absent means none.
+  definitionOfDone?: string[];
+  // The agent that reviews this agent's change. Absent means none.
+  reviewerAgentId?: string;
 };
 type StoredAgentBase = Omit<PersistedStoredAgent, "avatarSeed" | "avatarHue"> & DynamicRecord;
 
@@ -403,6 +409,8 @@ export class AgentStore {
       if (source.busyMessageMode) record.busyMessageMode = source.busyMessageMode;
       if (source.taskLimit !== undefined) record.taskLimit = source.taskLimit;
       if (source.backupModels) record.backupModels = structuredClone(source.backupModels);
+      // The reviewer is a link to one agent, so a copy starts without it.
+      if (source.definitionOfDone) record.definitionOfDone = [...source.definitionOfDone];
       record.avatarSeed = source.avatarSeed;
       record.avatarHue = source.avatarHue;
 
@@ -764,6 +772,22 @@ export class AgentStore {
         if (!isAgentBackupModels(input.backupModels)) throw new Error("Invalid backup models.");
         next.backupModels = structuredClone(input.backupModels);
       }
+      if (input.definitionOfDone === null || input.definitionOfDone?.length === 0) delete next.definitionOfDone;
+      else if (input.definitionOfDone !== undefined) {
+        if (!isAgentDefinitionOfDone(input.definitionOfDone)) throw new Error("Invalid definition of done.");
+        next.definitionOfDone = input.definitionOfDone.map((command) => command.trim());
+      }
+      if (input.reviewerAgentId === null) delete next.reviewerAgentId;
+      else if (input.reviewerAgentId !== undefined) {
+        // A reviewer must be another agent of this computer; a missing one cannot review anything.
+        if (
+          !isAgentReviewerAgentId(input.reviewerAgentId) ||
+          input.reviewerAgentId === agent.id ||
+          !this.#state.agents.some((candidate) => candidate.id === input.reviewerAgentId)
+        )
+          throw new Error("Invalid reviewer agent.");
+        next.reviewerAgentId = input.reviewerAgentId;
+      }
       if (input.avatarSeed !== undefined) {
         if (!isAvatarSeed(input.avatarSeed)) throw new Error("Invalid avatar seed.");
         next.avatarSeed = input.avatarSeed;
@@ -812,6 +836,8 @@ export class AgentStore {
       if (next.allowAutomation === undefined) delete agent.allowAutomation;
       if (next.allowNewChat === undefined) delete agent.allowNewChat;
       if (next.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
+      if (next.definitionOfDone === undefined) delete agent.definitionOfDone;
+      if (next.reviewerAgentId === undefined) delete agent.reviewerAgentId;
       try {
         this.#persist(modelChange ? "agent.model-changed" : "agent.updated", modelChange);
       } catch (error) {
@@ -825,6 +851,8 @@ export class AgentStore {
         if (previous.allowAutomation === undefined) delete agent.allowAutomation;
         if (previous.allowNewChat === undefined) delete agent.allowNewChat;
         if (previous.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
+        if (previous.definitionOfDone === undefined) delete agent.definitionOfDone;
+        if (previous.reviewerAgentId === undefined) delete agent.reviewerAgentId;
         throw error;
       }
       return { ...agent };
@@ -1839,6 +1867,8 @@ function isStoredAgent(value: unknown): value is PersistedStoredAgent {
     (record.backupModels === undefined || isAgentBackupModels(record.backupModels)) &&
     (record.usageLimitReturn === undefined || isAgentUsageLimitReturn(record.usageLimitReturn)) &&
     (record.hiddenAt === undefined || isHiddenAt(record.hiddenAt)) &&
+    (record.definitionOfDone === undefined || isAgentDefinitionOfDone(record.definitionOfDone)) &&
+    (record.reviewerAgentId === undefined || isAgentReviewerAgentId(record.reviewerAgentId)) &&
     isAvatarSeed(record.avatarSeed) &&
     (record.avatarHue === null || isAvatarHue(record.avatarHue)) &&
     isMarketplaceSource(record.marketplaceSource)
@@ -1943,6 +1973,15 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     value.hiddenAt === undefined || isHiddenAt(value.hiddenAt)
       ? value.hiddenAt
       : reset("hiddenAt", new Date().toISOString());
+  // A list this build cannot read is dropped, so the agent runs with no checks rather than wrong ones.
+  const definitionOfDone =
+    value.definitionOfDone === undefined || isAgentDefinitionOfDone(value.definitionOfDone)
+      ? value.definitionOfDone
+      : reset("definitionOfDone", undefined);
+  const reviewerAgentId =
+    value.reviewerAgentId === undefined || isAgentReviewerAgentId(value.reviewerAgentId)
+      ? value.reviewerAgentId
+      : reset("reviewerAgentId", undefined);
   let marketplaceSource: StoredAgent["marketplaceSource"];
   if (value.marketplaceSource !== undefined) {
     if (isMarketplaceSource(value.marketplaceSource)) {
@@ -1994,6 +2033,8 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     ...(backupModels === undefined ? {} : { backupModels }),
     ...(usageLimitReturn === undefined ? {} : { usageLimitReturn }),
     ...(hiddenAt === undefined ? {} : { hiddenAt }),
+    ...(definitionOfDone === undefined ? {} : { definitionOfDone }),
+    ...(reviewerAgentId === undefined ? {} : { reviewerAgentId }),
     ...(sessionSettingOverrides === undefined ? {} : { sessionSettingOverrides }),
     ...(sessionSettingResets === undefined ? {} : { sessionSettingResets }),
     ...(marketplaceSource === undefined ? {} : { marketplaceSource }),
