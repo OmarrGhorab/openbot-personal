@@ -1,5 +1,6 @@
 import { type AgentProviderRef, isAgentProviderRef } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
+import { isAgentDefinitionOfDone, isAgentReviewerAgentId } from "./ipc-agent-done-checks";
 import {
   type AgentModelId,
   type AgentReasoningEffort,
@@ -259,6 +260,13 @@ export interface AgentSummary {
    * hidden agents through `agent-hidden-v1`. Absent means the agent is not hidden.
    */
   hiddenAt?: string;
+  /**
+   * The commands that must pass before the agent's work counts as done, run in its workspace or
+   * task worktree. Local-only, like `access`: only the user sets them. Absent or empty means none.
+   */
+  definitionOfDone?: string[];
+  /** The agent that reviews this agent's change before it is done. Local-only. Absent means none. */
+  reviewerAgentId?: string;
   threadId: string | null;
   workspacePath: string;
   preview: string;
@@ -314,6 +322,8 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.backupModels === undefined || isAgentBackupModels(value.backupModels)) &&
     (value.usageLimitReturn === undefined || isAgentUsageLimitReturn(value.usageLimitReturn)) &&
     (value.hiddenAt === undefined || isHiddenAt(value.hiddenAt)) &&
+    (value.definitionOfDone === undefined || isAgentDefinitionOfDone(value.definitionOfDone)) &&
+    (value.reviewerAgentId === undefined || isAgentReviewerAgentId(value.reviewerAgentId)) &&
     (value.threadId === null || isIdentifier(value.threadId)) &&
     isBoundedString(value.workspacePath, INPUT_LIMITS.path) &&
     isBoundedString(value.preview, INPUT_LIMITS.messageText) &&
@@ -366,6 +376,10 @@ export interface UpdateAgentInput {
   providerAccountId?: string | null;
   /** `null` returns the agent to the default: ask, with no saved order. */
   backupModels?: AgentBackupModels | null;
+  /** `null` or an empty list clears the definition of done. Local-only. */
+  definitionOfDone?: string[] | null;
+  /** `null` clears the reviewer. Local-only. */
+  reviewerAgentId?: string | null;
   /**
    * The provider, model or account change moves held work away from a usage limit. The agent goes
    * back to its current model when that limit ends. Ignored when no limit holds the agent.

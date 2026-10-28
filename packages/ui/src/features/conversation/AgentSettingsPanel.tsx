@@ -47,6 +47,7 @@ import {
   ErrorReference,
   IconButton,
   Input,
+  ListChecks,
   Pencil,
   Popover,
   RefreshCw,
@@ -146,6 +147,10 @@ export interface AgentSettingsPanelProps {
   taskLimitEditable?: boolean;
   /** Backup models are local-only too: the Team API does not carry them. */
   backupModelsEditable?: boolean;
+  /** The definition of done is local-only too: the Team API does not carry it. */
+  definitionOfDoneEditable?: boolean;
+  /** The other agents of this computer, for the reviewer choice. Absent hides the choice. */
+  reviewerAgents?: readonly { id: string; name: string }[] | undefined;
   /** Whether a usage limit holds this model and account now, for the backup models page. */
   usageLimited?: ((choice: AgentModelChoice) => boolean) | undefined;
   /** The app default an agent without its own busy-message setting follows. */
@@ -212,15 +217,19 @@ function choiceBrowserProfile(choice: BrowserProfileChoice): AgentBrowserProfile
 
 const INSTRUCTIONS_SAVE_DELAY_MS = 400;
 
+/** The reviewer choice of an agent without a reviewer. It is not an agent id. */
+const REVIEWER_NONE = "none";
+
 /**
  * The pages behind the root list. The root edits the agent's face, name, title and instructions
  * in place, as the mobile app does, and shows one row for each page.
  */
-type AgentSettingsPage = "permissions" | "backup-models" | "advanced";
+type AgentSettingsPage = "permissions" | "backup-models" | "checks" | "advanced";
 
 const PAGE_TITLE: Record<AgentSettingsPage, AppTextKey> = {
   permissions: "agentSettings.permissions.title",
   "backup-models": "agentSettings.backupModels.title",
+  checks: "agentSettings.checks.title",
   advanced: "agentSettings.advanced.title",
 };
 
@@ -262,6 +271,10 @@ interface AgentSettingsDraft {
   taskLimit: TaskLimitChoice;
   /** Null asks first, with no saved order. */
   backupModels: AgentBackupModels | null;
+  /** The commands of the definition of done, one on each line, as the text area shows them. */
+  checks: string;
+  /** The reviewer agent id, or REVIEWER_NONE. */
+  reviewerAgentId: string;
   /** A level that gives the agent more freedom waits here for the confirmation. */
   confirmingPermission: AgentPermissionLevel | null;
   runtime: AgentRuntimeSettings;
@@ -302,6 +315,8 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     busyMessage: "default",
     taskLimit: "default",
     backupModels: null,
+    checks: "",
+    reviewerAgentId: REVIEWER_NONE,
     confirmingPermission: null,
     runtime: untrack(() => ({ ...props.runtimeSettings })),
     saveError: null,
@@ -424,6 +439,8 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           agent.busyMessageMode ?? "default",
           String(agent.taskLimit ?? "default"),
           JSON.stringify(agent.backupModels ?? null),
+          JSON.stringify(agent.definitionOfDone ?? []),
+          agent.reviewerAgentId ?? "",
           runtimeSettings.provider,
           runtimeSettings.model,
           runtimeSettings.reasoningEffort,
@@ -469,6 +486,8 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           state.busyMessage = agent.busyMessageMode ?? "default";
           state.taskLimit = taskLimitChoice(agent.taskLimit);
           state.backupModels = agent.backupModels ?? null;
+          state.checks = (agent.definitionOfDone ?? []).join("\n");
+          state.reviewerAgentId = agent.reviewerAgentId ?? REVIEWER_NONE;
           if (agentChanged) state.confirmingPermission = null;
           state.runtime.provider = runtimeSettings.provider;
           state.runtime.model = runtimeSettings.model;
@@ -803,6 +822,27 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
   }
 
   /** The store wraps the saved value in a proxy, so a newer save is told apart by its number. */
+  // Saves the commands when the text area loses focus. An empty list clears them.
+  async function saveChecks(text: string): Promise<void> {
+    const commands = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (JSON.stringify(commands) === JSON.stringify(props.agent.definitionOfDone ?? [])) return;
+    await saveAgentPatch({ definitionOfDone: commands.length > 0 ? commands : null });
+  }
+
+  async function saveReviewer(next: string): Promise<void> {
+    const previous = draft.reviewerAgentId;
+    setDraft((state) => {
+      state.reviewerAgentId = next;
+    });
+    if (await saveAgentPatch({ reviewerAgentId: next === REVIEWER_NONE ? null : next })) return;
+    setDraft((state) => {
+      state.reviewerAgentId = previous;
+    });
+  }
+
   let backupModelsSave = 0;
   async function saveBackupModels(next: AgentBackupModels | null): Promise<void> {
     const agentId = props.agent.id;
@@ -834,6 +874,14 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     );
   };
 
+  const checksSummary = () => {
+    const count = draft.checks.split("\n").filter((line) => line.trim().length > 0).length;
+    return count > 0 ? t("agentSettings.checks.count", { count }) : t("agentSettings.checks.none");
+  };
+  const reviewerLabel = (id: string): string =>
+    id === REVIEWER_NONE
+      ? t("agentSettings.checks.reviewerNone")
+      : (props.reviewerAgents?.find((reviewer) => reviewer.id === id)?.name ?? t("agentSettings.checks.reviewerNone"));
   const backupModelsSummary = () => {
     const mode = t(
       draft.backupModels?.automatic
@@ -1282,6 +1330,17 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                   />
                 </SettingsLinkGroup>
               </Show>
+              <Show when={props.definitionOfDoneEditable}>
+                <SettingsLinkGroup inset>
+                  <SettingsLinkRow
+                    ref={pageRowRef("checks")}
+                    icon={<ListChecks aria-hidden="true" />}
+                    label={t("agentSettings.checks.title")}
+                    value={checksSummary()}
+                    onClick={() => openPage("checks")}
+                  />
+                </SettingsLinkGroup>
+              </Show>
               {props.links}
               <SettingsLinkGroup inset title={t("agentSettings.groups.rules")}>
                 <SettingsLinkRow
@@ -1411,6 +1470,55 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                 }}
                 onChange={(next) => void saveBackupModels(next)}
               />
+            </Show>
+            <Show when={page() === "checks"}>
+              <SettingsLinkGroup inset class="agent-settings-checks">
+                <Text as="p" class="agent-settings-runtime-note" variant="caption" tone="muted">
+                  {t("agentSettings.checks.description")}
+                </Text>
+                <SettingsField label={t("agentSettings.checks.label")}>
+                  <Textarea
+                    rows="5"
+                    class="agent-settings-checks-input"
+                    value={draft.checks}
+                    aria-label={t("agentSettings.checks.label")}
+                    placeholder={t("agentSettings.checks.placeholder")}
+                    onValueChange={(value) => {
+                      setDraft((state) => {
+                        state.checks = value;
+                      });
+                    }}
+                    onBlur={() => void saveChecks(draft.checks)}
+                  />
+                </SettingsField>
+              </SettingsLinkGroup>
+              <Show when={props.reviewerAgents && props.reviewerAgents.length > 0}>
+                <SettingsLinkGroup inset class="agent-settings-runtime-rows">
+                  <Select<string>
+                    class="agent-settings-runtime-select"
+                    options={[REVIEWER_NONE, ...(props.reviewerAgents ?? []).map((reviewer) => reviewer.id)]}
+                    value={draft.reviewerAgentId}
+                    onChange={(next) => {
+                      if (!next || next === draft.reviewerAgentId) return;
+                      void saveReviewer(next);
+                    }}
+                    itemComponent={(item) => (
+                      <SelectItem item={item.item}>{reviewerLabel(item.item.rawValue)}</SelectItem>
+                    )}
+                  >
+                    <SelectTrigger class="agent-settings-runtime-row" aria-label={t("agentSettings.checks.reviewer")}>
+                      <span class="agent-settings-runtime-label">{t("agentSettings.checks.reviewer")}</span>
+                      <SelectValue<string>>
+                        {(state) => reviewerLabel(state.selectedOption() ?? REVIEWER_NONE)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                </SettingsLinkGroup>
+                <Text as="p" class="agent-settings-runtime-note" variant="caption" tone="muted">
+                  {t("agentSettings.checks.reviewerDescription")}
+                </Text>
+              </Show>
             </Show>
             <Show when={page() === "advanced"}>
               <SettingsLinkGroup inset class="agent-settings-runtime-rows">

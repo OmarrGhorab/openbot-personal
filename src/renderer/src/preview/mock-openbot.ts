@@ -2132,9 +2132,16 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           allowAutomation,
           allowNewChat,
           quickAcknowledgement,
+          definitionOfDone,
+          reviewerAgentId,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
+        // Same rules as the store: `null` or an empty list clears the checks, and `null` clears the reviewer.
+        if (definitionOfDone === null || definitionOfDone?.length === 0) delete updated.definitionOfDone;
+        else if (definitionOfDone !== undefined) updated.definitionOfDone = definitionOfDone;
+        if (reviewerAgentId === null) delete updated.reviewerAgentId;
+        else if (reviewerAgentId !== undefined) updated.reviewerAgentId = reviewerAgentId;
         // `null` returns the agent to the account default, which an agent records by having no value.
         const flags = { allowAutomation, allowNewChat, quickAcknowledgement };
         for (const key of AGENT_DEFAULT_KEYS) {

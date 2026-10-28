@@ -8,6 +8,7 @@ import {
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
+import { MARK_DONE_TOOL, markDoneToolSchema } from "./agent/agent-done-checks";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
@@ -554,6 +555,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
     shape: startTaskToolSchema.shape,
+  },
+  {
+    name: MARK_DONE_TOOL,
+    description:
+      "Call before you report a change or a task as done. OpenBot runs the checks that the user set for you, one after the other, in your workspace or in your task's worktree, and posts each result in this chat. A failed check means the work is not done: fix the cause, then call again. When the user set a reviewer, a passing call first tells you to send the diff to the reviewer. After its findings, fix every high and medium finding and call again with reviewRound set to the round.",
+    shape: markDoneToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
   ...PROJECT_MEMORY_TOOL_DEFINITIONS,

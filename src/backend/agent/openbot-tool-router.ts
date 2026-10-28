@@ -60,6 +60,7 @@ import {
 import { type AppServerRequest, type DynamicToolCallParams, type DynamicToolResult, isRecord } from "../protocol";
 import { handleRoutineFlowTool, type RoutineFlowTools } from "../routine-flows/routine-flow-tools";
 import type { StoredStateFailure } from "../stored-state-effects";
+import { AgentDoneChecks } from "./agent-done-checks";
 import { AgentInterruptTool } from "./agent-interrupt-tool";
 import type { AgentMemories } from "./agent-memories";
 import { type ApprovalAutomationPolicy, NO_APPROVAL_AUTOMATION } from "./approval-automation";
@@ -244,6 +245,7 @@ export class OpenBotToolRouter {
   readonly #apiKeys: AgentApiKeys | null;
   readonly #hooks: OpenBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
+  readonly #doneChecks: AgentDoneChecks;
 
   constructor(options: OpenBotToolRouterOptions) {
     this.#history = new HistoryTools({
@@ -278,6 +280,11 @@ export class OpenBotToolRouter {
     this.#mcpChangesWithoutApproval = options.mcpChangesWithoutApproval ?? (() => false);
     this.#apiKeys = options.apiKeys ?? null;
     this.#hooks = options.hooks;
+    this.#doneChecks = new AgentDoneChecks({
+      store: options.store,
+      tasks: options.tasks,
+      postCard: (agentId, threadId, turnId, card) => this.#postSystemCard(agentId, threadId, turnId, card),
+    });
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
       mailbox: options.mailbox,
@@ -968,6 +975,9 @@ export class OpenBotToolRouter {
     const taskResult = yield* this.#tasks.handleTool(params, caller);
     if (taskResult) return taskResult;
 
+    const doneResult = yield* this.#doneChecks.handleTool(params, senderAgentId, executionThreadId);
+    if (doneResult) return doneResult;
+
     const tableResult = yield* handleDataTool(params.tool, params.arguments, senderAgentId, this.#tables);
     if (tableResult) return tableResult;
 
@@ -1268,7 +1278,7 @@ export class OpenBotToolRouter {
       itemType: string;
       text: string;
       eventType: string;
-      detail: { appId: string } | { mcpServerId: string } | Record<string, never>;
+      detail: { appId: string } | { mcpServerId: string } | { passed: boolean; checks: number } | Record<string, never>;
     },
   ): void {
     const snapshot = structuredClone(this.#conversation.ensureSnapshot(agentId, threadId));

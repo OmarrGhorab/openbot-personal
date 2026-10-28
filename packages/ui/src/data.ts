@@ -156,6 +156,12 @@ export type ChatActionMarkerModel =
   | { kind: "vault-change"; text: string; timestamp: string }
   /** An agent changed an MCP server without an approval card. `text` is the host's note. */
   | { kind: "mcp-change"; text: string; timestamp: string }
+  /**
+   * A `mark_done` call ran the agent's checks. `text` is the host's headline. `result` is `passed` when
+   * the work is done, `review` when every check passed and the work waits for the reviewer, and
+   * `failed` when a check failed.
+   */
+  | { kind: "done-check"; result: "passed" | "review" | "failed"; text: string; timestamp: string }
   | {
       kind: "unavailable";
       label: string;
@@ -263,6 +269,10 @@ export interface AgentProfile {
   taskLimit?: ClientAgentSummary["taskLimit"];
   /** Absent means ask before a switch at a usage limit. Absent for an agent on a remote host too. */
   backupModels?: ClientAgentSummary["backupModels"];
+  /** The commands that must pass before the work counts as done. Absent means none, and on a remote host too. */
+  definitionOfDone?: string[] | undefined;
+  /** The agent that reviews this agent's change. Absent means none, and on a remote host too. */
+  reviewerAgentId?: string | undefined;
   /** Set while the agent works on a backup model for a usage limit: the model it goes back to. */
   usageLimitReturn?: ClientAgentSummary["usageLimitReturn"];
   threadId: string | null;
