@@ -35,7 +35,9 @@ export function TaskQuestions(props: TaskQuestionsProps) {
         <For each={props.questions} keyed={(question) => `${question.turnId}:${String(question.requestId)}`}>
           {(question) => (
             <li class="tasks-page-question">
-              <p class="tasks-page-question-from">{questionFrom(question(), t)}</p>
+              <p class="tasks-page-question-from" title={questionFrom(question(), t)}>
+                {questionFrom(question(), t)}
+              </p>
               <QuestionPromptBubble
                 questions={question().questions}
                 onSubmit={(answers) => props.onAnswer(question(), answers)}

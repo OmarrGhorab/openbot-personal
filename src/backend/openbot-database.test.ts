@@ -21,6 +21,7 @@ import { AgentRoutineStore } from "./agent-routine-store";
 import { ChannelRoutineStore } from "./channel-routine-store";
 import { ChannelStore } from "./channel-store";
 import { ConversationReadStore } from "./conversation-read-store";
+import { databaseRows, requiredStringColumn } from "./database/database-rows";
 import { runCauseEffect } from "./effect-boundary";
 import { OpenBotDatabase } from "./openbot-database";
 
@@ -277,6 +278,65 @@ describe("OpenBotDatabase", () => {
       }),
     ]);
     expect(database.readConversation(agent.id, agent.threadId).messages).toHaveLength(1);
+    database.close();
+  });
+
+  it("keeps no secret in the staged input of a project-memory tool call", async () => {
+    const database = await createDatabase();
+    const agent = testAgent();
+    database.replaceAgents("provider-history-agent", [agent], "agents.imported");
+    if (!agent.threadId) throw new Error("The test agent has no thread.");
+    const session = database.bindProviderSession({
+      threadId: agent.threadId,
+      provider: "codex",
+      externalSessionId: "provider-history-project-memory",
+      model: agent.model,
+      effort: agent.reasoningEffort,
+    });
+    database.ensureProviderHistoryImport({
+      sessionId: session.id,
+      threadId: agent.threadId,
+      provider: "codex",
+      externalSessionId: session.externalSessionId,
+    });
+    const text = "Deploy only from CI. The login password: hunter2hunter2 must never be used on a laptop.";
+    const items = [
+      { id: "direct", type: "dynamicToolCall", tool: "save_lesson", arguments: { kind: "rule", text } },
+      {
+        id: "code-mode",
+        type: "toolCall",
+        name: "execute",
+        arguments: { code: `return await tools.openbot.save_lesson(${JSON.stringify({ kind: "rule", text })});` },
+        // OpenCode's Code Mode result echoes the input of each tool call the code made.
+        result: { metadata: { toolCalls: [{ tool: "openbot.save_lesson", status: "completed", input: { text } }] } },
+      },
+      { id: "other-tool", type: "dynamicToolCall", tool: "remember", arguments: { text } },
+    ];
+    database.stageProviderHistoryFragment({
+      sessionId: session.id,
+      fragment: { turnId: "memory-turn", status: "completed", items, complete: true },
+    });
+    // The same fragment again leaves the staged rows as they are: the redacted copy compares equal.
+    database.stageProviderHistoryFragment({
+      sessionId: session.id,
+      fragment: { turnId: "memory-turn", status: "completed", items, complete: true },
+    });
+
+    const stored = databaseRows(
+      database.connection
+        .prepare("SELECT item_key, item_json FROM provider_history_staging WHERE turn_id = ? ORDER BY item_index")
+        .all("memory-turn"),
+    ).map((row) => [requiredStringColumn(row, "item_key"), requiredStringColumn(row, "item_json")] as const);
+    expect(stored.map(([key]) => key)).toEqual(["direct", "code-mode", "other-tool"]);
+    const [direct, codeMode, otherTool] = stored.map(([, json]) => json);
+    expect(direct).not.toContain("hunter2hunter2");
+    expect(direct).toContain("password: [redacted]");
+    expect(codeMode).not.toContain("hunter2hunter2");
+    expect(codeMode).toContain("save_lesson");
+    // The echoed input in the result is redacted too.
+    expect(codeMode).toContain('"input":{"text":"Deploy only from CI. The login password: [redacted] must');
+    // Only the project-memory tools change; another tool's input stays as the model wrote it.
+    expect(otherTool).toContain("hunter2hunter2");
     database.close();
   });
 

@@ -627,7 +627,8 @@
 }
 
 .agent-memories-header-actions svg,
-.agent-memory-delete-button svg {
+.agent-memory-delete-button svg,
+.project-memory-edit-button svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
 }
@@ -761,6 +762,22 @@
   align-self: center;
   align-items: center;
   justify-self: center;
+  color: var(--openbot-text-muted);
+}
+
+/* A project memory entry has two actions, edit and delete, side by side in the second column. */
+.project-memory-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.project-memory-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-0-5);
+  padding-inline-end: var(--openbot-space-1);
+}
+
+.project-memory-edit-button {
   color: var(--openbot-text-muted);
 }
 
