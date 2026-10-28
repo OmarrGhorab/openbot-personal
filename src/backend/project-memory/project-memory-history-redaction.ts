@@ -1,3 +1,4 @@
+import { type DynamicRecord, isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { redactText } from "@openbot/logging";
 import { bridgedToolName, getRecord, getString, type ThreadItem } from "../protocol";
 
@@ -9,9 +10,7 @@ const INPUT_FIELDS = ["arguments", "input", "rawInput"] as const;
 
 function isSavingTool(name: string | null): boolean {
   if (!name) return false;
-  return SAVING_TOOLS.some(
-    (tool) => name === tool || name === `openbot_${tool}` || name === `mcp__openbot__${tool}`,
-  );
+  return SAVING_TOOLS.some((tool) => name === tool || name === `openbot_${tool}` || name === `mcp__openbot__${tool}`);
 }
 
 /** Code Mode input: the model writes code that calls OpenBot's tools, so the code holds the saved text. */
@@ -37,13 +36,12 @@ function callsSavingTool(item: ThreadItem): boolean {
   return isSavingTool(getString(item, "tool") ?? getString(item, "name")) || codeCallsSavingTool(item);
 }
 
-function redactValue(value: unknown): unknown {
-  if (typeof value === "string") return redactText(value);
-  if (Array.isArray(value)) return value.map(redactValue);
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, field]) => [key, redactValue(field)]));
+/** Redacts every string inside a copied input, in place. Only strings change; the shape stays. */
+function redactStrings(container: DynamicRecord | unknown[]): void {
+  for (const [key, field] of Object.entries(container)) {
+    if (typeof field === "string") Reflect.set(container, key, redactText(field));
+    else if (Array.isArray(field) || isDynamicRecord(field)) redactStrings(field);
   }
-  return value;
 }
 
 /**
@@ -53,9 +51,11 @@ function redactValue(value: unknown): unknown {
  */
 export function redactProjectMemoryToolInput(item: ThreadItem): ThreadItem {
   if (!callsSavingTool(item)) return item;
-  const redacted: ThreadItem = { ...item };
+  const redacted = structuredClone(item);
   for (const field of INPUT_FIELDS) {
-    if (field in redacted) redacted[field] = redactValue(redacted[field]);
+    const value = redacted[field];
+    if (typeof value === "string") redacted[field] = redactText(value);
+    else if (Array.isArray(value) || isDynamicRecord(value)) redactStrings(value);
   }
   return redacted;
 }

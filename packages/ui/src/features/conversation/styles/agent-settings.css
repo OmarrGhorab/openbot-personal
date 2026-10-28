@@ -627,7 +627,8 @@
 }
 
 .agent-memories-header-actions svg,
-.agent-memory-delete-button svg {
+.agent-memory-delete-button svg,
+.project-memory-edit-button svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
 }
@@ -778,11 +779,6 @@
 
 .project-memory-edit-button {
   color: var(--openbot-text-muted);
-}
-
-.project-memory-row-actions svg {
-  width: var(--openbot-icon-sm);
-  height: var(--openbot-icon-sm);
 }
 
 .agent-memory-editor {
