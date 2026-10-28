@@ -20,6 +20,7 @@ import {
   updateAgentsToolSchema,
   updateProfileToolSchema,
 } from "./agent/profile-tools";
+import { PROJECT_MEMORY_TOOL_DEFINITIONS } from "./agent/project-memory-tool-inputs";
 import { ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./agent/routine-quiet-runs";
 import { captureScreenToolShape } from "./agent/screen-capture";
 import {
@@ -555,6 +556,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     shape: startTaskToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
+  ...PROJECT_MEMORY_TOOL_DEFINITIONS,
   {
     name: "remember",
     description:

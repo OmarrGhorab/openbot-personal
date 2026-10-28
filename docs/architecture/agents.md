@@ -203,6 +203,36 @@ its agent count and no actions. A joined server without the capability has no se
 the profile's agents to Shared. The agent has no tool to change its profile, and tool results do not
 name it. See [Browser sessions](browser.md#browser-sessions) for the storage and the partitions.
 
+## Project memory
+
+Project memory keeps the facts about one project folder: commands that work, rules, known problems
+with their fixes, and decisions. It is in SQLite (`project_memories`, migration 47), and the user's
+database is its only copy.
+
+- **Scope.** The project is the agent's workspace path. Every work thread of that agent reads the same
+  entries, and so does every other agent whose workspace is that folder. Work threads in a git worktree
+  use the agent folder, not the worktree path. Each agent's own memories stay private to it (see
+  [Agent memory](#agent-memory-scope) below).
+- **Start of a work thread.** The developer instructions of a new session carry an `<openbot_project_memory>`
+  block with at most 4,096 bytes of entries, rules first. A later save reaches the next session that
+  starts, not a running one. Entries past the budget are named and found with `search_project_memory`.
+- **Agent tools.** `save_lesson` saves one entry of a kind. `learn_from_failure` saves a known problem with
+  its failure and rule, after a check fails for a new reason. `search_project_memory` finds entries by any
+  word. An exact duplicate is not saved twice. A folder holds 128 entries, and a save past it is refused.
+- **Redaction.** Every save, from an agent or the user, redacts secrets first (`redactText`). The undo
+  slot keeps the text of the last change only, and it is cleared by the next change.
+- **User control.** The settings panel of the agent lists the entries, with the kind, the agent that saved
+  each one and the dates. The user edits, deletes, and undoes the last change of the folder
+  (`project_memory_undo`, one row per folder). Mobile, the web client and the Team API do not show it.
+
+The memory tools of an agent are unchanged: `remember`, `search_memories`, `list_memories`,
+`set_memory_inclusion` and `forget_memory` work on the agent's own memories only.
+
+### Agent memory scope
+
+An agent's own memories belong to its identity and are shared by all of its work threads. They are not
+visible to another agent. Project memory is the only store that two agents can share.
+
 ## Agent tasks
 
 [Agent work threads](agent-work-threads.md) has the design of work threads (tasks with their own

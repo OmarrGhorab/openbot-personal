@@ -27,6 +27,9 @@ const DIRECT_NAMES = new Set([
   "routine_report_failure",
   "remember",
   "forget_memory",
+  "save_lesson",
+  "learn_from_failure",
+  "search_project_memory",
   "react_to_user_message",
   "request_api_key",
 ]);
