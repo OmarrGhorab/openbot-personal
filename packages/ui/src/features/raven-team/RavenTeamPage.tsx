@@ -257,7 +257,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
             </For>
             <For each={current().accessProblems}>
               {(problem) => (
-                <Alert tone="danger" role="alert">
+                <Alert tone="danger" role="alert" class="raven-team-access-question">
                   <AlertContent>
                     <AlertDescription>
                       {accessText(roleLabel(problem.roleId), problem.provider, problem.platform)}
@@ -370,7 +370,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                         }
                       >
                         {(role) => (
-                          <Alert tone="danger" role="alert">
+                          <Alert tone="danger" role="alert" class="raven-team-access-question">
                             <AlertContent>
                               <AlertDescription>
                                 {accessText(role().label, role().provider, question().platform)}

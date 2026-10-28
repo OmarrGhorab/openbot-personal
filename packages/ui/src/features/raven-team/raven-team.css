@@ -104,3 +104,9 @@
   border-radius: var(--openbot-radius-lg, 0.75rem);
   background: var(--openbot-bg-surface, transparent);
 }
+
+/* The access question has no icon. Its text takes the free width and its button stays at the end;
+   the alert's own icon column would leave the text under the button. */
+.raven-team-access-question {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
