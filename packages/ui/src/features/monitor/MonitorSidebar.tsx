@@ -2,6 +2,7 @@
  * The sidebar of the Monitor page: the search field, the "Live now" counts, the channels and the
  * agents. The counts filter the Monitor, a channel row opens that channel, and an agent row selects
  * the agent. The search field opens the app's global search; this sidebar has no search of its own.
+ * On this computer, "Live now" also lists the running team jobs and their team roles.
  */
 
 import type { MonitorAgentStatus } from "@openbot/contracts/ipc";
@@ -13,6 +14,7 @@ import { useText } from "../../text";
 import { SearchIcon } from "../sidebar/SidebarIcons";
 import { AgentRow } from "./AgentRow";
 import { ChannelRow, type MonitorChannelRowData } from "./ChannelRow";
+import { MonitorTeamJobRow, type MonitorTeamJobRowData } from "./MonitorTeamJobRow";
 import { monitorAgo } from "./monitor-time";
 import { StatChip } from "./StatChip";
 
@@ -57,6 +59,12 @@ export interface MonitorSidebarProps {
   allAgentsOpen: boolean;
   /** Opens the global search. */
   onOpenSearch: () => void;
+  /** The team jobs that "Live now" lists. Absent or empty: the Teams list does not show. */
+  teams?: readonly MonitorTeamJobRowData[] | undefined;
+  /** Opens the team page on a job. */
+  onOpenTeamJob?: ((jobId: string) => void) | undefined;
+  /** Opens the work thread of a team role, by the role key. */
+  onOpenTeamRole?: ((jobId: string, roleKey: string) => void) | undefined;
   /** The clock for the times. Defaults to the time of the render. */
   now?: Date | undefined;
 }
@@ -103,6 +111,26 @@ export function MonitorSidebar(props: MonitorSidebarProps): JSX.Element {
               )}
             </For>
           </div>
+          <Show when={(props.teams?.length ?? 0) > 0}>
+            <div class="monitor-sidebar-teams" role="group" aria-labelledby="monitor-sidebar-teams">
+              <h3 id="monitor-sidebar-teams" class="monitor-sidebar-subheading">
+                {t("monitor.sidebar.teams")}
+              </h3>
+              <ul class="monitor-sidebar-list">
+                <For each={props.teams ?? []} keyed={(job) => job.id}>
+                  {(job) => (
+                    <li>
+                      <MonitorTeamJobRow
+                        job={job()}
+                        onOpenJob={() => props.onOpenTeamJob?.(job().id)}
+                        onOpenRole={(roleKey) => props.onOpenTeamRole?.(job().id, roleKey)}
+                      />
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </div>
+          </Show>
         </section>
         <section class="monitor-sidebar-section" aria-labelledby="monitor-sidebar-channels">
           <header class="monitor-sidebar-heading">
