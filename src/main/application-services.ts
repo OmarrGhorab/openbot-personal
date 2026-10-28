@@ -246,6 +246,8 @@ import {
   showMainWindow,
 } from "./main-window";
 import {
+  ASK_WHEN_BLOCKED_SKILL_SLUG,
+  CONFIDENCE_NOTES_SKILL_SLUG,
   DATA_SKILL_SLUG,
   ManagedSkillService,
   MCP_SERVER_CREATOR_SKILL_SLUG,
@@ -1083,10 +1085,28 @@ export async function createApplicationServices({
     undefined,
     MCP_SERVER_CREATOR_SKILL_SLUG,
   );
+  const askWhenBlockedSkill = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", ASK_WHEN_BLOCKED_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${ASK_WHEN_BLOCKED_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    ASK_WHEN_BLOCKED_SKILL_SLUG,
+  );
+  const confidenceNotesSkill = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", CONFIDENCE_NOTES_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${CONFIDENCE_NOTES_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    CONFIDENCE_NOTES_SKILL_SLUG,
+  );
   await Effect.runPromise(managedSkills.syncAll(store.list()));
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   await Effect.runPromise(mcpServerCreator.syncAll(store.list()));
+  await Effect.runPromise(askWhenBlockedSkill.syncAll(store.list()));
+  await Effect.runPromise(confidenceNotesSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
   const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
     // Read at request time: the team store is created later, and the server can register after launch.
@@ -1710,6 +1730,8 @@ export async function createApplicationServices({
         yield* skillCreator.syncAgent(agent);
         yield* dataSkill.syncAgent(agent);
         yield* mcpServerCreator.syncAgent(agent);
+        yield* askWhenBlockedSkill.syncAgent(agent);
+        yield* confidenceNotesSkill.syncAgent(agent);
       }),
     hostedSites: {
       list: () => hostedSites.list().pipe(toHostedSiteOperationFailed),

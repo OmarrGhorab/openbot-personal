@@ -210,6 +210,7 @@ import {
   decodeConversationPageFromMain,
   decodeConversationSearchPageFromMain,
   decodeFilePreview,
+  decodeOpenQuestions,
   decodeQueue,
   decodeReadState,
   decodeReadStates,
@@ -1062,6 +1063,9 @@ const openbotApi: OpenBotDesktopApi = {
       updateMemory: decodeMemory,
       deleteMemory: decodeVoid,
       clearMemories: decodeVoid,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.agentQuestions, {
+      listOpenQuestions: decodeOpenQuestions,
     }),
     ...bridgeGroup(IPC_ENDPOINTS.projectMemories, {
       getProjectMemories: decodeProjectMemoryState,

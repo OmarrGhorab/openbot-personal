@@ -58,6 +58,10 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   keeps the released word **task**; "work thread" is a code and documentation term. A **side chat**
   is the released side question (`AskSideQuestionInput`, `SideQuestionPanel`) attached to one work
   thread with `taskId`: a tool-less, unsaved generation that reads the thread and never changes it.
+- **question**: a prompt that waits for the user's answer (`AgentPromptQuestion`, `prompt` events,
+  `respondToPrompt`). A work thread whose turn waits for one is **blocked** (`AgentTask.question`),
+  and holds no turn slot. The **Questions** list (`OpenQuestion`, `agent:open-questions`) shows the
+  questions of every agent and thread on this computer.
 - **thread**: durable `projection_threads` record. **conversation**: its read projection, with no
   separate table. **provider session**: private CLI resume state (`projection_provider_sessions`).
   **team session**: authenticated remote connection. **turn**: one exchange in a thread.

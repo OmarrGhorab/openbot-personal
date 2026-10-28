@@ -2606,6 +2606,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       listWaits: async (agentId) => ({ agentId, waits: [] }),
       cancelWait: async () => undefined,
       listTasks: async (agentId) => taskList(agentId),
+      // The preview has no provider, so no agent asks a question.
+      listOpenQuestions: async () => ({ questions: [] }),
       readTask: async (input) => clone(taskConversation(findTask(input.agentId, input.taskId))),
       startTask: async (input) => {
         const task = createTask(input.agentId, input.text);

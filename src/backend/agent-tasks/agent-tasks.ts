@@ -8,6 +8,7 @@ import {
   type AgentSummary,
   type AgentTask,
   type AgentTaskHold,
+  type AgentTaskQuestion,
   type AgentTasksSnapshot,
   agentTaskLimit,
   type ConversationSnapshot,
@@ -45,6 +46,10 @@ export interface AgentTasksHooks {
   hold(agentId: string, taskId: string): string | null;
   /** A message is queued in a task: the queue and the drain take it. */
   queued(agentId: string): void;
+  /** The question that a thread waits on, or null. Read at each snapshot and each drain pass. */
+  question(threadId: string): AgentTaskQuestion | null;
+  /** A question of this agent was asked or answered: the task list changes and the drain runs again. */
+  questionChanged(agentId: string): void;
 }
 
 /** Where `start_task` was called, as the tool router knows it. */
@@ -110,6 +115,19 @@ export class AgentTasks implements TaskLanes {
   oneTurnAtATime(agentId: string): boolean {
     const agent = this.#hooks.agent(agentId);
     return agent !== undefined && !agentProviderDescriptor(agent.provider).concurrentTurns;
+  }
+
+  /** Whether the turn of this open task waits for an answer to a question. */
+  blocked(taskId: string): boolean {
+    const task = this.#store.task(taskId);
+    if (!task || task.closedAt !== null) return false;
+    return this.#hooks.question(task.threadId) !== null;
+  }
+
+  /** The id and title of the open task that owns this thread, or null for the agent's own chat. */
+  openTaskOfThread(threadId: string): { taskId: string; title: string } | null {
+    const task = this.#store.taskForThread(threadId);
+    return task && task.closedAt === null ? { taskId: task.taskId, title: task.title } : null;
   }
 
   /** Whether the person paused this open task. The pause is stored, so it outlives a restart. */
@@ -402,6 +420,16 @@ export class AgentTasks implements TaskLanes {
         // A queued task message changes the task's state, and the drain's reason to hold it.
         if (this.#store.openTaskIds(event.snapshot.agentId).length > 0) this.changed(event.snapshot.agentId);
         return false;
+      case "prompt":
+      case "agent-input-resolved":
+        // A question starts or ends the wait of a task turn: the task's state and its slot change. The
+        // event still reaches the chat, so this returns false.
+        if (event.type === "agent-input-resolved" && event.kind !== "prompt") return false;
+        if (this.#store.openTaskIds(event.agentId).length > 0) {
+          this.changed(event.agentId);
+          this.#hooks.questionChanged(event.agentId);
+        }
+        return false;
       default:
         return false;
     }
@@ -446,6 +474,7 @@ export class AgentTasks implements TaskLanes {
       closedAt: task.closedAt,
       pausedAt: task.closedAt === null ? workThread.pausedAt : null,
       workspace: workThread.workspace,
+      question: task.closedAt === null ? this.#hooks.question(task.threadId) : null,
     };
   }
 }

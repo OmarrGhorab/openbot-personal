@@ -14,6 +14,7 @@ export * from "./ipc-agent-identity";
 export * from "./ipc-agent-import";
 export * from "./ipc-agent-memories";
 export * from "./ipc-agent-profile";
+export * from "./ipc-agent-questions";
 export * from "./ipc-agent-runtime";
 export * from "./ipc-agent-session-settings";
 export * from "./ipc-agent-side-question";
