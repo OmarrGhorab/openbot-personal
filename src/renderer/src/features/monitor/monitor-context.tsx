@@ -225,7 +225,8 @@ const context = createSimpleContext({
     }
     /** The work threads of the team roles, so a turn of another agent does not read the jobs again. */
     const teamThreads = createMemo(
-      () => new Set(state.teamJobs.flatMap((job) => job.roles.flatMap((role) => (role.threadId ? [role.threadId] : [])))),
+      () =>
+        new Set(state.teamJobs.flatMap((job) => job.roles.flatMap((role) => (role.threadId ? [role.threadId] : [])))),
     );
 
     // The team jobs, while the page is on screen. The team change event and the turns of the role

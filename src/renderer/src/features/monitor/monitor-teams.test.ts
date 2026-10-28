@@ -12,7 +12,11 @@ import {
 const NOW = new Date("2026-10-29T01:00:00.000Z");
 const AT = "2026-10-29T00:59:00.000Z";
 
-const role = (roleId: string, state: string, agentId: string | null = `agent-${roleId}`): RavenTeamRoleRun => ({
+// `Object.assign` keeps a state that this build does not know, as a newer host can send one.
+const role = (roleId: string, state: string, agentId: string | null = `agent-${roleId}`): RavenTeamRoleRun =>
+  Object.assign(baseRole(roleId, agentId), { state });
+
+const baseRole = (roleId: string, agentId: string | null): RavenTeamRoleRun => ({
   roleId,
   label: roleId.charAt(0).toUpperCase() + roleId.slice(1),
   agentId,
@@ -21,8 +25,7 @@ const role = (roleId: string, state: string, agentId: string | null = `agent-${r
   provider: "codex",
   model: "gpt-6-luna",
   access: "read-only",
-  // A newer host can send a state that this build does not know.
-  state: state as RavenTeamRoleRun["state"],
+  state: "waiting",
   verdict: null,
   score: null,
   commit: null,
@@ -30,21 +33,25 @@ const role = (roleId: string, state: string, agentId: string | null = `agent-${r
   updatedAt: AT,
 });
 
-const job = (id: string, state: string, roles: RavenTeamRoleRun[], extra: Partial<RavenTeamJob> = {}): RavenTeamJob => ({
-  id,
-  templateId: "raven-stack-team",
-  brief: `PUU-${id}: Fix the login\n\nMore detail.`,
-  state: state as RavenTeamJob["state"],
-  headCommit: null,
-  fixRounds: 0,
-  roundCap: 3,
-  fallbackModel: null,
-  question: null,
-  roles,
-  createdAt: AT,
-  updatedAt: AT,
-  ...extra,
-});
+const job = (id: string, state: string, roles: RavenTeamRoleRun[], extra: Partial<RavenTeamJob> = {}): RavenTeamJob =>
+  Object.assign(
+    {
+      id,
+      templateId: "raven-stack-team",
+      brief: `PUU-${id}: Fix the login\n\nMore detail.`,
+      state: "running" as const,
+      headCommit: null,
+      fixRounds: 0,
+      roundCap: 3,
+      fallbackModel: null,
+      question: null,
+      roles,
+      createdAt: AT,
+      updatedAt: AT,
+      ...extra,
+    },
+    { state },
+  );
 
 const agent = (id: string, status: MonitorOverviewAgent["status"]): MonitorOverviewAgent => ({
   id,
@@ -113,9 +120,14 @@ describe("countLiveWork", () => {
   it("adds team role work threads to the channel agents", () => {
     const teams = summarizeMonitorTeams(
       [
-        job("1", "waiting-user", [role("builder", "working"), role("reviewer", "blocked"), role("quality", "working")], {
-          question: { kind: "fallback-model", roleId: "builder" },
-        }),
+        job(
+          "1",
+          "waiting-user",
+          [role("builder", "working"), role("reviewer", "blocked"), role("quality", "working")],
+          {
+            question: { kind: "fallback-model", roleId: "builder" },
+          },
+        ),
       ],
       NOW,
     );

@@ -112,7 +112,7 @@ export function MonitorSidebar(props: MonitorSidebarProps): JSX.Element {
             </For>
           </div>
           <Show when={(props.teams?.length ?? 0) > 0}>
-            <div class="monitor-sidebar-teams" role="group" aria-labelledby="monitor-sidebar-teams">
+            <div class="monitor-sidebar-teams">
               <h3 id="monitor-sidebar-teams" class="monitor-sidebar-subheading">
                 {t("monitor.sidebar.teams")}
               </h3>

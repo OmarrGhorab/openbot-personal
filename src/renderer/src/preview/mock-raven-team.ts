@@ -247,7 +247,12 @@ function previewRunningJob(): RavenTeamJob {
     roundCap: 3,
     fallbackModel: null,
     question: { kind: "blocked", roleId: "reviewer" },
-    roles: [role("architect", "passed"), role("builder", "working"), role("reviewer", "working"), role("quality", "waiting")],
+    roles: [
+      role("architect", "passed"),
+      role("builder", "working"),
+      role("reviewer", "working"),
+      role("quality", "waiting"),
+    ],
     createdAt: at,
     updatedAt: at,
   };
