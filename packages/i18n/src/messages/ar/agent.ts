@@ -75,6 +75,10 @@ export const messages = {
   "agent.color.magenta": "أرجواني",
   "agent.team.access.readOnlyFull": "قراءة بس، وصول كامل",
   "agent.team.access.giveFull": "ادّي {role} وصول كامل",
+  "agent.team.model": "الموديل",
+  "agent.team.provider": "المزوّد",
+  "agent.team.noEffort": "مفيش مستويات مجهود",
+  "agent.team.roleField": "{field} لـ {role}",
   "agent.team.question.workspaceAccess":
     "{role} مينفعش يشتغل قراءة بس مع {provider} على {os}. ادّيله وصول كامل أو اختار مزوّد بيدعم القراءة بس.",
   "agent.team.question.workspaceAccessHere":

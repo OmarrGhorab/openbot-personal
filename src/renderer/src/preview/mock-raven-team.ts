@@ -3,6 +3,7 @@
 // short list of models, so the confirm card and the team view show real shapes.
 
 import {
+  type AgentReasoningEffort,
   type OpenBotDesktopApi,
   RAVEN_STACK_TEAM_ROLES,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
@@ -16,10 +17,16 @@ import {
 
 type RavenTeamApi = OpenBotDesktopApi["ravenTeam"];
 
-const PREVIEW_MODELS = [
-  { id: "gpt-6-luna", provider: "codex" },
-  { id: "claude-sonnet-5-5", provider: "claude" },
-] as const;
+/** The preview models. One has effort levels, one has none, so the page shows both kinds. */
+const PREVIEW_MODELS: readonly {
+  id: string;
+  provider: "codex" | "claude";
+  defaultEffort: AgentReasoningEffort | null;
+  efforts: readonly AgentReasoningEffort[];
+}[] = [
+  { id: "gpt-6-luna", provider: "codex", defaultEffort: "medium", efforts: ["low", "medium", "high", "xhigh"] },
+  { id: "claude-sonnet-5-5", provider: "claude", defaultEffort: null, efforts: [] },
+];
 
 const BUILT_IN: RavenTeamTemplate = {
   id: RAVEN_STACK_TEAM_TEMPLATE_ID,
@@ -29,6 +36,14 @@ const BUILT_IN: RavenTeamTemplate = {
   createdAt: "2026-10-28T00:00:00.000Z",
   updatedAt: "2026-10-28T00:00:00.000Z",
 };
+
+function previewEffort(
+  option: (typeof PREVIEW_MODELS)[number],
+  wanted: AgentReasoningEffort | undefined,
+): AgentReasoningEffort | null {
+  if (option.efforts.length === 0) return null;
+  return wanted && option.efforts.includes(wanted) ? wanted : option.defaultEffort;
+}
 
 export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
@@ -45,6 +60,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     brief: string;
     models?: Record<string, string>;
     fullAccess?: string[];
+    efforts?: Record<string, AgentReasoningEffort>;
   }): RavenTeamPlan {
     const template = allTemplates().find((candidate) => candidate.id === input.templateId) ?? BUILT_IN;
     const named = new Map<string, string>();
@@ -57,7 +73,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     const unknownModels: RavenTeamPlan["unknownModels"] = [];
     const roles: RavenTeamPlanRole[] = [];
     for (const role of template.roles) {
-      const chosen = named.get(role.id) ?? role.defaultModel ?? PREVIEW_MODELS[0].id;
+      const chosen = named.get(role.id) ?? role.defaultModel ?? PREVIEW_MODELS[0]?.id ?? "";
       if (role.optional && !named.has(role.id)) continue;
       const option = PREVIEW_MODELS.find((candidate) => candidate.id === chosen);
       if (!option) {
@@ -74,6 +90,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         optional: role.optional,
         named: named.has(role.id),
         fullAccess: role.access === "write" || (input.fullAccess ?? []).includes(role.id),
+        reasoningEffort: previewEffort(option, input.efforts?.[role.id]),
       });
     }
     const builder = roles.find((role) => role.roleId === "builder");

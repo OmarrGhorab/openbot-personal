@@ -1,6 +1,7 @@
 import { agentProviderName } from "@openbot/contracts/agent-providers";
 import {
   type AgentProviderId,
+  type AgentReasoningEffort,
   type PlanRavenTeamInput,
   type RavenTeamJob,
   type RavenTeamPlan,
@@ -11,12 +12,9 @@ import {
 import { Alert, AlertActions, AlertContent, AlertDescription, Button, Label, Textarea } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, Show } from "solid-js";
+import { RAVEN_TEAM_EFFORT_LABEL, type RavenTeamModelChoice, RavenTeamRolePicker } from "./RavenTeamRolePicker";
 
-/** A model a connected provider lists. The page shows the name and keeps the id. */
-export interface RavenTeamModelChoice {
-  id: string;
-  name: string;
-}
+export type { RavenTeamModelChoice } from "./RavenTeamRolePicker";
 
 export interface RavenTeamPageProps {
   templates: RavenTeamTemplate[];
@@ -66,6 +64,8 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const templateId = () => props.templates[0]?.id ?? "";
   const [brief, setBrief] = createSignal("");
   const [overrides, setOverrides] = createSignal<Record<string, string>>({});
+  // Role id to the effort the user chose. The plan gives the model's default to a role not here.
+  const [efforts, setEfforts] = createSignal<Record<string, AgentReasoningEffort>>({});
   // Read-only roles that the user gave Full access on the confirm card.
   const [fullAccess, setFullAccess] = createSignal<string[]>([]);
   const [plan, setPlan] = createSignal<RavenTeamPlan | null>(null);
@@ -75,11 +75,13 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const request = (
     models: Record<string, string> = overrides(),
     access: string[] = fullAccess(),
+    chosenEfforts: Record<string, AgentReasoningEffort> = efforts(),
   ): PlanRavenTeamInput => ({
     templateId: templateId(),
     brief: brief(),
     models,
     fullAccess: access,
+    efforts: chosenEfforts,
   });
   const canStart = () => {
     const current = plan();
@@ -113,8 +115,11 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     }
   }
 
-  const check = (models?: Record<string, string>, access?: string[]) =>
-    run(async () => setPlan(await props.onPlan(request(models, access))));
+  const check = (
+    models?: Record<string, string>,
+    access?: string[],
+    chosenEfforts?: Record<string, AgentReasoningEffort>,
+  ) => run(async () => setPlan(await props.onPlan(request(models, access, chosenEfforts))));
 
   /**
    * A model the user picks for a role. The plan is checked again with the new choice, so the question
@@ -125,6 +130,25 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     const next = { ...overrides(), [roleId]: model };
     setOverrides(next);
     void check(next);
+  };
+
+  /** An effort the user picks for a role. The plan is checked again, as for a model. */
+  const pickEffort = (roleId: string, effort: AgentReasoningEffort) => {
+    const next = { ...efforts(), [roleId]: effort };
+    setEfforts(next);
+    void check(overrides(), fullAccess(), next);
+  };
+
+  /** The provider, model and effort of a planned role, as the confirm card names them. */
+  const choiceText = (role: { provider: string; model: string; reasoningEffort: AgentReasoningEffort | null }) => {
+    const model = props.models.find((candidate) => candidate.id === role.model);
+    return [
+      model?.providerName ?? role.provider,
+      model?.name ?? role.model,
+      role.reasoningEffort ? t(RAVEN_TEAM_EFFORT_LABEL[role.reasoningEffort]) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
   };
 
   /** The one-click answer to the access question on the confirm card. The plan is checked again. */
@@ -140,28 +164,9 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       setPlan(null);
       setBrief("");
       setOverrides({});
+      setEfforts({});
       setFullAccess([]);
     });
-
-  function ModelChoices(choice: { value: string; label: string; onPick: (model: string) => void }) {
-    return (
-      <fieldset class="raven-team-models" aria-label={choice.label}>
-        <For each={props.models}>
-          {(model) => (
-            <Button
-              size="sm"
-              variant={model.id === choice.value ? "secondary" : "ghost"}
-              aria-pressed={model.id === choice.value ? "true" : "false"}
-              disabled={busy()}
-              onClick={() => choice.onPick(model.id)}
-            >
-              {model.name}
-            </Button>
-          )}
-        </For>
-      </fieldset>
-    );
-  }
 
   function RoleRow(rowProps: { job: RavenTeamJob; role: RavenTeamRoleRun }) {
     return (
@@ -179,10 +184,12 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
             {(commit) => <code class="raven-team-role-commit">{shortCommit(commit())}</code>}
           </Show>
         </div>
-        <ModelChoices
-          value={rowProps.role.model}
-          label={`${t("agent.team.model")}: ${rowProps.role.label}`}
-          onPick={(model) =>
+        <RavenTeamRolePicker
+          role={rowProps.role.label}
+          models={props.models}
+          model={rowProps.role.model}
+          disabled={busy()}
+          onModel={(model) =>
             void run(() => props.onSetRoleModel({ jobId: rowProps.job.id, roleId: rowProps.role.roleId, model }))
           }
         />
@@ -304,12 +311,16 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                             ? t("agent.team.access.readOnlyFull")
                             : t("agent.team.access.readOnly")}
                       </span>
-                      <span class="raven-team-role-verdict">{role.model}</span>
+                      <span class="raven-team-role-verdict">{choiceText(role)}</span>
                     </div>
-                    <ModelChoices
-                      value={role.model}
-                      label={`${t("agent.team.model")}: ${role.label}`}
-                      onPick={(model) => pickModel(role.roleId, model)}
+                    <RavenTeamRolePicker
+                      role={role.label}
+                      models={props.models}
+                      model={role.model}
+                      effort={role.reasoningEffort}
+                      disabled={busy()}
+                      onModel={(model) => pickModel(role.roleId, model)}
+                      onEffort={(effort) => pickEffort(role.roleId, effort)}
                     />
                   </li>
                 )}
