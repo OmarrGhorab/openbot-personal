@@ -1,7 +1,7 @@
 import type { AgentMcpChangesPreference, OpenBotDesktopApi } from "@openbot/contracts/ipc";
 import { Alert, AlertContent, AlertDescription, SwitchField } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import { actionToast } from "../../action-toast";
 
 /** The calls of the setting. The desktop reaches them through main; a story passes its own. */
@@ -19,7 +19,7 @@ export function ServerMcpApprovalSetting(props: { disabled: boolean; calls?: Mcp
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [saving, setSaving] = createSignal(false);
 
-  onMount(() => {
+  onSettled(() => {
     calls()
       .getAgentMcpChangesPreference()
       .then(setPreference, (error: unknown) => setLoadError(errorMessage(error, t("mcp.changes.loadFailed"))));
