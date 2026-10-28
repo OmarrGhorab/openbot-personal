@@ -184,7 +184,7 @@ import { localTimezone } from "./agent/routine-tools";
 import { buildRuntimeSnapshot } from "./agent/runtime-snapshot";
 import type { ScreenCaptureHost } from "./agent/screen-capture";
 import { SessionSettings } from "./agent/session-settings";
-import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
+import { SIDE_QUESTION_CHAT_MESSAGES, type SideQuestionWorkThread, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
 import {
@@ -205,7 +205,7 @@ import type { AgentTables } from "./agent-data/agent-tables";
 import type { AgentStore } from "./agent-store";
 import { AgentTaskStore } from "./agent-tasks/agent-task-store";
 import { AgentWorkThreadStore } from "./agent-tasks/agent-work-thread-store";
-import { AgentWorktrees } from "./agent-tasks/agent-worktrees";
+import { AgentWorktrees, worktreeChangedFiles } from "./agent-tasks/agent-worktrees";
 import { AgentTasks } from "./agent-tasks/agent-tasks";
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
 import { AgentWaits } from "./agent-waits/agent-waits";
@@ -2032,21 +2032,34 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       if (!model) return yield* failed(sourceText("error.provider.noModel"));
       if (this.#stopping) return yield* failed(sourceText("error.backend.shuttingDown"));
       if (this.#profileClients.busy()) return yield* failed(sourceText("error.agent.sideQuestionBusy"));
-      const messages =
-        this.#conversation.loadedSnapshot(agent.id)?.messages ??
-        this.#store.database.readConversationPage(
-          agent.id,
-          agent.threadId,
-          { type: "latest" },
-          SIDE_QUESTION_CHAT_MESSAGES,
-        ).messages;
+      // A side chat about a work thread reads a snapshot of that task: its messages, its plan and the
+      // files its worktree changed. It reads only, and it never waits for or enters the task's turn.
+      const taskId = input.taskId;
+      const task = taskId ? this.listTasks(agent.id).tasks.find((candidate) => candidate.id === taskId) : undefined;
+      if (taskId && !task) return yield* failed(sourceText("error.backend.taskNotFound"));
+      const messages = task
+        ? this.readTask(agent.id, task.id).messages.slice(-SIDE_QUESTION_CHAT_MESSAGES)
+        : (this.#conversation.loadedSnapshot(agent.id)?.messages ??
+          this.#store.database.readConversationPage(
+            agent.id,
+            agent.threadId,
+            { type: "latest" },
+            SIDE_QUESTION_CHAT_MESSAGES,
+          ).messages);
+      const thread: SideQuestionWorkThread | null = task
+        ? {
+            title: task.title,
+            changedFiles:
+              task.workspace?.mode === "worktree" ? yield* worktreeChangedFiles(task.workspace.path) : null,
+          }
+        : null;
       const client = this.#providers.createProfileClient(agent.provider);
       return yield* this.#profileClients
         .run(client, (cancelled) =>
           generateTextWithoutTools(
             client,
             { ...model, defaultReasoningEffort: agent.reasoningEffort },
-            sideQuestionPrompt(agent, messages, input),
+            sideQuestionPrompt(agent, messages, input, thread),
             cancelled,
           ),
         )

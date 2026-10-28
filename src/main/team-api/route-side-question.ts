@@ -30,7 +30,9 @@ export async function routeSideQuestion(
   let input: ReturnType<typeof parseAskSideQuestion>;
   try {
     // The codec bounds each field; this also refuses an empty question.
-    input = parseAskSideQuestion(body);
+    // `side-question-v1` asks about the main thread only, so a work thread never comes from a member.
+    const { agentId, question, earlier } = parseAskSideQuestion(body);
+    input = { agentId, question, earlier };
   } catch {
     throw new HttpError(400, sourceText("error.team.requestFailed"));
   }
