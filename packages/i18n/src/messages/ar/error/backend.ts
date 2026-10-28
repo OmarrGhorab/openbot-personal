@@ -298,6 +298,7 @@ export const messages = {
   "error.backend.taskMoveRefused": "الرسالة اللي بعتها للإيجنت ده لوحده بس هي اللي تشتغل كمهمة.",
   "error.backend.taskNotFound": "المهمة دي مش متاحة.",
   "error.backend.taskClosed": "المهمة دي مقفولة. افتحها تاني علشان تبعت رسالة.",
+  "error.backend.taskDeleteOpen": "اقفل المهمة الأول، وبعدين امسحها.",
   "error.backend.taskStillRunning": "المهمة دي لسه شغّالة. استنى لحد ما توقف، وبعدين اقفلها.",
   "error.backend.taskTitleRequired": "اكتب عنوان قصير للمهمة.",
   "error.backend.taskToolInvalid": "اكتب للمهمة عنوان 120 حرف على الأكتر وملخص بيقول المطلوب عمله.",

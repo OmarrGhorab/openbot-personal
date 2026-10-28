@@ -762,6 +762,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       createdAt: now,
       updatedAt: now,
       closedAt: null,
+      pausedAt: null,
+      // The preview has no git repository, so each mock work thread has its own worktree path.
+      workspace: { mode: "worktree", path: `~/OpenBot/Agents/${agentId}/.openbot/worktrees/${messageCounter}`, branch: `openbot/${messageCounter}` },
     };
     tasks.set(agentId, [task, ...(tasks.get(agentId) ?? [])]);
     return task;
@@ -2542,11 +2545,13 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         emitTasks(input.agentId);
       },
       pauseTask: async (input) => {
-        findTask(input.agentId, input.taskId);
+        const task = findTask(input.agentId, input.taskId);
+        task.pausedAt = new Date().toISOString();
         emitTasks(input.agentId);
       },
       resumeTask: async (input) => {
-        findTask(input.agentId, input.taskId);
+        const task = findTask(input.agentId, input.taskId);
+        task.pausedAt = null;
         emitTasks(input.agentId);
       },
       closeTask: async (input) => {
@@ -2560,12 +2565,31 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           hold: null,
           closedAt: now,
           updatedAt: now,
+          pausedAt: null,
         });
         emitTasks(input.agentId);
       },
       reopenTask: async (input) => {
         const task = findTask(input.agentId, input.taskId);
         Object.assign(task, { state: "idle", closedAt: null, updatedAt: new Date().toISOString() });
+        emitTasks(input.agentId);
+      },
+      renameTask: async (input) => {
+        const task = findTask(input.agentId, input.taskId);
+        const title = input.title.split("\n").find((line) => line.trim())?.trim().slice(0, 120) ?? "";
+        if (!title) throw new Error(sourceText("error.backend.taskTitleRequired"));
+        Object.assign(task, { title, updatedAt: new Date().toISOString() });
+        emitTasks(input.agentId);
+        return clone(task);
+      },
+      deleteTask: async (input) => {
+        const task = findTask(input.agentId, input.taskId);
+        if (!task.closedAt) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+        tasks.set(
+          input.agentId,
+          (tasks.get(input.agentId) ?? []).filter((candidate) => candidate.id !== task.id),
+        );
+        taskConversations.delete(task.id);
         emitTasks(input.agentId);
       },
       acknowledgeFailedTurn: async () => undefined,
