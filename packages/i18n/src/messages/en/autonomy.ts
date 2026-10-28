@@ -15,6 +15,7 @@ export const messages = defineMessages("autonomy", {
   "autonomy.tab.stoppedNotice": "All agents are stopped on this computer.",
   "autonomy.tab.loadFailed": "OpenBot could not load the agent settings.",
   "autonomy.tab.agent": "Agent",
+  "autonomy.tab.agentDescription": "The approvals, budgets and usage below are for this agent.",
   "autonomy.tab.noAgents": "No agent runs on this computer yet.",
 
   "autonomy.approvals.title": "Approvals",
@@ -38,6 +39,7 @@ export const messages = defineMessages("autonomy", {
   "autonomy.budgets.costNote": "The cost is an estimate. A model with no known price adds no cost.",
   "autonomy.budgets.invalid": "Enter a number above zero, or leave the field empty.",
   "autonomy.budgets.save": "Save limits",
+  "autonomy.budgets.reset": "Reset",
   "autonomy.budgets.saveFailed": "OpenBot could not save the budget.",
 
   "autonomy.usage.title": "Usage",

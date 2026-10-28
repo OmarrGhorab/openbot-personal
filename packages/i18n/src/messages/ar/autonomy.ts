@@ -12,6 +12,7 @@ export const messages = defineMessages("autonomy", {
   "autonomy.tab.stoppedNotice": "كل الوكلاء متوقفون على هذا الجهاز.",
   "autonomy.tab.loadFailed": "تعذّر على OpenBot تحميل إعدادات الوكلاء.",
   "autonomy.tab.agent": "الوكيل",
+  "autonomy.tab.agentDescription": "الموافقات والميزانيات والاستخدام أدناه خاصة بهذا الوكيل.",
   "autonomy.tab.noAgents": "لا يعمل أي وكيل على هذا الجهاز بعد.",
 
   "autonomy.approvals.title": "الموافقات",
@@ -34,6 +35,7 @@ export const messages = defineMessages("autonomy", {
   "autonomy.budgets.costNote": "التكلفة تقديرية. النموذج الذي لا يُعرف سعره لا يضيف تكلفة.",
   "autonomy.budgets.invalid": "أدخل رقماً أكبر من صفر، أو اترك الحقل فارغاً.",
   "autonomy.budgets.save": "حفظ الحدود",
+  "autonomy.budgets.reset": "إعادة ضبط",
   "autonomy.budgets.saveFailed": "تعذّر على OpenBot حفظ الميزانية.",
 
   "autonomy.usage.title": "الاستخدام",
