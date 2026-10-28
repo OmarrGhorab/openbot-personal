@@ -127,6 +127,9 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     sideQuestion,
     setSideQuestionDraft,
     askSideQuestion,
+    openSideQuestion,
+    sideQuestionAvailable,
+    sendSideQuestionToThread,
     voiceConversationAvailable,
     panelSubagentId,
     channel,
@@ -193,6 +196,11 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     [],
     { key: "id" },
   );
+  /** The work thread that the side chat reads, while that task still exists. */
+  const sideQuestionTask = () => {
+    const taskId = sideQuestion().taskId;
+    return taskId ? props.tasks?.snapshot?.tasks.find((task) => task.id === taskId) : undefined;
+  };
   /** The sidebar asks to show a task of this agent: the side panel opens it. */
   let handledOpenRequest = 0;
   createEffect(
@@ -265,6 +273,13 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       };
     },
   );
+  /**
+   * The pane that the side panel header shows as selected. Kobalte's Tabs reads it inside an effect
+   * callback when a pane opens beside another one. A condition written in the JSX prop compiles to a
+   * memo that would be created there, which halts the reactive system: "Ask on the side" in the Tasks
+   * pane did that, and the side chat then took no typing. A memo made here is created once.
+   */
+  const sidePanelHeaderSelected = createMemo(() => (activeRightPanel() === "side-panel" ? null : sidePanel().selected));
   createEffect(browserSidebarOpen, (open, previous) => {
     if (open && previous === false) onSettled(() => browserPreviewTrigger?.focus());
   });
@@ -273,7 +288,7 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       <Show when={sidePanelOpen()}>
         <SidePanelHeader
           panes={sidePanel().panes}
-          selected={activeRightPanel() === "side-panel" ? null : sidePanel().selected}
+          selected={sidePanelHeaderSelected()}
           available={sidePanelPanes()}
           maximized={sidePanel().maximized}
           settingsLabel={channel ? t("channel.settings.title") : undefined}
@@ -414,6 +429,14 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
             }}
             onClosePanel={() => closeSidePanelPane("tasks")}
             onBack={showTaskList}
+            onAskSide={
+              sideQuestionAvailable()
+                ? () => {
+                    const task = panelTask();
+                    if (task) openSideQuestion("", task.id);
+                  }
+                : undefined
+            }
             onOpenLink={(url) => void openExternalMessageUrl(url)}
             onPreview={(attachment) => void previewAttachment(attachment)}
             onAttachmentAction={attachmentAction}
@@ -437,6 +460,8 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
             focusRequest={sideQuestion().focusRequest}
             onDraftChange={setSideQuestionDraft}
             onAsk={askSideQuestion}
+            taskTitle={sideQuestionTask()?.title}
+            onSendToMain={sideQuestionTask() ? sendSideQuestionToThread : undefined}
             onClosePanel={() => closeSidePanelPane("question")}
             onOpenLink={(url) => void openExternalMessageUrl(url)}
           />

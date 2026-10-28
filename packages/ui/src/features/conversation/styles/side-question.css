@@ -45,3 +45,25 @@
 .side-question-composer.composer[data-compact] .composer-primary-actions {
   grid-column: 2;
 }
+
+/* The work thread (task) that the side chat reads, beside the pane title. */
+.side-question-task {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-question-note {
+  margin: 0 0 var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.side-question-answer-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 var(--openbot-space-4);
+}

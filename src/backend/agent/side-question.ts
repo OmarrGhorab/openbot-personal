@@ -69,17 +69,42 @@ function earlierTurns(input: AskSideQuestionInput) {
 }
 
 /**
+ * The read-only snapshot of a work thread (agent task) that a side chat reads beside its messages.
+ * `changedFiles` is the `git diff --stat` of its worktree, or null for a thread that shares the
+ * workspace or a worktree that git could not read.
+ */
+export interface SideQuestionWorkThread {
+  title: string;
+  changedFiles: string | null;
+}
+
+/** The newest plan of the thread, as its checklist text, or null when the thread has none. */
+export function latestPlanText(messages: readonly ConversationMessage[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.itemType === CONVERSATION_PLAN_ITEM_TYPE && message.text.trim())
+      return message.text.slice(0, MESSAGE_CHARACTERS);
+  }
+  return null;
+}
+
+/**
  * The prompt of a side question: the agent's profile, the end of its chat, the earlier side turns, and
- * the question. The generation has no tools, so the answer can only come from this text.
+ * the question. The generation has no tools, so the answer can only come from this text. With
+ * `thread`, the chat is that work thread, and its plan and changed files come with it.
  */
 export function sideQuestionPrompt(
   agent: AgentSummary,
   messages: readonly ConversationMessage[],
   input: AskSideQuestionInput,
+  thread: SideQuestionWorkThread | null = null,
 ): string {
   const earlier = earlierTurns(input);
+  const plan = thread ? latestPlanText(messages) : null;
   return [
-    "You are the agent in this profile. The user asks a side question about your chat with them. The question and your answer stay out of the chat, and you cannot use tools here. Answer from the chat and from what you know. Give the shortest complete answer in plain text or Markdown.",
+    thread
+      ? "You are the agent in this profile. The user asks a side question about one of your tasks while it may still run. The question and your answer stay out of the task, and you cannot use tools here or change the task. Answer from the task snapshot and from what you know. Give the shortest complete answer in plain text or Markdown."
+      : "You are the agent in this profile. The user asks a side question about your chat with them. The question and your answer stay out of the chat, and you cannot use tools here. Answer from the chat and from what you know. Give the shortest complete answer in plain text or Markdown.",
     "<agent_profile>",
     promptJson({
       name: agent.name,
@@ -90,6 +115,17 @@ export function sideQuestionPrompt(
     "<chat>",
     promptJson(chatTranscript(agent, messages)),
     "</chat>",
+    ...(thread
+      ? [
+          "<task>",
+          promptJson({
+            title: thread.title,
+            plan: plan ?? "No plan.",
+            changedFiles: thread.changedFiles ?? "Not known: the task shares the workspace or git could not read it.",
+          }),
+          "</task>",
+        ]
+      : []),
     ...(earlier.length > 0 ? ["<earlier_side_questions>", promptJson(earlier), "</earlier_side_questions>"] : []),
     "<side_question>",
     promptJson(input.question),

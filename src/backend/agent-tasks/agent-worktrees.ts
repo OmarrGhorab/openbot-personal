@@ -17,10 +17,9 @@ const EXCLUDE_LINE = `/${WORKTREE_FOLDER}/`;
 /** A git command that takes longer than this fails, and the work thread shares the workspace. */
 const GIT_TIMEOUT_MS = 30_000;
 
-export class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()(
-  "WorktreeOperationFailed",
-  { cause: Schema.Defect() },
-) {}
+export class WorktreeOperationFailed extends Schema.TaggedError<WorktreeOperationFailed>()("WorktreeOperationFailed", {
+  cause: Schema.Defect(),
+}) {}
 
 const { io: worktreeIo } = causeHelpers(WorktreeOperationFailed);
 
@@ -123,6 +122,36 @@ export class AgentWorktrees {
     return result.success;
   });
 }
+
+/** The longest changed-files summary that a side chat reads. */
+const CHANGED_FILES_CHARACTERS = 8_000;
+
+/**
+ * The files that a worktree changed, for the read-only snapshot of a side chat: `git diff --stat`
+ * against `HEAD` and the new files that git does not ignore. Null when git cannot read the folder.
+ * It only reads, so it never changes the work thread.
+ */
+export const worktreeChangedFiles = Effect.fn("AgentWorktrees.changedFiles")(function* (worktreePath: string) {
+  const result = yield* Effect.result(
+    worktreeIo(async () => {
+      const [stat, untracked] = await Promise.all([
+        git(worktreePath, ["diff", "--stat", "HEAD"]),
+        git(worktreePath, ["ls-files", "--others", "--exclude-standard"]),
+      ]);
+      const added = untracked
+        .split("\n")
+        .filter((line) => line.length > 0)
+        .map((line) => ` ${line} (new)`);
+      const summary = [stat, ...added].filter((part) => part.length > 0).join("\n");
+      return summary.length > CHANGED_FILES_CHARACTERS ? `${summary.slice(0, CHANGED_FILES_CHARACTERS)}\n…` : summary;
+    }),
+  );
+  if (Result.isFailure(result)) {
+    logger.info("Could not read the changed files of a work thread.", { error: result.failure.cause });
+    return null;
+  }
+  return result.success;
+});
 
 /** Adds the worktree folder to `.git/info/exclude` once. `.gitignore` of the user does not change. */
 async function excludeWorktrees(workspacePath: string): Promise<void> {

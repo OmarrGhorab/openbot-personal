@@ -188,6 +188,8 @@ export interface AgentTaskPanelProps {
   /** Deletes a closed task with its history. */
   onDelete?: (() => void) | undefined;
   onClosePanel: () => void;
+  /** Opens the side chat about this task. It reads the task and never changes it. */
+  onAskSide?: (() => void) | undefined;
   /** Back to the task list of the side panel. */
   onBack?: (() => void) | undefined;
   onOpenLink: (url: string) => void;
@@ -447,6 +449,13 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
                 )}
               </Show>
             </Show>
+          )}
+        </Show>
+        <Show when={props.task && props.onAskSide}>
+          {(ask) => (
+            <Button type="button" variant="ghost" size="xs" onClick={() => ask()()}>
+              {t("conversation.tasks.panel.askSide")}
+            </Button>
           )}
         </Show>
         <Show when={closed() && props.onDelete}>

@@ -16,9 +16,20 @@ export interface SideQuestionState {
   exchanges: SideQuestionExchange[];
   error: string | null;
   focusRequest: number;
+  /**
+   * The work thread (agent task) that the side chat reads, or null for the agent's main chat. Only
+   * this computer reads a task: a joined server answers about the main chat.
+   */
+  taskId: string | null;
 }
 
-const SIDE_QUESTION_EMPTY: SideQuestionState = { draft: "", exchanges: [], error: null, focusRequest: 0 };
+const SIDE_QUESTION_EMPTY: SideQuestionState = {
+  draft: "",
+  exchanges: [],
+  error: null,
+  focusRequest: 0,
+  taskId: null,
+};
 
 export interface SideQuestionStoreDeps {
   props: ConversationProps;
@@ -61,12 +72,23 @@ export function createSideQuestionStore(deps: SideQuestionStoreDeps) {
     });
   }
 
-  /** Opens the pane with the caret in its composer. Text from the chat composer goes to the end of its draft. */
-  function openSideQuestion(text = "") {
+  /**
+   * Opens the pane with the caret in its composer. Text from the chat composer goes to the end of its
+   * draft. `taskId` attaches the side chat to a work thread, or to the main chat when null. The
+   * exchanges are about one thread, so a side chat that moves to another thread starts empty.
+   */
+  function openSideQuestion(text = "", taskId: string | null = null) {
     const agentId = deps.props.agent?.id;
     if (!agentId || !sideQuestionAvailable()) return;
+    // Only this computer keeps tasks; a joined server answers about the main chat.
+    const thread = deps.props.tasks ? taskId : null;
     const question = text.trim();
     update(agentId, (state) => {
+      if (state.taskId !== thread) {
+        state.taskId = thread;
+        state.exchanges = [];
+        state.error = null;
+      }
       if (question) state.draft = state.draft.trim() ? `${state.draft.trim()}\n${question}` : question;
       state.focusRequest = nextFocusRequest();
     });
@@ -99,9 +121,14 @@ export function createSideQuestionStore(deps: SideQuestionStoreDeps) {
     const runtimeAsk = deps.props.runtime?.askSideQuestion;
     // The server is fixed now, so an answer cannot come from a server the user switches to.
     const serverId = deps.props.server?.id;
+    // The side chat of a work thread reads a snapshot of that task on this computer.
+    const taskId = runtimeAsk ? null : state.taskId;
     const ask = runtimeAsk
       ? runtimeAsk({ agentId, question, earlier })
-      : conversationPort().agent.askSideQuestion({ agentId, question, earlier }, serverId);
+      : conversationPort().agent.askSideQuestion(
+          { agentId, question, earlier, ...(taskId ? { taskId } : {}) },
+          serverId,
+        );
     void ask.then(
       (answer) => {
         if (!questions[agentId]) return;
@@ -126,6 +153,18 @@ export function createSideQuestionStore(deps: SideQuestionStoreDeps) {
     );
   }
 
+  /**
+   * "Send to main thread": the text goes into the work thread as a user message. While its turn runs,
+   * it waits in the task queue or steers, as any message does. The side chat itself never changes the task.
+   */
+  async function sendSideQuestionToThread(text: string): Promise<boolean> {
+    const taskId = sideQuestion().taskId;
+    const tasks = deps.props.tasks;
+    const body = text.trim();
+    if (!taskId || !tasks || !body) return false;
+    return tasks.onSend(taskId, body);
+  }
+
   /** Closing the pane deletes the side question. An answer that comes later finds no question and is dropped. */
   function deleteSideQuestion() {
     const agentId = deps.props.agent?.id;
@@ -141,6 +180,7 @@ export function createSideQuestionStore(deps: SideQuestionStoreDeps) {
     setSideQuestionDraft,
     openSideQuestion,
     askSideQuestion,
+    sendSideQuestionToThread,
     deleteSideQuestion,
   };
 }
