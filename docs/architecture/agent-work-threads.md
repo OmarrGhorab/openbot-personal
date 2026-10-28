@@ -94,7 +94,22 @@ merge or remove them. Merging the results of two threads is out of scope.
 
 Prompts, approvals and takeover requests of a work-thread turn carry the thread id of that work
 thread (released behavior). The renderer finds the task of that thread and shows its title on the
-card ("In task: …"), and the notification text names it too. The main thread shows no label.
+card ("From task: …", `prompt.workThread.from`). The notification title is "{agent}, task: {thread}"
+(`notification.workThreadTitle`, the `workThread` argument of `notificationForAgentEvent`); main
+finds the task only for a local event, and a channel title wins over a task. A click on that
+notification opens the task in the side panel. The main thread shows no label.
+
+## Sidebar and task panel
+
+- `SidebarWorkThreads` (`@openbot/ui`) lists the open tasks of each agent whose task list loaded,
+  under its row, with `AgentTaskMark` and `agentTaskStatus` (working, waiting for your approval,
+  paused, done). It has a "New task" row and a context menu: rename, pause/resume, close.
+- A sidebar row, or a notification, calls `requestOpenTask` in `agent-tasks-context`. The side panel
+  of the agent's chat listens to `openRequest`, opens the task, and calls `finishOpenRequest`, so a
+  later mount does not open it again.
+- `AgentTaskPanel` adds pause/resume, rename (click the title), delete (closed task only), the
+  branch line of a worktree task, and "Ask on the side". Each action is an optional prop, so the
+  Tasks page and a joined server keep the released panel.
 
 ## Side chat
 
@@ -114,14 +129,35 @@ to one thread:
 - The panel says that the side chat does not change the task.
 - Storage: temporary (see the table). The request carries the earlier exchanges, as released.
 
-The Team API `side-question-v1` codec does not carry `taskId`. A joined server answers about the
-main thread only, until a new capability adds it.
+The Team API `side-question-v1` codec does not carry `taskId`, and `route-side-question` builds its
+input without it. A joined server answers about the main thread only, until a new capability adds it.
+
+Implementation: `AgentService.askSideQuestion` reads the task with `readTask` (last 60 messages),
+the newest plan message (`latestPlanText`), and `worktreeChangedFiles` (`git diff --stat HEAD` and
+the new untracked files, at most 8,000 characters; null for a shared workspace or a git failure).
+`sideQuestionPrompt` adds a `<task>` block. In the renderer, `openSideQuestion(text, taskId)`
+attaches the side chat (the exchanges reset when the thread changes) and
+`sendSideQuestionToThread` sends through `tasks.onSend`. "Send to main thread" shows only for a
+task side chat.
 
 ## Mobile and web client
 
 The phone and the web client read work threads through `agent-tasks-v1` and show them as tasks
 (released). This epic does not change them. Pause, rename, delete and worktrees are desktop-only
 until a new optional capability (`agent-work-threads-v1`) carries them.
+
+## End-to-end checks
+
+Both scripts drive the running dev app of the worktree with a real provider, as
+`scripts/agent-tasks-e2e.ts` does, and need `--allow-mutations --agent=<id>` of an agent whose
+provider runs turns at the same time:
+
+- `scripts/agent-work-threads-e2e.ts`: two tasks in two threads run together and finish; each
+  history holds only its own marker; two worktree tasks have two folders. Report:
+  `.openbot-build/agent-work-threads-e2e/report.json`.
+- `scripts/agent-side-chat-e2e.ts`: a side question with `taskId` answers while the task turn runs,
+  the turn then completes, the question is not in the task history, and text sent to the main
+  thread reaches the task. Report: `.openbot-build/agent-side-chat-e2e/report.json`.
 
 ## Risks
 

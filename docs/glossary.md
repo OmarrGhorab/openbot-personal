@@ -40,6 +40,13 @@ table, IPC channel or product string, or when a term in the code disagrees with 
 - **server**: a joined team server (`ServerSummary`, `servers:*`), the local Team API host
   (`HostStatus`, `host:*`, `src/main/team-api-server.ts`), the account API (`apps/auth-api`,
   `auth:*`), or an MCP server (`createSdkMcpServer`).
+- **work thread**: one agent task (`projection_agent_tasks`, `AgentTask`, `agent:tasks:*`,
+  `agent-tasks-v1`) with its own thread, provider session, queue and stop, beside the agent's main
+  chat. `projection_agent_work_threads` adds its workspace (a git worktree under
+  `.openbot/worktrees/` on branch `openbot/<id>`, or the shared workspace) and its pause. The UI
+  keeps the released word **task**; "work thread" is a code and documentation term. A **side chat**
+  is the released side question (`AskSideQuestionInput`, `SideQuestionPanel`) attached to one work
+  thread with `taskId`: a tool-less, unsaved generation that reads the thread and never changes it.
 - **thread**: durable `projection_threads` record. **conversation**: its read projection, with no
   separate table. **provider session**: private CLI resume state (`projection_provider_sessions`).
   **team session**: authenticated remote connection. **turn**: one exchange in a thread.
