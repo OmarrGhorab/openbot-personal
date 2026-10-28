@@ -146,6 +146,9 @@ try {
     ["bun run db:migrate", "high"],
     ["git push origin main", "high"],
     ["rm -rf dist", "high"],
+    // OpenCode (ACP) sends the shell input as an object, which reaches the gate as JSON text.
+    ['{"command":"git status","description":"Run git status","cwd":"/tmp/w"}', "low"],
+    ['{"command":"git push origin main","cwd":"/tmp/w"}', "high"],
   ];
   for (const [command, level] of risks) {
     const actual = classifyApprovalRisk({ kind: "command", command }).level;

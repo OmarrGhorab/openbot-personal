@@ -106,8 +106,30 @@ function higher(a: ActionRisk, b: ActionRisk): ActionRisk {
 export function classifyApprovalRisk(approval: { kind: AgentApprovalKind; command: string | null }): ActionRisk {
   if (approval.kind === "permissions") return risk("high", "permissions.widen");
   if (approval.kind === "file-change") return risk("medium", "file.change");
-  if (approval.command === null || approval.command.trim() === "") return risk("high", "command.unknown");
-  return classifyCommand(approval.command, 0);
+  const command = approval.command === null ? "" : commandText(approval.command);
+  if (command.trim() === "") return risk("high", "command.unknown");
+  return classifyCommand(command, 0);
+}
+
+/**
+ * The command line of an approval. An ACP agent such as OpenCode sends its tool input as an object,
+ * `{"command":"git status","cwd":...}`, which reaches the gate as JSON text. Read as a command line,
+ * that text is an unknown program, so every OpenCode command would be high risk and ask.
+ */
+function commandText(command: string): string {
+  const trimmed = command.trim();
+  if (!trimmed.startsWith("{")) return command;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return command;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return command;
+  const value = "command" in parsed ? parsed.command : "cmd" in parsed ? parsed.cmd : undefined;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && value.every((part) => typeof part === "string")) return value.join(" ");
+  return command;
 }
 
 /**
