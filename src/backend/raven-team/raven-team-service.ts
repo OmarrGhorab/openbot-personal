@@ -62,7 +62,7 @@ const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the tea
  * agent. An effort other than the model's default is in the name too: two jobs that run the same role
  * on one model with two efforts do not share one agent, whose effort applies to every turn.
  */
-export function ravenRoleAgentName(
+function ravenRoleAgentName(
   label: string,
   model: AgentModelId,
   effort: AgentReasoningEffort | null,
