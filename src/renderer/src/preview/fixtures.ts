@@ -943,6 +943,17 @@ export const STORY_INSTALLED_SKILLS: Record<string, InstalledSkill[]> = {
       origin: "managed",
     },
     {
+      skillId: "openbot-mcp-server-creator",
+      slug: "openbot-mcp-server-creator",
+      name: "openbot-mcp-server-creator",
+      description: "Write, register, test, and update an MCP server for a system that has none.",
+      installedVersion: 1,
+      availableVersion: 1,
+      state: "installed",
+      enabled: true,
+      origin: "managed",
+    },
+    {
       skillId: "openbot-site-hosting",
       slug: "openbot-site-hosting",
       name: "openbot-site-hosting",
