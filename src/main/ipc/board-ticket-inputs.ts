@@ -10,6 +10,7 @@ import {
   type CreateBoardTicketInput,
   isBoardTicketStatus,
   type MoveBoardTicketInput,
+  type StartBoardTicketInput,
   type UpdateBoardTicketInput,
 } from "@openbot/contracts/ipc";
 import { isString } from "@openbot/contracts/runtime-values";
@@ -83,5 +84,17 @@ export function parseCommentBoardTicket(value: unknown): CommentBoardTicketInput
   return {
     ticketId: parseBoardTicketId(value.ticketId),
     text: requireString(value.text, "text", BOARD_TICKET_COMMENT_LIMIT),
+  };
+}
+
+export function parseStartBoardTicket(value: unknown): StartBoardTicketInput {
+  if (!isObject(value)) throw new Error("Invalid ticket request.");
+  const agentId = requireString(value.agentId, "agentId", INPUT_LIMITS.identifier);
+  if (value.ticketId !== undefined) return { agentId, ticketId: parseBoardTicketId(value.ticketId) };
+  const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
+  return {
+    agentId,
+    title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
+    ...(body === undefined ? {} : { body }),
   };
 }

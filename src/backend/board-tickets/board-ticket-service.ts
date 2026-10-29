@@ -1,4 +1,5 @@
 import {
+  type AgentTask,
   BOARD_TICKET_BODY_LIMIT,
   BOARD_TICKET_COMMENT_LIMIT,
   BOARD_TICKET_ERROR_LIMIT,
@@ -11,6 +12,7 @@ import {
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
   type MoveBoardTicketInput,
+  type StartBoardTicketInput,
   type UpdateBoardTicketInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
@@ -20,7 +22,12 @@ export interface BoardTicketServiceOptions {
   store: BoardTicketStore;
   /** Called after each change with the IDs of the changed or deleted tickets, so the view reads the list. */
   changed: (ticketIds: string[]) => void;
+  /** Starts a work thread of the agent with this first message. Without it, `start` refuses. */
+  startWorkThread?: StartWorkThread;
 }
+
+/** Starts one work thread (agent task) of an agent, as the ticket intake does. */
+export type StartWorkThread = (agentId: string, text: string) => Promise<Pick<AgentTask, "id" | "threadId" | "state">>;
 
 /** The links that a ticket created by the work-thread module, a team job or the sync starts with. */
 export type BoardTicketLinks = Pick<NewBoardTicket, "taskId" | "threadId" | "teamJobId" | "teamRoleId" | "external">;
@@ -32,10 +39,12 @@ export type BoardTicketLinks = Pick<NewBoardTicket, "taskId" | "threadId" | "tea
 export class BoardTicketService {
   readonly #store: BoardTicketStore;
   readonly #changed: (ticketIds: string[]) => void;
+  readonly #startWorkThread: StartWorkThread | undefined;
 
   constructor(options: BoardTicketServiceOptions) {
     this.#store = options.store;
     this.#changed = options.changed;
+    this.#startWorkThread = options.startWorkThread;
   }
 
   list(): BoardTicket[] {
@@ -123,6 +132,27 @@ export class BoardTicketService {
     return event;
   }
 
+  /**
+   * Starts the work of a ticket: one work thread of the agent, with the title and the body as its first
+   * message, linked to the ticket. A new ticket is written only after its work thread starts, so a
+   * failed start leaves no ticket behind. The ticket goes to Running, or to Queued while the thread waits.
+   */
+  async start(input: StartBoardTicketInput, actor: BoardTicketActor = "user"): Promise<BoardTicket> {
+    const startWorkThread = this.#startWorkThread;
+    if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
+    const existing = input.ticketId === undefined ? null : this.#require(input.ticketId);
+    if (existing?.taskId) throw new Error(sourceText("error.agent.boardTickets.alreadyStarted"));
+    const title = cleanTitle(existing?.title ?? input.title ?? "");
+    const body = (existing ? existing.body : (input.body ?? "")).slice(0, BOARD_TICKET_BODY_LIMIT);
+    const task = await startWorkThread(input.agentId, workThreadText(title, body));
+    const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
+    const links = { taskId: task.id, threadId: task.threadId };
+    if (!existing) return this.create({ title, body, status, agentId: input.agentId }, actor, links);
+    this.patch(existing.id, { ...links, agentId: input.agentId }, actor);
+    this.moveIfNeeded(existing.id, status, actor);
+    return this.#require(existing.id);
+  }
+
   delete(ticketId: string): void {
     if (!this.#store.delete(ticketId)) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     this.#changed([ticketId]);
@@ -139,6 +169,12 @@ function cleanTitle(title: string): string {
   const clean = title.replace(/\s+/gu, " ").trim();
   if (!clean) throw new Error(sourceText("error.agent.boardTickets.emptyTitle"));
   return clean.slice(0, BOARD_TICKET_TITLE_LIMIT);
+}
+
+/** The first message of a ticket's work thread: the title, then the body when it has one. */
+function workThreadText(title: string, body: string): string {
+  const details = body.trim();
+  return details ? `${title}\n\n${details}` : title;
 }
 
 function nullableLine(text: string | null, limit: number): string | null {

@@ -114,6 +114,18 @@ export interface CommentBoardTicketInput {
   text: string;
 }
 
+/**
+ * Starts the work of a ticket: one work thread of the agent, linked to the ticket, with the title and
+ * the body as its first message. With `ticketId`, the ticket exists already ("Start now" on a backlog
+ * ticket). Without it, `title` is required and the start also creates the ticket.
+ */
+export interface StartBoardTicketInput {
+  agentId: string;
+  ticketId?: string;
+  title?: string;
+  body?: string;
+}
+
 export function isBoardTicketStatus(value: unknown): value is BoardTicketStatus {
   return isOneOf(BOARD_TICKET_STATUSES, value);
 }

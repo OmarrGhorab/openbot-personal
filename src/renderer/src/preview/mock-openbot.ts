@@ -1314,7 +1314,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     openUrl: async () => undefined,
     voice: mockVoice.voice,
     ravenTeam: mockRavenTeam(),
-    boardTickets: mockBoardTickets(options.boardTickets),
+    boardTickets: mockBoardTickets(options.boardTickets, (agentId, text) => {
+      const task = createTask(agentId, text);
+      runTaskTurn(task, text);
+      return { taskId: task.id, threadId: task.threadId };
+    }),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },
       (agentId) => emitAgentEvent({ type: "routine-flows-changed", agentId }),

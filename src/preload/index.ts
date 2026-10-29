@@ -741,6 +741,7 @@ const openbotApi: OpenBotDesktopApi = {
     update: decodeBoardTicket,
     move: decodeBoardTicket,
     comment: decodeBoardTicketEvent,
+    start: decodeBoardTicket,
     delete: decodeVoid,
     changed: decodeBoardTicketsChanged,
   }),

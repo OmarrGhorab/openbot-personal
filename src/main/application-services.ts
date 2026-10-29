@@ -3123,6 +3123,8 @@ export async function createApplicationServices({
   const boardTickets = new BoardTicketService({
     store: new BoardTicketStore(store.database),
     changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
+    // "Start now" starts one work thread of the agent, as the ticket intake does.
+    startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
   });
 
   return {

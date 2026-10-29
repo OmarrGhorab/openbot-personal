@@ -261,7 +261,7 @@ export function PageRail(props: PageRailProps) {
         <Show when={props.onTasks}>
           {(onTasks) => (
             <RailButton
-              label={t("app.rail.tasks")}
+              label={t("app.rail.tickets")}
               current={props.current === "tasks"}
               onClick={(button) => onTasks()(button)}
             >
