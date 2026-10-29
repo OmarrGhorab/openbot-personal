@@ -110,8 +110,8 @@ export function TicketsSyncDialog(props: { sync: TicketsSyncControls; onClose: (
                       >
                         <For each={state()?.providers ?? []}>
                           {(option) => (
-                            <DropdownMenu.RadioItem value={option()} closeOnSelect>
-                              {t(PROVIDER_LABEL[option()])}
+                            <DropdownMenu.RadioItem value={option} closeOnSelect>
+                              {t(PROVIDER_LABEL[option])}
                             </DropdownMenu.RadioItem>
                           )}
                         </For>
@@ -135,8 +135,8 @@ export function TicketsSyncDialog(props: { sync: TicketsSyncControls; onClose: (
                       <DropdownMenu.RadioGroup value={project() ?? ""} onChange={(value: string) => setProject(value)}>
                         <For each={projects() ?? []}>
                           {(option) => (
-                            <DropdownMenu.RadioItem value={option()} closeOnSelect>
-                              {option()}
+                            <DropdownMenu.RadioItem value={option} closeOnSelect>
+                              {option}
                             </DropdownMenu.RadioItem>
                           )}
                         </For>
