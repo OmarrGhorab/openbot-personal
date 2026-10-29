@@ -105,8 +105,14 @@ export const BOARD_TICKETS_CODECS: ReadonlyMap<string, OptionalRouteCodec> = new
     BOARD_TICKETS_ROUTES.update,
     adminRoute(fields({ ticketId: identifier }, { title, body, agentId: optionalId, progress, error }), ticket),
   ],
-  [BOARD_TICKETS_ROUTES.move, adminRoute(fields({ ticketId: identifier, status }, { beforeTicketId: optionalId }), ticket)],
+  [
+    BOARD_TICKETS_ROUTES.move,
+    adminRoute(fields({ ticketId: identifier, status }, { beforeTicketId: optionalId }), ticket),
+  ],
   [BOARD_TICKETS_ROUTES.comment, adminRoute(fields({ ticketId: identifier, text }), event)],
-  [BOARD_TICKETS_ROUTES.start, adminRoute(fields({ agentId: identifier }, { ticketId: identifier, title, body }), ticket)],
+  [
+    BOARD_TICKETS_ROUTES.start,
+    adminRoute(fields({ agentId: identifier }, { ticketId: identifier, title, body }), ticket),
+  ],
   [BOARD_TICKETS_ROUTES.delete, adminRoute(ticketId, empty)],
 ]);

@@ -734,7 +734,7 @@ function registerIpcHandlers({
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
     ...autonomyIpcHandlers({ autonomy }),
-    ...boardTicketIpcHandlers({ boardTickets, boardTicketSync }),
+    ...boardTicketIpcHandlers({ boardTickets, boardTicketSync, remoteServers }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,
