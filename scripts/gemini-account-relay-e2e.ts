@@ -3,8 +3,9 @@
 // browser client (`webProviderRelay`). Checks that on a host with `provider-account-relay-v2` Add
 // account for Gemini opens the relay dialog, that the start goes to the v2 route, that pasting the
 // address the browser ends on completes the sign-in in a folder of its own while the first account
-// stays signed in, and that a host with only `provider-account-relay-v1` keeps the live view for
-// Gemini and the v1 route for Codex and Claude. `bun scripts/gemini-account-relay-e2e.ts`.
+// stays signed in, and that a host with only `provider-account-relay-v1` asks for a host update for
+// Gemini, whose page Google refuses in the host's live view, and keeps the v1 route for Codex and
+// Claude. `bun scripts/gemini-account-relay-e2e.ts`.
 // Writes .openbot-build/gemini-account-relay-e2e/report.json.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -20,6 +21,7 @@ import {
 } from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { SIGN_IN_RELAY_ROUTES } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import type { TeamApiRequest } from "@openbot/team-client/team-api-requests";
+import { providerAccountSignInMethod } from "../src/renderer/src/features/provider-updates/provider-connect-route";
 import { accountRelayProviders, webProviderRelay } from "../src/renderer/src/features/web-client/web-provider-relay";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/gemini-account-relay-e2e");
@@ -115,8 +117,9 @@ function mockHost(capabilities: ReadonlySet<string>) {
 }
 
 /** As `connectAccount` of the provider connection: a relayed provider opens the relay dialog. */
-function addAccountDialog(providers: readonly AgentProviderId[], provider: AgentProviderId): "relay" | "live-view" {
-  return providers.includes(provider) ? "relay" : "live-view";
+/** The dialog that Add account opens: the decision of the real `connectAccount`. */
+function addAccountDialog(providers: readonly AgentProviderId[], provider: AgentProviderId) {
+  return providerAccountSignInMethod(provider, providers);
 }
 
 async function waitForPage(relay: ReturnType<typeof webProviderRelay>, provider: AgentProviderId) {
@@ -149,6 +152,7 @@ interface Report {
   accounts?: MockAccount[] | undefined;
   v1Dialog?: { antigravity: string; claude: string } | undefined;
   v1StartRoute?: string | undefined;
+  noRelayDialog?: { antigravity: string; codex: string } | undefined;
 }
 
 const report: Report = { passed: false };
@@ -217,18 +221,26 @@ try {
   assert.equal(host.calls.at(-1)?.path, PROVIDER_ACCOUNT_RELAY_V2_ROUTES.start);
   await relay.cancelRelaySignIn("codex", SERVER_ID);
 
-  // 4. A host with only `provider-account-relay-v1` keeps the live view for Gemini and v1 for the rest.
+  // 4. A host with only `provider-account-relay-v1`, such as a server on an upstream release: Google
+  // refuses the host's live view, so Add account for Gemini asks for a host update and opens no page;
+  // Codex and Claude keep the v1 route.
   const oldHost = mockHost(new Set(["sign-in-relay-v1", "provider-accounts-v1", "provider-account-relay-v1"]));
   const oldRelay = webProviderRelay(
     () => oldHost.request,
     () => false,
   );
   const oldProviders = accountRelayProviders(false);
+  // A host with no account relay at all keeps the live view for Codex, and still refuses it for Gemini.
+  report.noRelayDialog = {
+    antigravity: addAccountDialog([], "antigravity"),
+    codex: addAccountDialog([], "codex"),
+  };
+  assert.deepEqual(report.noRelayDialog, { antigravity: "host-update", codex: "host-page" });
   report.v1Dialog = {
     antigravity: addAccountDialog(oldProviders, "antigravity"),
     claude: addAccountDialog(oldProviders, "claude"),
   };
-  assert.deepEqual(report.v1Dialog, { antigravity: "live-view", claude: "relay" });
+  assert.deepEqual(report.v1Dialog, { antigravity: "host-update", claude: "relay" });
   await assert.rejects(oldRelay.startAccountRelaySignIn({ provider: "antigravity", accountId: null }, SERVER_ID));
   assert.equal(oldHost.calls.length, 0);
   await oldRelay.startAccountRelaySignIn({ provider: "claude", accountId: null }, SERVER_ID);

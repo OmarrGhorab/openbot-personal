@@ -30,6 +30,7 @@ export const messages = {
   "app.provider.codeExpiredDescription": "محدش دخّله في الوقت المناسب. الكود ده مبقاش شغال.",
   "app.provider.connectFailed": "معرفناش نوصّل {name}",
   "app.provider.connectFailedRetry": "OpenBot معرفش يوصّل {name}. حاول تاني.",
+  "app.provider.accountNeedsHostUpdate": "{host} شغّال بإصدار OpenBot مش بيقدر يضيف حساب {name} تاني من المتصفح بتاعك. حدّث OpenBot على {host}، وبعدين ضيف الحساب تاني.",
   "app.provider.restartFailed": "معرفناش نعيد تشغيل {name}",
   "app.provider.included": "{name} جاي مع OpenBot.",
   "app.clipboard.copyFailed": "معرفناش ننسخ النص.",

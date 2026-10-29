@@ -21,6 +21,7 @@ import {
   type ProviderCodeLoginMethod,
   type ProviderConnectPlace,
   type ProviderSignInMethod,
+  providerAccountSignInMethod,
   providerConnectRoute,
 } from "./provider-connect-route";
 
@@ -542,8 +543,20 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
     opener: codeLoginOpener,
     connect: (provider, opener) => run(provider, route(provider).connect, opener ?? null),
     connectAccount: (provider, accountId) => {
-      const relay = options.target().accountRelay?.providers.includes(provider);
-      void startProviderCodeLogin(provider, relay ? "relay" : "host-page", null, accountId);
+      const target = options.target();
+      const method = providerAccountSignInMethod(provider, target.accountRelay?.providers ?? []);
+      if (method === "host-update") {
+        // The host's page cannot finish this sign-in, so the live view would wait for nothing.
+        const name = agentProviderDescriptor(provider).displayName;
+        const host = target.accountSignIn?.hostName ?? target.relay?.hostName ?? "";
+        const { t } = currentText();
+        actionToast.error(t("app.provider.connectFailed", { name }), {
+          description: t("app.provider.accountNeedsHostUpdate", { name, host }),
+          report: { operation: "provider", source: "action", cause_code: "unknown" },
+        });
+        return;
+      }
+      void startProviderCodeLogin(provider, method, null, accountId);
     },
     alternative: (provider, opener) => run(provider, route(provider).alternative, opener ?? null),
     useApp,
