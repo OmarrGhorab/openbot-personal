@@ -9,6 +9,8 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.notFound": "The ticket was not found. It may have been deleted.",
   "error.agent.boardTickets.emptyTitle": "Write a title for the ticket.",
   "error.agent.boardTickets.emptyComment": "Write a comment before you send it.",
+  "error.agent.boardTickets.alreadyStarted": "This ticket already has a thread.",
+  "error.agent.boardTickets.startUnavailable": "Tickets cannot start a thread on this computer.",
   // Agent errors that the main process and the backend send.
   "error.agent.approvalWhileDeleting": "Cannot grant approval while the agent is being deleted.",
   "error.agent.accessLocalOnly": "Agent access can only be changed on the computer that runs the agent.",

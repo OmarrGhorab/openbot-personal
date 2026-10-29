@@ -25,6 +25,7 @@ import type {
   CommentBoardTicketInput,
   CreateBoardTicketInput,
   MoveBoardTicketInput,
+  StartBoardTicketInput,
   UpdateBoardTicketInput,
 } from "./ipc-board-tickets";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
@@ -1457,6 +1458,8 @@ export const IPC_ENDPOINTS = {
     update: request<UpdateBoardTicketInput, BoardTicket>()("board-tickets:update"),
     move: request<MoveBoardTicketInput, BoardTicket>()("board-tickets:move"),
     comment: request<CommentBoardTicketInput, BoardTicketEvent>()("board-tickets:comment"),
+    // Creates the ticket when it has no ID yet, and starts its work thread.
+    start: request<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
     delete: request<string, void>()("board-tickets:delete"),
     changed: event<BoardTicketsChanged>()("board-tickets:changed"),
   },

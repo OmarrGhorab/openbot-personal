@@ -59,7 +59,7 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicket
     return next;
   };
 
-  return {
+  const api: BoardTicketsApi = {
     list: async () => [...tickets].sort((left, right) => left.order - right.order),
     events: async (ticketId) => {
       find(ticketId);
@@ -141,6 +141,19 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicket
       emitChanged([input.ticketId]);
       return event;
     },
+    // No agent runs in the preview: a started ticket gets no work thread and waits in Queued.
+    start: async (input) => {
+      const ticket =
+        input.ticketId === undefined
+          ? await api.create({
+              title: input.title ?? "",
+              ...(input.body === undefined ? {} : { body: input.body }),
+              agentId: input.agentId,
+            })
+          : find(input.ticketId);
+      if (ticket.agentId !== input.agentId) await api.update({ ticketId: ticket.id, agentId: input.agentId });
+      return api.move({ ticketId: ticket.id, status: "queued" });
+    },
     delete: async (ticketId) => {
       find(ticketId);
       tickets = tickets.filter((ticket) => ticket.id !== ticketId);
@@ -153,4 +166,5 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicket
       };
     },
   };
+  return api;
 }
