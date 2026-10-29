@@ -96,6 +96,9 @@ export class CodexAppServerClient extends EventEmitter<ClientEvents> {
 
     child.stdin.on("error", (error) => this.#fail(error, child));
     child.stdout.on("data", (chunk: Buffer) => {
+      // After `stop`, nothing this process writes reaches a listener: at app quit the listeners'
+      // stores, the database among them, close next.
+      if (this.#stopping) return;
       try {
         for (const message of this.#decoder.push(chunk)) this.#handleMessage(message);
       } catch (error) {
@@ -111,7 +114,9 @@ export class CodexAppServerClient extends EventEmitter<ClientEvents> {
     // readable nor reliably redactable.
     const diagnostics = createDiagnosticStream({
       redact: redactDiagnostic,
-      emit: (message) => this.emit("diagnostic", message),
+      emit: (message) => {
+        if (!this.#stopping) this.emit("diagnostic", message);
+      },
     });
     child.stderr.on("data", (chunk: Buffer) => diagnostics.push(chunk.toString("utf8")));
     child.once("close", () => diagnostics.flush());
