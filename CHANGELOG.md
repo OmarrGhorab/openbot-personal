@@ -146,7 +146,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - OpenBot now has two interface languages: English and Egyptian Arabic. The German, Spanish, French, Italian, Japanese, Korean, Polish, Brazilian Portuguese, Russian, Turkish and Simplified Chinese interfaces are removed. A saved choice of one of these reads as System default.
 - The desktop app no longer offers hosted server plans, checkout or upgrade prompts in this build.
   A self-hosted server on your own VPS needs no paid plan. The server list and the join dialog still
-  work as before. Docs: [self-hosted servers](../docs/self-hosted-server.md#vps-setup).
+  work as before. Docs: [self-hosted servers](docs/self-hosted-server.md#vps-setup).
 - A server now offers Inception, as the computer does. An owner or admin saves the Inception API key
   in the server's provider settings, and the server downloads Pi when it needs it. Phones and team
   members also see Inception agents. Clients older than Team API protocol 8 still do not see them.
