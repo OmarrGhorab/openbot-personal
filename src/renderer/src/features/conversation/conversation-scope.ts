@@ -486,6 +486,8 @@ export function createConversationViewScope(props: ConversationProps) {
     },
   );
   const [chatOpening, setChatOpening] = createSignal(false);
+  /** A thread of the agent replaces the chat in the main area, instead of opening in the side panel. */
+  const [threadCenter, setThreadCenter] = createSignal(false);
   const scroll = createScrollStore({
     props,
     markingRead,
@@ -1804,6 +1806,8 @@ export function createConversationViewScope(props: ConversationProps) {
     filesOpen,
     taskPanelOpen,
     taskPanelTaskId,
+    threadCenter,
+    setThreadCenter,
     activeRightPanel,
     taskListOpen,
     openTaskPanel,

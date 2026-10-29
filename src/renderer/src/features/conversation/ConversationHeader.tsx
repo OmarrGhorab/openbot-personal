@@ -33,6 +33,9 @@ export function ConversationHeader() {
     openTaskPanel,
     taskPanelOpen,
     taskPanelTaskId,
+    threadCenter,
+    setThreadCenter,
+    closeSidePanelPane,
   } = useConversationViewScope();
   /** The threads of this agent, from the task controls of the chat: a chip opens the thread in the side panel. */
   const threads = (): SidebarWorkThreads | undefined => {
@@ -40,17 +43,31 @@ export function ConversationHeader() {
     if (!tasks || !props.agent) return undefined;
     return {
       tasks: tasks.snapshot?.tasks ?? [],
-      activeTaskId: taskPanelOpen() ? taskPanelTaskId() : null,
+      activeTaskId: taskPanelOpen() && threadCenter() ? taskPanelTaskId() : null,
       waitsForApproval: (task) => tasks.approval(task) !== undefined,
       onOpen: (taskId) => {
         tasks.onOpen(taskId);
+        setThreadCenter(true);
         openTaskPanel(taskId);
       },
-      onNew: () => openTaskPanel(null),
+      onNew: () => {
+        setThreadCenter(true);
+        openTaskPanel(null);
+      },
+      onShowChat: () => {
+        setThreadCenter(false);
+        closeSidePanelPane("tasks");
+      },
       onRename: tasks.onRename,
       onPause: tasks.onPause,
       onResume: tasks.onResume,
-      onClose: tasks.onClose,
+      onClose: (taskId) => {
+        tasks.onClose(taskId);
+        if (threadCenter() && taskPanelTaskId() === taskId) {
+          setThreadCenter(false);
+          closeSidePanelPane("tasks");
+        }
+      },
     };
   };
   const runningTasks = () => props.tasks?.snapshot?.tasks.filter(isAgentTaskActive).length ?? 0;

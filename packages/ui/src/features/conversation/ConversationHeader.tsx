@@ -56,7 +56,11 @@ export function ConversationHeader(props: ConversationHeaderProps) {
               aria-label={t("conversation.header.settings")}
               onPointerEnter={props.onSettingsIntent}
               onFocus={props.onSettingsIntent}
-              onClick={props.onOpenSettings}
+              onClick={() => {
+                const threads = props.threads;
+                if (threads?.onShowChat && threads.activeTaskId) threads.onShowChat();
+                else props.onOpenSettings();
+              }}
             >
               <AgentAvatar agent={agent()} />
               <h1>{agent().name}</h1>

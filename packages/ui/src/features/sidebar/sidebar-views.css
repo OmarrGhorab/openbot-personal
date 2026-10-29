@@ -161,18 +161,38 @@
   margin-inline-start: var(--openbot-space-2);
 }
 
-.conversation-thread-chip.ui-button {
-  max-width: 11rem;
-  gap: var(--openbot-space-1-5);
+.conversation-thread-chip-group {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 13rem;
+  align-items: center;
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-hover);
+}
+
+.conversation-thread-chip-group[data-active] {
+  background: var(--openbot-bg-control-hover);
+}
+
+.conversation-thread-chip.ui-button {
+  min-width: 0;
+  gap: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: transparent;
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
 }
 
 .conversation-thread-chip[aria-pressed="true"] {
-  background: var(--openbot-bg-control-hover);
   color: var(--openbot-text-primary);
+}
+
+.conversation-thread-chip-close.ui-button {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  margin-inline-end: var(--openbot-space-1);
+  color: var(--openbot-text-muted);
 }
 
 .conversation-thread-chip-title {
@@ -180,4 +200,85 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* History of the threads of the agent, in the chat header. */
+.conversation-thread-history {
+  display: inline-flex;
+  height: 1.5rem;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: 0 var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.conversation-thread-history svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+}
+
+.ui-popover-menu-surface.conversation-thread-history-popover {
+  z-index: var(--openbot-layer-popover);
+  width: min(26rem, calc(100vw - var(--openbot-space-6)));
+  max-height: min(24rem, 70dvh);
+  overflow-y: auto;
+  padding: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface-raised);
+  box-shadow:
+    0 0 0 1px var(--openbot-border-strong),
+    var(--openbot-shadow-raised);
+}
+
+.conversation-thread-history-title {
+  margin: 0 0 var(--openbot-space-1);
+  padding: 0 var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.conversation-thread-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conversation-thread-history-row.ui-button {
+  display: grid;
+  width: 100%;
+  height: auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  font-weight: var(--openbot-weight-regular);
+  text-align: start;
+}
+
+.conversation-thread-history-row[aria-pressed="true"] {
+  background: var(--openbot-bg-control-hover);
+}
+
+.conversation-thread-history-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-thread-history-meta,
+.conversation-thread-history-empty {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.conversation-thread-history-empty {
+  margin: 0;
+  padding: var(--openbot-space-2);
 }

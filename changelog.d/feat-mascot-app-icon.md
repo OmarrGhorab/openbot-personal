@@ -8,8 +8,8 @@
 - Raven Stack team page, redesigned. It has two steps, Ticket and Team, with presets for a full feature and a small ticket, one card for each role, and a start bar that names the team. The team is checked as you write the ticket, so each role shows its provider, model and effort without a button. Running jobs show their roles as a row of steps.
 - Skip roles for an easy ticket. Switch off the Architect, Reviewer or Quality for one ticket. A skipped Architect hands its planning to the Builder. If no role checks the work, the job ends when the Builder commits, and the page warns you first.
 - Agents can create a channel. Ask an agent to make a channel with other agents, and it uses the new create_channel tool: it adds itself and the agents you name, and leads the channel unless you say otherwise.
-- The threads (tasks) of an agent sit in the chat header, next to its name: a chip for each open thread, a plus for a new one, and a count button that opens the full list with rename, pause, resume and close. The sidebar no longer lists them.
-- Ask an agent to kick off threads, and it starts its own threads. Before, it could message other agents instead.
+- The threads (tasks) of an agent sit in the chat header, next to its name: a chip for each open thread with a button to close it, a plus for a new one, and History. A chip or a History row shows that thread in place of the chat, and the agent name goes back to the chat. History lists every thread, closed ones too, newest first. A count button opens the open threads with rename, pause, resume and close. The sidebar no longer lists threads.
+- Ask an agent to kick off threads, and it starts its own threads with titles that name their topic. Before, it could message other agents instead.
 
 ### Changed
 

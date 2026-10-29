@@ -193,6 +193,8 @@ export interface SidebarWorkThreads {
   waitsForApproval?: ((task: AgentTask) => boolean) | undefined;
   onOpen: (taskId: string) => void;
   onNew: () => void;
+  /** Shows the agent's own chat again, when a thread has replaced it. Absent where no thread replaces the chat. */
+  onShowChat?: (() => void) | undefined;
   /** Resolves false when the title did not change. */
   onRename?: ((taskId: string, title: string) => Promise<boolean>) | undefined;
   onPause?: ((taskId: string) => void) | undefined;
