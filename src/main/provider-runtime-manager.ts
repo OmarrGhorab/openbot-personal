@@ -8,6 +8,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
 import {
+  type AgentProviderRef,
+  isKeyOnlyProvider,
   isManagedToolRuntime,
   MANAGED_RUNTIME_PROVIDERS,
   MANAGED_TOOL_RUNTIMES,
@@ -23,7 +25,7 @@ import { createOpenBotLogger, type LogValue, redactText, toLogValue } from "@ope
 import { Deferred, Effect, Exit, Fiber, Result, Scope, Stream } from "effect";
 import lockValue from "../../native-runtime.lock.json";
 import { type AgentRuntimeLock, parseAgentRuntimeLock } from "../../scripts/agent-runtime-lock";
-import { type BundledProviderExecutables, configuredCliPath } from "../backend/cli";
+import { type BundledProviderExecutables, configuredCliPath, resolvePiCli } from "../backend/cli";
 import { runCauseEffect } from "../backend/effect-boundary";
 import { sha256File } from "../backend/file-hash";
 import { type McpToolRuntimes, NO_MCP_TOOL_RUNTIMES } from "../backend/mcp-provider-shapes";
@@ -575,6 +577,34 @@ export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerE
           cause: new Error(status.message ?? sourceText("error.provider.runtimeUpdateIncomplete")),
         });
     });
+  }
+  /**
+   * Installs the Pi CLI that a key-only provider such as DeepSeek runs on, and waits for it. Only the
+   * Pi row has a Download button, so without this a saved key finds no CLI (#3273). A Pi that the
+   * provider can already start, from OpenBot or from the user, is kept.
+   */
+  ensureKeyProviderCli(provider: AgentProviderRef): Effect.Effect<void, ProviderRuntimeFailure> {
+    if (!isKeyOnlyProvider(provider)) return Effect.void;
+    return resolvePiCli({ bundledExecutable: this.executablePath("pi") }).pipe(
+      Effect.asVoid,
+      Effect.catch(() => this.downloadAndWait("pi")),
+    );
+  }
+  /**
+   * `ensureKeyProviderCli` without the wait, for a joined server's request, which ends before a
+   * download does. True while that Pi download runs: the provider is checked again when Pi is ready.
+   * False when Pi starts, or when no download runs for a Pi that cannot start.
+   */
+  startKeyProviderCli(provider: AgentProviderRef): Effect.Effect<boolean, ProviderRuntimeFailure> {
+    if (!isKeyOnlyProvider(provider)) return Effect.succeed(false);
+    return resolvePiCli({ bundledExecutable: this.executablePath("pi") }).pipe(
+      Effect.as(false),
+      Effect.catch(() =>
+        this.download("pi").pipe(
+          Effect.map((snapshot) => ["downloading", "finishing"].includes(snapshot.providers.pi.phase)),
+        ),
+      ),
+    );
   }
   cancel(runtime: ManagedRuntimeId): Effect.Effect<ProviderRuntimeSnapshot, ProviderRuntimeFailure> {
     return Effect.gen({ self: this }, function* (): Effect.fn.Return<ProviderRuntimeSnapshot, ProviderRuntimeFailure> {
