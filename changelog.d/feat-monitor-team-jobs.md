@@ -1,3 +1,0 @@
-### Added
-
-- **Live now** on the Monitor page lists the running Raven Stack team jobs of this computer under **Teams**. Each job shows the first line of its ticket and its state (Running, Needs you, Done, Not done), and each team role shows its state (Working, Waiting, Passed, Failed, Blocked). The Working, Waiting and Error counts include the team roles: a role that the job asks you about counts as Waiting, and a blocked role counts as Error. A click on a role opens its work thread, and a click on a job opens the team page on that job. The list changes when a team job or a role's turn changes. A job that ended stays in the list for 15 minutes.

@@ -1,3 +1,0 @@
-### Added
-
-- A click on a line label of the Monitor canvas, or on a name in **Talking to** in the agent popup, opens the conversation between the two agents in a side drawer. The drawer shows both agents, the message count and the time of the last message, which match the line label. The messages are listed oldest first, with the newest 200 of a long conversation. **Open Developer thread** and **Open Designer thread** open the agent's thread. The drawer is read-only and closes with Esc or the close button. Desktop only: the web client has no mailbox, so its drawer lists only the messages on the channel page.
