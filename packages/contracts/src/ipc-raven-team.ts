@@ -1,4 +1,4 @@
-import { type AgentModelId, isAgentModel } from "./ipc-agent-identity";
+import { type AgentModelId, type AgentReasoningEffort, isAgentModel, isReasoningEffort } from "./ipc-agent-identity";
 import { type AgentProviderId, isAgentProvider } from "./ipc-agent-status";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import { type DynamicRecord, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
@@ -74,6 +74,42 @@ export const RAVEN_STACK_TEAM_ROLES: readonly RavenTeamRoleDefinition[] = [
   { id: "editor", label: "Editor", skills: ["unslop"], defaultModel: null, access: "write", optional: true },
 ];
 
+/**
+ * The built-in Autopilot lite template, for small tickets. It has no Architect: the Builder plans in its
+ * own turn, then the Reviewer gives the verdict. It has no Quality and no Editor. The FAIL rounds, the
+ * fallback model, the stop and the resume work as in the full template.
+ */
+export const RAVEN_STACK_LITE_TEMPLATE_ID = "raven-stack-lite";
+
+export const RAVEN_STACK_LITE_ROLES: readonly RavenTeamRoleDefinition[] = [
+  {
+    id: "builder",
+    label: "Builder",
+    skills: [
+      "detect",
+      "worktree",
+      "plan",
+      "before-evidence",
+      "build",
+      "gates",
+      "after-evidence",
+      "pr",
+      "ci",
+      "fix-round",
+    ],
+    defaultModel: null,
+    access: "write",
+    optional: false,
+  },
+  { id: "reviewer", label: "Reviewer", skills: ["verify"], defaultModel: null, access: "read-only", optional: false },
+];
+
+/** The ids of the built-in templates. They are code: a user can copy one, not change it. */
+export const RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS: readonly string[] = [
+  RAVEN_STACK_TEAM_TEMPLATE_ID,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+];
+
 export const RAVEN_TEAM_BUILDER_ROLE_ID = "builder";
 
 /** The verdict a role reports. `DONE` is for a role that makes no verdict: the Architect and the Builder. */
@@ -122,6 +158,12 @@ export interface RavenTeamPlanRole {
    * still tells it not to change the branch.
    */
   fullAccess: boolean;
+  /**
+   * The reasoning effort of the role's turns: the one the user chose when the model supports it, else
+   * the model's default. Null when the model has no effort levels. The role's agent takes it, the
+   * same way an agent chat sends the effort with each turn.
+   */
+  reasoningEffort: AgentReasoningEffort | null;
 }
 
 export interface RavenTeamPlanWarning {
@@ -199,6 +241,12 @@ export interface RavenTeamJob {
   templateId: string;
   brief: string;
   state: RavenTeamJobState;
+  /**
+   * True while a `running` job waits for a free slot: a role agent of the job already runs as many
+   * jobs as its work-thread limit allows, so no role has a work thread yet. The service derives it from
+   * the stored job; it is not a column. The job starts on its own when a slot frees.
+   */
+  queued: boolean;
   /** The commit of the last Builder report. Null before the first one. */
   headCommit: string | null;
   /** The number of FAIL rounds so far. Each one sends the findings to the Builder. */
@@ -228,6 +276,8 @@ export interface PlanRavenTeamInput {
   models?: Record<string, string>;
   /** Ids of read-only roles that the user gave Full access on the confirm card. */
   fullAccess?: string[];
+  /** Role id to reasoning effort. An effort the role's model does not support gives the model's default. */
+  efforts?: Record<string, AgentReasoningEffort>;
 }
 
 export interface SetRavenTeamRoleModelInput {
@@ -315,6 +365,7 @@ export function isRavenTeamJob(value: unknown): value is RavenTeamJob {
     isIdentifier(value.templateId) &&
     isBoundedString(value.brief, RAVEN_TEAM_BRIEF_LIMIT) &&
     isOneOf(RAVEN_TEAM_JOB_STATES, value.state) &&
+    typeof value.queued === "boolean" &&
     isNullableBoundedString(value.headCommit, 40) &&
     isNumber(value.fixRounds) &&
     isNumber(value.roundCap) &&
@@ -359,7 +410,8 @@ export function isRavenTeamPlan(value: unknown): value is RavenTeamPlan {
         role.skills.every(isString) &&
         typeof role.optional === "boolean" &&
         typeof role.named === "boolean" &&
-        typeof role.fullAccess === "boolean",
+        typeof role.fullAccess === "boolean" &&
+        (role.reasoningEffort === null || isReasoningEffort(role.reasoningEffort)),
     ) &&
     Array.isArray(value.warnings) &&
     Array.isArray(value.unknownRoles) &&

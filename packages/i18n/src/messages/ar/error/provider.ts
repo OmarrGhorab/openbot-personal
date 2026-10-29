@@ -337,6 +337,10 @@ export const messages = {
   "error.provider.museAuthUnverified": "مصادقة Muse مش متأكد منها. اتصل على الجهاز المضيف، أو ظبّط مفتاح Meta API.",
   "error.provider.museSignIn": "سجّل دخول لـ Muse على الجهاز المضيف علشان تكمّل.",
   "error.provider.inceptionSignIn": "ضيف مفتاح Inception API علشان تكمّل.",
+  "error.provider.keyProviderRefused":
+    "{provider} رفض مفتاح الـ API المحفوظ. غيّر المفتاح أو امسحه من الإعدادات، وبعدين جرّب تاني.",
+  "error.provider.keyProviderNoBalance":
+    "حساب {provider} بتاع مفتاح الـ API المحفوظ مفيهوش رصيد. ضيف رصيد للحساب، وبعدين جرّب تاني.",
   "error.provider.terminalLoginFailed":
     "terminal تسجيل الدخول معرفش يتفتح. افتح الـ CLI بتاع المزوّد على الجهاز المضيف ده وسجّل دخول منه، وبعدين حدّث المزوّدين.",
   "error.provider.nativeArchiveInvalid": "تنزيل المزوّد مفيهوش تثبيت صالح.",

@@ -1,12 +1,24 @@
-/* The Raven Stack team page in RavenTeamPage.tsx: one column with the ticket, the check, and the jobs. */
+/*
+ * The Raven Stack team page in RavenTeamPage.tsx: two columns, the ticket and the jobs on the left,
+ * the roles on the right. The page uses the window width. Each column scrolls on its own and is only
+ * as tall as its content. A narrow page shows one column, and the page scrolls as a whole.
+ */
 .raven-team-page {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-4);
-  max-width: 44rem;
-  margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: var(--openbot-space-6);
+  overflow: hidden;
   color: var(--openbot-text-primary);
+}
+
+.raven-team-header {
+  flex: none;
 }
 
 .raven-team-title {
@@ -22,14 +34,33 @@
 }
 
 .raven-team-subtitle {
-  margin: 0 0 var(--openbot-space-3);
+  margin: 0;
   font-size: var(--openbot-text-xl);
   font-weight: 600;
 }
 
+.raven-team-columns {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--openbot-space-6);
+  min-height: 0;
+}
+
+.raven-team-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .raven-team-form,
-.raven-team-confirm,
-.raven-team-jobs {
+.raven-team-jobs,
+.raven-team-warnings {
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-3);
@@ -39,14 +70,43 @@
   font-weight: 500;
 }
 
+.raven-team-ticket::placeholder {
+  color: var(--openbot-text-placeholder, var(--openbot-text-muted));
+  font-style: italic;
+}
+
+.raven-team-more-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-more-ticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-hint,
+.raven-team-job-queued {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-lg);
+}
+
 .raven-team-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--openbot-space-2);
 }
 
+.raven-team-start {
+  justify-content: flex-end;
+}
+
 .raven-team-plan,
-.raven-team-roles {
+.raven-team-job-roles {
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-3);
@@ -55,58 +115,100 @@
   list-style: none;
 }
 
-.raven-team-role {
+.raven-team-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-border-subtle, transparent);
+  border-radius: var(--openbot-radius-lg, 0.75rem);
+  background: var(--openbot-bg-surface, transparent);
+}
+
+.raven-team-job-role {
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-2);
 }
 
 .raven-team-role-head,
-.raven-team-job-head {
+.raven-team-job-head,
+.raven-team-job-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--openbot-space-2);
 }
 
+.raven-team-job-head {
+  justify-content: space-between;
+}
+
 .raven-team-role-label,
-.raven-team-job-state {
+.raven-team-job-brief {
   font-weight: 600;
+}
+
+.raven-team-job-brief {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .raven-team-role-state,
 .raven-team-role-score,
 .raven-team-job-rounds,
-.raven-team-role-verdict {
+.raven-team-role-verdict,
+.raven-team-role-choice {
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-lg);
+}
+
+.raven-team-role-choice {
+  margin-inline-start: auto;
 }
 
 .raven-team-role-commit {
   font-size: var(--openbot-text-md);
 }
 
-.raven-team-models {
+/* The provider, model and effort of a role, in one row. */
+.raven-team-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--openbot-space-2);
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--openbot-space-1);
 }
 
-.raven-team-job {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-3);
-  padding: var(--openbot-space-4);
-  border-radius: var(--openbot-radius-lg, 0.75rem);
-  background: var(--openbot-bg-surface, transparent);
+.raven-team-picker[data-effort="hidden"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.raven-team-picker-field {
+  min-width: 0;
 }
 
 /* The access question has no icon. Its text takes the free width and its button stays at the end;
    the alert's own icon column would leave the text under the button. */
 .raven-team-access-question {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* A narrow page: one column, the ticket first. The page scrolls, not each column. */
+@container (max-width: 52rem) {
+  .raven-team-columns {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .raven-team-column {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@container (max-width: 30rem) {
+  .raven-team-picker,
+  .raven-team-picker[data-effort="hidden"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

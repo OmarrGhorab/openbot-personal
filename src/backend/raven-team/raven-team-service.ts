@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/agent-providers";
-import type { AgentEvent, AgentModelId, AgentProviderId } from "@openbot/contracts/ipc";
+import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
+  agentTaskLimit,
   type PlanRavenTeamInput,
   parseRavenTeamReport,
+  RAVEN_STACK_LITE_ROLES,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_ROLES,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
   RAVEN_TEAM_BUILDER_ROLE_ID,
+  RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS,
   RAVEN_TEAM_ESCALATE_AFTER_FAILS,
   RAVEN_TEAM_ROUND_CAP,
   type RavenTeamJob,
@@ -44,6 +48,7 @@ import {
   type RavenTeamJobRecord,
   type RavenTeamRoleRecord,
   type RavenTeamStore,
+  ravenTeamJobQueued,
 } from "./raven-team-store";
 
 const logger = createOpenBotLogger("raven-team");
@@ -56,6 +61,23 @@ const ROLE_AGENT_NAME_LIMIT = 80;
 const DELIVERY_START_FAILED = "delivery_start_failed";
 /** The message that starts a role agent's first turn. The role's work starts in a task. */
 const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the team.";
+/** The jobs that the queue reads, newest first. */
+const QUEUE_SCAN_LIMIT = 200;
+
+/**
+ * The agent name of a role's agent. The model is in the name, so a role on another model is another
+ * agent. An effort other than the model's default is in the name too: two jobs that run the same role
+ * on one model with two efforts do not share one agent, whose effort applies to every turn.
+ */
+function ravenRoleAgentName(
+  label: string,
+  model: AgentModelId,
+  effort: AgentReasoningEffort | null,
+  defaultEffort: AgentReasoningEffort | null,
+): string {
+  const suffix = effort !== null && effort !== defaultEffort ? `${model}, ${effort}` : model;
+  return `Raven ${label} (${suffix})`.slice(0, ROLE_AGENT_NAME_LIMIT);
+}
 
 export class RavenTeamFailed extends Schema.TaggedError<RavenTeamFailed>()("RavenTeamFailed", {
   operation: Schema.String,
@@ -83,6 +105,16 @@ const BUILT_IN_RAVEN_TEAM_TEMPLATE: RavenTeamTemplate = {
   name: "Raven Stack team",
   builtIn: true,
   roles: RAVEN_STACK_TEAM_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
+  createdAt: BUILT_IN_DATE,
+  updatedAt: BUILT_IN_DATE,
+};
+
+/** Autopilot lite: the Builder plans in its own turn, then the Reviewer gives the verdict. */
+const BUILT_IN_RAVEN_TEAM_LITE_TEMPLATE: RavenTeamTemplate = {
+  id: RAVEN_STACK_LITE_TEMPLATE_ID,
+  name: "Autopilot lite",
+  builtIn: true,
+  roles: RAVEN_STACK_LITE_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
   createdAt: BUILT_IN_DATE,
   updatedAt: BUILT_IN_DATE,
 };
@@ -141,14 +173,14 @@ export class RavenTeamService {
       options.workspaceOnlySupported ?? ((provider) => workspaceOnlySupported(provider, platform));
   }
 
-  /** The built-in template first, then the user's copies. */
+  /** The built-in templates first, the full one and then Autopilot lite, then the user's copies. */
   templates(): RavenTeamTemplate[] {
-    return [BUILT_IN_RAVEN_TEAM_TEMPLATE, ...this.#store.listUserTemplates()];
+    return [BUILT_IN_RAVEN_TEAM_TEMPLATE, BUILT_IN_RAVEN_TEAM_LITE_TEMPLATE, ...this.#store.listUserTemplates()];
   }
 
-  /** Saves a user template. The built-in template cannot be changed; a copy of it can. */
+  /** Saves a user template. A built-in template cannot be changed; a copy of it can. */
   saveTemplate(input: { id?: string; name: string; roles: RavenTeamTemplate["roles"] }): RavenTeamTemplate[] {
-    if (input.id === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+    if (input.id !== undefined && RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS.includes(input.id)) {
       throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
     }
     const now = this.#now();
@@ -167,7 +199,7 @@ export class RavenTeamService {
   }
 
   deleteTemplate(templateId: string): RavenTeamTemplate[] {
-    if (templateId === BUILT_IN_RAVEN_TEAM_TEMPLATE.id) {
+    if (RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS.includes(templateId)) {
       throw new Error(sourceText("error.agent.ravenTeam.builtInTemplate"));
     }
     this.#store.deleteUserTemplate(templateId);
@@ -230,6 +262,7 @@ export class RavenTeamService {
             role.model,
             role.provider,
             role.fullAccess,
+            role.reasoningEffort,
           );
           roles.push({
             roleId: role.roleId,
@@ -265,17 +298,12 @@ export class RavenTeamService {
           createdAt: now,
           updatedAt: now,
         };
+        // A job whose role agents are full waits in the queue: it is stored with no work thread, and it
+        // starts when a slot frees. The check reads the other jobs, so it runs before the insert.
+        const free = this.#hasFreeSlot(roles);
         this.#store.insertJob(record);
         this.#changed(jobId);
-        // The first stage: the Architect, or the Builder when the template has no Architect.
-        const first =
-          roles.find((role) => role.roleId === "architect") ??
-          roles.find((role) => role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
-        if (first) {
-          yield* this.#engage(jobId, first.roleId, null).pipe(
-            Effect.catch((error) => this.#blockRole(jobId, first.roleId, "blocked", error)),
-          );
-        }
+        if (free) yield* this.#begin(jobId);
         return publicRavenTeamJob(this.#job(jobId));
       }),
     );
@@ -349,6 +377,8 @@ export class RavenTeamService {
         }
         this.#store.updateJob(job.id, { state: "stopped" }, this.#now());
         this.#changed(job.id);
+        // A stopped job holds no slot: a queued job can start in its place.
+        yield* this.#startQueued();
         return publicRavenTeamJob(this.#job(job.id));
       }),
     );
@@ -373,6 +403,8 @@ export class RavenTeamService {
           else this.#store.updateRole(job.id, role.roleId, { state: "waiting" }, now);
         }
         this.#changed(job.id);
+        // A job stopped while it was queued goes back to the queue, and starts when a slot is free.
+        yield* this.#startQueued();
         return publicRavenTeamJob(this.#job(job.id));
       }),
     );
@@ -396,6 +428,8 @@ export class RavenTeamService {
           return;
         }
         yield* this.#turnCompleted(found.jobId, found.roleId, event.status);
+        // A job that ended frees its slots for the queue.
+        yield* this.#startQueued();
       }),
     );
   }
@@ -413,6 +447,54 @@ export class RavenTeamService {
 
   // ---- internals ----
 
+  /**
+   * Whether a job with these roles can start now. Each role agent runs at most its work-thread limit of
+   * jobs at once (`agentTaskLimit`). A job holds a slot of each of its role agents from its first message
+   * until it ends or stops; a queued job holds none.
+   */
+  #hasFreeSlot(roles: readonly RavenTeamRoleRecord[], exceptJobId?: string): boolean {
+    const holding = this.#store
+      .listJobs(QUEUE_SCAN_LIMIT)
+      .filter(
+        (job) => job.id !== exceptJobId && !isTerminal(job) && job.state !== "stopped" && !ravenTeamJobQueued(job),
+      );
+    const agents = this.#agents.listAgents();
+    for (const agentId of new Set(roles.flatMap((role) => (role.agentId === null ? [] : [role.agentId])))) {
+      const agent = agents.find((candidate) => candidate.id === agentId);
+      if (!agent) continue;
+      const used = holding.filter((job) => job.roles.some((role) => role.agentId === agentId)).length;
+      if (used >= agentTaskLimit(agent)) return false;
+    }
+    return true;
+  }
+
+  /** The first message of a job: to the Architect, or to the Builder when the template has no Architect. */
+  #begin(jobId: string) {
+    const roles = this.#job(jobId).roles;
+    const first =
+      roles.find((role) => role.roleId === "architect") ??
+      roles.find((role) => role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+    if (!first) return Effect.void;
+    return this.#engage(jobId, first.roleId, null).pipe(
+      Effect.catch((error) => this.#blockRole(jobId, first.roleId, "blocked", error)),
+    );
+  }
+
+  /** Starts each queued job, oldest first, while its role agents have a free slot. */
+  #startQueued() {
+    return Effect.gen({ self: this }, function* () {
+      const queued = this.#store
+        .listJobs(QUEUE_SCAN_LIMIT)
+        .filter((job) => ravenTeamJobQueued(job))
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      for (const job of queued) {
+        if (!this.#hasFreeSlot(job.roles, job.id)) continue;
+        yield* this.#begin(job.id);
+        this.#changed(job.id);
+      }
+    });
+  }
+
   #planFor(input: PlanRavenTeamInput): RavenTeamPlan {
     const template = this.templates().find((candidate) => candidate.id === input.templateId);
     if (!template) throw new Error(sourceText("error.agent.ravenTeam.templateNotFound"));
@@ -426,6 +508,7 @@ export class RavenTeamService {
       models: this.#agents.listModels(),
       preferredProvider: this.#agents.preferredProvider(),
       fullAccess: input.fullAccess ?? [],
+      efforts: input.efforts ?? {},
       workspaceOnlySupported: this.#workspaceOnlySupported,
       platform: this.#platform,
     });
@@ -540,19 +623,27 @@ export class RavenTeamService {
     return job;
   }
 
-  /** Makes the role's agent, or reuses the agent with the same role and model. A new agent starts on that model. */
+  /**
+   * Makes the role's agent, or reuses the agent with the same role, model and effort. A new agent
+   * starts on that model. The effort is set on the agent, which sends it with each turn, the same way
+   * an agent chat does. An effort that is the model's default keeps the plain name, so the agents of
+   * earlier jobs are reused.
+   */
   #ensureRoleAgent(
     roleId: string,
     label: string,
     model: AgentModelId,
     provider: RavenTeamRoleRecord["provider"],
     fullAccess: boolean,
+    reasoningEffort: AgentReasoningEffort | null,
   ) {
-    const name = `Raven ${label} (${model})`.slice(0, ROLE_AGENT_NAME_LIMIT);
     return Effect.gen({ self: this }, function* () {
+      const option = this.#agents.listModels().find((candidate) => candidate.id === model);
+      const name = ravenRoleAgentName(label, model, reasoningEffort, option?.defaultReasoningEffort ?? null);
       const existing = this.#agents
         .listAgents()
         .find((agent) => agent.name === name && agent.provider === provider && agent.model === model);
+      const effort = reasoningEffort === null ? {} : { reasoningEffort };
       const agent =
         existing ??
         (yield* this.#call(
@@ -565,11 +656,12 @@ export class RavenTeamService {
             initialMessage: ROLE_AGENT_GREETING,
             provider,
             model,
+            ...effort,
           }),
         ));
       yield* this.#call(
         "set role access",
-        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace" }),
+        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace", ...effort }),
       );
       return { id: agent.id, provider: agent.provider, model: agent.model };
     });

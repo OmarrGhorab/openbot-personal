@@ -1,4 +1,4 @@
-import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
+import { agentProviderDescriptor, isKeyOnlyProvider } from "@openbot/contracts/agent-providers";
 import type {
   AgentProviderId,
   AgentProviderState,
@@ -52,6 +52,8 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
   const runtimeReady = () => (runtimeStatus()?.phase ?? "ready") === "ready";
   /** Connect opens this computer's browser, and the row follows that sign-in. */
   const browserConnect = () => connectKind() === "browser";
+  /** A key-only provider's Connect opens the key dialog, on this computer and on a server. */
+  const keyConnect = () => isKeyOnlyProvider(option().id) && Boolean(host.onSignInProvider);
   /**
    * Connect opens a dialog that the user finishes there, or on another device.
    *
@@ -95,9 +97,9 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
   /** A Connect that failed before the sign-in started. The status reports the rest. */
   const [connectError, setConnectError] = createSignal<string | null>(null);
   const connect = () => {
-    // Inception has no sign-in other than its key, so its Connect and Reconnect open the
-    // key dialog, where the key is also replaced or removed.
-    if (option().id === "inception" && host.onSignInProvider) {
+    // A key-only provider, such as Inception, has no sign-in other than its key, so its Connect and
+    // Reconnect open the key dialog, where the key is also replaced or removed.
+    if (isKeyOnlyProvider(option().id) && host.onSignInProvider) {
       void host.onSignInProvider(option().id);
       return;
     }
@@ -218,6 +220,7 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
     connectKind,
     runtimeReady,
     browserConnect,
+    keyConnect,
     dialogConnect,
     alternative,
     connectOptional,
