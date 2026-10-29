@@ -46,7 +46,7 @@ function windowsProgram(relative: readonly string[]): string | null {
  * rejects, and the caller opens the default browser instead. `Default browser` and `OpenBot` have no
  * program of their own: the caller handles them.
  */
-export async function openInBrowser(browser: NamedBrowser, url: string): Promise<void> {
+async function openInBrowser(browser: NamedBrowser, url: string): Promise<void> {
   const entry = BROWSERS[browser];
   if (process.platform === "darwin") {
     await run("open", ["-a", entry.mac, url]);
@@ -78,6 +78,6 @@ export async function openLink(
   return openDefault(url);
 }
 
-export function isNamedBrowser(browser: AppLinkBrowser): browser is NamedBrowser {
+function isNamedBrowser(browser: AppLinkBrowser): browser is NamedBrowser {
   return browser !== "Default browser" && browser !== "OpenBot";
 }
