@@ -842,19 +842,23 @@ checks and review comments do not reach a work thread yet.
 
 ## Tickets board sync
 
-The Tickets board can sync with one GitHub repository while GitHub is connected on this computer. The
-sync is off until you choose a repository with Sync on the Tickets page. Then OpenBot reads the open
-issues of that repository every five minutes and when you select Sync now, from this computer, with
-the GitHub connection of this computer. Requests do not pass through OpenBot's cloud services.
+The Tickets board can sync with one GitHub repository while GitHub is connected on this computer, or with
+one Jira project while the Atlassian app of the Marketplace holds a sign-in. The sync is off until you
+choose a repository or project with Sync on the Tickets page. Then OpenBot reads the open issues every five
+minutes and when you select Sync now, from this computer, with the GitHub connection or the Atlassian
+sign-in of this computer. A Jira sync talks to Atlassian's MCP server at `mcp.atlassian.com` with your own
+sign-in and sees what your Atlassian account can see. Requests do not pass through OpenBot's cloud services.
 
 Each open issue becomes a ticket in Backlog. The local database keeps the issue title, the issue text
 (up to 20,000 characters), the issue key and its link. When a linked ticket moves to Done, OpenBot
-closes the issue; when it leaves Done, OpenBot opens the issue again. A comment that the ticket's agent
-adds is posted on the issue, and every GitHub user who can see the issue can read it. The messages that
+closes the issue; when it leaves Done, OpenBot opens the issue again. For a Jira issue, OpenBot takes the
+workflow transition into a Done status, or into a To Do status when the ticket leaves Done, and does
+nothing when the workflow has no such transition. A comment that the ticket's agent adds is posted on the
+issue, and every user who can see the issue can read it. The messages that
 you send to the ticket's work thread are not posted.
 
-Stop sync, or a disconnected GitHub connection, stops every request. The tickets stay on this
-computer. Jira and Linear have no connection in OpenBot, so the board does not sync with them.
+Stop sync, or a disconnected GitHub or Atlassian connection, stops every request. The tickets stay on this
+computer. Linear has no connection in OpenBot, so the board does not sync with it.
 
 ## Slack connections
 
