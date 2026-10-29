@@ -97,6 +97,7 @@ export function RavenTeamRolePicker(props: RavenTeamRolePickerProps) {
         optionTextValue="label"
         value={provider()}
         disabled={props.disabled ?? false}
+        placeholder={t("agent.team.provider")}
         onChange={pickProvider}
         itemComponent={(item) => <SelectItem item={item.item}>{item.item.rawValue.label}</SelectItem>}
       >
@@ -114,6 +115,7 @@ export function RavenTeamRolePicker(props: RavenTeamRolePickerProps) {
         optionTextValue="label"
         value={model()}
         disabled={(props.disabled ?? false) || providerModels().length === 0}
+        placeholder={t("agent.team.model")}
         onChange={pickModel}
         itemComponent={(item) => <SelectItem item={item.item}>{item.item.rawValue.label}</SelectItem>}
       >
@@ -130,6 +132,7 @@ export function RavenTeamRolePicker(props: RavenTeamRolePickerProps) {
           optionTextValue="label"
           value={effort()}
           disabled={(props.disabled ?? false) || efforts().length === 0}
+          placeholder={efforts().length ? t("provider.picker.effort") : t("agent.team.noEffort")}
           onChange={pickEffort}
           itemComponent={(item) => <SelectItem item={item.item}>{item.item.rawValue.label}</SelectItem>}
         >

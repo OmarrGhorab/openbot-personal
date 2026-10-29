@@ -83,11 +83,13 @@ export const messages = defineMessages("agent", {
   "agent.team.intro":
     "Write the ticket. Name a model for a role with Role: model, for example Reviewer: model-name. A role that you do not name uses the template model.",
   "agent.team.ticket": "Ticket",
-  "agent.team.ticketPlaceholder":
-    "Autopilot ticket #42. Architect: model. Builder: model. Reviewer: model. Quality: model.",
+  "agent.team.ticketPlaceholder": "Describe the ticket or paste a GitHub issue. Add Role: model to choose a model…",
+  "agent.team.briefRequired": "Write the ticket first, then check the team.",
   "agent.team.check": "Check the team",
   "agent.team.start": "Start team",
-  "agent.team.confirm": "Check before the start",
+  "agent.team.roles": "Roles",
+  "agent.team.rolesHint": "Write the ticket and check the team to choose a provider, model and effort for each role.",
+  "agent.team.optionalRole": "Optional. It runs after each Builder commit.",
   "agent.team.access.readOnly": "Read only",
   "agent.team.access.write": "Writes the branch",
   "agent.team.access.readOnlyFull": "Read only, Full access",
