@@ -5,6 +5,8 @@
 import {
   type AgentReasoningEffort,
   type OpenBotDesktopApi,
+  RAVEN_STACK_LITE_ROLES,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_ROLES,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
   type RavenTeamChanged,
@@ -45,6 +47,15 @@ function previewEffort(
   return wanted && option.efforts.includes(wanted) ? wanted : option.defaultEffort;
 }
 
+const LITE: RavenTeamTemplate = {
+  id: RAVEN_STACK_LITE_TEMPLATE_ID,
+  name: "Autopilot lite",
+  builtIn: true,
+  roles: RAVEN_STACK_LITE_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
+  createdAt: BUILT_IN.createdAt,
+  updatedAt: BUILT_IN.updatedAt,
+};
+
 export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
   // One running job, so the team page and the Monitor's "Live now" show a team at work.
@@ -53,7 +64,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
   const emitChanged = (jobId: string | null) => {
     for (const listener of listeners) listener({ jobId });
   };
-  const allTemplates = () => [BUILT_IN, ...templates];
+  const allTemplates = () => [BUILT_IN, LITE, ...templates];
   const now = () => new Date().toISOString();
 
   function plan(input: {
@@ -120,7 +131,9 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
   return {
     listTemplates: async () => allTemplates(),
     saveTemplate: async (input) => {
-      if (input.id === RAVEN_STACK_TEAM_TEMPLATE_ID) throw new Error("The built-in team template cannot be changed.");
+      if (input.id === RAVEN_STACK_TEAM_TEMPLATE_ID || input.id === RAVEN_STACK_LITE_TEMPLATE_ID) {
+        throw new Error("The built-in team template cannot be changed.");
+      }
       const existing = templates.find((template) => template.id === input.id);
       const id = existing?.id ?? input.id ?? `preview-team-${templates.length + 1}`;
       const saved: RavenTeamTemplate = {

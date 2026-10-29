@@ -21,6 +21,9 @@
 // Reasoning effort: the scripted provider lists efforts for one model. A role with a chosen effort
 // gets its own role agent on that effort, and each of its turns carries the effort.
 //
+// Autopilot lite: the plan has only the Builder and the Reviewer. A job runs the Builder first, with
+// no Architect turn, then the Reviewer; one FAIL round goes back to the Builder, and the job ends done.
+//
 // `bun scripts/raven-team-e2e.ts`. Writes .openbot-build/autonomy-6/raven-team-e2e.json.
 
 import assert from "node:assert/strict";
@@ -63,7 +66,7 @@ const { MailboxStore } = await import("../src/backend/mailbox-store");
 const { OpenBotDatabase } = await import("../src/backend/openbot-database");
 const { RavenTeamService } = await import("../src/backend/raven-team/raven-team-service");
 const { RavenTeamStore } = await import("../src/backend/raven-team/raven-team-store");
-const { RAVEN_STACK_TEAM_TEMPLATE_ID } = await import("@openbot/contracts/ipc");
+const { RAVEN_STACK_LITE_TEMPLATE_ID, RAVEN_STACK_TEAM_TEMPLATE_ID } = await import("@openbot/contracts/ipc");
 
 /**
  * A Codex app-server with the methods the service calls. It logs each turn with the model the
@@ -699,6 +702,44 @@ try {
     state: effortEnd.state,
     builderAgent: effortBuilder?.name ?? null,
     builderTurnEfforts: effortTurns.map((turn) => turn.effort ?? null),
+  });
+
+  // 10. Autopilot lite: Builder then Reviewer, no Architect and no Quality turn.
+  const LITE_ASSIGNMENTS = "Autopilot lite ticket #43. Builder: gpt-6-sol. Reviewer: gpt-6-nova.";
+  const litePlan = team.plan({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: LITE_ASSIGNMENTS });
+  check(
+    "the lite plan has only the Builder and the Reviewer",
+    JSON.stringify(litePlan.roles.map((role) => role.roleId)) === JSON.stringify(["builder", "reviewer"]),
+    JSON.stringify(litePlan.roles.map((role) => role.roleId)),
+  );
+  const turnsBeforeLite = turnLog().length;
+  const liteJob = await runCauseEffect(
+    team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: `${LITE_ASSIGNMENTS} ${TICKET_TEXT}` }),
+  );
+  const liteEnd = await waitFor("the lite job to end", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === liteJob.id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  });
+  check("the lite job ends done", liteEnd.state === "done", liteEnd.state);
+  check("the lite job ran one FAIL round", liteEnd.fixRounds === 1, String(liteEnd.fixRounds));
+  check(
+    "the lite job has no Architect or Quality role",
+    liteEnd.roles.every((role) => role.roleId === "builder" || role.roleId === "reviewer"),
+    JSON.stringify(liteEnd.roles.map((role) => role.roleId)),
+  );
+  const liteTurns = turnLog()
+    .slice(turnsBeforeLite)
+    .map((turn) => turn.role);
+  check(
+    "the lite job runs Builder, Reviewer, Builder, Reviewer and no Architect turn",
+    JSON.stringify(liteTurns) === JSON.stringify(["Builder", "Reviewer", "Builder", "Reviewer"]),
+    JSON.stringify(liteTurns),
+  );
+  record("autopilot lite", {
+    jobId: liteEnd.id,
+    state: liteEnd.state,
+    fixRounds: liteEnd.fixRounds,
+    roleTurns: liteTurns,
   });
 
   report.passed = true;
