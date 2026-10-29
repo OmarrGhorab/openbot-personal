@@ -107,7 +107,8 @@ the sign-in and keeps the grant.
 
 The optional Team API capability `sign-in-relay-v1` carries the relay. The frozen contract is
 [`sign-in-relay-v1.ts`](../../packages/contracts/src/team-protocol/sign-in-relay-v1.ts). It has
-three start routes, and `provider-account-relay-v1` adds a fourth. They share `status`, `complete` and `cancel`:
+three start routes, and `provider-account-relay-v1` and `provider-account-relay-v2` each add one more. They share
+`status`, `complete` and `cancel`:
 
 | Start route | What it signs in | How the host delivers the callback |
 | --- | --- | --- |
@@ -115,6 +116,7 @@ three start routes, and `provider-account-relay-v1` adds a fourth. They share `s
 | `provider/start` | The CLI of a provider in `SIGN_IN_RELAY_PROVIDERS`: Codex, Claude, Gemini (`antigravity`) and Muse | It replays the query to the CLI's own loopback listener on the host. A Muse device page has no callback: the client only opens it. |
 | `link/start` | A sign-in page that an agent of the host printed in its conversation | It replays the query to the loopback address of that page. |
 | `provider-account/start` | An account after the first of Codex or Claude (`PROVIDER_ACCOUNT_RELAY_PROVIDERS`), new or signed out. The separate capability `provider-account-relay-v1` adds this route ([`provider-account-relay-v1.ts`](../../packages/contracts/src/team-protocol/provider-account-relay-v1.ts)) | It replays the query to the loopback listener of the account's CLI on the host, as for `provider/start`. |
+| `provider-account-v2/start` | An account after the first of Codex, Claude or Gemini (`antigravity`, `PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS`), new or signed out. The separate capability `provider-account-relay-v2` adds this route ([`provider-account-relay-v2.ts`](../../packages/contracts/src/team-protocol/provider-account-relay-v2.ts)). A host advertises it beside v1; a client uses v2 when the host has it and v1 otherwise | It replays the query to the loopback listener of the account's process on the host. A Gemini account runs with `GEMINI_HOME` set to its own folder, so the first account stays signed in. |
 
 ### Sequence
 
@@ -369,8 +371,8 @@ page opens in this computer's browser through the relay.
 ## Add a connector
 
 A connector links OpenBot to an outside account for all agents. Each one has a main-process
-service, an IPC contract, a renderer controller and a panel. Settings › Connectors, Marketplace ›
-Apps, the chat suggestion card and the browser client read one list, so a connector shows the same
+service, an IPC contract, a renderer controller and a panel. Marketplace › Apps, the chat
+suggestion card and the browser client read one list, so a connector shows the same
 state on each of them.
 
 | Connector | Service | Sign-in | Contract |
@@ -448,7 +450,7 @@ The optional capability `onepassword-connector-v1`
 ([`onepassword-connector-v1.ts`](../../packages/contracts/src/team-protocol/onepassword-connector-v1.ts),
 host route [`route-onepassword-connector.ts`](../../src/main/team-api/route-onepassword-connector.ts))
 carries 1Password. A server often has no screen for the 1Password app, so an owner or admin pastes a
-service account token in Settings › Connectors. The token goes to the host once, in `connect`. The
+service account token in Marketplace › Apps › 1Password. The token goes to the host once, in `connect`. The
 host checks it with 1Password and keeps it in its own encrypted store. No answer carries it. Status
 and disconnect act on that host only. A host older than this capability hides 1Password.
 
@@ -459,7 +461,7 @@ The optional capability `bitwarden-connector-v1`
 host route [`route-bitwarden-connector.ts`](../../src/main/team-api/route-bitwarden-connector.ts))
 carries Bitwarden and self-hosted Vaultwarden. A session key unlocks only the CLI data of the
 computer that made it, so the host signs in with its own `bw`. An owner or admin enters the server
-address, the personal API key and the master password in Settings › Connectors. They go to the host
+address, the personal API key and the master password in Marketplace › Apps › Bitwarden. They go to the host
 once, in `connect`; no answer carries them. `connect` answers `connecting` at once, because the
 first sign-in can download `bw` and sync the vault for longer than the 15-second request limit. The
 client reads `status` every 2 seconds until the state changes. The host stores the record only after

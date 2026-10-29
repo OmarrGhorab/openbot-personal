@@ -51,7 +51,7 @@ export function WindowPageView() {
             <SchedulePanel serverId={serverId()} hostName={hostName(serverId())} onBack={usage.closeUsage} />
           </Match>
           <Match when={usage.state.view === "team"}>
-            <RavenTeamPanel serverId={serverId()} onBack={usage.closeUsage} />
+            <RavenTeamPanel serverId={serverId()} jobId={usage.state.teamJobId} onBack={usage.closeUsage} />
           </Match>
         </Switch>
       )}

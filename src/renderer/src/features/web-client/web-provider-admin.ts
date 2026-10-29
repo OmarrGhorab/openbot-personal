@@ -8,10 +8,8 @@ import type {
 import { decodeRegistryEntries, decodeRegistryInstallResult, decodeRegistryOperations } from "@openbot/contracts/ipc";
 import { ownBackend } from "@openbot/contracts/own-backend";
 import { ACP_REGISTRY_ROUTES } from "@openbot/contracts/team-protocol/acp-registry-v1";
-import {
-  PROVIDER_ACCOUNT_RELAY_CAPABILITY,
-  PROVIDER_ACCOUNT_RELAY_PROVIDERS,
-} from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY } from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/providers-v1";
@@ -74,7 +72,7 @@ import { remoteProviderRuntimes } from "../provider-updates/remote-provider-runt
 import { remoteAdminServer, serverSupportsCapability } from "../servers/server-capabilities";
 import type { HostProviderSettings } from "../settings/ProviderSettingsSection";
 import { hostProviderKeyApi } from "../settings/provider-key-api";
-import { webProviderRelay } from "./web-provider-relay";
+import { accountRelayProviders, webProviderRelay } from "./web-provider-relay";
 
 /** How often the host status is read while a code sign-in waits, in case a status event is lost. */
 const CODE_LOGIN_POLL_MS = 3000;
@@ -109,6 +107,7 @@ function webProviderAdmin(
   runtimeRoutes: () => ProviderRuntimeRoutes,
   signInRoutes: () => ProviderCodeLoginRoutes,
   keyRoutes: () => typeof PROVIDERS_ADMIN_ROUTES | typeof PROVIDERS_V5_ROUTES | typeof PROVIDERS_V8_ROUTES,
+  accountRelayV2: () => boolean,
 ): ProviderAdminDesktopApi {
   return {
     startCodeLogin: async (provider, serverId) =>
@@ -203,7 +202,7 @@ function webProviderAdmin(
       runTeamEffect(providerUsageResets(request(serverId), provider).pipe(Effect.mapError((error) => error.cause))),
     resetUsage: async (input, serverId) =>
       runTeamEffect(resetProviderUsage(request(serverId), input).pipe(Effect.mapError((error) => error.cause))),
-    ...webProviderRelay(request),
+    ...webProviderRelay(request, accountRelayV2),
   };
 }
 
@@ -253,6 +252,7 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
         : serverSupportsCapability(options.server(), PROVIDERS_V5_CAPABILITY)
           ? PROVIDERS_V5_ROUTES
           : PROVIDERS_ADMIN_ROUTES,
+    () => serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY),
   );
   const serverId = createMemo(() => remoteAdminServer(options.server(), "providers-v1")?.id);
   const runtimes = createProviderRuntimeStore(
@@ -311,7 +311,9 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
           cancel: (provider: AgentProviderId) => admin.cancelHostSignIn(provider, id ?? ""),
         },
         ...(accountsServerId() ? { accountSignIn: accountSignIn(accountsServerId() ?? "") } : {}),
-        ...(accountsServerId() && serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_CAPABILITY)
+        ...(accountsServerId() &&
+        (serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_CAPABILITY) ||
+          serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY))
           ? { accountRelay: accountRelay(accountsServerId() ?? "") }
           : {}),
         relay: {
@@ -353,7 +355,9 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
   /** As on desktop: the other relay requests run an account's relayed sign-in by its provider. */
   function accountRelay(id: string) {
     return {
-      providers: PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+      providers: accountRelayProviders(
+        serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY),
+      ),
       hostName: options.server()?.name ?? "",
       start: (provider: AgentProviderId, accountId: string | null) =>
         admin.startAccountRelaySignIn({ provider, accountId }, id),

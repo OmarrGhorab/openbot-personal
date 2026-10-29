@@ -68,15 +68,6 @@ export const messages = {
   "connector.statusUnknown": "غير معروف",
   "connector.readFailed": "OpenBot معرفش يقرا حالة الاتصال ده.",
 
-  "connector.hub.onThisComputer": "على الكمبيوتر ده",
-  "connector.hub.onHost": "على {host}",
-  "connector.hub.notSetUp": "مش مُعدّ",
-  "connector.hub.available": "متاح",
-  "connector.hub.localOnly": "الكمبيوتر بتاعك بس",
-  "connector.hub.open": "افتح {name}",
-  "connector.hub.setUp": "إعداد",
-  "connector.hub.usedBy": "بيستخدمه {names}",
-
   "connector.slack.title": "Slack",
   "connector.slack.description":
     "الناس بتعمل mention لـ @OpenBot في Slack أو بتبعتله رسالة مباشرة. الـ Slack Orchestrator بيسأل الإيجنت المناسب وبيرد.",

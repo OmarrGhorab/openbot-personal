@@ -18,6 +18,16 @@
 // the role with the access question instead of Working with no turn; Full access, from the question or
 // from the agent settings, sends the message that waited.
 //
+// Reasoning effort: the scripted provider lists efforts for one model. A role with a chosen effort
+// gets its own role agent on that effort, and each of its turns carries the effort.
+//
+// Autopilot lite: the plan has only the Builder and the Reviewer. A job runs the Builder first, with
+// no Architect turn, then the Reviewer; one FAIL round goes back to the Builder, and the job ends done.
+//
+// Several tickets: three tickets start three jobs. As many run at once as the role agents' work-thread
+// limit allows; the rest show Queued, with no work thread, and start when a slot frees. Stop and resume
+// of one job leave the others as they are, and each job keeps its own handoffs, verdicts and FAIL round.
+//
 // `bun scripts/raven-team-e2e.ts`. Writes .openbot-build/autonomy-6/raven-team-e2e.json.
 
 import assert from "node:assert/strict";
@@ -26,6 +36,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/agent-providers";
+import type { RavenTeamJob } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 
@@ -44,6 +55,8 @@ const HEADS = [
   "3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f",
 ];
 const UNKNOWN_MODEL = "claude-opus-5-5";
+/** The one model the scripted provider lists with effort levels: low, medium (its default) and high. */
+const EFFORT_MODEL = "gpt-6-sol";
 
 // Before the service modules load: the Codex process and the stores read the home folder.
 process.env.HOME = home;
@@ -58,7 +71,9 @@ const { MailboxStore } = await import("../src/backend/mailbox-store");
 const { OpenBotDatabase } = await import("../src/backend/openbot-database");
 const { RavenTeamService } = await import("../src/backend/raven-team/raven-team-service");
 const { RavenTeamStore } = await import("../src/backend/raven-team/raven-team-store");
-const { RAVEN_STACK_TEAM_TEMPLATE_ID } = await import("@openbot/contracts/ipc");
+const { RAVEN_STACK_LITE_TEMPLATE_ID, RAVEN_STACK_TEAM_TEMPLATE_ID, agentTaskLimit } = await import(
+  "@openbot/contracts/ipc"
+);
 
 /**
  * A Codex app-server with the methods the service calls. It logs each turn with the model the
@@ -72,6 +87,7 @@ if (process.argv.includes("--version")) {
 }
 const LOG = ${JSON.stringify(fakeLog)};
 const MODELS = ${JSON.stringify(MODELS)};
+const EFFORT_MODEL = ${JSON.stringify(EFFORT_MODEL)};
 const HEADS = ${JSON.stringify(HEADS)};
 const config = { config: { mcp_servers: {} }, layers: [{ name: { type: "user", file: "/fake/.codex/config.toml", profile: null }, version: "1", config: { mcp_servers: {} } }] };
 let buffer = "";
@@ -81,6 +97,7 @@ const roleByThread = new Map();
 const turnCount = new Map();
 const reviewCount = new Map();
 const alwaysFail = new Set();
+const slow = new Set();
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") process.exit(0);
   throw error;
@@ -115,7 +132,7 @@ const answer = (message) => {
     case "initialize": return write({ id: message.id, result: {} });
     case "account/read": return write({ id: message.id, result: { account: { type: "chatgpt", email: "codex@example.com" } } });
     case "account/rateLimits/read": return write({ id: message.id, result: { rateLimits: { limitId: "codex", primary: null, secondary: null }, rateLimitsByLimitId: null } });
-    case "model/list": return write({ id: message.id, result: { data: MODELS.map((model) => ({ model, displayName: model })) } });
+    case "model/list": return write({ id: message.id, result: { data: MODELS.map((model) => ({ model, displayName: model, ...(model === EFFORT_MODEL ? { defaultReasoningEffort: "medium", supportedReasoningEfforts: ["low", "medium", "high"].map((reasoningEffort) => ({ reasoningEffort })) } : {}) })) } });
     case "plugin/list": return write({ id: message.id, result: { marketplaces: [] } });
     case "config/read": return write({ id: message.id, result: config });
     case "config/batchWrite": return write({ id: message.id, result: {} });
@@ -134,13 +151,14 @@ const answer = (message) => {
       const label = /You are the (\\w+) of a Raven Stack team/.exec(text);
       if (label) roleByThread.set(params.threadId, label[1]);
       if (label && text.includes("SCRIPT-ALWAYS-FAIL")) alwaysFail.add(params.threadId);
+      if (label && text.includes("SCRIPT-SLOW")) slow.add(params.threadId);
       const count = (turnCount.get(params.threadId) || 0) + 1;
       turnCount.set(params.threadId, count);
-      log({ kind: "turn", threadId: params.threadId, turnId, model: params.model ?? null, role: roleByThread.get(params.threadId) ?? null });
+      log({ kind: "turn", threadId: params.threadId, turnId, model: params.model ?? null, effort: params.effort ?? null, role: roleByThread.get(params.threadId) ?? null });
       write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
       write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
       const reply = scriptedReply(params.threadId, text, count);
-      return setTimeout(() => finish(params.threadId, turnId, reply), 20);
+      return setTimeout(() => finish(params.threadId, turnId, reply), slow.has(params.threadId) ? 1500 : 20);
     }
     case "turn/interrupt": {
       write({ id: message.id, result: {} });
@@ -171,6 +189,7 @@ interface TurnLogEntry {
   threadId: string;
   turnId: string;
   model: string | null;
+  effort?: string | null;
   role: string | null;
 }
 
@@ -194,7 +213,7 @@ const report: {
   passed: boolean;
   checks: Check[];
   runs: ReportRun[];
-  turns: { role: string | null; model: string | null }[];
+  turns: { role: string | null; model: string | null; effort: string | null }[];
   unverified: string[];
   error?: string;
 } = {
@@ -206,7 +225,6 @@ const report: {
   unverified: [
     "A model that writes the plan, the code, the review or the score. The verdicts here are scripted.",
     "The stuck-role replacement (ticket 6.11). Not built.",
-    "The fan-out of several tickets (ticket 6.13). Not built.",
     "The stop and resume of a job. Covered by the code only, not by this run.",
     "The read-only access of the non-Builder roles. The brief asks for it; the runtime does not check the branch.",
     "A real provider that cannot run Workspace only. The check makes the scripted Codex stand for one.",
@@ -646,6 +664,197 @@ try {
     roleTurnsAfterQuestion: roleTurnsAfter,
   });
 
+  // 9. Reasoning effort: the Builder on gpt-6-sol with the effort high. The plan, the role agent and
+  // every Builder turn carry it; a role on a model with no chosen effort keeps its default.
+  const effortPlan = team.plan({
+    templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+    brief: ASSIGNMENTS,
+    efforts: { builder: "high" },
+  });
+  check(
+    "the plan carries the chosen effort",
+    effortPlan.roles.find((role) => role.roleId === "builder")?.reasoningEffort === "high",
+    JSON.stringify(effortPlan.roles.map((role) => [role.roleId, role.reasoningEffort])),
+  );
+  const turnsBeforeEffort = turnLog().length;
+  const effortJob = await runCauseEffect(
+    team.start({
+      templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+      brief: `${ASSIGNMENTS} ${TICKET_TEXT}`,
+      efforts: { builder: "high" },
+    }),
+  );
+  const effortEnd = await waitFor("the effort job to end", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === effortJob.id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  });
+  check("the effort job ends done", effortEnd.state === "done", effortEnd.state);
+  const effortBuilder = agents
+    .listAgents()
+    .find((agent) => agent.id === effortEnd.roles.find((role) => role.roleId === "builder")?.agentId);
+  check(
+    "the Builder runs in its own agent on the chosen effort",
+    effortBuilder?.name === "Raven Builder (gpt-6-sol, high)" && effortBuilder.reasoningEffort === "high",
+    `${effortBuilder?.name} ${effortBuilder?.reasoningEffort}`,
+  );
+  const effortTurns = turnLog()
+    .slice(turnsBeforeEffort)
+    .filter((turn) => turn.role === "Builder");
+  check(
+    "every Builder turn carries the effort high",
+    effortTurns.length > 0 && effortTurns.every((turn) => turn.effort === "high"),
+    JSON.stringify(effortTurns.map((turn) => turn.effort)),
+  );
+  record("reasoning effort", {
+    jobId: effortEnd.id,
+    state: effortEnd.state,
+    builderAgent: effortBuilder?.name ?? null,
+    builderTurnEfforts: effortTurns.map((turn) => turn.effort ?? null),
+  });
+
+  // 10. Autopilot lite: Builder then Reviewer, no Architect and no Quality turn.
+  const LITE_ASSIGNMENTS = "Autopilot lite ticket #43. Builder: gpt-6-sol. Reviewer: gpt-6-nova.";
+  const litePlan = team.plan({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: LITE_ASSIGNMENTS });
+  check(
+    "the lite plan has only the Builder and the Reviewer",
+    JSON.stringify(litePlan.roles.map((role) => role.roleId)) === JSON.stringify(["builder", "reviewer"]),
+    JSON.stringify(litePlan.roles.map((role) => role.roleId)),
+  );
+  const turnsBeforeLite = turnLog().length;
+  const liteJob = await runCauseEffect(
+    team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: `${LITE_ASSIGNMENTS} ${TICKET_TEXT}` }),
+  );
+  const liteEnd = await waitFor("the lite job to end", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === liteJob.id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  });
+  check("the lite job ends done", liteEnd.state === "done", liteEnd.state);
+  check("the lite job ran one FAIL round", liteEnd.fixRounds === 1, String(liteEnd.fixRounds));
+  check(
+    "the lite job has no Architect or Quality role",
+    liteEnd.roles.every((role) => role.roleId === "builder" || role.roleId === "reviewer"),
+    JSON.stringify(liteEnd.roles.map((role) => role.roleId)),
+  );
+  const liteTurns = turnLog()
+    .slice(turnsBeforeLite)
+    .map((turn) => turn.role);
+  check(
+    "the lite job runs Builder, Reviewer, Builder, Reviewer and no Architect turn",
+    JSON.stringify(liteTurns) === JSON.stringify(["Builder", "Reviewer", "Builder", "Reviewer"]),
+    JSON.stringify(liteTurns),
+  );
+  record("autopilot lite", {
+    jobId: liteEnd.id,
+    state: liteEnd.state,
+    fixRounds: liteEnd.fixRounds,
+    roleTurns: liteTurns,
+  });
+
+  // 11. Several tickets: one job per ticket, in parallel up to the work-thread limit, the rest Queued.
+  const MULTI_ASSIGNMENTS = "Builder: gpt-6-nova. Reviewer: gpt-6-luna.";
+  const multiTickets = [51, 52, 53].map(
+    (number) => `Autopilot lite ticket #${number}. ${MULTI_ASSIGNMENTS} SCRIPT-SLOW Rename helper ${number}.`,
+  );
+  const multiJobs: RavenTeamJob[] = [];
+  for (const ticket of multiTickets) {
+    multiJobs.push(await runCauseEffect(team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: ticket })));
+  }
+  const multiIds = multiJobs.map((job) => job.id);
+  check("three tickets start three jobs", new Set(multiIds).size === 3, JSON.stringify(multiIds));
+  const multiBuilder = agents
+    .listAgents()
+    .find((agent) => agent.id === multiJobs[0]?.roles.find((role) => role.roleId === "builder")?.agentId);
+  const limit = multiBuilder ? agentTaskLimit(multiBuilder) : 0;
+  check("the jobs share a Builder agent with a limit of two", limit === 2, `${multiBuilder?.name} ${limit}`);
+  const firstView = multiIds.map((id) => team.listJobs().find((job) => job.id === id));
+  const runningAtOnce = firstView.filter((job) => job && !job.queued && job.state === "running");
+  const queuedAtStart = firstView.filter((job) => job?.queued === true);
+  check(
+    "two jobs run at the same time",
+    runningAtOnce.length === 2,
+    JSON.stringify(firstView.map((job) => [job?.state, job?.queued])),
+  );
+  const queuedJob = queuedAtStart[0];
+  check(
+    "the third job is Queued, with no work thread",
+    queuedAtStart.length === 1 &&
+      queuedJob !== undefined &&
+      queuedJob.id === multiIds[2] &&
+      queuedJob.state === "running" &&
+      queuedJob.roles.every((role) => role.taskId === null),
+    JSON.stringify(queuedAtStart.map((job) => [job?.id, job?.roles.map((role) => role.taskId)])),
+  );
+  const builderThreads = runningAtOnce.map((job) => job?.roles.find((role) => role.roleId === "builder")?.threadId);
+  check(
+    "each running job has its own Builder work thread",
+    builderThreads.every((thread) => typeof thread === "string") &&
+      new Set(builderThreads).size === builderThreads.length,
+    JSON.stringify(builderThreads),
+  );
+  // Stop the first job. The second keeps running, and the queued job takes the free slot.
+  const [first = "", second = "", third = ""] = multiIds;
+  const secondBefore = team.listJobs().find((job) => job.id === second);
+  const stoppedOne = await runCauseEffect(team.stop(first));
+  check("stop holds only that job", stoppedOne.state === "stopped", stoppedOne.state);
+  const secondAfterStop = team.listJobs().find((job) => job.id === second);
+  check(
+    "stop of one job leaves the other running job as it was",
+    secondAfterStop?.state === "running" &&
+      JSON.stringify(secondAfterStop.roles.map((role) => role.taskId)) ===
+        JSON.stringify(secondBefore?.roles.map((role) => role.taskId)),
+    JSON.stringify(secondAfterStop?.roles.map((role) => [role.roleId, role.state])),
+  );
+  const freed = await waitFor("the queued job to start after a stop", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === third);
+    return job && !job.queued && job.roles.some((role) => role.taskId !== null) ? job : null;
+  });
+  check("the queued job starts when a slot frees", freed.state === "running" && !freed.queued, freed.state);
+  const ended = (id: string) => {
+    const job = team.listJobs().find((candidate) => candidate.id === id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  };
+  const secondEnd = await waitFor("the second job to end", () => ended(second));
+  const thirdEnd = await waitFor("the third job to end", () => ended(third));
+  check(
+    "the stopped job stays stopped while the others end",
+    team.listJobs().find((job) => job.id === first)?.state === "stopped",
+  );
+  // Resume the stopped job. It runs to its own end, and the jobs that ended stay as they were.
+  const resumedOne = await runCauseEffect(team.resume(first));
+  check("resume starts only that job", resumedOne.state === "running", resumedOne.state);
+  const firstEnd = await waitFor("the resumed job to end", () => ended(first), 90_000);
+  check(
+    "resume of one job leaves the ended jobs as they were",
+    team.listJobs().find((job) => job.id === second)?.state === secondEnd.state &&
+      team.listJobs().find((job) => job.id === third)?.state === thirdEnd.state,
+  );
+  const multiEnds = [firstEnd, secondEnd, thirdEnd];
+  check(
+    "each job ends done with its own FAIL round",
+    multiEnds.every((job) => job.state === "done" && job.fixRounds === 1),
+    JSON.stringify(multiEnds.map((job) => [job.state, job.fixRounds])),
+  );
+  check(
+    "each job keeps its own Reviewer verdict on its own head",
+    multiEnds.every((job) => {
+      const review = job.roles.find((role) => role.roleId === "reviewer");
+      return review?.verdict === "PASS" && review.fails === 1 && review.commit === job.headCommit;
+    }),
+    JSON.stringify(multiEnds.map((job) => job.roles.map((role) => [role.roleId, role.verdict, role.fails]))),
+  );
+  const multiThreads = multiEnds.flatMap((job) => job.roles.map((role) => role.threadId));
+  check(
+    "no two jobs share a role work thread",
+    multiThreads.every((thread) => thread !== null) && new Set(multiThreads).size === multiThreads.length,
+    JSON.stringify(multiThreads),
+  );
+  record("several tickets", {
+    limit,
+    runningAtOnce: runningAtOnce.length,
+    queuedAtStart: queuedAtStart.map((job) => job?.id ?? null),
+    ends: multiEnds.map((job) => ({ jobId: job.id, state: job.state, fixRounds: job.fixRounds })),
+  });
+
   report.passed = true;
 } catch (error) {
   report.error = error instanceof Error ? error.message : String(error);
@@ -680,7 +889,7 @@ try {
   record("changes", { changesEmitted: changes });
   report.turns = turnLog()
     .filter((turn) => turn.role !== null)
-    .map((turn) => ({ role: turn.role, model: turn.model }));
+    .map((turn) => ({ role: turn.role, model: turn.model, effort: turn.effort ?? null }));
   mkdirSync(OUT, { recursive: true });
   writeFileSync(join(OUT, "raven-team-e2e.json"), `${JSON.stringify(report, null, 2)}\n`);
   await rm(root, { recursive: true, force: true }).catch(() => undefined);

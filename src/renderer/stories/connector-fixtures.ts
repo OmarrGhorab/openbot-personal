@@ -2,17 +2,12 @@ import {
   DISCONNECTED_BITWARDEN_CONNECTOR,
   DISCONNECTED_ONEPASSWORD_CONNECTOR,
   type MessagingConnection,
-  type ServerSummary,
 } from "@openbot/contracts/ipc";
 import type { ConnectorDetail } from "@openbot/ui/features/connectors/ConnectorDetailPanel";
 import type { SlackIntegrationAgent } from "@openbot/ui/features/settings/SlackIntegrationPanel";
 import { fn } from "storybook/test";
 import type { ConnectorController } from "../src/features/connectors/connector-controller";
-import {
-  type ConnectorRegistry,
-  type ConnectorSet,
-  createConnectorRegistry,
-} from "../src/features/connectors/connector-registry";
+import type { ConnectorSet } from "../src/features/connectors/connector-registry";
 
 const workspace = {
   agents: [],
@@ -185,12 +180,4 @@ function storyConnector(detail: ConnectorDetail): ConnectorController {
 
 export function storyConnectorSet(details: readonly ConnectorDetail[] = STORY_CONNECTOR_DETAILS): ConnectorSet {
   return Object.fromEntries(details.map((detail) => [detail.id, storyConnector(detail)]));
-}
-
-/** The connectors of `server`. Call it inside a component. */
-export function storyConnectorRegistry(
-  server: ServerSummary | undefined,
-  set: ConnectorSet = storyConnectorSet(),
-): ConnectorRegistry {
-  return createConnectorRegistry(() => server, { computer: set, server: set });
 }

@@ -29,7 +29,6 @@ import {
   HardDrive,
   KeyRound,
   Monitor,
-  Plug,
   RefreshCw,
   Settings,
   ShieldCheck,
@@ -54,8 +53,6 @@ import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { type ServerBrowserProfilesOptions, ServerBrowserProfilesPanel } from "../browser/ServerBrowserProfilesPanel";
-import { ConnectorsPanel, type ConnectorsPanelDetail } from "../connectors/ConnectorsPanel";
-import type { ConnectorRegistry } from "../connectors/connector-registry";
 import { type ServerStorageOptions, ServerStoragePanel } from "../files/ServerStoragePanel";
 import { type HostProviderSettings, HostProviderSettingsPanel } from "../settings/ProviderSettingsSection";
 import type { HostPromptCacheTtlOptions, ProviderPromptCacheSource } from "../settings/provider-prompt-cache";
@@ -186,11 +183,6 @@ export interface ServerSettingsModalProps {
    */
   instanceTransfer?: ServerTransferOptions | undefined;
   /**
-   * The connectors of this server. The Connectors section appears only when the server can run one
-   * of them for this account.
-   */
-  connectors?: ConnectorRegistry | undefined;
-  /**
    * The Updates section appears only when a caller supplies this: a remote host with
    * `host-update-v1` that this member administers.
    */
@@ -256,8 +248,7 @@ export type ServerSettingsSection =
   | "import"
   | "transfer"
   | "routines"
-  | "browser-profiles"
-  | "connectors";
+  | "browser-profiles";
 type Section = ServerSettingsSection;
 
 const sections = {
@@ -275,7 +266,6 @@ const sections = {
   transfer: { title: "server.settings.transferTitle", description: "server.settings.transferDescription" },
   routines: { title: "server.settings.routinesTitle", description: "server.settings.routinesDescription" },
   "browser-profiles": { title: "browser.profiles.title", description: "browser.profiles.subtitle" },
-  connectors: { title: "server.settings.connectorsTitle", description: "server.settings.connectorsDescription" },
 } as const satisfies Record<Section, { title: AppTextKey; description: AppTextKey }>;
 
 export function ServerSettingsModal(props: ServerSettingsModalProps) {
@@ -283,15 +273,12 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
   const [section, setSection] = createSignal<Section>("general");
   /** Set while the MCP panel shows a form, so the header reads `MCP › Connect to a custom MCP`. */
   const [mcpDetail, setMcpDetail] = createSignal<McpPanelDetail | null>(null);
-  /** Set while an integration page is open, so the header reads `Connectors › GitHub`. */
-  const [connectorDetail, setConnectorDetail] = createSignal<ConnectorsPanelDetail | null>(null);
   /** Set while a provider page is open, so the header reads `Providers › Codex`. */
   const [providerDetail, setProviderDetail] = createSignal<ProviderSettingsDetail | null>(null);
   /** Set while an import source is open, so the header reads `Import › Hermes Agent`. */
   const [importDetail, setImportDetail] = createSignal<ServerImportDetail | null>(null);
   const crumbDetail = () => {
     if (section() === "mcp") return mcpDetail();
-    if (section() === "connectors") return connectorDetail();
     if (section() === "import") return importDetail();
     if (section() === "roles") return roles.crumb();
     return section() === "providers" ? providerDetail() : null;
@@ -494,8 +481,7 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         value === "import" ||
         value === "transfer" ||
         value === "routines" ||
-        value === "browser-profiles" ||
-        value === "connectors"
+        value === "browser-profiles"
       )
         setSection(value);
     },
@@ -721,12 +707,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
                 <span>{t(sections["browser-profiles"].title)}</span>
               </Tabs.Trigger>
             </Show>
-            <Show when={(props.connectors?.available().length ?? 0) > 0}>
-              <Tabs.Trigger class="settings-modal-nav-item" value="connectors">
-                <Plug aria-hidden="true" />
-                <span>{t(sections.connectors.title)}</span>
-              </Tabs.Trigger>
-            </Show>
           </Tabs.List>
         }
       >
@@ -899,21 +879,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
               data-tab="browser-profiles"
             >
               <ServerBrowserProfilesPanel {...browserProfiles()} menuMount={modalElement()} />
-            </Tabs.Content>
-          )}
-        </Show>
-        <Show when={props.connectors?.available().length ? props.connectors : undefined}>
-          {(connectors) => (
-            <Tabs.Content
-              value="connectors"
-              class="settings-modal-tab-panel server-settings-panel"
-              data-tab="connectors"
-            >
-              <ConnectorsPanel
-                connectors={connectors()}
-                hostName={local() ? undefined : props.server.name}
-                onDetailChange={setConnectorDetail}
-              />
             </Tabs.Content>
           )}
         </Show>

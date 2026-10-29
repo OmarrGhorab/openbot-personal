@@ -38,13 +38,23 @@ export interface RavenTeamRoleRecord extends RavenTeamRoleRun {
   reminders: number;
 }
 
-export interface RavenTeamJobRecord extends Omit<RavenTeamJob, "roles"> {
+export interface RavenTeamJobRecord extends Omit<RavenTeamJob, "roles" | "queued"> {
   roles: RavenTeamRoleRecord[];
+}
+
+/**
+ * Whether a job waits for a free slot. The service holds back the first message of a job whose role
+ * agents are full, so a running job with no question and no work thread on any role is queued. It is
+ * derived from the stored job, so it needs no column and no migration.
+ */
+export function ravenTeamJobQueued(record: RavenTeamJobRecord): boolean {
+  return record.state === "running" && record.question === null && record.roles.every((role) => role.taskId === null);
 }
 
 export function publicRavenTeamJob(record: RavenTeamJobRecord): RavenTeamJob {
   return {
     ...record,
+    queued: ravenTeamJobQueued(record),
     roles: record.roles.map(({ skills: _skills, pendingMessage: _pending, reminders: _reminders, ...run }) => run),
   };
 }

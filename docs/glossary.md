@@ -42,14 +42,20 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   `auth:*`), or an MCP server (`createSdkMcpServer`).
 - **team job**: one run of a Raven Stack team on one ticket: its roles, its head commit, its fix
   rounds and its state (`RavenTeamJob`, `raven_team_jobs`, `ipc-raven-team.ts`, `raven-team:*`).
+  Several tickets start several jobs. A job whose role agents already run as many jobs as their
+  work-thread limit is **queued** (`RavenTeamJob.queued`, derived, not a column): it has no work
+  thread yet and starts when a slot frees.
 
 - **team role**: a part of a Raven Stack team job, such as Architect, Builder, Reviewer or Quality. A role
   is one agent on one model, with its own work thread (`RavenTeamRoleRun`, `raven_team_roles`,
   `RavenTeamRoleDefinition` in a template). **teammate** and **group** stay prompt and UI words.
 
 - **team template**: the roles of a team, with the skills, the default model and the access of each
-  role. The built-in "Raven Stack team" is code; a user copy is a row (`RavenTeamTemplate`,
-  `raven_team_templates`).
+  role. The built-in templates are code; a user copy is a row (`RavenTeamTemplate`,
+  `raven_team_templates`). The UI calls the built-in "Raven Stack team" **Autopilot (full)**:
+  Architect, Builder, Reviewer, Quality and the optional Editor. **Autopilot lite**
+  (`RAVEN_STACK_LITE_TEMPLATE_ID`) is for small tickets: the Builder plans in its own turn, then the
+  Reviewer gives the verdict. It has no Architect, Quality or Editor.
 
 - **work thread**: one agent task (`projection_agent_tasks`, `AgentTask`, `agent:tasks:*`,
   `agent-tasks-v1`) with its own thread, provider session, queue and stop, beside the agent's main
