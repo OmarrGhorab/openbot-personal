@@ -9,6 +9,8 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
+import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
@@ -553,6 +555,8 @@ export interface ApplicationServices {
   routineResults: RoutineResultsHandle;
   providerRuntimes: ProviderRuntimeManager;
   providerCredentials: ProviderCredentialStore;
+  /** The Tickets board of this computer. */
+  boardTickets: BoardTicketService;
   /** The Slack and Telegram connections of the agents on this host. */
   messaging: MessagingService;
   /** Reached by the entry point for one thing only: handing a returning grant to its sign-in. */
@@ -3114,6 +3118,13 @@ export async function createApplicationServices({
     Effect.runPromise(hostUpdateCoordinator.stop()),
   );
 
+  // The Tickets board. Its tickets are rows in this computer's database; the view reads the list
+  // again on the change event, so no window polls.
+  const boardTickets = new BoardTicketService({
+    store: new BoardTicketStore(store.database),
+    changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
+  });
+
   return {
     service,
     routineFlows: routineFlowRuntime,
@@ -3121,6 +3132,7 @@ export async function createApplicationServices({
     routineResults: routineResultRuntime,
     providerRuntimes,
     providerCredentials,
+    boardTickets,
     messaging,
     mcpOAuth,
     signInRelayClient,

@@ -5,6 +5,10 @@ export const messages = defineMessages("error.agent", {
     "History is unavailable for this request. Read recent history again, or use channel_history for channel work.",
   "error.agent.toolRequestInvalid":
     "Invalid tool discovery arguments. Use the declared schema and an original qualified tool name.",
+  // Tickets board errors that the backend sends.
+  "error.agent.boardTickets.notFound": "The ticket was not found. It may have been deleted.",
+  "error.agent.boardTickets.emptyTitle": "Write a title for the ticket.",
+  "error.agent.boardTickets.emptyComment": "Write a comment before you send it.",
   // Agent errors that the main process and the backend send.
   "error.agent.approvalWhileDeleting": "Cannot grant approval while the agent is being deleted.",
   "error.agent.accessLocalOnly": "Agent access can only be changed on the computer that runs the agent.",

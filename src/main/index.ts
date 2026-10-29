@@ -59,6 +59,7 @@ import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
 import { autonomyIpcHandlers } from "./ipc/autonomy-handlers";
 import { billingIpcHandlers } from "./ipc/billing-handlers";
 import { bitwardenConnectorIpcHandlers } from "./ipc/bitwarden-connector-handlers";
+import { boardTicketIpcHandlers } from "./ipc/board-ticket-handlers";
 import { browserDockIpcHandlers } from "./ipc/browser-dock-handlers";
 import { browserIpcHandlers } from "./ipc/browser-handlers";
 import { channelMemoryIpcHandlers } from "./ipc/channel-memory-handlers";
@@ -601,6 +602,7 @@ function registerIpcHandlers({
   routineFlows,
   ravenTeam,
   routineResults,
+  boardTickets,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -731,6 +733,7 @@ function registerIpcHandlers({
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
     ...autonomyIpcHandlers({ autonomy }),
+    ...boardTicketIpcHandlers({ boardTickets }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

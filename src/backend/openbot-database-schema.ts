@@ -10,6 +10,7 @@ import { AGENT_WORK_THREAD_SCHEMA_SQL } from "./agent-tasks/agent-work-thread-sc
 import { AGENT_TICKET_SCHEMA_SQL } from "./agent-tickets/agent-ticket-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
+import { BOARD_TICKET_SCHEMA_SQL } from "./board-tickets/board-ticket-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
@@ -610,7 +611,8 @@ const LATEST_SCHEMA_SQL =
   PROJECT_MEMORY_SCHEMA_SQL +
   RAVEN_TEAM_SCHEMA_SQL +
   AUTONOMY_SCHEMA_SQL +
-  AGENT_TICKET_SCHEMA_SQL;
+  AGENT_TICKET_SCHEMA_SQL +
+  BOARD_TICKET_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -896,6 +898,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates tables, so no foreign-key pause and no vacuum. No agent has a ticket watch yet, so no
     // agent starts a work thread from a ticket, and every work thread keeps the behavior it had before.
     up: (db) => db.exec(AGENT_TICKET_SCHEMA_SQL),
+  },
+  {
+    version: 51,
+    // Only creates tables, so no foreign-key pause and no vacuum. The Tickets board starts empty: the
+    // old Tasks page kept no rows of its own, so no work thread becomes a ticket, and no board syncs.
+    up: (db) => db.exec(BOARD_TICKET_SCHEMA_SQL),
   },
 ];
 

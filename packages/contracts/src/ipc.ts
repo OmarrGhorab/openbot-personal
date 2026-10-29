@@ -31,6 +31,7 @@ export * from "./ipc-approvals";
 export * from "./ipc-attachments";
 export * from "./ipc-autonomy";
 export * from "./ipc-bitwarden-connector";
+export * from "./ipc-board-tickets";
 export * from "./ipc-browser";
 export * from "./ipc-browser-dock";
 export * from "./ipc-browser-profiles";
