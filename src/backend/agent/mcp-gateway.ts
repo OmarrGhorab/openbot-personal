@@ -34,6 +34,9 @@ import { McpServerError, type McpServerStore } from "../mcp-server-store";
 import type { ProviderClientContext } from "../provider-drivers";
 import { providerLabel } from "./thread-items";
 
+/** What `redact` returns when it cannot read the configurations: the same mask as one secret. */
+const REDACTED_TEXT = "•••";
+
 /**
  * Whether a person is in front of this test.
  *
@@ -544,7 +547,15 @@ export class McpGateway {
    * `redactText`, which covers the patterns shared across the app.
    */
   redact(text: string): string {
-    return redactMcpValues(text, [...mcpSecretValues(this.#servers.list()), ...this.#handoff.values()]);
+    let servers: McpServerConfig[];
+    try {
+      servers = this.#servers.list();
+    } catch {
+      // Fail closed: without the stored configurations no credential can be taken out, so none of
+      // the text leaves. The cause is not logged here; the reader that failed reports it.
+      return REDACTED_TEXT;
+    }
+    return redactMcpValues(text, [...mcpSecretValues(servers), ...this.#handoff.values()]);
   }
 }
 
