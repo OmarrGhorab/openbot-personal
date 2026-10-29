@@ -12,6 +12,8 @@ export const messages = {
   "error.agent.boardTickets.startUnavailable": "التذاكر مش قادرة تبدأ ثريد على الجهاز ده.",
   "error.agent.boardTickets.threadFailed": "آخر دور في الثريد بتاعها فشل.",
   "error.agent.boardTickets.threadStopped": "الثريد بتاعها اتوقف قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.teamJobStopped": "شغلانة الفريق بتاعتها اتوقفت قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.teamJobNotDone": "شغلانة الفريق بتاعتها خلصت من غير ما تتم بعد آخر جولة FAIL.",
   "error.agent.boardTickets.toolInvalid":
     "اكتب حالة (backlog أو running أو needs_review)، أو سطر تقدّم 500 حرف على الأكتر، أو تعليق.",
   "error.agent.boardTickets.notTicketThread": "المهمة اللي شغّالة على تذكرة في لوحة التذاكر بس هي اللي تقدر تحدّثها.",

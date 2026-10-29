@@ -97,6 +97,16 @@ export class BoardTicketStore {
     return row ? this.get(requiredStringColumn(row, "ticket_id")) : null;
   }
 
+  /** The tickets of a Raven Stack team job: its own ticket and one for each role, oldest first. */
+  forTeamJob(jobId: string): BoardTicket[] {
+    const rows = databaseRows(
+      this.#database.connection
+        .prepare("SELECT ticket_id FROM board_tickets WHERE team_job_id = ? ORDER BY created_at, ticket_id")
+        .all(jobId),
+    );
+    return rows.flatMap((row) => this.get(requiredStringColumn(row, "ticket_id")) ?? []);
+  }
+
   /** The ticket that links an external issue, or null. */
   forExternal(provider: BoardTicketProvider, key: string): BoardTicket | null {
     const row = databaseRow(

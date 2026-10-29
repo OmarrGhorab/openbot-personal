@@ -1,5 +1,6 @@
 import type { AgentTask } from "./ipc-agent-tasks";
 import { isBoundedString, isFiniteNumber, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
+import type { RavenTeamJob, RavenTeamRoleRun } from "./ipc-raven-team";
 import { isDynamicRecord, isOneOf } from "./runtime-values";
 
 /**
@@ -185,6 +186,55 @@ export function boardTicketWorkStep(
     default:
       return null;
   }
+}
+
+/** Why a team job took its tickets out of the work: the person stopped it, or it ended not done. */
+export type BoardTicketTeamFailure = "stopped" | "not-done";
+
+/** The column that a Raven Stack team job asks for one of its tickets, and the failure line it gives. */
+export interface BoardTicketTeamStep {
+  status: BoardTicketStatus;
+  failure: BoardTicketTeamFailure | null;
+}
+
+/**
+ * The column of a team job's own ticket: Queued while the job waits for a slot of its role agents,
+ * Running while it runs, Needs review while it waits for the person, Done when it passes, and back to
+ * Backlog with a failure line when it is stopped or ends not done.
+ */
+export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued">): BoardTicketTeamStep {
+  switch (job.state) {
+    case "done":
+      return { status: "done", failure: null };
+    case "not-done":
+      return { status: "backlog", failure: "not-done" };
+    case "stopped":
+      return { status: "backlog", failure: "stopped" };
+    case "waiting-user":
+      return { status: "needs_review", failure: null };
+    default:
+      return { status: job.queued ? "queued" : "running", failure: null };
+  }
+}
+
+/**
+ * The column that a team job asks for the ticket of one of its roles. A role with a work thread asks
+ * for nothing (null): its thread moves the ticket with `boardTicketWorkStep`, until the job passes and
+ * every role ticket goes to Done. A role with no thread yet waits in Queued while the job is queued and
+ * in Backlog until the job reaches it. The desktop and the preview move role tickets with this rule.
+ */
+export function boardTicketTeamRoleStep(
+  job: Pick<RavenTeamJob, "state" | "queued">,
+  role: Pick<RavenTeamRoleRun, "taskId" | "state">,
+): BoardTicketTeamStep | null {
+  if (job.state === "done") return { status: "done", failure: null };
+  if (role.taskId !== null) return null;
+  if (job.state === "stopped") return { status: "backlog", failure: "stopped" };
+  if (job.state === "not-done") return { status: "backlog", failure: "not-done" };
+  if (job.queued) return { status: "queued", failure: null };
+  if (role.state === "working") return { status: "running", failure: null };
+  if (role.state === "blocked") return { status: "needs_review", failure: null };
+  return { status: "backlog", failure: null };
 }
 
 export function isBoardTicketStatus(value: unknown): value is BoardTicketStatus {
