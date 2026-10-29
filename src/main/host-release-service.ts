@@ -132,9 +132,12 @@ export class HostReleaseService {
  * upstream release that would drop the fork's host features.
  */
 async function fetchLatestRelease(target: ReleaseTarget, request: typeof fetch, signal: AbortSignal): Promise<string> {
-  const response = await request(`https://github.com/OmarrGhorab/openbot-personal/releases/latest/download/${target.feed}`, {
-    signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-  });
+  const response = await request(
+    `https://github.com/OmarrGhorab/openbot-personal/releases/latest/download/${target.feed}`,
+    {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+    },
+  );
   if (!response.ok || !response.body) {
     await response.body?.cancel();
     throw new Error("Release feed unavailable");
