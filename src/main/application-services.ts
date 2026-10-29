@@ -11,6 +11,7 @@ import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
+import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
@@ -1712,8 +1713,18 @@ export async function createApplicationServices({
   await Effect.runPromise(agentApiKeys.registerSaved());
   // The ticket store is shared by the agent service (pull ownership for the agent's tool) and the watcher.
   const ticketStore = new AgentTicketStore(store.database);
+  // The Tickets board. Its tickets are rows in this computer's database; the view reads the list
+  // again on the change event, so no window polls. It is made before the agent service, whose
+  // `update_ticket` tool writes to it.
+  const boardTickets = new BoardTicketService({
+    store: new BoardTicketStore(store.database),
+    changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
+    // "Start now" starts one work thread of the agent, as the ticket intake does.
+    startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
+  });
   const service: AgentService = new AgentService({
     ticketPulls: new TicketPullRegistry(ticketStore),
+    boardTickets,
     store,
     mailbox,
     browser,
@@ -1896,6 +1907,11 @@ export async function createApplicationServices({
   });
   service.on("event", (event) => {
     if (event.type === "agents-changed") Effect.runFork(automation.requestSync());
+  });
+  // Each agent moves the tickets of its work threads as their turns start, wait, end or fail.
+  const boardTicketFollower = new BoardTicketWorkFollower(boardTickets);
+  service.on("event", (event) => {
+    if (event.type === "agent-tasks-changed") boardTicketFollower.follow(event.snapshot);
   });
   teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));
   // An agent routine's answer handed on from agent to agent; see `routine-flows.ts`.
@@ -3117,15 +3133,6 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.hostUpdateCoordinator, "the host update coordinator", () =>
     Effect.runPromise(hostUpdateCoordinator.stop()),
   );
-
-  // The Tickets board. Its tickets are rows in this computer's database; the view reads the list
-  // again on the change event, so no window polls.
-  const boardTickets = new BoardTicketService({
-    store: new BoardTicketStore(store.database),
-    changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
-    // "Start now" starts one work thread of the agent, as the ticket intake does.
-    startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
-  });
 
   return {
     service,

@@ -29,6 +29,13 @@ export interface BoardTicketServiceOptions {
 /** Starts one work thread (agent task) of an agent, as the ticket intake does. */
 export type StartWorkThread = (agentId: string, text: string) => Promise<Pick<AgentTask, "id" | "threadId" | "state">>;
 
+/** The agent's own update of the ticket of its work thread. The `update_ticket` tool checks it first. */
+export interface BoardTicketAgentUpdate {
+  status?: BoardTicketStatus | undefined;
+  progress?: string | undefined;
+  comment?: string | undefined;
+}
+
 /** The links that a ticket created by the work-thread module, a team job or the sync starts with. */
 export type BoardTicketLinks = Pick<NewBoardTicket, "taskId" | "threadId" | "teamJobId" | "teamRoleId" | "external">;
 
@@ -53,6 +60,27 @@ export class BoardTicketService {
 
   get(ticketId: string): BoardTicket | null {
     return this.#store.get(ticketId);
+  }
+
+  /** The ticket that a work thread does, or null. */
+  forTask(taskId: string): BoardTicket | null {
+    return this.#store.forTask(taskId);
+  }
+
+  /**
+   * The agent's own update of the ticket that its work thread does: a progress line, a comment and a
+   * move, in that order. Null when the work thread does no ticket. The tool lets no agent move a ticket
+   * to Done: that is the person's approval.
+   */
+  updateForTask(taskId: string, update: BoardTicketAgentUpdate): BoardTicket | null {
+    const ticket = this.#store.forTask(taskId);
+    if (!ticket) return null;
+    if (update.progress !== undefined) {
+      this.patch(ticket.id, { progress: nullableLine(update.progress, BOARD_TICKET_PROGRESS_LIMIT) }, "agent");
+    }
+    if (update.comment !== undefined) this.comment({ ticketId: ticket.id, text: update.comment }, "agent");
+    if (update.status !== undefined) this.moveIfNeeded(ticket.id, update.status, "agent");
+    return this.#require(ticket.id);
   }
 
   events(ticketId: string): BoardTicketEvent[] {

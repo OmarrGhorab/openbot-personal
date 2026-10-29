@@ -210,7 +210,7 @@ import type { AgentProvider } from "./agent-client";
 import type { AgentTables } from "./agent-data/agent-tables";
 import type { AgentStore } from "./agent-store";
 import { AgentTaskStore } from "./agent-tasks/agent-task-store";
-import { type AgentTaskPullRegistry, AgentTasks } from "./agent-tasks/agent-tasks";
+import { type AgentTaskBoard, type AgentTaskPullRegistry, AgentTasks } from "./agent-tasks/agent-tasks";
 import { AgentWorkThreadStore } from "./agent-tasks/agent-work-thread-store";
 import { AgentWorktrees, worktreeChangedFiles } from "./agent-tasks/agent-worktrees";
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
@@ -393,6 +393,8 @@ export interface AgentServiceOptions {
   hostMemory?: HostMemory | null;
   /** Gives a pull request to the work thread that started its ticket. Null when no ticket intake runs. */
   ticketPulls?: AgentTaskPullRegistry | null;
+  /** The Tickets board, for the `update_ticket` tool of a ticket's work thread. Null when no board runs. */
+  boardTickets?: AgentTaskBoard | null;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -542,6 +544,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#tasks = new AgentTasks({
       store: new AgentTaskStore(store.database),
       pulls: options.ticketPulls ?? null,
+      board: options.boardTickets ?? null,
       workThreads: new AgentWorkThreadStore(store.database),
       worktrees: this.#worktrees,
       mailbox,

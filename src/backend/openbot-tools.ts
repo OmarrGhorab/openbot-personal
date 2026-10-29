@@ -38,6 +38,8 @@ import {
   registerPullRequestToolSchema,
   START_TASK_TOOL,
   startTaskToolSchema,
+  UPDATE_TICKET_TOOL,
+  updateTicketToolSchema,
 } from "./agent-tasks/agent-tasks";
 import {
   AWAIT_EVENT_TOOL,
@@ -572,6 +574,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       "Record the pull request that you opened for this task's ticket. Call it once, right after you open the pull request. OpenBot then sends the failed checks and the review comments of that pull request into this task. Only a task that started from a ticket can record one.",
     shape: registerPullRequestToolSchema.shape,
+  },
+  {
+    name: UPDATE_TICKET_TOOL,
+    description:
+      'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
+    shape: updateTicketToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
   ...PROJECT_MEMORY_TOOL_DEFINITIONS,

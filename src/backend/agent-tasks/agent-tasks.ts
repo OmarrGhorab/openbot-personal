@@ -11,6 +11,9 @@ import {
   type AgentTaskQuestion,
   type AgentTasksSnapshot,
   agentTaskLimit,
+  BOARD_TICKET_COMMENT_LIMIT,
+  BOARD_TICKET_PROGRESS_LIMIT,
+  type BoardTicketStatus,
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
@@ -50,6 +53,26 @@ export interface AgentTaskPullRegistry {
   ): "registered" | "not-a-ticket-task" | "owned-by-another";
 }
 
+/** The agent calls it in the work thread of a Tickets board ticket, to update that ticket. */
+export const UPDATE_TICKET_TOOL = "update_ticket";
+
+/** The columns an agent can move its own ticket to. Done is the person's approval. */
+export const AGENT_TICKET_STATUSES = ["backlog", "running", "needs_review"] as const;
+
+export const updateTicketToolSchema = z.strictObject({
+  status: z.enum(AGENT_TICKET_STATUSES).optional(),
+  progress: z.string().trim().max(BOARD_TICKET_PROGRESS_LIMIT).optional(),
+  comment: z.string().trim().min(1).max(BOARD_TICKET_COMMENT_LIMIT).optional(),
+});
+
+export type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
+
+/** The Tickets board, for the `update_ticket` tool. The composition root gives `BoardTicketService`. */
+export interface AgentTaskBoard {
+  /** Updates the ticket of the work thread. Null when the work thread does no ticket. */
+  updateForTask(taskId: string, update: AgentTicketUpdate): { id: string; status: BoardTicketStatus } | null;
+}
+
 export const startTaskToolSchema = z.strictObject({
   title: z.string().trim().min(1).max(INPUT_LIMITS.agentTaskTitle),
   brief: z.string().trim().min(1).max(INPUT_LIMITS.messageText),
@@ -86,6 +109,8 @@ export interface AgentTasksOptions {
   hooks: AgentTasksHooks;
   /** Pull requests of ticket work threads. Null when the composition root has no ticket intake. */
   pulls?: AgentTaskPullRegistry | null;
+  /** The Tickets board, for the agent's own ticket updates. Null when the composition root has no board. */
+  board?: AgentTaskBoard | null;
 }
 
 /**
@@ -103,6 +128,7 @@ export class AgentTasks implements TaskLanes {
   readonly #conversation: ConversationRuntime;
   readonly #hooks: AgentTasksHooks;
   readonly #pulls: AgentTaskPullRegistry | null;
+  readonly #board: AgentTaskBoard | null;
   /** The last progress line of each running task turn, by task id. */
   readonly #progress = new Map<string, string>();
   /** The last turn of each task that the user stopped, by task id. */
@@ -116,6 +142,7 @@ export class AgentTasks implements TaskLanes {
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
     this.#pulls = options.pulls ?? null;
+    this.#board = options.board ?? null;
   }
 
   threadId(taskId: string): string | null {
@@ -346,6 +373,7 @@ export class AgentTasks implements TaskLanes {
     caller: AgentTaskCaller,
   ): Effect.fn.Return<OpenBotToolResponse | null> {
     if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
+    if (params.tool === UPDATE_TICKET_TOOL) return this.#updateTicket(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -474,6 +502,24 @@ export class AgentTasks implements TaskLanes {
     }
     if (outcome === "owned-by-another") return openBotToolFailure(sourceText("error.backend.pullRequestOwned"));
     return openBotToolFailure(sourceText("error.backend.pullRequestNotTicketTask"));
+  }
+
+  /** Answers `update_ticket` from the work thread that calls it: only its own ticket changes. */
+  #updateTicket(params: DynamicToolCallParams, agentId: string): OpenBotToolResponse {
+    const parsed = updateTicketToolSchema.safeParse(params.arguments);
+    const update = parsed.success ? parsed.data : null;
+    if (!update || (update.status === undefined && update.progress === undefined && update.comment === undefined)) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
+    }
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    if (!task || !this.#board) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    try {
+      const ticket = this.#board.updateForTask(task.taskId, update);
+      if (!ticket) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+      return openBotToolResult({ ticketId: ticket.id, status: ticket.status });
+    } catch (error) {
+      return openBotToolFailure(error instanceof Error ? error.message : String(error));
+    }
   }
 
   #taskOf(threadId: string | null): AgentTaskRecord | null {

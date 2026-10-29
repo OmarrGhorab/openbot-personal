@@ -10,6 +10,11 @@ export const messages = {
   "error.agent.boardTickets.emptyComment": "اكتب تعليق قبل ما تبعته.",
   "error.agent.boardTickets.alreadyStarted": "التذكرة دي ليها ثريد بالفعل.",
   "error.agent.boardTickets.startUnavailable": "التذاكر مش قادرة تبدأ ثريد على الجهاز ده.",
+  "error.agent.boardTickets.threadFailed": "آخر دور في الثريد بتاعها فشل.",
+  "error.agent.boardTickets.threadStopped": "الثريد بتاعها اتوقف قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.toolInvalid":
+    "اكتب حالة (backlog أو running أو needs_review)، أو سطر تقدّم 500 حرف على الأكتر، أو تعليق.",
+  "error.agent.boardTickets.notTicketThread": "المهمة اللي شغّالة على تذكرة في لوحة التذاكر بس هي اللي تقدر تحدّثها.",
   "error.agent.approvalWhileDeleting": "مينفعش تدي موافقة والإيجنت بيتمسح.",
   "error.agent.accessLocalOnly": "صلاحيات الإيجنت ممكن تتغيّر بس على الجهاز اللي شغّال عليه الإيجنت.",
   "error.agent.duplicateCleanupFailed": "تكرار الإيجنت فشل والنسخة الناقصة معرفتش تتمسح.",
