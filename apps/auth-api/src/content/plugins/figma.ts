@@ -26,22 +26,22 @@ export const FIGMA_PLUGIN_GUIDE: PluginGuide = {
     {
       question: "Does the Figma MCP server need an API key?",
       answer:
-        "No. OpenBot connects to Figma's remote MCP server. Each user signs in to their own Figma account through the browser and approves the access. OpenBot does the sign-in itself and keeps the tokens in encrypted storage. The Figma desktop app does not need to run.",
+        "No. OpenBot connects to the desktop MCP server in the Figma desktop app on your computer. Sign in to the app, open a design file, and turn on the desktop MCP server. Keep Figma open while agents use it.",
     },
     {
       question: "Which Figma plan does the plugin need?",
       answer:
-        "Figma limits tool calls by seat and plan. A Dev or Full seat on a Professional, Education, Organization, Government or Enterprise plan gets the most calls. For example, a Dev or Full seat on the Professional plan gets up to 200 calls a day and 10 a minute.",
+        "The desktop server needs a Dev or Full seat on a Professional, Education, Organization, Government or Enterprise plan. Figma limits tool calls by seat and plan. For example, a Dev or Full seat on the Professional plan gets up to 200 calls a day and 10 a minute.",
     },
     {
       question: "Can an agent edit my Figma designs?",
       answer:
-        "Yes, where Figma's remote server allows it. Figma says that writing to the canvas works only with its remote server, which this listing uses. Review each write before you approve it.",
+        "Not with this plugin. Figma says that the desktop server does not support writing to the canvas. Write to canvas works only with Figma's remote server. The OpenBot listing reads layout, code context, variables and screenshots.",
     },
     {
       question: "Is the Figma MCP server official?",
       answer:
-        "Yes. Figma makes the MCP server. This listing uses the remote server, which Figma recommends for most users. Figma also has a desktop server that runs in the Figma desktop app, which this listing does not use.",
+        "Yes. Figma makes the MCP server. The desktop server runs locally in the Figma desktop app. Figma also has a remote server, which it recommends for most users, but this OpenBot listing uses the desktop server.",
     },
   ],
   sources: [

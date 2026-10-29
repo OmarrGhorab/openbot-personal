@@ -7,10 +7,8 @@
 - Tickets page: search, the ticket system and key above each title, and a scroll in each column so a long Backlog stays short.
 - Raven Stack team page, redesigned. It has two steps, Ticket and Team, with presets for a full feature and a small ticket, one card for each role, and a start bar that names the team. The team is checked as you write the ticket, so each role shows its provider, model and effort without a button. Running jobs show their roles as a row of steps.
 - Skip roles for an easy ticket. Switch off the Architect, Reviewer or Quality for one ticket. A skipped Architect hands its planning to the Builder. If no role checks the work, the job ends when the Builder commits, and the page warns you first.
-
 - Agents can create a channel. Ask an agent to make a channel with other agents, and it uses the new create_channel tool: it adds itself and the agents you name, and leads the channel unless you say otherwise.
 - The tasks of an agent sit beside its row in the sidebar. A small button shows the state of the lead task and how many are open, and opens the list with New task.
-- Figma connects to Figma's remote MCP server with a browser sign-in, like the other apps. Before, it needed the Figma desktop app with its local server turned on, and it could only read designs.
 
 ### Changed
 
