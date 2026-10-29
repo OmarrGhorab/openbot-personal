@@ -851,13 +851,10 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   /** The app that a suggestion card opens in Marketplace. A plugin link from the address comes in props. */
   const [suggestedApp, setSuggestedApp] = createSignal<{ appId: string; connect: boolean } | null>(null);
   const agentTemplateCalls = createWebAgentTemplateCalls(props.accountFetch, hostRequest);
-  // A sign-in can change in another tab, so each window reads the connectors again when it opens.
-  createEffect(
-    () => marketplaceOpen() || serverSettings.state.open,
-    (open) => {
-      if (open) connectors.reload();
-    },
-  );
+  // A sign-in can change in another tab, so the Marketplace reads the connectors again when it opens.
+  createEffect(marketplaceOpen, (open) => {
+    if (open) connectors.reload();
+  });
   // A link opens its overlay once it has arrived, which can be after sign-in.
   createEffect(
     () => props.inviteUrl,
