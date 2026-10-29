@@ -11,6 +11,11 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.emptyComment": "Write a comment before you send it.",
   "error.agent.boardTickets.alreadyStarted": "This ticket already has a thread.",
   "error.agent.boardTickets.startUnavailable": "Tickets cannot start a thread on this computer.",
+  "error.agent.boardTickets.threadFailed": "The last turn of its thread failed.",
+  "error.agent.boardTickets.threadStopped": "Its thread was stopped before the work was done.",
+  "error.agent.boardTickets.toolInvalid":
+    "Give a status (backlog, running or needs_review), a progress line of at most 500 characters, or a comment.",
+  "error.agent.boardTickets.notTicketThread": "Only a task that does a Tickets board ticket can update it.",
   // Agent errors that the main process and the backend send.
   "error.agent.approvalWhileDeleting": "Cannot grant approval while the agent is being deleted.",
   "error.agent.accessLocalOnly": "Agent access can only be changed on the computer that runs the agent.",

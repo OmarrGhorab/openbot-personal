@@ -1,24 +1,36 @@
-// The Tickets board group of the preview: tickets and their activity in memory. No agent runs, so a
-// ticket moves only when the preview moves it. The board starts empty, as it does after the upgrade;
-// a story or a smoke check passes seed tickets. With `startThread`, a started ticket gets a mock work
-// thread of the agent mock.
+// The Tickets board group of the preview: tickets and their activity in memory. The board starts empty,
+// as it does after the upgrade; a story or a smoke check passes seed tickets. With `startThread`, a
+// started ticket gets a mock work thread of the agent mock. With `followTasks`, the agent moves the
+// ticket of each work thread as the desktop does: Running while a turn runs, Needs review when it ends,
+// and back to Backlog with the failure line when it fails or is stopped.
 
-import type {
-  BoardTicket,
-  BoardTicketActor,
-  BoardTicketEvent,
-  BoardTicketEventKind,
-  BoardTicketStatus,
-  BoardTicketsChanged,
-  OpenBotDesktopApi,
+import {
+  type AgentTasksSnapshot,
+  type BoardTicket,
+  type BoardTicketActor,
+  type BoardTicketEvent,
+  type BoardTicketEventKind,
+  type BoardTicketStatus,
+  type BoardTicketsChanged,
+  boardTicketWorkStep,
+  type MoveBoardTicketInput,
+  type OpenBotDesktopApi,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 
 type BoardTicketsApi = OpenBotDesktopApi["boardTickets"];
 
 /** Starts a mock work thread of the agent with the text, and returns its task and thread IDs. */
 type StartMockThread = (agentId: string, text: string) => { taskId: string; threadId: string };
 
-export function mockBoardTickets(seed: readonly BoardTicket[] = [], startThread?: StartMockThread): BoardTicketsApi {
+/** Hands each task list of the agent mock to the listener, as `agent-tasks-changed` does. */
+type FollowMockTasks = (listener: (snapshot: AgentTasksSnapshot) => void) => void;
+
+export function mockBoardTickets(
+  seed: readonly BoardTicket[] = [],
+  startThread?: StartMockThread,
+  followTasks?: FollowMockTasks,
+): BoardTicketsApi {
   let tickets: BoardTicket[] = seed.map((ticket) => ({ ...ticket, statusTimes: { ...ticket.statusTimes } }));
   const events: BoardTicketEvent[] = [];
   const listeners = new Set<(payload: BoardTicketsChanged) => void>();
@@ -61,6 +73,31 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = [], startThread?
     tickets = tickets.map((ticket) => (ticket.id === next.id ? next : ticket));
     emitChanged([next.id]);
     return next;
+  };
+
+  const moveTicket = (input: MoveBoardTicketInput, actor: BoardTicketActor): BoardTicket => {
+    const current = find(input.ticketId);
+    const before = input.beforeTicketId ? tickets.find((ticket) => ticket.id === input.beforeTicketId) : undefined;
+    const column = tickets
+      .filter((ticket) => ticket.status === input.status && ticket.id !== current.id)
+      .sort((left, right) => left.order - right.order);
+    let order = endOrder(input.status);
+    if (before && before.status === input.status) {
+      const index = column.findIndex((ticket) => ticket.id === before.id);
+      const previous = column[index - 1];
+      order = previous ? (previous.order + before.order) / 2 : before.order - 1;
+    }
+    const time = now();
+    const changed = current.status !== input.status;
+    if (changed) addEvent(current.id, "moved", actor, { fromStatus: current.status, toStatus: input.status });
+    return replace({
+      ...current,
+      status: input.status,
+      order,
+      statusTimes: changed ? { ...current.statusTimes, [input.status]: time } : current.statusTimes,
+      statusChangedAt: changed ? time : current.statusChangedAt,
+      updatedAt: time,
+    });
   };
 
   const api: BoardTicketsApi = {
@@ -113,30 +150,7 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = [], startThread?
         updatedAt: now(),
       });
     },
-    move: async (input) => {
-      const current = find(input.ticketId);
-      const before = input.beforeTicketId ? tickets.find((ticket) => ticket.id === input.beforeTicketId) : undefined;
-      const column = tickets
-        .filter((ticket) => ticket.status === input.status && ticket.id !== current.id)
-        .sort((left, right) => left.order - right.order);
-      let order = endOrder(input.status);
-      if (before && before.status === input.status) {
-        const index = column.findIndex((ticket) => ticket.id === before.id);
-        const previous = column[index - 1];
-        order = previous ? (previous.order + before.order) / 2 : before.order - 1;
-      }
-      const time = now();
-      const changed = current.status !== input.status;
-      if (changed) addEvent(current.id, "moved", "user", { fromStatus: current.status, toStatus: input.status });
-      return replace({
-        ...current,
-        status: input.status,
-        order,
-        statusTimes: changed ? { ...current.statusTimes, [input.status]: time } : current.statusTimes,
-        statusChangedAt: changed ? time : current.statusChangedAt,
-        updatedAt: time,
-      });
-    },
+    move: async (input) => moveTicket(input, "user"),
     comment: async (input) => {
       find(input.ticketId);
       const text = input.text.trim();
@@ -175,5 +189,28 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = [], startThread?
       };
     },
   };
+  // The agent moves the ticket of each work thread, with the rule of the desktop: only when the column
+  // that the thread asks for changes, and never out of Done unless a new turn runs.
+  const asked = new Map<string, BoardTicketStatus>();
+  followTasks?.((snapshot) => {
+    for (const task of snapshot.tasks) {
+      const step = boardTicketWorkStep(task);
+      if (!step || asked.get(task.id) === step.status) continue;
+      const ticket = tickets.find((candidate) => candidate.taskId === task.id);
+      if (!ticket) continue;
+      asked.set(task.id, step.status);
+      if (ticket.status === "done" && step.status !== "running") continue;
+      const error =
+        step.failure === null
+          ? null
+          : step.failure === "stopped"
+            ? sourceText("error.agent.boardTickets.threadStopped")
+            : task.error || sourceText("error.agent.boardTickets.threadFailed");
+      if (error !== ticket.error && (error !== null || step.status === "running")) {
+        replace({ ...ticket, error, updatedAt: now() });
+      }
+      if (ticket.status !== step.status) moveTicket({ ticketId: ticket.id, status: step.status }, "agent");
+    }
+  });
   return api;
 }

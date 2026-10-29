@@ -1,3 +1,4 @@
+import type { AgentTask } from "./ipc-agent-tasks";
 import { isBoundedString, isFiniteNumber, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import { isDynamicRecord, isOneOf } from "./runtime-values";
 
@@ -124,6 +125,41 @@ export interface StartBoardTicketInput {
   ticketId?: string;
   title?: string;
   body?: string;
+}
+
+/** Why the work of a ticket went back to Backlog: its last turn failed, or the person stopped it. */
+export type BoardTicketWorkFailure = "failed" | "stopped";
+
+/** The column that the work thread of a ticket asks for, and why it went back when it did. */
+export interface BoardTicketWorkStep {
+  status: BoardTicketStatus;
+  failure: BoardTicketWorkFailure | null;
+}
+
+/**
+ * The column that a ticket's work thread asks for: Queued while its message waits for a slot of the
+ * agent, Running while a turn runs, Needs review while the turn asks the person a question or after a
+ * turn that completed, and Backlog after a turn that failed or that the person stopped. Null: the
+ * thread asks for no change (it is closed, or no turn of it ended yet). Done is the person's approval,
+ * so a thread never asks for it. The desktop and the preview move tickets with the same rule.
+ */
+export function boardTicketWorkStep(
+  task: Pick<AgentTask, "state" | "outcome" | "question">,
+): BoardTicketWorkStep | null {
+  if (task.state === "closed") return null;
+  if (task.question) return { status: "needs_review", failure: null };
+  if (task.state === "running") return { status: "running", failure: null };
+  if (task.state === "queued") return { status: "queued", failure: null };
+  switch (task.outcome) {
+    case "completed":
+      return { status: "needs_review", failure: null };
+    case "failed":
+      return { status: "backlog", failure: "failed" };
+    case "interrupted":
+      return { status: "backlog", failure: "stopped" };
+    default:
+      return null;
+  }
 }
 
 export function isBoardTicketStatus(value: unknown): value is BoardTicketStatus {
