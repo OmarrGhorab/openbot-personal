@@ -1990,7 +1990,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                         remoteDesktopSupported={false}
                         server={target()}
                         hostStatus={null}
-                        connectors={connectors}
                         members={serverSettings.state.members}
                         invites={serverSettings.state.invites}
                         loading={serverSettings.state.loading}
