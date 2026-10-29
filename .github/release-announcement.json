@@ -1,5 +1,5 @@
 {
-  "version": "0.52.0",
+  "version": "0.51.2",
   "highlights": [
     "Choose a mascot for the app icon in Settings > General > App icon. The Dock or taskbar icon shows it in your logo color.",
     "Sync Jira issues into the Tickets board. Connect Atlassian in the Marketplace, then pick a Jira project in Sync tickets.",
