@@ -8,10 +8,10 @@ import { fallbackFor, VoicePreferenceStore } from "./voice-preference-store";
 const file = () => join(mkdtempSync(join(tmpdir(), "voice-pref-")), "voice-preference.json");
 
 describe("VoicePreferenceStore", () => {
-  it("defaults to Whisper with automatic language and an Arabic hint", async () => {
+  it("defaults to Parakeet with automatic language and an Arabic hint", async () => {
     const store = new VoicePreferenceStore(file());
     await Effect.runPromise(store.load());
-    expect(store.get()).toEqual({ modelId: "whisper-turbo", language: "automatic", fallbackLanguage: "ar" });
+    expect(store.get()).toEqual({ modelId: "parakeet-tdt-0.6b-v3", language: "automatic", fallbackLanguage: "ar" });
   });
 
   it("keeps a saved fixed language, which is also the hint", async () => {
