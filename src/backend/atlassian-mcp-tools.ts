@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { McpServerConfig } from "@openbot/contracts/ipc";
 import { Effect, Schema } from "effect";
 import { TicketSourceFailed } from "./agent-tickets/ticket-source";
@@ -98,6 +99,24 @@ const answerSchema = Schema.Struct({
 const envelopeSchema = Schema.Struct({ data: Schema.Unknown });
 
 /**
+ * The SDK class declares its handlers as `T | undefined`, which `Transport` refuses under
+ * `exactOptionalPropertyTypes`. This passes each call through and sends each event to the handlers
+ * that the client sets on the result, so no assertion is needed.
+ */
+function connectable(inner: StreamableHTTPClientTransport): Transport {
+  const transport: Transport = {
+    start: () => inner.start(),
+    send: (message, options) => inner.send(message, options),
+    close: () => inner.close(),
+    setProtocolVersion: (version) => inner.setProtocolVersion(version),
+  };
+  inner.onclose = () => transport.onclose?.();
+  inner.onerror = (error) => transport.onerror?.(error);
+  inner.onmessage = (message) => transport.onmessage?.(message);
+  return transport;
+}
+
+/**
  * The Atlassian MCP server, called with the sign-in that the person made in the Marketplace. Each call
  * opens its own connection and closes it again, so no connection or token outlives the call. A failure
  * keeps its cause private; no message, token or response body reaches the person.
@@ -116,10 +135,12 @@ export function createAtlassianTools(options: AtlassianToolsOptions): AtlassianT
       const text = yield* Effect.acquireUseRelease(
         Effect.sync(() => ({
           client: new Client({ name: "openbot-board-sync", version: "1" }, { capabilities: {} }),
-          transport: new StreamableHTTPClientTransport(new URL(server.url), {
-            fetch: secureOAuthFetch({ resource: server.url, mcpTraffic: true }),
-            requestInit: { headers: { Authorization: `Bearer ${token}` } },
-          }),
+          transport: connectable(
+            new StreamableHTTPClientTransport(new URL(server.url), {
+              fetch: secureOAuthFetch({ resource: server.url, mcpTraffic: true }),
+              requestInit: { headers: { Authorization: `Bearer ${token}` } },
+            }),
+          ),
         })),
         ({ client, transport }) =>
           Effect.tryPromise({
