@@ -687,7 +687,7 @@ export const messages = defineMessages("settings", {
   "settings.transfer.copy.reauthenticate": "Set up in {section}",
   "settings.transfer.copy.openProviders": "providers",
   "settings.transfer.copy.openMcp": "MCP",
-  "settings.transfer.copy.openConnectors": "connectors",
+  "settings.transfer.copy.openConnectors": "Marketplace Apps",
   "settings.transfer.copy.secretsMigrationMissing":
     "This transfer has no migration ID, so saved sign-ins were not sent. The source is unchanged.",
   "settings.transfer.copy.secretsFailed": "Saved sign-ins could not be transferred. The source is unchanged.",

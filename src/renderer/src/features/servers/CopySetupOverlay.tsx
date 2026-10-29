@@ -16,7 +16,10 @@ import {
 } from "@openbot/ui/features/servers/CopySetupDialog";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, untrack } from "solid-js";
+import { useSettings } from "../settings/settings-context";
+import { copySetupReauthDestination } from "./copy-setup-reauth";
 import { canCopyFrom, copyTargetOptions } from "./copy-setup-targets";
+import { useServerSelection } from "./server-selection";
 import { useServerSettings } from "./server-settings";
 import { useServers } from "./servers-context";
 
@@ -66,8 +69,10 @@ const INITIAL: CopySetupState = {
  * removes the moved agents, and a failed run can undo only what this migration created.
  */
 export function CopySetupOverlay() {
-  const { servers, copySetupSourceId, setCopySetupSourceId } = useServers();
+  const { servers, activeServer, copySetupSourceId, setCopySetupSourceId } = useServers();
   const { openServerSettings } = useServerSettings();
+  const { selectServer } = useServerSelection();
+  const { setSkillsMarketplaceOpen } = useSettings();
   const { t, errorMessage } = useText();
   const calls = window.openbot.instanceTransfer;
   const [state, setState] = createStore<CopySetupState>({ ...INITIAL });
@@ -405,6 +410,12 @@ export function CopySetupOverlay() {
     setCopySetupSourceId(null);
   }
 
+  /** Connectors live in Marketplace › Apps of the server on screen, so the target is shown first. */
+  async function openMarketplaceApps(serverId: string): Promise<void> {
+    if (activeServer()?.id !== serverId && !(await selectServer(serverId, false).catch(() => false))) return;
+    setSkillsMarketplaceOpen(true);
+  }
+
   return (
     <CopySetupDialog
       open={source() !== null}
@@ -443,7 +454,10 @@ export function CopySetupOverlay() {
       }}
       onReauthenticate={(section: InstanceTransferSecretSection) => {
         const targetId = state.targetId;
-        if (targetId) openServerSettings(targetId, null, section);
+        if (!targetId) return;
+        const destination = copySetupReauthDestination(section);
+        if (destination.kind === "server-settings") openServerSettings(targetId, null, destination.section);
+        else void openMarketplaceApps(targetId);
       }}
       onClose={close}
       onDone={done}

@@ -79,18 +79,6 @@ export const messages = defineMessages("connector", {
   "connector.statusUnknown": "Unknown",
   "connector.readFailed": "OpenBot could not read the state of this connection.",
 
-  // Server settings > Connectors: the list of integrations. Each row opens its page.
-  "connector.hub.onThisComputer": "On this computer",
-  "connector.hub.onHost": "On {host}",
-  "connector.hub.notSetUp": "Not set up",
-  "connector.hub.available": "Available",
-  "connector.hub.localOnly": "Your computer only",
-  // {name} is the name of an integration, such as Slack.
-  "connector.hub.open": "Open {name}",
-  "connector.hub.setUp": "Set up",
-  // {names} lists the agents, such as "Chief, Research".
-  "connector.hub.usedBy": "Used by {names}",
-
   // Marketplace > Apps > Slack: a workspace installs the one OpenBot app, and the Slack
   // Orchestrator agent receives each request, asks the team and answers.
   "connector.slack.title": "Slack",
