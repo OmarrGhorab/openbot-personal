@@ -1666,39 +1666,39 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       when={settingsKind()}
                       keyed
                       fallback={
-                      <MarketplaceOverlay
-                        open={page() === "marketplace"}
-                        onOpenChange={setMarketplaceOpen}
-                        calls={marketplaceCalls}
-                        connectors={connectors}
-                        server={server()}
-                        agents={workspace.state.agents}
-                        activeAgentId={workspace.state.selectedId ?? ""}
-                        composerAvailable={status().phase === "ready" && !agentFormOpen()}
-                        onOpenAgent={(agentId) => {
-                          setMobilePane("conversation");
-                          if (agentId !== workspace.state.selectedId) void select(agentId);
-                          else {
-                            // The agent is already loaded; only what covers its conversation closes.
-                            setCreating(false);
-                            showAgents();
-                            channels.close();
-                          }
-                        }}
-                        onAgentInstalled={async (agent) => {
-                          setMarketplaceOpen(false);
-                          await openAddedAgent(agent);
-                        }}
-                        pluginSlug={suggestedApp()?.appId ?? props.pluginSlug}
-                        pluginConnect={suggestedApp()?.connect ?? false}
-                        onPluginSlugConsumed={() => {
-                          if (suggestedApp()) setSuggestedApp(null);
-                          else props.onPluginSlugConsumed?.();
-                        }}
-                        onAddServer={(serverId) => {
-                          void openServerSettings(serverId, null, "mcp").then(() => setMcpAddRequest(true));
-                        }}
-                      />
+                        <MarketplaceOverlay
+                          open={page() === "marketplace"}
+                          onOpenChange={setMarketplaceOpen}
+                          calls={marketplaceCalls}
+                          connectors={connectors}
+                          server={server()}
+                          agents={workspace.state.agents}
+                          activeAgentId={workspace.state.selectedId ?? ""}
+                          composerAvailable={status().phase === "ready" && !agentFormOpen()}
+                          onOpenAgent={(agentId) => {
+                            setMobilePane("conversation");
+                            if (agentId !== workspace.state.selectedId) void select(agentId);
+                            else {
+                              // The agent is already loaded; only what covers its conversation closes.
+                              setCreating(false);
+                              showAgents();
+                              channels.close();
+                            }
+                          }}
+                          onAgentInstalled={async (agent) => {
+                            setMarketplaceOpen(false);
+                            await openAddedAgent(agent);
+                          }}
+                          pluginSlug={suggestedApp()?.appId ?? props.pluginSlug}
+                          pluginConnect={suggestedApp()?.connect ?? false}
+                          onPluginSlugConsumed={() => {
+                            if (suggestedApp()) setSuggestedApp(null);
+                            else props.onPluginSlugConsumed?.();
+                          }}
+                          onAddServer={(serverId) => {
+                            void openServerSettings(serverId, null, "mcp").then(() => setMcpAddRequest(true));
+                          }}
+                        />
                       }
                     >
                       {(kind) => (
