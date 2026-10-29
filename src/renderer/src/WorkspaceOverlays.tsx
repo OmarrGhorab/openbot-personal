@@ -138,6 +138,7 @@ export function SkillsMarketplace() {
   const { selectAgent } = useNavigation();
   const { activeServer } = useServers();
   const { openInstalledMarketplaceAgent } = useServerSelection();
+  const { openMcpAdd } = useServerSettings();
   const connectors = useConnectors();
   const { remoteDesktopWorkspaceVisible, hideRemoteDesktopWorkspace } = useRemoteDesktop();
   // The remote desktop covers the window card, so a link or a search that opens the page hides it.
@@ -163,7 +164,10 @@ export function SkillsMarketplace() {
         setPendingPluginConnect(false);
       }}
       connectors={connectors.active}
-      variant="page"
+      onAddServer={(serverId) => {
+        setSkillsMarketplaceOpen(false);
+        openMcpAdd(serverId, null);
+      }}
     />
   );
 }
@@ -399,6 +403,8 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
     serverSettingsMcpSignIns,
     serverSettingsMcpSignInRequest,
     clearMcpSignInRequest,
+    serverSettingsMcpAddRequest,
+    clearMcpAddRequest,
     serverSettingsMcpSignInPages,
     serverSettingsMcpSignInRelays,
     openMcpSignInRelay,
@@ -647,6 +653,8 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
           onRemoveMcpServer={removeMcpServer}
           onSetMcpServerEnabled={setMcpServerEnabled}
           onTestMcpServer={testMcpServer}
+          mcpAddRequest={serverSettingsMcpAddRequest()}
+          onMcpAddRequestHandled={clearMcpAddRequest}
           // A remote host with `sign-in-relay-v1` opens the page in this computer's browser. An older
           // host's page shows here through the live view, which streams the active server only.
           mcpSignInRequest={serverSettingsMcpSignInRequest()}
