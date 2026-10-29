@@ -6,6 +6,337 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-10-29
+
+### Added
+
+- You can open the desktop app without the account service. Set `OPENBOT_DEV_SKIP_ACCOUNT=1` before
+  you start OpenBot. The app then uses a local account on this computer. A development or preview
+  build also shows **Continue without account (dev)** on the sign-in screen. A production build does
+  not, and the option stays off until you set the variable.
+- Hold the dictation shortcut to speak, and release it to send the message. Settings > Voice can switch that to two presses. The same settings choose the default agent.
+- The voice menu and the recording pill grow out of the top of the screen, like the camera notch. The pill shows a live level, then a short confirmation with the agent name and Open chat.
+- On a Mac, Settings > Voice asks for Accessibility when hold cannot see the key go up, and for the microphone when dictation cannot hear you.
+- Local development and the `omar` account deploy read a private env file
+  (`~/.openbot-backend.env`, or `OPENBOT_BACKEND_ENV_FILE`). They do not need the upstream dotenvx key.
+- `bun run api:ticket-keys` writes the ticket signing key into that file and does not print it.
+- `bun run api:deploy:omar` and `bun run api:migrate:omar` target the free-tier `account` Worker.
+  It binds `openbot-omar-avatars`, `openbot-omar-skills`, and `openbot-omar-sites`. A missing
+  bucket binding still answers 503. See `docs/own-backend.md`.
+- ElevenLabs Scribe dictation now streams while you speak, shows partial words as they arrive, and
+  replays the utterance after a dropped connection. The final text replaces the live text, so no
+  words are duplicated. If the final text cannot be fetched, the island shows an error instead of
+  sending the live text, which may be cut short. Each send takes only the new microphone audio
+  instead of decoding the whole recording again.
+- Egyptian Arabic interface. Select العربية (مصر) in Settings > General > Language, or keep System default on a computer that uses Arabic. The web client uses it too.
+- Arabic screens read right to left, including the sidebar, the composer and the settings window.
+- Drag the Dynamic Island anywhere on a display. It goes back to the same place after a restart, for each display.
+- The desktop updater checks the releases of OmarrGhorab/openbot-personal. Windows and Linux AppImage download and install updates as before. An unsigned macOS build shows the update as available, and its button opens the release page, because macOS installs only signed updates.
+- Dictate to an agent from any app. The dictation shortcut (Command+Shift+Space on a Mac, Ctrl+Shift+Space
+  elsewhere) starts dictation to the agent you used last, and a small pill at the bottom of the screen
+  shows the agent, the live text and the state. Press the shortcut again to send. Tab changes the agent
+  while it listens, and Escape cancels. The pill does not take the keyboard from the app you work in.
+- An agent picker (Alt+Shift+Space) lists your agents, most recent first. Type to filter, use the arrow
+  keys or the number keys 1 to 9, and press Enter.
+- A direct shortcut for each agent, in the agent settings. It starts dictation to that agent without the
+  picker.
+- Settings > Voice: turn the global shortcuts off, change them, and choose whether a dictated message is
+  sent when you stop or kept for review. A shortcut that another app holds is shown as taken.
+- Add 13 apps to the Marketplace: Cloudflare, Apple apps, Supabase, Obsidian, Render, Trello, Neon, Prisma,
+  Netlify, Railway, Atlassian, Todoist and Hugging Face. Each app has English and Arabic text.
+- The app keeps one live record of what the agents of a channel do: their status, their tasks, their
+  tool calls and the messages between them. The coming Monitor view reads it, on the desktop and in
+  the web app. Secrets in a tool call are removed before the record leaves the app's background
+  process, and only the main window can read it.
+- Shared parts for the coming Monitor view: a status pill, a count chip, a progress bar, an agent
+  card for the canvas, a feed item and a tool call row. Each status has its own colour: working,
+  waiting, error, done and idle. The parts are in English and Egyptian Arabic.
+- The page rail has a Monitor item after Agents. The Monitor sidebar shows how many agents work, wait or have an error now, and a click on a count filters the Monitor. It lists the channels with their agent count, their activity and unread messages, and the agents with their status line. The search field opens the global search, and **+** opens the new channel dialog. Desktop and the web client.
+- A Monitor channel opens on a canvas: one card per agent, in columns by hand-off order, and a curved line between agents that work together. An active line is blue and dashed; a finished line is grey. Each line shows its message count or "Assigned". A click on a card selects the agent, and a click on a line label opens the conversation. The arrow keys move between cards, and Enter selects one. Cards keep their place when the channel changes. The header shows the Live pill, the agent icons and the Canvas / Feed / Tasks switch; the legend and "Ask an agent about this channel" sit at the bottom corners. Desktop and the web client.
+- A Monitor channel has a Feed view: every event of the channel, newest first, with messages, task starts with their progress, tool runs, messages between agents and status changes. An error event has a red border. Desktop and the web client.
+- A Monitor channel has a Tasks view: a table with the task, its agent, status, progress, start and tool calls, and filter chips for All, Running, Waiting, Error and Done with a count each. A row opens its agent. Desktop and the web client.
+- **Pause feed** in the channel header stops the Canvas, Feed and Tasks views from changing; the agents keep working. A banner shows how many new events wait, and **Resume** shows them, each once. Leaving the channel ends the pause. The Canvas / Feed / Tasks switch keeps the open channel.
+- A click on an agent in the Monitor (canvas card, sidebar row or Tasks row) opens the agent popup: the agent's status, role and provider, what it does now (task, text, step n of m, start time and progress), its last five tool calls with the running one highlighted, and the agents it talks to with message counts. An idle agent shows "No task". Esc, the close button or a click on the dim layer closes it. Desktop and the web client.
+- **Open thread** in the popup opens the agent's thread. The thread then shows **Back to monitor**, which opens the Monitor again with the same channel and view.
+- **Stop task** in the popup asks for confirmation first and says what stops and what stays in the workspace. An agent task stops with the existing task Stop; a channel task is held, and **Resume task** continues it. The agent keeps its workspace, thread and identity.
+- **View all** in the agent popup opens every tool call of the agent's task. A filter (All, Running, Failed) sits above a list of calls, with the detail of the selected call on the right: tool, argument, start time, duration, requested by, input and output. Output lines that add or remove text show in green and red. A long output shows the first 200 lines and a **Show more** control. A running call updates live. Desktop and the web client.
+- **Copy input** copies the input of the call, redacted. **Open in thread** opens the agent's thread. Secrets in a tool call's input and output are redacted before the Monitor shows them.
+- A click on a line label of the Monitor canvas, or on a name in **Talking to** in the agent popup, opens the conversation between the two agents in a side drawer. The drawer shows both agents, the message count and the time of the last message, which match the line label. The messages are listed oldest first, with the newest 200 of a long conversation. **Open Developer thread** and **Open Designer thread** open the agent's thread. The drawer is read-only and closes with Esc or the close button. Desktop only: the web client has no mailbox, so its drawer lists only the messages on the channel page.
+- The status filter of the Monitor sidebar (Working, Waiting, Errors) dims the agents that do not match on the canvas. Cards stay where they are, and the lines between dimmed agents dim too. A chip names the status and the count, with an x that clears the filter. Clearing the filter restores the full view with no layout change.
+- A channel with no activity shows an empty canvas: an icon, "Nothing running in #name", a short text and **Create routine**, which opens the routines view. The header shows an Idle pill instead of Live. Desktop only.
+- The channel header's agent icons open a **Members** popover. Each member shows its name, its role (Lead or Member) and its status. **Remove from channel** in a member's menu takes the agent out of the channel. The agent keeps its thread, workspace and identity. **Add agent** opens the add-agent dialog. Desktop and the web client.
+- **Add agent to channel** lists the agents that are not members. **Add** saves the channel with the agent as a member, and the agent shows on the canvas when the channel changes. **Done** closes the dialog.
+- A channel that the sidebar creates while the Monitor is open is shown in the Monitor. The Canvas, Feed or Tasks view stays selected.
+- **Ask an agent about this channel** in the Monitor canvas opens a floating panel at the bottom left. It has suggested questions, a question box, the answer and the agents the answer names. A chip opens that agent's popup. The question goes to the channel lead through the existing message send, with the channel snapshot as context. Secrets in the context are redacted first. The answer shows as it arrives. **Stop reading** stops showing the answer; the agent keeps its turn. Desktop only.
+- **All agents** in the Monitor sidebar opens a grid of every agent of the listed channels. Each card shows the role (Channel lead, or the provider), the name, the current task, the status, how long ago the status started, and the channel. Filter chips (All, Working, Waiting, Error, Idle) share the sidebar's "Live now" filter. A click on a card opens the agent popup. The Agents rail icon still opens the chat.
+- **Back to monitor** in an agent's thread returns to the Monitor with the same channel and view. This was already in place; the all-agents view now returns the same way.
+- **Pause task** in the agent popup holds the queue of an agent task. The running turn ends. The next queued message waits until **Resume task**, which starts the queue again. The thread, the workspace and the agent's identity do not change. The pause lasts until the app restarts or the task closes. Desktop only: a joined server has no pause route.
+- **Live now** on the Monitor page lists the running Raven Stack team jobs of this computer under **Teams**. Each job shows the first line of its ticket and its state (Running, Needs you, Done, Not done), and each team role shows its state (Working, Waiting, Passed, Failed, Blocked). The Working, Waiting and Error counts include the team roles: a role that the job asks you about counts as Waiting, and a blocked role counts as Error. A click on a role opens its work thread, and a click on a job opens the team page on that job. The list changes when a team job or a role's turn changes. A job that ended stays in the list for 15 minutes.
+- Builds take the services they use from settings: `OPENBOT_SITE_URL`, `OPENBOT_ACCOUNT_URL`,
+  `OPENBOT_SIGNAL_URL`, `OPENBOT_TEAM_HOST_DOMAIN`, `OPENBOT_ANALYTICS_URL`, `OPENBOT_ANALYTICS_CLIENT_ID`,
+  `OPENBOT_UPDATE_FEED_URL`, `OPENBOT_STATUS_URL`, `OPENBOT_DISCORD_URL` and `OPENBOT_CONTACT_EMAIL`.
+  See `docs/own-backend.md`.
+- The account service reads its mail sender, SMTP host and contact address from its own settings.
+- The Raven Stack team page has a template picker: Autopilot (full) or Autopilot lite. Autopilot lite is for small tickets: the Builder plans in its own turn, then the Reviewer gives the verdict, with no Architect, Quality or Editor. The FAIL rounds, the fallback model, stop and resume work as in the full template.
+- The Raven Stack team page takes several tickets: "Add ticket" for another ticket box, or paste one GitHub issue per line. "Start team jobs" starts one team job per ticket with the same roles, models and efforts; a ticket's own `Role: model` changes the model for that job only. The jobs run in parallel up to each role agent's work-thread limit. A job over the limit shows Queued and starts when a running job ends or stops.
+- A team role runs its turns on the reasoning effort that you choose for it, the same way an agent chat does.
+- Agents move their own tickets on the Tickets board: Running while the work thread runs, Queued while the agent has no free thread, Needs review when the thread asks a question or finishes, and back to Backlog with the reason when a turn fails or is stopped. An agent can also post a progress line, add a comment or move its ticket itself. Done stays your call.
+- Add the Tickets page in place of the Tasks page: a board with five columns or one lane for each agent, the agent strip with the running threads of each agent, the agent panel with Stop, Pause and Resume, the ticket drawer, and New ticket.
+- Add the Tickets board record: tickets with a status column, an assigned agent, links to the work thread, team job and external issue, and their activity. The board starts empty.
+- The Tickets board syncs with GitHub while GitHub is connected. Choose a repository with Sync on the Tickets page: its open issues come into Backlog, each linked to its issue, and the board checks for new ones every five minutes. A move to Done closes the issue, a move out of Done opens it again, and the agent's comments go to the issue. Without a connection, the board shows no sync control and the tickets stay on this computer. Jira and Linear have no connection in OpenBot yet, so they do not sync.
+- Each Raven team job shows on the Tickets board: the job gets its own ticket, and each role (such as Builder and Reviewer) gets a ticket assigned to its role agent. Role tickets move by themselves: Queued while the job waits for a free slot, Running while the role works, Needs review when its turn ends, and back to Backlog with the reason when it fails or the job stops. When the job passes, the job and its role tickets go to Done. Open a job's ticket to see its role tickets.
+- Press V in a conversation to start dictation with the microphone, when no text field has the focus.
+  Press V again or Escape to stop it. The text is added to your message, as with the microphone button.
+- You can add more than one Google account to Gemini. Select Add account on the Gemini row, as for Codex, Claude and Grok, and choose the account for each agent. Each account keeps its own sign-in and usage. A saved Gemini API key applies only to the first account. This needs Gemini runtime 1.4.0 or later. On a joined server, the sign-in page opens in the server's browser, and you use it through the live view.
+- Grok agents can now be steered. A message that you send in Steer mode while a Grok agent works
+  goes into the running turn, and Grok reads it after its current step. Before, the message waited
+  in the queue until the turn ended. A Grok CLI without this feature keeps the message in the queue.
+- The Claude page in Server settings › Providers has a "Prompt cache" setting: 1 hour or 5 minutes.
+  An owner or admin can set it for this computer and for a joined server.
+- Give one server a custom member limit, such as for an enterprise customer. The limit replaces the
+  limit of the server's plan.
+- A custom ACP agent can have a usage command, such as `/usage`. OpenBot sends it at most every 5 minutes, and the agent's logo in the rail shows the last answer when you hover it. Use a command that the agent answers itself: other text starts a model turn each time.
+- Settings › Agents sets the defaults of the agents on this computer: Local scripts, Agent starts new chats, Show the plan before long tasks, and Steer agents while they work. Each setting shows which agents have it on. Its page changes the default, the value of one agent, or the value of all agents with Set all.
+- An agent that has no value of its own follows the default. The defaults start off, so no agent changes until you change a default.
+- "Open in new window" in the menu of an agent in the sidebar opens its chat in a window of its own, for example on a second display. Both windows show the same live chat, and a window mark beside the agent's name shows which chats have a window. Closing the window keeps the chat in the main window.
+- Show a storage card at the bottom of the sidebar when the disk of the selected server is almost full. A ring shows the used part of the disk. "Free up space" opens Server settings › Storage. You can close the card while the disk is almost full; it comes back, in red, when the disk is full. Only an owner or admin of the server sees it.
+- Add Neon, Prisma, Netlify, Railway, Atlassian (Jira and Confluence), Todoist and Hugging Face to the Apps catalog. Sign in in the browser to connect each of them, except Hugging Face: it reads public Hub data and needs no account. Neon, Prisma, Netlify, Railway, Atlassian and Todoist give agents write access, so agents can change or delete data there. Each listing says what agents can change.
+- The steps row above an agent's answer now opens a trace of the turn. Each thought, tool call and
+  subagent is a bar on one timeline, with the duration, cost and tokens of the turn. You can search
+  the steps with ⌘F (Ctrl+F), fold an agent's steps, replay the turn at up to 10× speed, and move
+  between the rows with the arrow keys. A click on a step shows it in the chat.
+- The steps row now looks like the subagents header above it. It shows the time of the turn and how
+  many steps failed.
+- openbot.run has provider pages for Muse Code, Pi, Inception and ACP agents such as Goose, Qwen
+  Code and GitHub Copilot CLI.
+- Server settings has a Vault page, after General. Save logins, payment cards and contact info on
+  this computer, encrypted by the operating system. Agents sign in with the saved logins, fill a
+  saved card on a checkout page, also in the card frames of payment providers, and type the saved
+  contact info. An agent sees only the card name and its last four digits, never a password, a card
+  number or a security code. Import logins from a password export in CSV format. The Vault is on the
+  local server only.
+- The first time an agent fills a saved card on a site, the server owner approves it. Later fills
+  on that site need no approval. Remove a site from the card in the Vault.
+- Agents can add and change contact info in the Vault, change the username of a login and the
+  name and expiry of a card, and delete items. The chat shows each change, and the Vault shows
+  which agent added an item. On the secure password card, Save to Vault keeps the password that you
+  type.
+- A message that an agent sends to or gets from another agent now opens in the chat. Click the arrow on its line to read the text, and the message it answers.
+- The Apple apps listing in the Marketplace has a switch that asks macOS for access to Calendar, Contacts, Mail, Notes, Reminders, Messages and Safari when you install it. macOS shows one prompt for each app, so the prompts no longer stop an agent in the middle of a task. After the install, "Ask for access" asks again, and a message names each app that macOS did not allow. macOS only.
+
+### Changed
+
+- The global voice pill no longer sits at the bottom of the screen. It hangs from the top centre, on a display with or without a notch.
+- A local account Worker that has SMTP configured sends the sign-in code and still returns it in the
+  development response.
+- Voice dictation loads the local model while you speak, so the first transcription no longer waits
+  for the model to load. Parakeet's first pass dropped from 5.9 s to 294 ms in the benchmark.
+- Parakeet stays the fast English model and Whisper stays the default, because Parakeet does not
+  support Arabic. The measured comparison is in `docs/voice-transcription-benchmark.md`.
+- The `voice_transcription` analytics event records the audio length and the time from Stop to text,
+  so latency is measured on real recordings.
+- Local dictation previews refresh every 500 ms, and a tick is skipped while the last preview is still
+  running, so Stop never waits behind a line of previews. Whisper stays final-only because each preview would
+  take seconds.
+- A message that you steer into a running turn gets a 👍 reaction from the agent once the provider takes it into the turn. Before, a steered message showed no sign that the agent had received it until the agent answered.
+- The "Steer agents while they work" setting names the agents that can steer: ChatGPT, Claude, Grok, Pi, Muse and Inception. Other agents keep new messages in the queue.
+- OpenCode, Antigravity, Cursor, Cline and custom ACP agents still queue a message sent while they work. They talk to OpenBot over the Agent Client Protocol, which has no request to add a message to a running turn (only `session/prompt` and `session/cancel`), and none of these CLIs offers an extension for it the way Grok offers `x.ai/interject`. Steering them would mean cancelling their turn, which loses the work in flight, so they wait for the turn to end instead.
+- Your messages and the send button now take the agent's colour, so a purple agent's chat is purple. The
+  text on them stays readable on light and dark colours. Channels keep the neutral look.
+- OpenBot now has two interface languages: English and Egyptian Arabic. The German, Spanish, French, Italian, Japanese, Korean, Polish, Brazilian Portuguese, Russian, Turkish and Simplified Chinese interfaces are removed. A saved choice of one of these reads as System default.
+- The desktop app no longer offers hosted server plans, checkout or upgrade prompts in this build.
+  A self-hosted server on your own VPS needs no paid plan. The server list and the join dialog still
+  work as before. Docs: [self-hosted servers](../docs/self-hosted-server.md#vps-setup).
+- A server now offers Inception, as the computer does. An owner or admin saves the Inception API key
+  in the server's provider settings, and the server downloads Pi when it needs it. Phones and team
+  members also see Inception agents. Clients older than Team API protocol 8 still do not see them.
+- Analytics and the desktop update check are off unless their settings are set. A build with no
+  settings sends no analytics and checks no update feed.
+- The desktop app builds for Windows x64 and macOS Intel (x64) only.
+- Set your own services before you build. The defaults are placeholders that do not resolve, so
+  a build with no settings cannot sign in, sync or send mail.
+- Each role on the Raven Stack team page picks its model in three steps: the provider, then a model of that provider, then the reasoning effort. The long list of model buttons is gone. The confirm card shows the provider, the model and the effort of each role.
+- The Raven Stack team page uses two columns: the ticket and the team jobs on the left, the roles with their models, the warnings and Start team on the right. Each column scrolls on its own, and a narrow window shows one column.
+- The ticket box shows a hint, and an empty ticket shows "Write the ticket first, then check the team." instead of the raw "brief is required.". The optional Editor is a role row with a switch.
+- The desktop app now builds with Vite 8, electron-vite 6 and Solid 2.0 rc.18.
+- An agent you choose in the voice picker (Option+K) becomes the target of the next dictation shortcut (Option+V), also when you close the picker without sending. It wins over the default agent until you quit OpenBot.
+- Fixed: the first press of a global voice shortcut after launch could leave an empty, invisible window, so Control+K and Control+V seemed to do nothing. The window now gets its opening once it has loaded.
+- Fixed the voice picker opening blank: a status animation crashed the window when it first drew.
+- The voice window no longer blocks clicks on the apps below it. Only the visible island takes clicks.
+- The voice picker shows each agent's own avatar, the same one as the sidebar, next to its name. Initials remain only for an agent without one.
+- Ctrl+K picker and voice island now open from the notch like a Dynamic Island: a spring morph of size and corners, a compact 3-row picker, and a pill with the agent's avatar and name.
+- The voice island is now solid black, so nothing behind it shows through, and the idle Dynamic Island steps aside while it is up, so there is one island at the notch.
+- Say an agent's name first when you dictate ("Software Engineer, check the PR", or in Arabic) and the message goes to that agent, without the name. Small mishearings are fine; an unclear name keeps the current agent.
+- The Linux docs and the Linux download page on openbot.run now name Ubuntu 26.04 LTS. OpenBot
+  0.48.1 runs on Ubuntu 26.04 with the Electron sandbox on.
+- The voice island shows Send and Cancel while recording and in the review box, and its hint explains how to send.
+- The global voice shortcuts default to Option+V (dictation) and Option+K (agent picker); Alt+V and
+  Alt+K on a PC keyboard.
+- The shortcut setting shows each key as a keycap, with Change, Cancel and Reset buttons.
+- The voice pill shows the model download progress on the first dictation.
+
+- A global voice shortcut can be a key alone, such as F8 or V; the settings warn when a key alone
+  stops typing in other apps.
+- Saving a shortcut no longer fails with "An object could not be cloned".
+- The voice pill shows over other apps and full-screen apps, and shows the model download.
+- The voice pill sends nothing for a silent recording, and removes the subtitle credits that
+  Whisper writes for silence, such as "ترجمة نانسي قنقر".
+- Claude agents now keep the prompt cache for 1 hour by default, also with an Anthropic API key,
+  for subagents, and on a subscription that uses extra usage. Before, these used 5 minutes, so a
+  turn that started later sent the full context again at the full price. A 1-hour cache write costs
+  more than a 5-minute write; choose "5 minutes" to go back to Claude Code's own choice. A `promptCacheTtl` in the Claude settings, or
+  `CLAUDE_CODE_PROMPT_CACHE_TTL`, still sets the time.
+- On a very wide window, such as an ultrawide monitor, the chat now stops at a 1440 px column in the
+  center of the pane. Before, the user's messages were at the right edge of the pane and the agent's
+  replies at the left edge. A laptop window shows the chat at full width, as before.
+- Agents now follow your user-level `CLAUDE.md` or `AGENTS.md`, and the one at the root of the agent
+  workspace, when these files set the persona, reply length and format, delegation, or group-chat
+  behavior. Before, OpenBot's built-in style guidance and your files gave the agent two rule sets for
+  the same decision. Files in cloned repositories do not get this priority. The rules for tools,
+  memory, approvals, secrets, private details, safety checks and the browser do not change.
+- The app demo on the home page now shows a team of four agents, each on a different provider: Claude, Gemini, ChatGPT and Grok. The lead agent plans a launch, sends work to its teammates, asks you a question and answers with a table and a diagram. Each teammate plays its own short scene when you open it, and a message that you type gets a reply. The sidebar groups the chats in sections and shows a launch channel with a chat history.
+- "Steer agents while they work" moved from Settings › General to Settings › Agents.
+- When you try to turn off a provider that an agent uses, a toast now tells you why the switch stays on. Before, the row showed red text with the names of all the agents. When more than one agent uses the provider, the toast gives their number.
+- The sidebar no longer shows a presence dot on a person's avatar. The dot sat outside the shape of avatars with no photo. The conversation header still shows whether the person is online.
+- In the web client, the Marketplace now opens as a full page of the window, as in the desktop app. Before, it opened as a dialog over the workspace.
+- The Marketplace now has a side panel, as the settings page has. Select Apps, Agents or Skills there. Below them, "Your apps" lists the apps that you connected, and a warning shows on an app that needs your attention. While you search, the panel shows how many results each kind has.
+- The Marketplace now opens on Apps. Apps show in groups by category, in compact rows with Connect, Connected or Reconnect at the end of the row.
+- To add your own MCP server, click "Add custom" next to the search on the Apps page of the Marketplace. Server settings open on the form for a new MCP server. Only a user who can add MCP servers to the server sees the button.
+- On an app, agent or skill page of the Marketplace, the top row now shows the path to it, for example "Apps › GitHub". Click "Apps" to go back to the list. On an app, agent or skill page, Apps, Agents or Skills stays selected in the side panel. On the page of an app in "Your apps", that app is selected. The page has the same width as the list, so the content does not move when it opens.
+- Connectors are now only in the Marketplace. Server settings no longer has a Connectors section. To connect or change Slack, Discord, Telegram, GitHub, 1Password or Bitwarden, open Marketplace › Apps.
+- All app pages now use one layout: the header, then alerts, then sections with a heading and one card each, and last the danger zone. Text, forms and notes now show inside the cards, and all buttons in a card have the same small size. A plugin that is not completely installed shows a warning above its sections. An app that is not connected now shows "Not connected" at the top of its page. Before, some pages showed "Not set up".
+- Slack, Discord and Telegram pages now have a danger zone that disconnects every workspace, server or chat at once, after you confirm. Each row still has its own Disconnect.
+- The page that opens after a Slack or Discord sign-in in the browser now tells you to open Marketplace › Apps to try again.
+- The connect dialogs of Marketplace apps that you sign in to, give a key to, or turn on in their desktop app now look and work as the GitHub and Slack connect dialogs do. They show OpenBot and the app with a line that moves while they connect, and Cancel and the main button at the bottom right. When a connection fails, the line breaks. Connect in the Marketplace now starts the connection at once: a sign-in opens the browser, and an app on this computer connects if its server is on. An app that needs a key opens with the cursor in the key field.
+- To disconnect Bitwarden, use the button in the new danger zone at the bottom of its page.
+- The Cloudflare, Airtable and Paper icons in the Marketplace are now centered and clear on a dark background.
+- A plugin page now has a Connection section. It shows how each app connects: you are signed in, an API key is saved, it uses a desktop app on this computer, or it needs nothing. Use "Sign in again", "Change key" or "Connect again" there.
+- When the sign-in of a plugin expires, the plugin shows "Needs attention" and a warning, and "Sign in again" signs in again. The page header, the Connection row and the Apps list use the same name for this action. A plugin with more than one app shows the button only on the row of the app that needs it.
+- Every connector page now has an Information section with the developer, the category and the website.
+- On the Slack, Discord and Telegram pages, the sections are now named "Workspaces", "Discord servers" and "Chats". "Add workspace", "Add Discord server" and "Link a chat" are at the right of that section.
+- The 1Password and Bitwarden pages now look the same. Bitwarden shows the shared folder and the server address in one card, and the session key field has a label.
+- The danger zone of every app page is now named for the app, for example "Disconnect Notion".
+- Under the name of Slack, Discord, Telegram, GitHub, 1Password and Bitwarden, the page now shows a short line, as the Apps list does. The full description is at the top of the Information section.
+- On the Bitwarden page, the shared folder row now says "Folder in Bitwarden" under the folder name.
+- The developer of each catalog app now shows as a name, for example "Notion", not as a web address.
+- In a channel, the activity row now shows the name of each agent that works, before the activity
+  text and in the colour of the agent's messages. Before, it showed only their faces.
+- When nothing comes from the provider for a minute during a turn, the activity line says "Waiting for {provider}…" and stops its shine. A notice above the message box says how long the provider has sent no update. Before, the line looked busy the whole time, also with no internet.
+- When the computer has no network during a turn and nothing comes from the provider for 5 seconds, a "No internet connection" notice shows above the message box, and the activity line says that it waits.
+- On a joined server, Add account for Codex and Claude opens the sign-in page in the browser of your computer, as the first account does. Before, the page opened in the server's browser, and you used it through the live view. That was slow, and a magic link or a CAPTCHA could stop the sign-in. A server on an older version still uses the live view.
+- The comparison pages on openbot.run now list all the providers that OpenBot runs, including Muse
+  Code, Pi, Inception and ACP agents, and 11 app languages. New rows compare backup models and
+  logins and payments, and most pages also compare voice and Slack, Discord and Telegram.
+- The home page and `llms.txt` on openbot.run now name the new providers and backup models.
+- A focused field shows a grey border, and a focused button shows a thin grey ring. They no longer
+  show a blue glow.
+- Dictation offers Arabic and English only. New installs use Whisper large-v3 turbo with Arabic,
+  so Arabic speech is understood. A saved language that is no longer offered reads back as Arabic.
+
+### Fixed
+
+- A shortcut can no longer be a letter on its own. Recording a shortcut pauses the live keys, so Option is not lost, and a saved letter such as V is replaced by Option+V.
+- If Accessibility is missing, or the key-release hook does not start, the shortcut still opens the island and works as a tap. The press is no longer silent.
+- The SMTP username can be a login that is not an email address, such as Resend's `resend`. The
+  sender address in `EMAIL_FROM` must still be an email address.
+- A dropped local speech host no longer loses the dictation: the final pass is retried once and a
+  failed transcription shows its error instead of leaving the island waiting.
+- A drag no longer clicks a control or opens the island when it ends. A control keeps its own actions.
+- A display change keeps the island on screen. The saved place is clamped to the new display bounds.
+- The island can now run on Windows and Linux. It is off there until you turn it on in Settings > Dynamic Island; macOS keeps it on by default.
+- The expanded panel no longer runs off the bottom of the screen when the island is dragged near it.
+- Inception now downloads the Pi CLI when you save its API key. Before, the key was saved but the
+  provider showed "The pi CLI is not installed" until you downloaded Pi from its own row in Settings.
+- A Pi or Inception agent with Workspace only access on macOS replies again. Before, each message
+  stopped with "Credential store read failed" and "EPERM", or Pi stopped at the start.
+- A Pi or Inception agent keeps its OpenBot tools after OpenBot restarts. Before, a chat that was
+  opened after a restart lost every OpenBot tool, and each restart gave the tools new names, so the
+  agent could call old names and get "Tool ... not found". A chat that already shows this error gets
+  its tools again at its next turn.
+- A Pi or Inception agent whose session file was moved or deleted starts a new session. Before, each
+  turn stopped with "The Pi session file is not available on this computer."
+- When Inception refuses the saved API key, or its account has no balance, the chat says so. Before,
+  it showed the raw error from Inception.
+- Show the correct icon for Aave, Airtable, Brave Search, Canva, Cobrain, Composio, Context7, Figma, Firecrawl,
+  Linear, Notion, Paper, PostHog, Resend, Sentry, Stripe and Vercel. The developer of each app is now a name,
+  not a web address.
+- The x64 remote desktop runtime now starts on Ubuntu 26.04 LTS. Before, it needed
+  `libminiupnpc.so.17` and `libicuuc.so.74`, which Ubuntu 26.04 does not have, and the Docker image
+  with `BASE=ubuntu:26.04` did not build.
+- Remote desktop now starts in the Docker image on Ubuntu 24.04. Before, Sunshine stopped because
+  `libnuma1` was not installed. The server install now also installs it.
+- Settings > Safety and limits uses the app pickers for the agent and the audit log filters. Before, a Mac showed the system popup menu.
+- The budget fields and Save limits on Settings > Safety and limits now look like the other settings rows. Reset clears the limits that you typed and did not save.
+- In a channel with more than one agent, you can now say a member's name to send it the message,
+  with no mention. A message with two names goes to both members. A message to the whole channel,
+  such as "hey guys" or "everyone", goes to all members (at most 3, the lead first), and each one
+  answers. Before, such a message often stopped with "The channel lead could not route this
+  message" and waited for **Continue** or **Reassign**.
+- When the lead cannot tell who should do a request, it now asks you a short question in the
+  channel. The request does not stop. When two members have the same name, the lead asks which one
+  you mean. **Continue** and **Reassign** stay for real routing failures.
+- On a joined server, Add account for Gemini in Server settings › Providers now signs in through
+  your own browser, with the same dialog as Claude: open the Google page, then paste the address it
+  ends on. The new account gets its own folder, so the first account stays signed in. Before, the
+  second Gemini account could only sign in through the server's live view. A server that is not
+  updated still uses the live view.
+- The Live Activity updates that OpenBot sends to your iPhone cut a long code span with emoji at the
+  correct length. Before, the cut could split an emoji into half a character, and an emoji counted
+  as two characters, so the text stopped too early.
+- The Live Activity updates that OpenBot sends to your iPhone show a reply that starts with inline
+  code in three backticks, such as ```` ```npm install``` first ````. Before, the update read that
+  line as the start of a code block: the line disappeared and the next lines showed as code.
+- Monitor no longer stops updating after a card leaves the canvas, such as when you switch channels.
+  Before, the Tasks tab could stay stuck on old counts while agents were working.
+- Task titles in Monitor's Tasks tab show mentions as plain text.
+- Support service usernames with uppercase characters in server setup and update scripts.
+- A voice message no longer stays in Sending. If the agent does not answer within 20 seconds, the island shows an error and keeps the text for another try.
+- Choosing an agent with a voice shortcut keeps that agent as the target, so releasing the key no longer sends the message to a different highlighted row.
+- A send that fails, or an empty message, now shows a message instead of doing nothing.
+- Claude agents use less of the Claude plan. A sidebar move or a teammate rename no longer starts
+  the Claude conversation again with a new system prompt: the list of section teammates now goes
+  with the next message, as the saved memories do. Before, the full conversation was sent to the
+  model again and written to the prompt cache.
+- A Claude conversation no longer restarts when it is opened again with the same settings after a
+  model or effort change.
+- Claude, ChatGPT and Muse channel members use less of their plan. A member's next assignment in
+  the same conversation gives only the channel messages that it has not read. Before, each
+  assignment sent the recent channel history again, up to 60,000 characters. The first assignment
+  after a start of OpenBot, a new conversation, a provider change, or a compaction still sends the
+  complete history.
+- A channel message that stopped because the channel had no lead now continues when you choose a lead. The new lead routes it. Before, it stayed stopped until you clicked Continue.
+- Channel members now know which member is the lead.
+- An agent set to switch to a backup model without asking now switches when its provider is overloaded or down. Before, it showed the error and stayed on the failing model for Claude's "529 Overloaded" errors, Codex's server, overload and retry-limit errors, Gemini's UNAVAILABLE status, and dropped connections.
+- The waiting block, the queue, a reply and the notices above the message box are now one card,
+  with a line between each part. Before, each part was a separate card, with gaps and cut edges
+  between them.
+- The agent usage page now counts all Gemini tokens. Antigravity 1.4.3 sends the tokens of each
+  turn, but OpenBot added them as a session total, so a turn smaller than an earlier turn in the
+  same session counted as 0. Gemini thinking tokens now also count as output. Usage that was
+  recorded before this fix does not change.
+- When an agent asks another agent for help, the "Waiting for replies" list now shows when that agent waits for your approval, your answer, the browser, or a usage limit. A button opens its chat, where you can answer. Before, the list showed "Working" until the wait ended.
+- The app demo on the home page no longer shows a time zone prompt, an update card or a helper agent from another server. Its dates now show today.
+- On a phone, the app demo on the home page now shows all four agents in one row and the chat under them. Before, only one agent showed and the chat area was empty.
+- An app that an agent suggests in a chat, such as Linear, now shows a green Connected button with a check after you connect it. Before, the card kept its Connect button.
+- Reconnect on a plugin that is already connected no longer fails with "An MCP server named … already exists". It now updates the saved connection.
+- Gemini now shows the Claude and GPT models that your Google plan includes, such as Claude Sonnet
+  and Claude Opus. Before, the model menu showed only Gemini models.
+- A provider account that you add now shows its usage rings in the page rail when its sign-in ends. Before, the rings showed only after a reload or the next usage refresh, up to 5 minutes later.
+- On a joined server, the usage rings no longer go away when the host resets the usage of a provider account.
+- The first Claude turn after OpenBot starts again now has a cost in Analytics and in the turn trace.
+  OpenBot estimates it from Anthropic's list prices, because Claude does not report the cost of that
+  turn.
+- When a Grok turn fails after it used tokens, the error now shows the reason that Grok gives, such as `empty response from model (reasoning_only)`, and not only `Internal error`. The routine run history keeps the same reason (#2980).
+- When you stop a sign-in that a joined server relays to your computer, the provider list now shows the change at once. Before, a new account that you stopped stayed in the list for some seconds.
+- When two or more notifications were open, you could not reach a notification under the first one.
+  The stack closed when the pointer moved onto it, because the notifications were over the part of
+  the window that moves the window. Only the buttons of the first notification responded.
+- An agent can click a choice, such as a payment method, when a decorative layer of its label covers
+  the radio button.
+- The voice island no longer jumps to the wrong size or takes focus while sending, its content fades in and out inside the shape, the review shows the agent's face, and the idle island fades back instead of popping.
+- The voice picker and review take typing without bringing OpenBot to the front, so the app you were in keeps focus when the island closes.
+- The voice island morphs on one settled spring, bends from where it is when interrupted, and handles a double press, Escape mid-animation and a press while it closes.
+
 ## [0.50.0] - 2026-10-28
 
 ### Added
