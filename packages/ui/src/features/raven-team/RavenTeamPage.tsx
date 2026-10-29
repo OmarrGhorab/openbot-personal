@@ -82,6 +82,30 @@ const firstLine = (text: string) => text.split("\n")[0] ?? "";
 
 const isTerminal = (job: RavenTeamJob) => job.state === "done" || job.state === "not-done";
 
+/** A line that names one GitHub issue: its URL, `owner/repo#12` or `#12`, with an optional title after it. */
+const ISSUE_LINE = /^(?:https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+|(?:[\w.-]+\/[\w.-]+)?#\d+)(?:\s.*)?$/;
+
+/**
+ * The tickets of the ticket boxes, in order. A box that holds a list of GitHub issues, one per line, is
+ * one ticket per line; any other box is one ticket. Empty boxes are left out.
+ */
+function ravenTeamTickets(boxes: readonly string[]): string[] {
+  return boxes.flatMap((box) => {
+    const lines = box
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+    if (lines.length > 1 && lines.every((line) => ISSUE_LINE.test(line))) return lines;
+    const ticket = box.trim();
+    return ticket === "" ? [] : [ticket];
+  });
+}
+
+/** One more ticket box. The id keeps the box when its text changes. */
+interface TicketBox {
+  id: number;
+}
+
 /**
  * The Raven Stack team page in two columns. The left column holds the ticket, "Check the team" and the
  * team jobs. The right column holds the roles with their provider, model and effort, the warnings and
@@ -103,6 +127,19 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
         ? t("agent.team.template.lite")
         : candidate.name;
   const [brief, setBrief] = createSignal("");
+  // The ticket boxes after the first one, and the text of each. Each ticket starts its own job.
+  const [moreBoxes, setMoreBoxes] = createSignal<TicketBox[]>([]);
+  const [moreText, setMoreText] = createSignal<Record<number, string>>({});
+  let nextBoxId = 1;
+  const tickets = () => ravenTeamTickets([brief(), ...moreBoxes().map((box) => moreText()[box.id] ?? "")]);
+  const addBox = () => {
+    setMoreBoxes([...moreBoxes(), { id: nextBoxId }]);
+    nextBoxId += 1;
+  };
+  const removeBox = (id: number) => {
+    setMoreBoxes(moreBoxes().filter((box) => box.id !== id));
+    setMoreText(Object.fromEntries(Object.entries(moreText()).filter(([key]) => Number(key) !== id)));
+  };
   const [overrides, setOverrides] = createSignal<Record<string, string>>({});
   // Role id to the effort the user chose. The plan gives the model's default to a role not here.
   const [efforts, setEfforts] = createSignal<Record<string, AgentReasoningEffort>>({});
@@ -118,7 +155,8 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     chosenEfforts: Record<string, AgentReasoningEffort> = efforts(),
   ): PlanRavenTeamInput => ({
     templateId: templateId(),
-    brief: brief(),
+    // The roles are checked with the first ticket; each ticket is checked again when its job starts.
+    brief: tickets()[0] ?? brief(),
     models,
     fullAccess: access,
     efforts: chosenEfforts,
@@ -166,7 +204,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     access?: string[],
     chosenEfforts?: Record<string, AgentReasoningEffort>,
   ) => {
-    if (brief().trim() === "") {
+    if (tickets().length === 0) {
       setError(t("agent.team.briefRequired"));
       return Promise.resolve();
     }
@@ -222,7 +260,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     setFullAccess([]);
     setPlan(null);
     setError(null);
-    if (brief().trim() !== "") void check({}, [], {});
+    if (tickets().length > 0) void check({}, [], {});
   };
 
   /** The one-click answer to the access question on the confirm card. The plan is checked again. */
@@ -251,11 +289,39 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
         ? t("agent.team.access.readOnlyFull")
         : t("agent.team.access.readOnly");
 
+  /**
+   * The start input of one ticket. The first ticket takes the choices as they are. Another ticket keeps
+   * the models it names with `Role: model`: its own plan says which roles it names, and the choices for
+   * those roles are left out, so the ticket's model wins for that job only.
+   */
+  const ticketRequest = async (ticket: string, index: number): Promise<PlanRavenTeamInput> => {
+    const shared = request();
+    if (index === 0) return { ...shared, brief: ticket };
+    const own = await props.onPlan({ templateId: templateId(), brief: ticket });
+    const named = new Set(own.roles.filter((role) => role.named).map((role) => role.roleId));
+    const models = Object.fromEntries(Object.entries(shared.models ?? {}).filter(([roleId]) => !named.has(roleId)));
+    const chosenEfforts = Object.fromEntries(
+      Object.entries(shared.efforts ?? {}).filter(([roleId]) => !named.has(roleId)),
+    );
+    return {
+      ...shared,
+      brief: ticket,
+      models,
+      efforts: chosenEfforts,
+      fullAccess: (shared.fullAccess ?? []).filter((roleId) => !named.has(roleId)),
+    };
+  };
+
+  /** Starts one team job per ticket, in order. A job over the limit waits in the host's queue. */
   const start = () =>
     run(async () => {
-      await props.onStart(request());
+      for (const [index, ticket] of tickets().entries()) {
+        await props.onStart(await ticketRequest(ticket, index));
+      }
       setPlan(null);
       setBrief("");
+      setMoreBoxes([]);
+      setMoreText({});
       setOverrides({});
       setEfforts({});
       setFullAccess([]);
@@ -296,13 +362,25 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   function JobCard(cardProps: { job: RavenTeamJob }) {
     const job = () => cardProps.job;
     return (
-      <article class="raven-team-card raven-team-job" aria-label={firstLine(job().brief)}>
+      <article class="raven-team-card raven-team-job" aria-label={firstLine(job().brief)} data-job-id={job().id}>
         <div class="raven-team-job-head">
           <span class="raven-team-job-brief">{firstLine(job().brief)}</span>
-          <Badge variant={JOB_STATE_BADGE[job().state]} class="raven-team-job-state">
-            {t(JOB_STATE_KEY[job().state])}
-          </Badge>
+          <Show
+            when={job().queued}
+            fallback={
+              <Badge variant={JOB_STATE_BADGE[job().state]} class="raven-team-job-state">
+                {t(JOB_STATE_KEY[job().state])}
+              </Badge>
+            }
+          >
+            <Badge variant="secondary" class="raven-team-job-state">
+              {t("agent.team.job.state.queued")}
+            </Badge>
+          </Show>
         </div>
+        <Show when={job().queued}>
+          <p class="raven-team-job-queued">{t("agent.team.job.queuedHint")}</p>
+        </Show>
         <div class="raven-team-job-meta">
           <Show when={job().headCommit}>
             {(commit) => (
@@ -430,7 +508,37 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
               placeholder={t("agent.team.ticketPlaceholder")}
               onInput={(event) => setBrief(event.currentTarget.value)}
             />
+            <For each={moreBoxes()}>
+              {(box, index) => {
+                const number = () => index() + 2;
+                const id = `raven-team-ticket-${box.id + 1}`;
+                return (
+                  <div class="raven-team-more-ticket">
+                    <div class="raven-team-more-ticket-head">
+                      <Label class="raven-team-label" for={id}>
+                        {t("agent.team.ticketNumber", { number: number() })}
+                      </Label>
+                      <Button variant="ghost" size="sm" disabled={busy()} onClick={() => removeBox(box.id)}>
+                        {t("agent.team.removeTicket", { number: number() })}
+                      </Button>
+                    </div>
+                    <Textarea
+                      id={id}
+                      class="raven-team-ticket"
+                      rows={3}
+                      value={moreText()[box.id] ?? ""}
+                      placeholder={t("agent.team.ticketPlaceholder")}
+                      onInput={(event) => setMoreText({ ...moreText(), [box.id]: event.currentTarget.value })}
+                    />
+                  </div>
+                );
+              }}
+            </For>
+            <p class="raven-team-hint">{t("agent.team.ticketsHint")}</p>
             <div class="raven-team-actions">
+              <Button variant="ghost" disabled={busy()} onClick={addBox}>
+                {t("agent.team.addTicket")}
+              </Button>
               <Button variant="secondary" disabled={busy()} onClick={() => void check()}>
                 {t("agent.team.check")}
               </Button>
@@ -606,7 +714,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
           </Show>
           <div class="raven-team-actions raven-team-start">
             <Button disabled={busy() || !canStart()} onClick={() => void start()}>
-              {t("agent.team.start")}
+              {tickets().length > 1 ? t("agent.team.startJobs", { count: tickets().length }) : t("agent.team.start")}
             </Button>
           </div>
         </section>

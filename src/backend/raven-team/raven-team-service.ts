@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/agent-providers";
 import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
+  agentTaskLimit,
   type PlanRavenTeamInput,
   parseRavenTeamReport,
   RAVEN_STACK_LITE_ROLES,
@@ -47,6 +48,7 @@ import {
   type RavenTeamJobRecord,
   type RavenTeamRoleRecord,
   type RavenTeamStore,
+  ravenTeamJobQueued,
 } from "./raven-team-store";
 
 const logger = createOpenBotLogger("raven-team");
@@ -59,6 +61,8 @@ const ROLE_AGENT_NAME_LIMIT = 80;
 const DELIVERY_START_FAILED = "delivery_start_failed";
 /** The message that starts a role agent's first turn. The role's work starts in a task. */
 const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the team.";
+/** The jobs that the queue reads, newest first. */
+const QUEUE_SCAN_LIMIT = 200;
 
 /**
  * The agent name of a role's agent. The model is in the name, so a role on another model is another
@@ -294,17 +298,12 @@ export class RavenTeamService {
           createdAt: now,
           updatedAt: now,
         };
+        // A job whose role agents are full waits in the queue: it is stored with no work thread, and it
+        // starts when a slot frees. The check reads the other jobs, so it runs before the insert.
+        const free = this.#hasFreeSlot(roles);
         this.#store.insertJob(record);
         this.#changed(jobId);
-        // The first stage: the Architect, or the Builder when the template has no Architect.
-        const first =
-          roles.find((role) => role.roleId === "architect") ??
-          roles.find((role) => role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
-        if (first) {
-          yield* this.#engage(jobId, first.roleId, null).pipe(
-            Effect.catch((error) => this.#blockRole(jobId, first.roleId, "blocked", error)),
-          );
-        }
+        if (free) yield* this.#begin(jobId);
         return publicRavenTeamJob(this.#job(jobId));
       }),
     );
@@ -378,6 +377,8 @@ export class RavenTeamService {
         }
         this.#store.updateJob(job.id, { state: "stopped" }, this.#now());
         this.#changed(job.id);
+        // A stopped job holds no slot: a queued job can start in its place.
+        yield* this.#startQueued();
         return publicRavenTeamJob(this.#job(job.id));
       }),
     );
@@ -402,6 +403,8 @@ export class RavenTeamService {
           else this.#store.updateRole(job.id, role.roleId, { state: "waiting" }, now);
         }
         this.#changed(job.id);
+        // A job stopped while it was queued goes back to the queue, and starts when a slot is free.
+        yield* this.#startQueued();
         return publicRavenTeamJob(this.#job(job.id));
       }),
     );
@@ -425,6 +428,8 @@ export class RavenTeamService {
           return;
         }
         yield* this.#turnCompleted(found.jobId, found.roleId, event.status);
+        // A job that ended frees its slots for the queue.
+        yield* this.#startQueued();
       }),
     );
   }
@@ -441,6 +446,54 @@ export class RavenTeamService {
   }
 
   // ---- internals ----
+
+  /**
+   * Whether a job with these roles can start now. Each role agent runs at most its work-thread limit of
+   * jobs at once (`agentTaskLimit`). A job holds a slot of each of its role agents from its first message
+   * until it ends or stops; a queued job holds none.
+   */
+  #hasFreeSlot(roles: readonly RavenTeamRoleRecord[], exceptJobId?: string): boolean {
+    const holding = this.#store
+      .listJobs(QUEUE_SCAN_LIMIT)
+      .filter(
+        (job) => job.id !== exceptJobId && !isTerminal(job) && job.state !== "stopped" && !ravenTeamJobQueued(job),
+      );
+    const agents = this.#agents.listAgents();
+    for (const agentId of new Set(roles.flatMap((role) => (role.agentId === null ? [] : [role.agentId])))) {
+      const agent = agents.find((candidate) => candidate.id === agentId);
+      if (!agent) continue;
+      const used = holding.filter((job) => job.roles.some((role) => role.agentId === agentId)).length;
+      if (used >= agentTaskLimit(agent)) return false;
+    }
+    return true;
+  }
+
+  /** The first message of a job: to the Architect, or to the Builder when the template has no Architect. */
+  #begin(jobId: string) {
+    const roles = this.#job(jobId).roles;
+    const first =
+      roles.find((role) => role.roleId === "architect") ??
+      roles.find((role) => role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
+    if (!first) return Effect.void;
+    return this.#engage(jobId, first.roleId, null).pipe(
+      Effect.catch((error) => this.#blockRole(jobId, first.roleId, "blocked", error)),
+    );
+  }
+
+  /** Starts each queued job, oldest first, while its role agents have a free slot. */
+  #startQueued() {
+    return Effect.gen({ self: this }, function* () {
+      const queued = this.#store
+        .listJobs(QUEUE_SCAN_LIMIT)
+        .filter((job) => ravenTeamJobQueued(job))
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      for (const job of queued) {
+        if (!this.#hasFreeSlot(job.roles, job.id)) continue;
+        yield* this.#begin(job.id);
+        this.#changed(job.id);
+      }
+    });
+  }
 
   #planFor(input: PlanRavenTeamInput): RavenTeamPlan {
     const template = this.templates().find((candidate) => candidate.id === input.templateId);

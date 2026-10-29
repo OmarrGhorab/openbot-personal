@@ -56,6 +56,9 @@ const LITE: RavenTeamTemplate = {
   updatedAt: BUILT_IN.updatedAt,
 };
 
+/** The preview's work-thread limit of a role agent: two jobs run, a third waits as Queued. */
+const PREVIEW_JOB_LIMIT = 2;
+
 export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
   let jobs: RavenTeamJob[] = [];
@@ -64,6 +67,21 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     for (const listener of listeners) listener({ jobId });
   };
   const allTemplates = () => [BUILT_IN, LITE, ...templates];
+  /** Jobs that hold a slot: running or waiting for the user, and not queued. */
+  const holding = () =>
+    jobs.filter((job) => (job.state === "running" || job.state === "waiting-user") && !job.queued).length;
+  /** The first role of a job starts working, as the service sends it the first message. */
+  const begin = (job: RavenTeamJob) => {
+    job.queued = false;
+    job.roles = job.roles.map((role, index) => (index === 0 ? { ...role, state: "working", updatedAt: now() } : role));
+    emitChanged(job.id);
+  };
+  /** Starts queued jobs, oldest first, while a slot is free. */
+  const startQueued = () => {
+    for (const job of [...jobs].reverse()) {
+      if (job.queued && job.state === "running" && holding() < PREVIEW_JOB_LIMIT) begin(job);
+    }
+  };
   const now = () => new Date().toISOString();
 
   function plan(input: {
@@ -177,6 +195,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         templateId: planned.templateId,
         brief: planned.brief,
         state: "running",
+        queued: true,
         headCommit: null,
         fixRounds: 0,
         roundCap: 3,
@@ -188,6 +207,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       };
       jobs = [job, ...jobs];
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     listJobs: async () => jobs,
@@ -222,6 +242,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       if (!job) throw new Error("The team job was not found.");
       job.state = "stopped";
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     resume: async (jobId) => {
@@ -229,6 +250,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       if (!job) throw new Error("The team job was not found.");
       if (job.state === "stopped") job.state = "running";
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     onChanged: (listener) => {

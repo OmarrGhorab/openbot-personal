@@ -16,7 +16,7 @@ const REPORT_LINES: Record<string, string> = {
 const ROLE_STEPS: Record<string, string> = {
   architect: "Read the ticket. Write the plan. Your final message is the plan that the Builder receives.",
   builder:
-    "You are the only writer of the branch. Use your own worktree. Build the ticket, open the pull request and get CI green. When the Reviewer or Quality sends REVIEW FINDINGS, run the fix round, push a new commit and report it.",
+    "You are the only writer of the branch. Use a git worktree and a branch for this job only, named with the job id: other jobs of the team run at the same time and must not share your files. Build the ticket, open the pull request and get CI green. When the Reviewer or Quality sends REVIEW FINDINGS, run the fix round, push a new commit and report it.",
   reviewer:
     "Review the commit that the team names. Verdict only on that commit. If you start a server, use the Builder's dev port plus 5. Change no file.",
   quality: "Score the commit that the team names, out of 10. Use FAIL when the score is below 10. Change no file.",
