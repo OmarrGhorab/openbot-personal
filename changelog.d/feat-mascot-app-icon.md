@@ -8,6 +8,10 @@
 - Raven Stack team page, redesigned. It has two steps, Ticket and Team, with presets for a full feature and a small ticket, one card for each role, and a start bar that names the team. The team is checked as you write the ticket, so each role shows its provider, model and effort without a button. Running jobs show their roles as a row of steps.
 - Skip roles for an easy ticket. Switch off the Architect, Reviewer or Quality for one ticket. A skipped Architect hands its planning to the Builder. If no role checks the work, the job ends when the Builder commits, and the page warns you first.
 
+- Agents can create a channel. Ask an agent to make a channel with other agents, and it uses the new create_channel tool: it adds itself and the agents you name, and leads the channel unless you say otherwise.
+- The tasks of an agent sit beside its row in the sidebar. A small button shows the state of the lead task and how many are open, and opens the list with New task.
+- Figma connects to Figma's remote MCP server with a browser sign-in, like the other apps. Before, it needed the Figma desktop app with its local server turned on, and it could only read designs.
+
 ### Changed
 
 - The Dock and taskbar icon of the release app is now the Blob mascot on a dark tile. When OpenBot is closed, macOS still shows the icon in the app bundle.
@@ -18,3 +22,4 @@
 - Opening Marketplace skills or the Sites tab of the server settings no longer freezes the window.
 - Choosing the agent in the New ticket dialog works. Before, the menu opened behind the dialog and you could not pick an agent.
 - Choosing the ticket system and the repository in Sync tickets works. Before, the menus opened behind the dialog, so you could not pick a repository and Save and sync stayed off.
+- Opening the + menu in the chat composer and choosing Use a skill no longer freezes the window.
