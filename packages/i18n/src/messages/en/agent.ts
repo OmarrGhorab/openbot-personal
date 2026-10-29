@@ -93,6 +93,9 @@ export const messages = defineMessages("agent", {
   "agent.team.access.readOnlyFull": "Read only, Full access",
   "agent.team.access.giveFull": "Give {role} Full access",
   "agent.team.model": "Model",
+  "agent.team.provider": "Provider",
+  "agent.team.noEffort": "No effort levels",
+  "agent.team.roleField": "{field} for {role}",
   "agent.team.warning.sameModel": "{role} uses the Builder model {model}. A second model checks the work better.",
   "agent.team.question.unknownModel":
     "{model} is not available for {role}. Pick a model that a connected provider lists.",

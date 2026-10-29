@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/agent-providers";
-import type { AgentEvent, AgentModelId, AgentProviderId } from "@openbot/contracts/ipc";
+import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
   type PlanRavenTeamInput,
   parseRavenTeamReport,
@@ -56,6 +56,21 @@ const ROLE_AGENT_NAME_LIMIT = 80;
 const DELIVERY_START_FAILED = "delivery_start_failed";
 /** The message that starts a role agent's first turn. The role's work starts in a task. */
 const ROLE_AGENT_GREETING = "Raven Stack team role. Wait for a task from the team.";
+
+/**
+ * The agent name of a role's agent. The model is in the name, so a role on another model is another
+ * agent. An effort other than the model's default is in the name too: two jobs that run the same role
+ * on one model with two efforts do not share one agent, whose effort applies to every turn.
+ */
+function ravenRoleAgentName(
+  label: string,
+  model: AgentModelId,
+  effort: AgentReasoningEffort | null,
+  defaultEffort: AgentReasoningEffort | null,
+): string {
+  const suffix = effort !== null && effort !== defaultEffort ? `${model}, ${effort}` : model;
+  return `Raven ${label} (${suffix})`.slice(0, ROLE_AGENT_NAME_LIMIT);
+}
 
 export class RavenTeamFailed extends Schema.TaggedError<RavenTeamFailed>()("RavenTeamFailed", {
   operation: Schema.String,
@@ -230,6 +245,7 @@ export class RavenTeamService {
             role.model,
             role.provider,
             role.fullAccess,
+            role.reasoningEffort,
           );
           roles.push({
             roleId: role.roleId,
@@ -426,6 +442,7 @@ export class RavenTeamService {
       models: this.#agents.listModels(),
       preferredProvider: this.#agents.preferredProvider(),
       fullAccess: input.fullAccess ?? [],
+      efforts: input.efforts ?? {},
       workspaceOnlySupported: this.#workspaceOnlySupported,
       platform: this.#platform,
     });
@@ -540,19 +557,27 @@ export class RavenTeamService {
     return job;
   }
 
-  /** Makes the role's agent, or reuses the agent with the same role and model. A new agent starts on that model. */
+  /**
+   * Makes the role's agent, or reuses the agent with the same role, model and effort. A new agent
+   * starts on that model. The effort is set on the agent, which sends it with each turn, the same way
+   * an agent chat does. An effort that is the model's default keeps the plain name, so the agents of
+   * earlier jobs are reused.
+   */
   #ensureRoleAgent(
     roleId: string,
     label: string,
     model: AgentModelId,
     provider: RavenTeamRoleRecord["provider"],
     fullAccess: boolean,
+    reasoningEffort: AgentReasoningEffort | null,
   ) {
-    const name = `Raven ${label} (${model})`.slice(0, ROLE_AGENT_NAME_LIMIT);
     return Effect.gen({ self: this }, function* () {
+      const option = this.#agents.listModels().find((candidate) => candidate.id === model);
+      const name = ravenRoleAgentName(label, model, reasoningEffort, option?.defaultReasoningEffort ?? null);
       const existing = this.#agents
         .listAgents()
         .find((agent) => agent.name === name && agent.provider === provider && agent.model === model);
+      const effort = reasoningEffort === null ? {} : { reasoningEffort };
       const agent =
         existing ??
         (yield* this.#call(
@@ -565,11 +590,12 @@ export class RavenTeamService {
             initialMessage: ROLE_AGENT_GREETING,
             provider,
             model,
+            ...effort,
           }),
         ));
       yield* this.#call(
         "set role access",
-        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace" }),
+        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace", ...effort }),
       );
       return { id: agent.id, provider: agent.provider, model: agent.model };
     });

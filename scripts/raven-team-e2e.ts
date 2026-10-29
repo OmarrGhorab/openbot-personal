@@ -18,6 +18,9 @@
 // the role with the access question instead of Working with no turn; Full access, from the question or
 // from the agent settings, sends the message that waited.
 //
+// Reasoning effort: the scripted provider lists efforts for one model. A role with a chosen effort
+// gets its own role agent on that effort, and each of its turns carries the effort.
+//
 // `bun scripts/raven-team-e2e.ts`. Writes .openbot-build/autonomy-6/raven-team-e2e.json.
 
 import assert from "node:assert/strict";
@@ -44,6 +47,8 @@ const HEADS = [
   "3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f",
 ];
 const UNKNOWN_MODEL = "claude-opus-5-5";
+/** The one model the scripted provider lists with effort levels: low, medium (its default) and high. */
+const EFFORT_MODEL = "gpt-6-sol";
 
 // Before the service modules load: the Codex process and the stores read the home folder.
 process.env.HOME = home;
@@ -72,6 +77,7 @@ if (process.argv.includes("--version")) {
 }
 const LOG = ${JSON.stringify(fakeLog)};
 const MODELS = ${JSON.stringify(MODELS)};
+const EFFORT_MODEL = ${JSON.stringify(EFFORT_MODEL)};
 const HEADS = ${JSON.stringify(HEADS)};
 const config = { config: { mcp_servers: {} }, layers: [{ name: { type: "user", file: "/fake/.codex/config.toml", profile: null }, version: "1", config: { mcp_servers: {} } }] };
 let buffer = "";
@@ -115,7 +121,7 @@ const answer = (message) => {
     case "initialize": return write({ id: message.id, result: {} });
     case "account/read": return write({ id: message.id, result: { account: { type: "chatgpt", email: "codex@example.com" } } });
     case "account/rateLimits/read": return write({ id: message.id, result: { rateLimits: { limitId: "codex", primary: null, secondary: null }, rateLimitsByLimitId: null } });
-    case "model/list": return write({ id: message.id, result: { data: MODELS.map((model) => ({ model, displayName: model })) } });
+    case "model/list": return write({ id: message.id, result: { data: MODELS.map((model) => ({ model, displayName: model, ...(model === EFFORT_MODEL ? { defaultReasoningEffort: "medium", supportedReasoningEfforts: ["low", "medium", "high"].map((reasoningEffort) => ({ reasoningEffort })) } : {}) })) } });
     case "plugin/list": return write({ id: message.id, result: { marketplaces: [] } });
     case "config/read": return write({ id: message.id, result: config });
     case "config/batchWrite": return write({ id: message.id, result: {} });
@@ -136,7 +142,7 @@ const answer = (message) => {
       if (label && text.includes("SCRIPT-ALWAYS-FAIL")) alwaysFail.add(params.threadId);
       const count = (turnCount.get(params.threadId) || 0) + 1;
       turnCount.set(params.threadId, count);
-      log({ kind: "turn", threadId: params.threadId, turnId, model: params.model ?? null, role: roleByThread.get(params.threadId) ?? null });
+      log({ kind: "turn", threadId: params.threadId, turnId, model: params.model ?? null, effort: params.effort ?? null, role: roleByThread.get(params.threadId) ?? null });
       write({ id: message.id, result: { turn: { id: turnId, status: "inProgress", items: [] } } });
       write({ method: "turn/started", params: { threadId: params.threadId, turn: { id: turnId } } });
       const reply = scriptedReply(params.threadId, text, count);
@@ -171,6 +177,7 @@ interface TurnLogEntry {
   threadId: string;
   turnId: string;
   model: string | null;
+  effort?: string | null;
   role: string | null;
 }
 
@@ -194,7 +201,7 @@ const report: {
   passed: boolean;
   checks: Check[];
   runs: ReportRun[];
-  turns: { role: string | null; model: string | null }[];
+  turns: { role: string | null; model: string | null; effort: string | null }[];
   unverified: string[];
   error?: string;
 } = {
@@ -646,6 +653,54 @@ try {
     roleTurnsAfterQuestion: roleTurnsAfter,
   });
 
+  // 9. Reasoning effort: the Builder on gpt-6-sol with the effort high. The plan, the role agent and
+  // every Builder turn carry it; a role on a model with no chosen effort keeps its default.
+  const effortPlan = team.plan({
+    templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+    brief: ASSIGNMENTS,
+    efforts: { builder: "high" },
+  });
+  check(
+    "the plan carries the chosen effort",
+    effortPlan.roles.find((role) => role.roleId === "builder")?.reasoningEffort === "high",
+    JSON.stringify(effortPlan.roles.map((role) => [role.roleId, role.reasoningEffort])),
+  );
+  const turnsBeforeEffort = turnLog().length;
+  const effortJob = await runCauseEffect(
+    team.start({
+      templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+      brief: `${ASSIGNMENTS} ${TICKET_TEXT}`,
+      efforts: { builder: "high" },
+    }),
+  );
+  const effortEnd = await waitFor("the effort job to end", () => {
+    const job = team.listJobs().find((candidate) => candidate.id === effortJob.id);
+    return job && ["done", "not-done", "waiting-user"].includes(job.state) ? job : null;
+  });
+  check("the effort job ends done", effortEnd.state === "done", effortEnd.state);
+  const effortBuilder = agents
+    .listAgents()
+    .find((agent) => agent.id === effortEnd.roles.find((role) => role.roleId === "builder")?.agentId);
+  check(
+    "the Builder runs in its own agent on the chosen effort",
+    effortBuilder?.name === "Raven Builder (gpt-6-sol, high)" && effortBuilder.reasoningEffort === "high",
+    `${effortBuilder?.name} ${effortBuilder?.reasoningEffort}`,
+  );
+  const effortTurns = turnLog()
+    .slice(turnsBeforeEffort)
+    .filter((turn) => turn.role === "Builder");
+  check(
+    "every Builder turn carries the effort high",
+    effortTurns.length > 0 && effortTurns.every((turn) => turn.effort === "high"),
+    JSON.stringify(effortTurns.map((turn) => turn.effort)),
+  );
+  record("reasoning effort", {
+    jobId: effortEnd.id,
+    state: effortEnd.state,
+    builderAgent: effortBuilder?.name ?? null,
+    builderTurnEfforts: effortTurns.map((turn) => turn.effort ?? null),
+  });
+
   report.passed = true;
 } catch (error) {
   report.error = error instanceof Error ? error.message : String(error);
@@ -680,7 +735,7 @@ try {
   record("changes", { changesEmitted: changes });
   report.turns = turnLog()
     .filter((turn) => turn.role !== null)
-    .map((turn) => ({ role: turn.role, model: turn.model }));
+    .map((turn) => ({ role: turn.role, model: turn.model, effort: turn.effort ?? null }));
   mkdirSync(OUT, { recursive: true });
   writeFileSync(join(OUT, "raven-team-e2e.json"), `${JSON.stringify(report, null, 2)}\n`);
   await rm(root, { recursive: true, force: true }).catch(() => undefined);

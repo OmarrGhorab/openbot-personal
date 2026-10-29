@@ -1,4 +1,4 @@
-import { type AgentModelId, isAgentModel } from "./ipc-agent-identity";
+import { type AgentModelId, type AgentReasoningEffort, isAgentModel, isReasoningEffort } from "./ipc-agent-identity";
 import { type AgentProviderId, isAgentProvider } from "./ipc-agent-status";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import { type DynamicRecord, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
@@ -122,6 +122,12 @@ export interface RavenTeamPlanRole {
    * still tells it not to change the branch.
    */
   fullAccess: boolean;
+  /**
+   * The reasoning effort of the role's turns: the one the user chose when the model supports it, else
+   * the model's default. Null when the model has no effort levels. The role's agent takes it, the
+   * same way an agent chat sends the effort with each turn.
+   */
+  reasoningEffort: AgentReasoningEffort | null;
 }
 
 export interface RavenTeamPlanWarning {
@@ -228,6 +234,8 @@ export interface PlanRavenTeamInput {
   models?: Record<string, string>;
   /** Ids of read-only roles that the user gave Full access on the confirm card. */
   fullAccess?: string[];
+  /** Role id to reasoning effort. An effort the role's model does not support gives the model's default. */
+  efforts?: Record<string, AgentReasoningEffort>;
 }
 
 export interface SetRavenTeamRoleModelInput {
@@ -359,7 +367,8 @@ export function isRavenTeamPlan(value: unknown): value is RavenTeamPlan {
         role.skills.every(isString) &&
         typeof role.optional === "boolean" &&
         typeof role.named === "boolean" &&
-        typeof role.fullAccess === "boolean",
+        typeof role.fullAccess === "boolean" &&
+        (role.reasoningEffort === null || isReasoningEffort(role.reasoningEffort)),
     ) &&
     Array.isArray(value.warnings) &&
     Array.isArray(value.unknownRoles) &&
