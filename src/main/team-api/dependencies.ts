@@ -192,7 +192,7 @@ export interface TeamApiConnectors {
 
 /**
  * Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on, and
- * beside `providerAccounts` too, `provider-account-relay-v1`.
+ * beside `providerAccounts` too, `provider-account-relay-v1` and `provider-account-relay-v2`.
  */
 export type TeamApiSignInRelay = Pick<
   SignInRelayHost,
@@ -336,7 +336,10 @@ interface TeamApiProviders {
     "startProviderCodeLogin" | "submitProviderCodeLogin" | "cancelProviderCodeLogin" | "changeProviderCredential"
   >;
   credentials: Pick<ProviderCredentialStore, "status" | "set" | "clear">;
-  runtimes: Pick<ProviderRuntimeManager, "getStatus" | "download" | "cancel" | "checkForUpdates">;
+  runtimes: Pick<
+    ProviderRuntimeManager,
+    "getStatus" | "download" | "cancel" | "checkForUpdates" | "startKeyProviderCli"
+  >;
   customProviders: PeerCustomProviderChanges;
   /**
    * Whether this host can run the Claude pasted-code sign-in. `providers-v3` promises it, so a host

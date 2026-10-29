@@ -196,6 +196,10 @@ import {
   type PROVIDER_ACCOUNT_RELAY_PROVIDERS,
   PROVIDER_ACCOUNT_RELAY_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import {
+  type PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
+  PROVIDER_ACCOUNT_RELAY_V2_ROUTES,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_ROUTES } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/provider-host-sign-in-v1";
 import { PROVIDER_USAGE_RESET_ROUTES } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
@@ -689,6 +693,14 @@ export function startProviderAccountSignInRelay(
   input: { provider: (typeof PROVIDER_ACCOUNT_RELAY_PROVIDERS)[number]; accountId: string | null },
 ): Effect.Effect<{ flowId: string }, TeamAdminRequestError> {
   return adminCall(() => request("POST", PROVIDER_ACCOUNT_RELAY_ROUTES.start, decodeSignInRelayFlow, { ...input }));
+}
+
+/** A relayed sign-in of an account after the first, Gemini's included (`provider-account-relay-v2`). */
+export function startProviderAccountSignInRelayV2(
+  request: TeamApiRequest,
+  input: { provider: (typeof PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS)[number]; accountId: string | null },
+): Effect.Effect<{ flowId: string }, TeamAdminRequestError> {
+  return adminCall(() => request("POST", PROVIDER_ACCOUNT_RELAY_V2_ROUTES.start, decodeSignInRelayFlow, { ...input }));
 }
 
 /** A relayed sign-in of a link that an agent of the host printed (`sign-in-relay-v1`). */
