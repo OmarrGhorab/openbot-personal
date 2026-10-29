@@ -12,6 +12,10 @@ import {
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_PROVIDERS,
 } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import {
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/providers-v1";
@@ -311,7 +315,9 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
           cancel: (provider: AgentProviderId) => admin.cancelHostSignIn(provider, id ?? ""),
         },
         ...(accountsServerId() ? { accountSignIn: accountSignIn(accountsServerId() ?? "") } : {}),
-        ...(accountsServerId() && serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_CAPABILITY)
+        ...(accountsServerId() &&
+        (serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_CAPABILITY) ||
+          serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY))
           ? { accountRelay: accountRelay(accountsServerId() ?? "") }
           : {}),
         relay: {
@@ -353,7 +359,9 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
   /** As on desktop: the other relay requests run an account's relayed sign-in by its provider. */
   function accountRelay(id: string) {
     return {
-      providers: PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+      providers: serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY)
+        ? PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS
+        : PROVIDER_ACCOUNT_RELAY_PROVIDERS,
       hostName: options.server()?.name ?? "",
       start: (provider: AgentProviderId, accountId: string | null) =>
         admin.startAccountRelaySignIn({ provider, accountId }, id),

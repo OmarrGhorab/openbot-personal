@@ -34,6 +34,11 @@ import {
   PROVIDER_ACCOUNT_RELAY_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import {
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
+  PROVIDER_ACCOUNT_RELAY_V2_ROUTES,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
+import {
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_ACCOUNTS_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-accounts-v1";
@@ -353,6 +358,12 @@ export function providerAdminIpcHandlers({
         return startRelay(serverId, provider, SIGN_IN_RELAY_ROUTES.providerStart, { provider });
       }),
       startAccountRelaySignIn: relaySignIn(parseConnectProviderAccountInput, ({ provider, accountId }, serverId) => {
+        // A host with `provider-account-relay-v2` relays Gemini's accounts too; an older one only v1's.
+        if (
+          remoteServers.supportsCapability(serverId, PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY) &&
+          PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS.some((candidate) => candidate === provider)
+        )
+          return startRelay(serverId, provider, PROVIDER_ACCOUNT_RELAY_V2_ROUTES.start, { provider, accountId });
         if (
           !remoteServers.supportsCapability(serverId, PROVIDER_ACCOUNT_RELAY_CAPABILITY) ||
           !PROVIDER_ACCOUNT_RELAY_PROVIDERS.some((candidate) => candidate === provider)
