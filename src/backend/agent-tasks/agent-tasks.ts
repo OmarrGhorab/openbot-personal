@@ -57,7 +57,7 @@ export interface AgentTaskPullRegistry {
 export const UPDATE_TICKET_TOOL = "update_ticket";
 
 /** The columns an agent can move its own ticket to. Done is the person's approval. */
-export const AGENT_TICKET_STATUSES = ["backlog", "running", "needs_review"] as const;
+const AGENT_TICKET_STATUSES = ["backlog", "running", "needs_review"] as const;
 
 export const updateTicketToolSchema = z.strictObject({
   status: z.enum(AGENT_TICKET_STATUSES).optional(),
@@ -65,7 +65,7 @@ export const updateTicketToolSchema = z.strictObject({
   comment: z.string().trim().min(1).max(BOARD_TICKET_COMMENT_LIMIT).optional(),
 });
 
-export type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
+type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
 
 /** The Tickets board, for the `update_ticket` tool. The composition root gives `BoardTicketService`. */
 export interface AgentTaskBoard {
