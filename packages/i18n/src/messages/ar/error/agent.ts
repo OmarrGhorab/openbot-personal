@@ -15,6 +15,11 @@ export const messages = {
   "error.agent.boardTickets.toolInvalid":
     "اكتب حالة (backlog أو running أو needs_review)، أو سطر تقدّم 500 حرف على الأكتر، أو تعليق.",
   "error.agent.boardTickets.notTicketThread": "المهمة اللي شغّالة على تذكرة في لوحة التذاكر بس هي اللي تقدر تحدّثها.",
+  "error.agent.boardTickets.syncNotConnected": "اربط نظام التذاكر ده على الجهاز ده الأول قبل ما تزامن معاه.",
+  "error.agent.boardTickets.syncProjectInvalid": "اختار ريبو أو مشروع تزامن معاه.",
+  "error.agent.boardTickets.syncProjectsFailed": "معرفناش نقرا ريبوهات نظام التذاكر.",
+  "error.agent.boardTickets.syncFailed": "معرفناش نقرا الـ issues المفتوحة. المزامنة الجاية هتحاول تاني.",
+  "error.agent.boardTickets.pushFailed": "معرفناش نبعت آخر تغيير للـ issue المربوطة.",
   "error.agent.approvalWhileDeleting": "مينفعش تدي موافقة والإيجنت بيتمسح.",
   "error.agent.accessLocalOnly": "صلاحيات الإيجنت ممكن تتغيّر بس على الجهاز اللي شغّال عليه الإيجنت.",
   "error.agent.duplicateCleanupFailed": "تكرار الإيجنت فشل والنسخة الناقصة معرفتش تتمسح.",

@@ -406,6 +406,20 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
       order: 1,
     }),
   ],
+  boardTicketSync: {
+    providers: ["github"],
+    projects: { github: ["OmarrGhorab/openbot-personal"] },
+    issues: {
+      "OmarrGhorab/openbot-personal": [
+        {
+          key: "omarrghorab/openbot-personal#158",
+          title: "Show the issue link on each card",
+          body: "Each imported ticket keeps the link to its issue.",
+          url: "https://github.com/OmarrGhorab/openbot-personal/issues/158",
+        },
+      ],
+    },
+  },
   tasks: { chief: [TICKETS_STORY_THREAD] },
   taskConversations: {
     [TICKETS_STORY_THREAD.id]: {
@@ -430,7 +444,7 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
 
 /**
  * The Tickets page from the rail: a running work thread with its ticket and issue link, a ticket in
- * the other columns, and an unassigned one. `scripts/tickets-board-e2e.ts` drives this story.
+ * the other columns, and an unassigned one. GitHub is connected, so Sync imports one open issue. `scripts/tickets-board-e2e.ts` drives this story.
  */
 export const TicketsBoard: Story = {
   render: () => <OpenBotPlayground options={TICKETS_STORY_OPTIONS} />,

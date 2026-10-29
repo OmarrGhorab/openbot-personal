@@ -4,7 +4,8 @@
 // the drawer stepper, the agent picker, Start now, Open issue, the steer box, Delete and its
 // confirmation, New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
-// and a started ticket moves from Running to Needs review when its turn ends, with no click.
+// and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
+// connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
 //
 // Pass the Storybook URL that `bun run storybook` reports:
 //   bun scripts/tickets-board-e2e.ts --storybook=http://localhost:6006
@@ -30,6 +31,9 @@ const SALES = "Sales Outbound";
 const ADDED = "Add a dark mode switch";
 const STARTED = "Ship the changelog";
 const STEER = "Keep the old session API for one release.";
+const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
+const IMPORTED = "Show the issue link on each card";
+const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
 
 interface Report {
   steps: string[];
@@ -79,6 +83,34 @@ try {
   await card(column(page, "tickets.status.backlog"), BACKLOG).waitFor();
   await screenshot(page, "board");
   report.steps.push("The board shows five columns with the seeded tickets.");
+
+  // Sync: GitHub is connected in this story. Save and sync imports the open issues of the repository into
+  // Backlog, linked to their issues; Sync now imports them again and adds no copy.
+  const syncButton = page.getByRole("button", { name: t("tickets.sync.open"), exact: true });
+  const syncDialog = page.getByRole("dialog", { name: t("tickets.sync.title"), exact: true });
+  await syncButton.click();
+  await syncDialog.waitFor();
+  await syncDialog.getByText(t("tickets.sync.never"), { exact: true }).waitFor();
+  await syncDialog.getByRole("button", { name: t("tickets.sync.project"), exact: true }).click();
+  await page.getByRole("menuitemradio").filter({ hasText: SYNC_REPOSITORY }).click();
+  await screenshot(page, "sync");
+  await syncDialog.getByRole("button", { name: t("tickets.sync.save"), exact: true }).click();
+  await syncDialog.waitFor({ state: "detached" });
+  const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
+  await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
+  await imported.click();
+  const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
+  await importedDrawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).waitFor();
+  await importedDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
+  await importedDrawer.waitFor({ state: "detached" });
+  await syncButton.click();
+  await syncDialog.getByRole("button", { name: t("tickets.sync.now"), exact: true }).click();
+  await syncDialog.getByRole("button", { name: t("common.close"), exact: true }).click();
+  await syncDialog.waitFor({ state: "detached" });
+  assert.equal(await card(page, IMPORTED).count(), 1);
+  report.steps.push(
+    "Sync imports the open issues of the chosen repository into Backlog with their issue link, and Sync now adds no copy.",
+  );
 
   // By agent: one lane for each agent. A lane header opens the agent panel.
   await page.getByRole("tab", { name: t("tickets.view.agents"), exact: true }).click();

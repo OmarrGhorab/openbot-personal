@@ -1,4 +1,10 @@
-import type { AgentTask, AgentTasksSnapshot, BoardTicket, BoardTicketEvent } from "@openbot/contracts/ipc";
+import type {
+  AgentTask,
+  AgentTasksSnapshot,
+  BoardTicket,
+  BoardTicketEvent,
+  BoardTicketSyncState,
+} from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { TicketsPage } from "@openbot/ui/features/tickets/TicketsPage";
 import { currentText } from "@openbot/ui/text";
@@ -39,6 +45,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
   const [loaded, setLoaded] = createSignal(false);
   const [selectedTicketId, setSelectedTicketId] = createSignal<string | null>(null);
   const [events, setEvents] = createSignal<BoardTicketEvent[] | null>(null);
+  /** The sync with a connected ticket system. Main sends it again when a connection or the target changes. */
+  const [syncState, setSyncState] = createSignal<BoardTicketSyncState | null>(null);
   /** The thread list of each agent that this page read. The task state wins once it has one. */
   const [listed, setListed] = createStore<Record<string, AgentTasksSnapshot>>({});
   let disposed = false;
@@ -82,6 +90,26 @@ export function TicketsPanel(props: TicketsPanelProps) {
       });
   }
 
+  function loadSync(): void {
+    boardTickets()
+      .syncState()
+      .then((state) => {
+        if (!disposed) setSyncState(state);
+      })
+      .catch((error) => fail(error, "tickets.error.sync"));
+  }
+
+  async function syncAction(action: () => Promise<BoardTicketSyncState>): Promise<boolean> {
+    try {
+      const state = await action();
+      if (!disposed) setSyncState(state);
+      return true;
+    } catch (error) {
+      fail(error, "tickets.error.sync");
+      return false;
+    }
+  }
+
   function loadThreads(agentId: string): void {
     agentTasksPort()
       .agent.listTasks(agentId)
@@ -97,11 +125,17 @@ export function TicketsPanel(props: TicketsPanelProps) {
   createEffect(available, (local) => {
     if (!local) return;
     loadTickets();
-    return boardTickets().onChanged((change) => {
+    loadSync();
+    const stopTickets = boardTickets().onChanged((change) => {
       loadTickets();
       const open = selectedTicketId();
       if (open && change.ticketIds.includes(open)) loadEvents(open);
     });
+    const stopSync = boardTickets().onSyncChanged((state) => setSyncState(state));
+    return () => {
+      stopTickets();
+      stopSync();
+    };
   });
 
   createEffect(
@@ -214,6 +248,19 @@ export function TicketsPanel(props: TicketsPanelProps) {
           fail(error, "tickets.error.steer");
         }
         return true;
+      }}
+      sync={{
+        state: syncState(),
+        onLoadProjects: async (provider) => {
+          try {
+            return await boardTickets().syncProjects(provider);
+          } catch (error) {
+            fail(error, "tickets.error.syncProjects");
+            return null;
+          }
+        },
+        onSetTarget: (target) => syncAction(() => boardTickets().setSyncTarget(target)),
+        onSyncNow: () => syncAction(() => boardTickets().syncNow()),
       }}
       onStopThread={(thread) => threadAction(thread, (input) => agentTasksPort().agent.stopTask(input))}
       onPauseThread={(thread) => threadAction(thread, (input) => agentTasksPort().agent.pauseTask(input))}

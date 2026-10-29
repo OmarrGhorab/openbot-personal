@@ -16,6 +16,11 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.toolInvalid":
     "Give a status (backlog, running or needs_review), a progress line of at most 500 characters, or a comment.",
   "error.agent.boardTickets.notTicketThread": "Only a task that does a Tickets board ticket can update it.",
+  "error.agent.boardTickets.syncNotConnected": "Connect this ticket system on this computer before you sync with it.",
+  "error.agent.boardTickets.syncProjectInvalid": "Choose a repository or project to sync with.",
+  "error.agent.boardTickets.syncProjectsFailed": "Could not read the repositories of the ticket system.",
+  "error.agent.boardTickets.syncFailed": "Could not read the open issues. The next sync tries again.",
+  "error.agent.boardTickets.pushFailed": "Could not send the last change to the linked issue.",
   // Agent errors that the main process and the backend send.
   "error.agent.approvalWhileDeleting": "Cannot grant approval while the agent is being deleted.",
   "error.agent.accessLocalOnly": "Agent access can only be changed on the computer that runs the agent.",

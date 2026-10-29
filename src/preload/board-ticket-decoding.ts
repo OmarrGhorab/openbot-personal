@@ -1,11 +1,14 @@
 import {
   type BoardTicket,
   type BoardTicketEvent,
+  type BoardTicketSyncState,
   type BoardTicketsChanged,
   isBoardTicket,
   isBoardTicketEvent,
   isBoardTicketEventList,
   isBoardTicketList,
+  isBoardTicketSyncProjects,
+  isBoardTicketSyncState,
   isBoardTicketsChanged,
 } from "@openbot/contracts/ipc";
 
@@ -31,5 +34,15 @@ export function decodeBoardTicketEvents(value: unknown): BoardTicketEvent[] {
 
 export function decodeBoardTicketsChanged(value: unknown): BoardTicketsChanged {
   if (!isBoardTicketsChanged(value)) throw new Error("Invalid ticket change event.");
+  return value;
+}
+
+export function decodeBoardTicketSyncState(value: unknown): BoardTicketSyncState {
+  if (!isBoardTicketSyncState(value)) throw new Error("Invalid ticket sync response.");
+  return value;
+}
+
+export function decodeBoardTicketSyncProjects(value: unknown): string[] {
+  if (!isBoardTicketSyncProjects(value)) throw new Error("Invalid ticket sync response.");
   return value;
 }

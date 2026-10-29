@@ -183,6 +183,8 @@ import {
   decodeBoardTicket,
   decodeBoardTicketEvent,
   decodeBoardTicketEvents,
+  decodeBoardTicketSyncProjects,
+  decodeBoardTicketSyncState,
   decodeBoardTickets,
   decodeBoardTicketsChanged,
 } from "./board-ticket-decoding";
@@ -744,6 +746,11 @@ const openbotApi: OpenBotDesktopApi = {
     start: decodeBoardTicket,
     delete: decodeVoid,
     changed: decodeBoardTicketsChanged,
+    syncState: decodeBoardTicketSyncState,
+    syncProjects: decodeBoardTicketSyncProjects,
+    setSyncTarget: decodeBoardTicketSyncState,
+    syncNow: decodeBoardTicketSyncState,
+    syncChanged: decodeBoardTicketSyncState,
   }),
   ravenTeam: bridgeGroup(IPC_ENDPOINTS.ravenTeam, {
     listTemplates: decodeRavenTemplates,

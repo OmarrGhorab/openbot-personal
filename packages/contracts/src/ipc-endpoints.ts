@@ -21,6 +21,9 @@ import type {
 import type {
   BoardTicket,
   BoardTicketEvent,
+  BoardTicketProvider,
+  BoardTicketSyncState,
+  BoardTicketSyncTarget,
   BoardTicketsChanged,
   CommentBoardTicketInput,
   CreateBoardTicketInput,
@@ -1468,6 +1471,13 @@ export const IPC_ENDPOINTS = {
     start: request<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
     delete: request<string, void>()("board-tickets:delete"),
     changed: event<BoardTicketsChanged>()("board-tickets:changed"),
+    // The sync with a connected ticket system. The state lists no system when none is connected.
+    syncState: request<undefined, BoardTicketSyncState>()("board-tickets:sync-state"),
+    syncProjects: request<BoardTicketProvider, string[]>()("board-tickets:sync-projects"),
+    // A new target imports its issues at once. Null stops the sync; the tickets stay.
+    setSyncTarget: request<BoardTicketSyncTarget | null, BoardTicketSyncState>()("board-tickets:set-sync-target"),
+    syncNow: request<undefined, BoardTicketSyncState>()("board-tickets:sync-now"),
+    syncChanged: event<BoardTicketSyncState>()("board-tickets:sync-changed"),
   },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),

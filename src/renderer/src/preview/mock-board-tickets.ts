@@ -2,7 +2,8 @@
 // as it does after the upgrade; a story or a smoke check passes seed tickets. With `startThread`, a
 // started ticket gets a mock work thread of the agent mock. With `followTasks`, the agent moves the
 // ticket of each work thread as the desktop does: Running while a turn runs, Needs review when it ends,
-// and back to Backlog with the failure line when it fails or is stopped.
+// and back to Backlog with the failure line when it fails or is stopped. With `sync`, ticket systems are
+// connected: the board imports the open issues of the chosen project into Backlog, as the desktop does.
 
 import {
   type AgentTasksSnapshot,
@@ -10,9 +11,14 @@ import {
   type BoardTicketActor,
   type BoardTicketEvent,
   type BoardTicketEventKind,
+  type BoardTicketExternal,
+  type BoardTicketProvider,
   type BoardTicketStatus,
+  type BoardTicketSyncState,
+  type BoardTicketSyncTarget,
   type BoardTicketsChanged,
   boardTicketWorkStep,
+  type CreateBoardTicketInput,
   type MoveBoardTicketInput,
   type OpenBotDesktopApi,
 } from "@openbot/contracts/ipc";
@@ -26,10 +32,20 @@ type StartMockThread = (agentId: string, text: string) => { taskId: string; thre
 /** Hands each task list of the agent mock to the listener, as `agent-tasks-changed` does. */
 type FollowMockTasks = (listener: (snapshot: AgentTasksSnapshot) => void) => void;
 
+/** The connected ticket systems of the preview, their projects, and the open issues of each project. */
+export interface PreviewBoardTicketSync {
+  providers: BoardTicketProvider[];
+  projects: Partial<Record<BoardTicketProvider, string[]>>;
+  issues: Record<string, { key: string; title: string; body: string; url: string }[]>;
+}
+
+const NO_SYNC: PreviewBoardTicketSync = { providers: [], projects: {}, issues: {} };
+
 export function mockBoardTickets(
   seed: readonly BoardTicket[] = [],
   startThread?: StartMockThread,
   followTasks?: FollowMockTasks,
+  sync: PreviewBoardTicketSync = NO_SYNC,
 ): BoardTicketsApi {
   let tickets: BoardTicket[] = seed.map((ticket) => ({ ...ticket, statusTimes: { ...ticket.statusTimes } }));
   const events: BoardTicketEvent[] = [];
@@ -100,41 +116,85 @@ export function mockBoardTickets(
     });
   };
 
+  const createTicket = (
+    input: CreateBoardTicketInput,
+    actor: BoardTicketActor,
+    external: BoardTicketExternal | null,
+  ): BoardTicket => {
+    const title = input.title.replace(/\s+/gu, " ").trim();
+    if (!title) throw new Error("Write a title for the ticket.");
+    const status = input.status ?? "backlog";
+    const time = now();
+    const ticket: BoardTicket = {
+      id: nextId("ticket"),
+      title,
+      body: input.body ?? "",
+      status,
+      agentId: input.agentId ?? null,
+      order: endOrder(status),
+      taskId: null,
+      threadId: null,
+      teamJobId: null,
+      teamRoleId: null,
+      external,
+      progress: null,
+      error: null,
+      statusTimes: { [status]: time },
+      statusChangedAt: time,
+      createdAt: time,
+      updatedAt: time,
+    };
+    tickets = [...tickets, ticket];
+    addEvent(ticket.id, "created", actor, { toStatus: status });
+    emitChanged([ticket.id]);
+    return ticket;
+  };
+
+  let syncTarget: BoardTicketSyncTarget | null = null;
+  let lastSyncedAt: string | null = null;
+  const syncListeners = new Set<(state: BoardTicketSyncState) => void>();
+  const syncState = (): BoardTicketSyncState => ({
+    providers: [...sync.providers],
+    target: syncTarget ? { ...syncTarget } : null,
+    lastSyncedAt,
+    error: null,
+  });
+  const announceSync = (): BoardTicketSyncState => {
+    const state = syncState();
+    for (const listener of syncListeners) listener(state);
+    return state;
+  };
+  const requireConnected = (provider: BoardTicketProvider) => {
+    if (!sync.providers.includes(provider)) throw new Error(sourceText("error.agent.boardTickets.syncNotConnected"));
+  };
+  // Adds each open issue of the target to Backlog once, linked to it. A linked ticket takes the new title.
+  const importIssues = () => {
+    const target = syncTarget;
+    if (!target) return;
+    for (const issue of sync.issues[target.project] ?? []) {
+      const linked = tickets.find(
+        (ticket) => ticket.external?.provider === target.provider && ticket.external.key === issue.key,
+      );
+      if (!linked) {
+        createTicket({ title: issue.title, body: issue.body }, "sync", {
+          provider: target.provider,
+          key: issue.key,
+          url: issue.url,
+        });
+      } else if (linked.title !== issue.title || linked.body !== issue.body) {
+        replace({ ...linked, title: issue.title, body: issue.body, updatedAt: now() });
+      }
+    }
+    lastSyncedAt = now();
+  };
+
   const api: BoardTicketsApi = {
     list: async () => [...tickets].sort((left, right) => left.order - right.order),
     events: async (ticketId) => {
       find(ticketId);
       return events.filter((event) => event.ticketId === ticketId);
     },
-    create: async (input) => {
-      const title = input.title.replace(/\s+/gu, " ").trim();
-      if (!title) throw new Error("Write a title for the ticket.");
-      const status = input.status ?? "backlog";
-      const time = now();
-      const ticket: BoardTicket = {
-        id: nextId("ticket"),
-        title,
-        body: input.body ?? "",
-        status,
-        agentId: input.agentId ?? null,
-        order: endOrder(status),
-        taskId: null,
-        threadId: null,
-        teamJobId: null,
-        teamRoleId: null,
-        external: null,
-        progress: null,
-        error: null,
-        statusTimes: { [status]: time },
-        statusChangedAt: time,
-        createdAt: time,
-        updatedAt: time,
-      };
-      tickets = [...tickets, ticket];
-      addEvent(ticket.id, "created", "user", { toStatus: status });
-      emitChanged([ticket.id]);
-      return ticket;
-    },
+    create: async (input) => createTicket(input, "user", null),
     update: async (input) => {
       const current = find(input.ticketId);
       if (input.agentId !== undefined && input.agentId !== current.agentId) {
@@ -186,6 +246,32 @@ export function mockBoardTickets(
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    syncState: async () => syncState(),
+    syncProjects: async (provider) => {
+      requireConnected(provider);
+      return [...(sync.projects[provider] ?? [])];
+    },
+    setSyncTarget: async (target) => {
+      if (target === null) {
+        syncTarget = null;
+        lastSyncedAt = null;
+        return announceSync();
+      }
+      requireConnected(target.provider);
+      syncTarget = { provider: target.provider, project: target.project.trim() };
+      importIssues();
+      return announceSync();
+    },
+    syncNow: async () => {
+      importIssues();
+      return announceSync();
+    },
+    onSyncChanged: (listener) => {
+      syncListeners.add(listener);
+      return () => {
+        syncListeners.delete(listener);
       };
     },
   };
