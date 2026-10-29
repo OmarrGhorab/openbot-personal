@@ -12,6 +12,7 @@ import { AgentRoutineStore } from "../backend/agent-routine-store";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
+import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
 import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
 import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
@@ -1971,10 +1972,17 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.routineFlows, "the routine flows", () => Effect.runPromise(routineFlowRuntime.close()));
   // A team's roles are local agents, and their turns arrive as the same agent events. The view reads a
   // job again when it changes, so no window polls.
-  const ravenTeam = new RavenTeamService({
+  // Each team job has a ticket on the Tickets board, and each of its roles has its own ticket, assigned
+  // to the role's agent. They move as the job and the role's work threads go.
+  const boardTicketTeamFollower = new BoardTicketTeamFollower(boardTickets);
+  const ravenTeam: RavenTeamService = new RavenTeamService({
     store: new RavenTeamStore(store.database),
     agents: service,
-    changed: (jobId) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenTeam.changed, { jobId }),
+    changed: (jobId) => {
+      sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenTeam.changed, { jobId });
+      const job = jobId === null ? null : ravenTeam.job(jobId);
+      if (job) boardTicketTeamFollower.follow(job);
+    },
   });
   const ravenTeamListener = (event: AgentEvent) => {
     Effect.runFork(ravenTeam.notice(event));

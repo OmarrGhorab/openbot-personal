@@ -9,6 +9,7 @@ import type {
   MacAutomationTarget,
   McpSignInApp,
   McpSignInAppState,
+  RavenTeamJob,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
@@ -246,6 +247,8 @@ export interface MockOpenBotOptions
   boardTickets?: BoardTicket[];
   /** The ticket systems that the Tickets board can sync with. None by default: the board shows no sync. */
   boardTicketSync?: PreviewBoardTicketSync;
+  /** The Raven Stack team jobs when the preview starts, newest first. None by default. */
+  ravenTeamJobs?: RavenTeamJob[];
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -1025,6 +1028,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   );
   const billingPlans = previewBillingServers();
 
+  const ravenTeam = mockRavenTeam(options.ravenTeamJobs);
   const api: OpenBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
     getSetupState: async () => clone(setupState),
@@ -1319,7 +1323,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     providerRuntimes: mockProviderRuntimes.providerRuntimes,
     openUrl: async () => undefined,
     voice: mockVoice.voice,
-    ravenTeam: mockRavenTeam(),
+    ravenTeam,
     boardTickets: mockBoardTickets(
       options.boardTickets,
       (agentId, text) => {
@@ -1331,6 +1335,17 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         boardTaskListeners.add(listener);
       },
       options.boardTicketSync,
+      // Each team job's tickets follow the job, as the desktop's team follower does.
+      (listener) => {
+        const followJob = async (jobId: string) => {
+          const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
+          if (job) listener(clone(job));
+        };
+        ravenTeam.onChanged(({ jobId }) => {
+          if (jobId) void followJob(jobId);
+        });
+        for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
+      },
     ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },

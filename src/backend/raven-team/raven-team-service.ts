@@ -219,6 +219,12 @@ export class RavenTeamService {
     return this.#store.listJobs(50).map(publicRavenTeamJob);
   }
 
+  /** One job, or null when it is not stored. The Tickets board reads it after each change of the job. */
+  job(jobId: string): RavenTeamJob | null {
+    const record = this.#store.findJob(jobId);
+    return record ? publicRavenTeamJob(record) : null;
+  }
+
   /** Starts a job from a confirmed plan. The plan is checked again here, so a stale card cannot start a bad model. */
   start(input: PlanRavenTeamInput): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
     return this.#lock.withPermit(

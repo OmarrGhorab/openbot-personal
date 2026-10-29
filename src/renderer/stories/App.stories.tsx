@@ -1,4 +1,11 @@
-import type { AgentEvent, AgentTask, BoardTicket } from "@openbot/contracts/ipc";
+import {
+  type AgentEvent,
+  type AgentTask,
+  type BoardTicket,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+  type RavenTeamJob,
+  type RavenTeamRoleRun,
+} from "@openbot/contracts/ipc";
 import type { ServerView } from "@openbot/ui/features/servers/ServerMenu";
 import { onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -360,7 +367,49 @@ const TICKETS_STORY_THREAD: AgentTask = {
   },
 };
 
+/**
+ * An Autopilot lite team job of the Tickets story: a Builder on Chief and a Reviewer on Sales Outbound.
+ * A running job's Builder works; a queued job waits for a slot of its role agents.
+ */
+function storyTeamJob(id: string, brief: string, queued: boolean): RavenTeamJob {
+  const role = (roleId: string, label: string, agentId: string, working: boolean): RavenTeamRoleRun => ({
+    roleId,
+    label,
+    agentId,
+    taskId: null,
+    threadId: null,
+    provider: "codex",
+    model: "gpt-6-luna",
+    access: roleId === "builder" ? "write" : "read-only",
+    state: working ? "working" : "waiting",
+    verdict: null,
+    score: null,
+    commit: null,
+    fails: 0,
+    updatedAt: TICKETS_STORY_TIME,
+  });
+  return {
+    id,
+    templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+    brief,
+    state: "running",
+    queued,
+    headCommit: null,
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: null,
+    roles: [role("builder", "Builder", "chief", !queued), role("reviewer", "Reviewer", "sales", false)],
+    createdAt: TICKETS_STORY_TIME,
+    updatedAt: TICKETS_STORY_TIME,
+  };
+}
+
 const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
+  ravenTeamJobs: [
+    storyTeamJob("story-team-job-2", "Show the sync time on the board", true),
+    storyTeamJob("story-team-job-1", "Add a retry to the upload\n\nRetry a failed upload three times.", false),
+  ],
   boardTickets: [
     storyTicket({
       id: "story-ticket-running",
@@ -444,7 +493,8 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
 
 /**
  * The Tickets page from the rail: a running work thread with its ticket and issue link, a ticket in
- * the other columns, and an unassigned one. GitHub is connected, so Sync imports one open issue. `scripts/tickets-board-e2e.ts` drives this story.
+ * the other columns, and an unassigned one. GitHub is connected, so Sync imports one open issue. Two
+ * Autopilot lite team jobs have a ticket each and one ticket per role: one runs, one waits in Queued. `scripts/tickets-board-e2e.ts` drives this story.
  */
 export const TicketsBoard: Story = {
   render: () => <OpenBotPlayground options={TICKETS_STORY_OPTIONS} />,

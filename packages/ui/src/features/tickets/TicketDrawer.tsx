@@ -57,6 +57,10 @@ export interface TicketDrawerProps {
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (text: string) => Promise<boolean>;
+  /** Every ticket of the board: the drawer of a team job lists its role tickets, a role ticket links its job. */
+  tickets: readonly BoardTicket[];
+  /** Opens the drawer of another ticket. */
+  onOpenTicket: (ticketId: string) => void;
 }
 
 const UNASSIGNED = "";
@@ -85,6 +89,19 @@ export function TicketDrawer(props: TicketDrawerProps) {
   const statusName = (status: BoardTicketStatus | null) => (status ? t(TICKET_STATUS_LABEL[status]) : "");
   const agentName = (agentId: string) => props.agents.find((candidate) => candidate.id === agentId)?.name ?? agentId;
   const newestFirst = () => [...(props.events ?? [])].reverse();
+  const agentOf = (agentId: string | null) => props.agents.find((candidate) => candidate.id === agentId);
+  /** The role tickets of a team job's ticket, one for each role. Empty for any other ticket. */
+  const roleTickets = () => {
+    const jobId = props.ticket.teamJobId;
+    if (jobId === null || props.ticket.teamRoleId !== null) return [];
+    return props.tickets.filter((candidate) => candidate.teamJobId === jobId && candidate.teamRoleId !== null);
+  };
+  /** The team job's own ticket, for a role ticket. */
+  const jobTicket = () => {
+    const jobId = props.ticket.teamJobId;
+    if (jobId === null || props.ticket.teamRoleId === null) return undefined;
+    return props.tickets.find((candidate) => candidate.teamJobId === jobId && candidate.teamRoleId === null);
+  };
 
   function eventText(event: BoardTicketEvent): string {
     switch (event.kind) {
@@ -186,6 +203,13 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </Button>
             )}
           </Show>
+          <Show when={jobTicket()}>
+            {(job) => (
+              <Button variant="outline" size="sm" onClick={() => props.onOpenTicket(job().id)}>
+                {t("tickets.drawer.openTeamJob")}
+              </Button>
+            )}
+          </Show>
           <IconButton label={t("common.delete")} variant="destructive-ghost" onClick={() => setConfirmDelete(true)}>
             <Trash2 aria-hidden="true" />
           </IconButton>
@@ -225,6 +249,38 @@ export function TicketDrawer(props: TicketDrawerProps) {
             </For>
           </ol>
         </section>
+
+        <Show when={roleTickets().length > 0}>
+          <section class="tickets-section">
+            <h4>{t("tickets.drawer.roleTickets")}</h4>
+            <ul class="tickets-list">
+              <For each={roleTickets()} keyed={(role) => role.id}>
+                {(role) => (
+                  <li>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="tickets-role-ticket"
+                      onClick={() => props.onOpenTicket(role().id)}
+                    >
+                      <Show when={agentOf(role().agentId)}>
+                        {(owner) => (
+                          <AgentAvatar
+                            agent={owner()}
+                            mood={role().status === "running" ? "working" : "idle"}
+                            class="tickets-drawer-avatar"
+                          />
+                        )}
+                      </Show>
+                      <span class="tickets-role-ticket-title">{role().title}</span>
+                      <span class="tickets-role-ticket-status">{t(TICKET_STATUS_LABEL[role().status])}</span>
+                    </Button>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </section>
+        </Show>
 
         <section class="tickets-section">
           <h4>{t("tickets.drawer.stats")}</h4>

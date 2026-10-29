@@ -73,6 +73,11 @@ export class BoardTicketService {
     return this.#store.forTask(taskId);
   }
 
+  /** The tickets of a Raven Stack team job: its own ticket and one for each role. */
+  forTeamJob(jobId: string): BoardTicket[] {
+    return this.#store.forTeamJob(jobId);
+  }
+
   /**
    * The agent's own update of the ticket that its work thread does: a progress line, a comment and a
    * move, in that order. Null when the work thread does no ticket. The tool lets no agent move a ticket

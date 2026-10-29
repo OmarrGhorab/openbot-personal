@@ -236,6 +236,8 @@ export function TicketsPage(props: TicketsPageProps) {
                 onOpenThread={props.onOpenThread ? () => props.onOpenThread?.(ticket()) : undefined}
                 onOpenLink={props.onOpenLink}
                 onSteer={(text) => props.onSteer(ticket(), text)}
+                tickets={props.tickets}
+                onOpenTicket={(ticketId) => props.onSelectTicket(ticketId)}
               />
             )}
           </Show>

@@ -13,6 +13,8 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.startUnavailable": "Tickets cannot start a thread on this computer.",
   "error.agent.boardTickets.threadFailed": "The last turn of its thread failed.",
   "error.agent.boardTickets.threadStopped": "Its thread was stopped before the work was done.",
+  "error.agent.boardTickets.teamJobStopped": "Its team job was stopped before the work was done.",
+  "error.agent.boardTickets.teamJobNotDone": "Its team job ended not done after the last FAIL round.",
   "error.agent.boardTickets.toolInvalid":
     "Give a status (backlog, running or needs_review), a progress line of at most 500 characters, or a comment.",
   "error.agent.boardTickets.notTicketThread": "Only a task that does a Tickets board ticket can update it.",

@@ -46,6 +46,9 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   work-thread limit is **queued** (`RavenTeamJob.queued`, derived, not a column): it has no work
   thread yet and starts when a slot frees.
 
+- **job ticket** and **role ticket**: the Tickets board tickets of a team job. The job ticket has the
+  job's `teamJobId` and no `teamRoleId`; each role ticket has both, is assigned to the role's agent, and
+  moves with the role's work thread (`BoardTicketTeamFollower`).
 - **team role**: a part of a Raven Stack team job, such as Architect, Builder, Reviewer or Quality. A role
   is one agent on one model, with its own work thread (`RavenTeamRoleRun`, `raven_team_roles`,
   `RavenTeamRoleDefinition` in a template). **teammate** and **group** stay prompt and UI words.

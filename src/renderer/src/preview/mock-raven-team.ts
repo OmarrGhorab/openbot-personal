@@ -1,6 +1,6 @@
 // The Raven Stack team group of the preview: templates and jobs in memory. No agent runs, so a started
 // job stays where it starts: its first role works and the others wait. The plan reads `Role: model` pairs the same way the runtime does, over a
-// short list of models, so the confirm card and the team view show real shapes.
+// short list of models, so the confirm card and the team view show real shapes. A story can seed jobs.
 
 import {
   type AgentReasoningEffort,
@@ -59,10 +59,15 @@ const LITE: RavenTeamTemplate = {
 /** The preview's work-thread limit of a role agent: two jobs run, a third waits as Queued. */
 const PREVIEW_JOB_LIMIT = 2;
 
-export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
+/** `seed`: the jobs when the preview starts, newest first. Without one, the preview starts with one running job. */
+export function mockRavenTeam(
+  seed?: readonly RavenTeamJob[],
+): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
-  // One running job, so the team page and the Monitor's "Live now" show a team at work.
-  let jobs: RavenTeamJob[] = [previewRunningJob()];
+  // No seed: one running job, so the team page and the Monitor's "Live now" show a team at work.
+  let jobs: RavenTeamJob[] = seed
+    ? seed.map((job) => ({ ...job, roles: job.roles.map((role) => ({ ...role })) }))
+    : [previewRunningJob()];
   const listeners = new Set<(payload: RavenTeamChanged) => void>();
   const emitChanged = (jobId: string | null) => {
     for (const listener of listeners) listener({ jobId });
