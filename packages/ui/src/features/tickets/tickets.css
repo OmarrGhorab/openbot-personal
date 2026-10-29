@@ -592,3 +592,117 @@
   height: 18px;
   flex: 0 0 auto;
 }
+
+/* The page: the header, the strip and the board, with the drawer or the agent panel beside them. */
+.tickets-page {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.tickets-page-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tickets-page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-6) var(--openbot-space-3);
+}
+
+.tickets-page-header h2 {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-lg);
+  outline: 0;
+}
+
+.tickets-page-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-page-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0 var(--openbot-space-6) var(--openbot-space-6);
+}
+
+/* The empty board and the notice of a joined server. */
+.tickets-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-2) var(--openbot-space-6) var(--openbot-space-4);
+}
+
+.tickets-page-scroll .tickets-notice {
+  padding-inline: 0;
+}
+
+.tickets-notice h3 {
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-md);
+}
+
+/* The New ticket dialog. */
+.tickets-new.ui-dialog-content {
+  display: flex;
+  width: min(32rem, 100%);
+  max-height: calc(100dvh - 2 * var(--openbot-space-6));
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  overflow-y: auto;
+  padding: var(--openbot-space-6);
+  background: var(--openbot-bg-sidebar);
+  color: var(--openbot-text-primary);
+  outline: 0;
+}
+
+.tickets-new-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.tickets-new-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-lg);
+}
+
+.tickets-new-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+}
+
+.tickets-new-agent {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-new-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+  padding-top: var(--openbot-space-2);
+}
