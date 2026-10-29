@@ -1,5 +1,6 @@
 import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbot/contracts/agent-memory-context";
 import type {
+  BoardTicket,
   AcpRegistryEntry,
   AgentSessionSettings,
   AgentTicketWatch,
@@ -193,6 +194,7 @@ import { createMockMessaging } from "./mock-messaging";
 import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
+import { mockBoardTickets } from "./mock-board-tickets";
 import { mockRavenTeam } from "./mock-raven-team";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
 import { createMockRoutineFeed } from "./mock-routine-feed";
@@ -238,6 +240,8 @@ export interface MockOpenBotOptions
   routineRuns?: Record<string, RoutineRun[]>;
   routineFlowLinks?: RoutineFlowLink[];
   routineFlowSteps?: RoutineFlowStep[];
+  /** The Tickets board when the preview starts. Empty by default, as after the upgrade. */
+  boardTickets?: BoardTicket[];
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -1301,6 +1305,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     openUrl: async () => undefined,
     voice: mockVoice.voice,
     ravenTeam: mockRavenTeam(),
+    boardTickets: mockBoardTickets(options.boardTickets),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },
       (agentId) => emitAgentEvent({ type: "routine-flows-changed", agentId }),

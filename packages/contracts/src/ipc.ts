@@ -24,6 +24,7 @@ export * from "./ipc-agent-tasks";
 export * from "./ipc-agent-templates";
 export * from "./ipc-agent-ticket-watch";
 export * from "./ipc-agent-waits";
+export * from "./ipc-board-tickets";
 export * from "./ipc-agents";
 export * from "./ipc-app-auth";
 export * from "./ipc-app-behavior";

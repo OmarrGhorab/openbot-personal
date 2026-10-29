@@ -124,7 +124,7 @@ describe("mailbox reconcile cleanup migration", () => {
       const before = contents(db);
       migrateOpenBotDatabase(db);
       expect(contents(db)).toEqual(withoutRepeats(before));
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 50 });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 51 });
       expect(db.prepare("SELECT name FROM sqlite_temp_master").all()).toEqual([]);
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -207,7 +207,7 @@ describe("mailbox reconcile cleanup migration", () => {
     expect(kept).toEqual(events.filter((event) => !reconciled.slice(0, 2).includes(event)));
     expect(migrated.rebuildThreadProjection("openbot-thread-chief")).toEqual(replayed);
     expect(migrated.connection.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({
-      version: 50,
+      version: 51,
     });
     migrated.close();
   });

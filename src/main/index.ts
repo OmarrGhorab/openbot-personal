@@ -47,6 +47,7 @@ import { filePreviewPages } from "./file-preview-pages";
 import { hostAllowsTenantLaunch } from "./host-update-coordinator";
 import { takeHostedServerEnvironment } from "./hosted-server-bootstrap";
 import { takeHostingDeveloperKey } from "./hosted-server-service";
+import { boardTicketIpcHandlers } from "./ipc/board-ticket-handlers";
 import { accountIpcHandlers } from "./ipc/account-handlers";
 import { acpRegistryIpcHandlers } from "./ipc/acp-registry-handlers";
 import { agentAdminIpcHandlers } from "./ipc/agent-admin-handlers";
@@ -600,6 +601,7 @@ function registerIpcHandlers({
   routineFlows,
   ravenTeam,
   routineResults,
+  boardTickets,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -729,6 +731,7 @@ function registerIpcHandlers({
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
     ...autonomyIpcHandlers({ autonomy }),
+    ...boardTicketIpcHandlers({ boardTickets }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

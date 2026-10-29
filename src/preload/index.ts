@@ -245,6 +245,13 @@ import {
 import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
 import {
+  decodeBoardTicket,
+  decodeBoardTicketEvent,
+  decodeBoardTicketEvents,
+  decodeBoardTickets,
+  decodeBoardTicketsChanged,
+} from "./board-ticket-decoding";
+import {
   decodeRavenChanged,
   decodeRavenJob,
   decodeRavenJobs,
@@ -722,6 +729,16 @@ const openbotApi: OpenBotDesktopApi = {
     cancel: decodeProviderRuntimeSnapshot,
     checkForUpdates: decodeProviderRuntimeSnapshot,
     event: decodeProviderRuntimeSnapshot,
+  }),
+  boardTickets: bridgeGroup(IPC_ENDPOINTS.boardTickets, {
+    list: decodeBoardTickets,
+    events: decodeBoardTicketEvents,
+    create: decodeBoardTicket,
+    update: decodeBoardTicket,
+    move: decodeBoardTicket,
+    comment: decodeBoardTicketEvent,
+    delete: decodeVoid,
+    changed: decodeBoardTicketsChanged,
   }),
   ravenTeam: bridgeGroup(IPC_ENDPOINTS.ravenTeam, {
     listTemplates: decodeRavenTemplates,

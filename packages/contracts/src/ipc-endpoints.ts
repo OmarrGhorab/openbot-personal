@@ -12,6 +12,15 @@ import type {
 } from "./ipc-agent-session-settings";
 import type { AgentTicketWatch, AgentTicketWatchInput } from "./ipc-agent-ticket-watch";
 import type {
+  BoardTicket,
+  BoardTicketEvent,
+  BoardTicketsChanged,
+  CommentBoardTicketInput,
+  CreateBoardTicketInput,
+  MoveBoardTicketInput,
+  UpdateBoardTicketInput,
+} from "./ipc-board-tickets";
+import type {
   AutonomyAuditFilter,
   AutonomyAuditPage,
   AutonomySnapshot,
@@ -1439,6 +1448,18 @@ export const IPC_ENDPOINTS = {
     resume: request<string, RavenTeamJob>()("raven-team:resume"),
     changed: event<RavenTeamChanged>()("raven-team:changed"),
   },
+  // The Tickets board of this computer. The one event carries the changed ticket IDs, so the view reads
+  // the list again instead of polling.
+  boardTickets: {
+    list: request<undefined, BoardTicket[]>()("board-tickets:list"),
+    events: request<string, BoardTicketEvent[]>()("board-tickets:events"),
+    create: request<CreateBoardTicketInput, BoardTicket>()("board-tickets:create"),
+    update: request<UpdateBoardTicketInput, BoardTicket>()("board-tickets:update"),
+    move: request<MoveBoardTicketInput, BoardTicket>()("board-tickets:move"),
+    comment: request<CommentBoardTicketInput, BoardTicketEvent>()("board-tickets:comment"),
+    delete: request<string, void>()("board-tickets:delete"),
+    changed: event<BoardTicketsChanged>()("board-tickets:changed"),
+  },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),
     setMemoryInclusion: scopedRequest<SetAgentMemoryInclusionInput, AgentMemorySelectionState>()(
@@ -1865,6 +1886,7 @@ export const IPC_GROUP_PATHS = {
   monitor: "monitor",
   routineFlows: "routineFlows",
   ravenTeam: "ravenTeam",
+  boardTickets: "boardTickets",
   routineResults: "routineResults",
   billing: "billing",
   license: "license",

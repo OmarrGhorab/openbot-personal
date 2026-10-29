@@ -5,6 +5,9 @@ export const messages = {
   "error.agent.historyUnavailable":
     "التاريخ مش متاح للطلب ده. اقرا التاريخ الأخير تاني، أو استخدم channel_history لشغل القناة.",
   "error.agent.toolRequestInvalid": "arguments اكتشاف الأداة مش صالحة. استخدم الـ schema المعلن واسم أداة مؤهّل أصلي.",
+  "error.agent.boardTickets.notFound": "التذكرة مش موجودة. ممكن تكون اتمسحت.",
+  "error.agent.boardTickets.emptyTitle": "اكتب عنوان للتذكرة.",
+  "error.agent.boardTickets.emptyComment": "اكتب تعليق قبل ما تبعته.",
   "error.agent.approvalWhileDeleting": "مينفعش تدي موافقة والإيجنت بيتمسح.",
   "error.agent.accessLocalOnly": "صلاحيات الإيجنت ممكن تتغيّر بس على الجهاز اللي شغّال عليه الإيجنت.",
   "error.agent.duplicateCleanupFailed": "تكرار الإيجنت فشل والنسخة الناقصة معرفتش تتمسح.",
