@@ -2,7 +2,9 @@
 // Storybook, on the `App/Tickets Board` story, and clicks every button that the page shows: the Board
 // and By agent switch, a lane, the agent strip, Pause, Resume and Stop of a work thread, Open ticket,
 // the drawer stepper, the agent picker, Start now, Open issue, the steer box, Delete and its
-// confirmation, New ticket with Cancel, Add to backlog and Start now, and Open thread.
+// confirmation, New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
+// that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
+// and a started ticket moves from Running to Needs review when its turn ends, with no click.
 //
 // Pass the Storybook URL that `bun run storybook` reports:
 //   bun scripts/tickets-board-e2e.ts --storybook=http://localhost:6006
@@ -11,6 +13,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { translateFor } from "@openbot/i18n";
+import { sourceText } from "@openbot/i18n/source";
 import { chromium, type Locator, type Page } from "playwright-core";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/tickets-board-e2e");
@@ -37,7 +40,10 @@ interface Report {
 
 const report: Report = { steps: [], errors: [], passed: false };
 
-function column(page: Page, status: "tickets.status.backlog" | "tickets.status.running"): Locator {
+function column(
+  page: Page,
+  status: "tickets.status.backlog" | "tickets.status.running" | "tickets.status.needsReview",
+): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
 
@@ -106,6 +112,12 @@ try {
   assert.equal(await thread.getByRole("button", { name: t("tickets.panel.stop"), exact: true }).count(), 0);
   report.steps.push("The strip opens the agent panel; Pause, Resume and Stop change the thread.");
 
+  // The agent moves its own ticket: the stopped thread puts it back in Backlog with the failure line.
+  await card(column(page, "tickets.status.backlog"), RUNNING)
+    .getByText(sourceText("error.agent.boardTickets.threadStopped"), { exact: true })
+    .waitFor();
+  report.steps.push("Stop puts the thread's ticket back in Backlog with the failure line, with no click.");
+
   // Open ticket shows the drawer of the thread's ticket.
   await thread.getByRole("button", { name: t("tickets.panel.openTicket"), exact: true }).click();
   const drawer = page.getByRole("complementary", { name: RUNNING, exact: true });
@@ -116,7 +128,7 @@ try {
   await reviewStep.click();
   await drawer.getByRole("button", { name: t("tickets.status.needsReview"), exact: true, disabled: true }).waitFor();
   await drawer
-    .getByText(t("tickets.event.moved", { from: t("tickets.status.running"), to: t("tickets.status.needsReview") }), {
+    .getByText(t("tickets.event.moved", { from: t("tickets.status.backlog"), to: t("tickets.status.needsReview") }), {
       exact: true,
     })
     .waitFor();
@@ -190,10 +202,15 @@ try {
   await dialog.getByRole("button", { name: t("tickets.new.start"), exact: true }).click();
   await dialog.waitFor({ state: "detached" });
   await card(column(page, "tickets.status.running"), STARTED).waitFor();
-  report.steps.push("New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent.");
+  // Its agent moves it: when the mock thread ends its turn, the ticket goes to Needs review by itself.
+  await card(column(page, "tickets.status.needsReview"), STARTED).waitFor();
+  await screenshot(page, "needs-review");
+  report.steps.push(
+    "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
+  );
 
-  // Open thread leaves the page for the agent's chat.
-  await card(column(page, "tickets.status.running"), RUNNING).click();
+  // Open thread leaves the page for the agent's chat. The steered thread may have moved the ticket.
+  await card(page, RUNNING).first().click();
   await page
     .getByRole("complementary", { name: RUNNING, exact: true })
     .getByRole("button", { name: t("tickets.drawer.openThread"), exact: true })

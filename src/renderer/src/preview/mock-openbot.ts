@@ -735,6 +735,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   }
 
   const tasks = new Map<string, AgentTask[]>(Object.entries(clone(options.tasks ?? {})));
+  /** The Tickets board mock, which moves the tickets of work threads as their turns go. */
+  const boardTaskListeners = new Set<(snapshot: AgentTasksSnapshot) => void>();
   const taskConversations = new Map<string, ConversationSnapshot>(
     Object.entries(clone(options.taskConversations ?? {})),
   );
@@ -765,7 +767,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   }
 
   function emitTasks(agentId: string): void {
-    emitAgentEvent({ type: "agent-tasks-changed", snapshot: taskList(agentId) });
+    const snapshot = taskList(agentId);
+    emitAgentEvent({ type: "agent-tasks-changed", snapshot });
+    for (const listener of boardTaskListeners) listener(clone(snapshot));
   }
 
   function findTask(agentId: string, taskId: string): AgentTask {
@@ -1305,11 +1309,17 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     openUrl: async () => undefined,
     voice: mockVoice.voice,
     ravenTeam: mockRavenTeam(),
-    boardTickets: mockBoardTickets(options.boardTickets, (agentId, text) => {
-      const task = createTask(agentId, text);
-      runTaskTurn(task, text);
-      return { taskId: task.id, threadId: task.threadId };
-    }),
+    boardTickets: mockBoardTickets(
+      options.boardTickets,
+      (agentId, text) => {
+        const task = createTask(agentId, text);
+        runTaskTurn(task, text);
+        return { taskId: task.id, threadId: task.threadId };
+      },
+      (listener) => {
+        boardTaskListeners.add(listener);
+      },
+    ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },
       (agentId) => emitAgentEvent({ type: "routine-flows-changed", agentId }),
