@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentEvent, AgentModelOption, AgentProviderId } from "@openbot/contracts/ipc";
-import { RAVEN_STACK_TEAM_TEMPLATE_ID } from "@openbot/contracts/ipc";
+import { RAVEN_STACK_LITE_TEMPLATE_ID, RAVEN_STACK_TEAM_TEMPLATE_ID } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCauseEffect } from "../effect-boundary";
@@ -278,5 +278,41 @@ describe("RavenTeamService: the reasoning effort of a role", () => {
       ["Raven Builder (gpt-6-sol, high)", "high"],
       ["Raven Builder (gpt-6-sol, low)", "low"],
     ]);
+  });
+});
+
+describe("RavenTeamService: Autopilot lite", () => {
+  const LITE_BRIEF = "Ticket 9: fix a typo. Builder: gpt-6-sol. Reviewer: gpt-6-luna.";
+
+  it("lists Autopilot lite after the full template, and refuses to change or delete it", async () => {
+    const { team } = await harness();
+    expect(team.templates().map((template) => [template.id, template.builtIn])).toEqual([
+      [RAVEN_STACK_TEAM_TEMPLATE_ID, true],
+      [RAVEN_STACK_LITE_TEMPLATE_ID, true],
+    ]);
+    expect(() => team.saveTemplate({ id: RAVEN_STACK_LITE_TEMPLATE_ID, name: "Mine", roles: [] })).toThrow();
+    expect(() => team.deleteTemplate(RAVEN_STACK_LITE_TEMPLATE_ID)).toThrow();
+  });
+
+  it("plans only the Builder and the Reviewer", async () => {
+    const { team } = await harness();
+    const planned = team.plan({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: LITE_BRIEF });
+    expect(planned.roles.map((role) => role.roleId)).toEqual(["builder", "reviewer"]);
+    expect(planned.roles.find((role) => role.roleId === "builder")?.skills).toContain("plan");
+  });
+
+  it("starts with the Builder, then the Reviewer gives the verdict on its commit", async () => {
+    const { team, agents, sent, agentOf, job, reply } = await harness();
+    const started = await runCauseEffect(team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: LITE_BRIEF }));
+    expect(agentOf("Architect")).toBeUndefined();
+    expect(agents.map((agent) => agent.name)).toEqual(["Raven Builder (gpt-6-sol)", "Raven Reviewer (gpt-6-luna)"]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.agentId).toBe(agentOf("Builder")?.id);
+    expect(sent[0]?.text).toContain("You are the Builder of a Raven Stack team");
+    await reply(started.id, "builder", BUILT);
+    expect(sent.at(-1)?.agentId).toBe(agentOf("Reviewer")?.id);
+    expect(sent.at(-1)?.text).toContain(COMMIT);
+    await reply(started.id, "reviewer", `Review.\nRAVEN-REPORT: {"verdict":"PASS","commit":"${COMMIT}"}`);
+    expect(job(started.id).state).toBe("done");
   });
 });
