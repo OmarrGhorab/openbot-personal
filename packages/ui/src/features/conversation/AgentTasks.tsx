@@ -14,6 +14,7 @@ import { ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
 import { ApprovalCard } from "@openbot/ui/features/conversation/ConversationPrompts";
+import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
 import { TaskMark, type TaskMarkState } from "@openbot/ui/features/conversation/TaskList";
 import { type TextValue, useText } from "@openbot/ui/text";
 import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
@@ -321,6 +322,12 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
   const { t } = useText();
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
+  const sentMessages = () =>
+    composerSentHistory(
+      props.messages
+        .filter((message) => message.author === "you" && (message.kind === undefined || message.kind === "text"))
+        .map((message) => message.body),
+    );
   /** The title that the rename field holds, or null when the title shows. */
   const [renaming, setRenaming] = createSignal<string | null>(null);
   // The panel stays mounted when the user opens another task, so text typed for one task must not go to the next.
@@ -601,6 +608,7 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
                 agentId={props.agent.id}
                 agents={props.agents}
                 value={draft()}
+                sentHistory={sentMessages()}
                 placeholder={placeholder()}
                 ariaLabel={placeholder()}
                 disabled={sending()}
