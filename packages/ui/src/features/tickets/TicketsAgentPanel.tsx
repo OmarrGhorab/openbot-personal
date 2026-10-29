@@ -4,8 +4,8 @@ import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import { For, Show } from "solid-js";
-import { agentMood, TicketCard, type TicketsBoardData } from "./TicketsBoard";
-import { openThreads, runningThreads, threadStateLabel } from "./tickets-model";
+import { agentMood, ThreadCount, TicketCard, type TicketsBoardData } from "./TicketsBoard";
+import { openThreads, threadStateLabel } from "./tickets-model";
 
 /** What the agent panel can do with a work thread. Each one calls the agent task endpoint of the same name. */
 export interface TicketsThreadControls {
@@ -45,13 +45,8 @@ export function TicketsAgentPanel(props: TicketsAgentPanelProps) {
         <AgentAvatar agent={props.agent} mood={agentMood(props.snapshot)} class="tickets-panel-avatar" />
         <h3>
           {props.agent.name}
-          <span class="tickets-lane-count">
-            {" · "}
-            {t("tickets.agent.threads", {
-              running: runningThreads(props.snapshot),
-              limit: props.snapshot?.limit ?? 1,
-            })}
-          </span>
+          {" · "}
+          <ThreadCount snapshot={props.snapshot} class="tickets-lane-count" />
         </h3>
         <IconButton label={t("common.close")} variant="ghost" onClick={props.onClose}>
           <X aria-hidden="true" />
