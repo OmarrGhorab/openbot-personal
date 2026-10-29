@@ -567,7 +567,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: START_TASK_TOOL,
     description:
-      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
+      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. In OpenBot a task is also called a thread or a work thread: when the user asks you to start, open or kick off threads or tasks and names no other agent, call this tool once for each, as your own threads. Otherwise use it for long, independent work that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task. To message another agent, use send_message, never for a thread.",
     shape: startTaskToolSchema.shape,
   },
   {
@@ -713,7 +713,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "send_message",
     description:
-      "Queue an asynchronous message and optional local files for one or more OpenBot agents. When replying, pass the original message id as replyToMessageId. Set expectsReply false to pass information on without asking the recipient for an answer.",
+      "Queue an asynchronous message and optional local files for one or more OpenBot agents. It is for other agents only: it never starts a thread of your own, so use start_task when the user asks for threads or tasks. When replying, pass the original message id as replyToMessageId. Set expectsReply false to pass information on without asking the recipient for an answer.",
     shape: {
       recipientAgentIds: z.array(z.string()).min(1).max(32),
       text: z.string().min(1).max(100_000),
