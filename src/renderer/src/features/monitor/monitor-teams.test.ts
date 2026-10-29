@@ -40,6 +40,7 @@ const job = (id: string, state: string, roles: RavenTeamRoleRun[], extra: Partia
       templateId: "raven-stack-team",
       brief: `PUU-${id}: Fix the login\n\nMore detail.`,
       state: "running" as const,
+      queued: false,
       headCommit: null,
       fixRounds: 0,
       roundCap: 3,
