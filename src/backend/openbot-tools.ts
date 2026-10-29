@@ -10,6 +10,7 @@ import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
 import { MARK_DONE_TOOL, markDoneToolSchema } from "./agent/agent-done-checks";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
+import { createChannelToolSchema } from "./agent/channel-create-tool";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
 import { MCP_SERVER_TOOL_DEFINITIONS } from "./agent/mcp-tools";
@@ -386,6 +387,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     name: "assign_agent_section",
     description: "Move an existing agent into a sidebar section. Pass null for sectionId to ungroup it.",
     shape: assignAgentSectionToolSchema.shape,
+  },
+  {
+    name: "create_channel",
+    description:
+      "Create a new channel (a shared chat room for several agents) when the user asks for one, for example 'make me a channel with you and two more agents'. List the agents first and pass their ids in memberAgentIds. You are always a member and the lead unless you name another lead. Give it a short name, and put the shared goal in instructions. It does not start any work; to change a channel later, use the channel tools inside it.",
+    shape: createChannelToolSchema.shape,
   },
   {
     name: "list_agents",

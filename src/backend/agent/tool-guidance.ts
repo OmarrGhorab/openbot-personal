@@ -63,6 +63,10 @@ export function toolGuidance(
         "When the user asks for a specific provider, model, or reasoning effort for a new agent, call openbot.list_models and pass only the provider, model id, and reasoningEffort it lists to openbot.create_agent. Otherwise omit them, so the new agent uses your own provider, model, and reasoning effort.",
         "Keep openbot.create_agent simple, then configure the agent after it exists. Call openbot.read_agent with an agent's stable id to read its setup: profile, model, account, backup models, access, Computer Use, notifications, auto-approve, installed skills, routines, and MCP servers. Omit agentId to read your own. Read an agent before you change it. To give an agent a skill from the local library, call openbot.list_local_skills, then openbot.install_local_skill with its agentId. Use openbot.set_skill_enabled and openbot.uninstall_skill with the skillId that read_agent reports. Use openbot.update_profile to restrict access to workspace, to turn Computer Use off, or to change notifications. Only the user can give Full access, turn Computer Use on, or change auto-approve; when a task needs that, say so. MCP servers apply to every agent; change them with the MCP server tools, and only when the user asks. Change another agent's setup only when the user's request calls for it.",
       ].join("\n");
+    case "create_channel":
+      return [
+        "Use openbot.create_channel when the user asks you to make a channel with some agents. Call openbot.list_agents first, match the agents the user names to their stable ids, and pass those ids in memberAgentIds; you are added as a member and the lead by yourself. Give the channel a short name and the shared goal as instructions. Tell the user the channel name when it exists. The tool starts no work: say what comes next, and the channel's own tools (channel_assign and the others) work inside it.",
+      ].join("\n");
     case "list_sections":
     case "create_section":
     case "assign_agent_section":
