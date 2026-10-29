@@ -10,7 +10,7 @@ import {
   type SignInRelayStatus,
   type TestMcpServerInput,
 } from "@openbot/contracts/ipc";
-import type { PROVIDER_ACCOUNT_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import type { PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS } from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import type { SIGN_IN_RELAY_PROVIDERS } from "@openbot/contracts/team-protocol/sign-in-relay-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { registerSecretValue } from "@openbot/logging";
@@ -22,7 +22,8 @@ import type { ProviderHostSignIns } from "./provider-host-sign-ins";
 import { HttpError } from "./team-api/http-error";
 
 export type SignInRelayProvider = (typeof SIGN_IN_RELAY_PROVIDERS)[number];
-export type AccountRelayProvider = (typeof PROVIDER_ACCOUNT_RELAY_PROVIDERS)[number];
+/** The providers of `provider-account-relay-v2`, which hold those of v1. */
+export type AccountRelayProvider = (typeof PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS)[number];
 
 /** How long a flow can complete. The sign-in on this host has its own, equal deadline. */
 const SIGN_IN_RELAY_TTL_MS = 10 * 60_000;
@@ -149,7 +150,7 @@ export class SignInRelayHost {
 
   /**
    * Starts the sign-in of a provider account after the first with no tab, and returns its flow at once
-   * (`provider-account-relay-v1`). A null `accountId` signs in a new account.
+   * (`provider-account-relay-v1` and `-v2`). A null `accountId` signs in a new account.
    */
   startProviderAccount(memberId: string, provider: AccountRelayProvider, accountId: string | null) {
     return this.#startProviderAccount(memberId, provider, accountId);

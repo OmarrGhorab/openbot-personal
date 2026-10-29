@@ -87,7 +87,7 @@ export class ProviderAccountsHost {
     );
   }
 
-  /** Starts the sign-in with no tab: the page address waits for a client to open it (`provider-account-relay-v1`). */
+  /** Starts the sign-in with no tab: the page address waits for a client to open it (`provider-account-relay-v1`, `-v2`). */
   startRelay(provider: AgentProviderId, accountId: string | null) {
     return this.startSignIn(provider, accountId, "relay");
   }

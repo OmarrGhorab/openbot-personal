@@ -43,15 +43,16 @@ export function providerIpcHandlers({
       setProviderOn: payloadHandler(parseProviderUseInput, ({ provider, on }) =>
         runCauseEffect(service.setProviderOn(provider, on)),
       ),
-      connectProvider: payloadHandler(parseProviderId, (provider) =>
-        runCauseEffect(
+      connectProvider: payloadHandler(parseProviderId, async (provider) => {
+        await runCauseEffect(providerRuntimes.ensureKeyProviderCli(provider));
+        return runCauseEffect(
           service.connectProvider(provider, async (value) => {
             const url = new URL(value);
             if (url.protocol !== "https:") throw new Error(sourceText("error.provider.httpsSignInLinkOnly"));
             await shell.openExternal(url.toString());
           }),
-        ),
-      ),
+        );
+      }),
       cancelProviderSignIn: payloadHandler(parseProviderId, (provider) =>
         runCauseEffect(service.cancelProviderSignIn(provider)),
       ),
@@ -76,8 +77,9 @@ export function providerIpcHandlers({
       // The key and the process that uses it change as one step, because the catalog the CLI
       // advertises is decided at spawn time: the service writes the key only when it can restart
       // the provider on it, and reports success only once the new process is up.
-      setProviderApiKey: payloadHandler(parseProviderApiKeyInput, ({ provider, key }) =>
-        runCauseEffect(
+      setProviderApiKey: payloadHandler(parseProviderApiKeyInput, async ({ provider, key }) => {
+        await runCauseEffect(providerRuntimes.ensureKeyProviderCli(provider));
+        return runCauseEffect(
           service.changeProviderCredential(provider, () =>
             credentials
               .set(provider, key)
@@ -87,8 +89,8 @@ export function providerIpcHandlers({
                 ),
               ),
           ),
-        ),
-      ),
+        );
+      }),
       clearProviderApiKey: payloadHandler(parseProviderId, (provider) =>
         runCauseEffect(
           service.changeProviderCredential(provider, () =>
