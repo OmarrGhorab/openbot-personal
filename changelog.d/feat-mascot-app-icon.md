@@ -5,3 +5,7 @@
 ### Changed
 
 - The Dock and taskbar icon of the release app is now the Blob mascot on a dark tile. When OpenBot is closed, macOS still shows the icon in the app bundle.
+
+### Fixed
+
+- Creating a channel no longer freezes the window. Before, the app stayed blank, and a saved channel kept it on the loading screen at every start.

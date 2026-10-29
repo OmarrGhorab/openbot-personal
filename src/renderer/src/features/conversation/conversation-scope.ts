@@ -485,6 +485,7 @@ export function createConversationViewScope(props: ConversationProps) {
       if (target && sent) pendingSends.settle(target, drawnIds);
     },
   );
+  const [chatOpening, setChatOpening] = createSignal(false);
   const scroll = createScrollStore({
     props,
     markingRead,
@@ -777,7 +778,6 @@ export function createConversationViewScope(props: ConversationProps) {
   let opening:
     | { place: number | undefined; loaded: boolean; hasMessages: boolean; revealFrame?: number; timeout: number }
     | undefined;
-  const [chatOpening, setChatOpening] = createSignal(false);
   let lastPanelAgentId: string | undefined;
   let lastHandledMessageFocusNonce: number | undefined;
   const [quoteRequest, setQuoteRequest] = createSignal<QuoteRequest | undefined>(undefined);
@@ -1398,9 +1398,11 @@ export function createConversationViewScope(props: ConversationProps) {
       activeBrowserTabId: props.activeBrowserTabId,
       onActivateBrowserTab: activateBrowserTab,
       suspended: props.browserVisibilitySuspended,
+      // A prop given as an expression is a lazy memo; its first read must happen here, where the compute has an owner.
+      browserDisabled: untrack(() => props.browserEnabled === false),
     }),
-    ({ activeTab, screenOpen, activeBrowserTabId, onActivateBrowserTab, suspended }) => {
-      if (untrack(() => props.browserEnabled === false) || suspended) return;
+    ({ activeTab, screenOpen, activeBrowserTabId, onActivateBrowserTab, suspended, browserDisabled }) => {
+      if (browserDisabled || suspended) return;
       setBrowserAddress(activeTab?.url ?? "https://www.google.com");
       if (screenOpen && activeTab && activeTab.id !== activeBrowserTabId) {
         onActivateBrowserTab(activeTab.id);
