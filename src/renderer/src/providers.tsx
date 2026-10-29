@@ -8,6 +8,10 @@ import {
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_PROVIDERS,
 } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import {
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { classifyFailure } from "@openbot/telemetry";
@@ -367,12 +371,15 @@ const Providers = createSimpleContext({
     }
 
     /**
-     * An account sign-in that the host relays to this computer's browser (`provider-account-relay-v1`).
-     * The other relay requests run it by its provider, and the accounts are read again when it ends.
+     * An account sign-in that the host relays to this computer's browser (`provider-account-relay-v1`,
+     * and `-v2` for Gemini's accounts too). The other relay requests run it by its provider, and the
+     * accounts are read again when it ends.
      */
     function accountRelay(serverId: string) {
       return {
-        providers: PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+        providers: serverSupportsCapability(activeServer(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY)
+          ? PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS
+          : PROVIDER_ACCOUNT_RELAY_PROVIDERS,
         hostName: activeServer()?.name ?? "",
         start: (provider: AgentProviderId, accountId: string | null) =>
           providerAdmin().startAccountRelaySignIn({ provider, accountId }, serverId),
@@ -416,7 +423,8 @@ const Providers = createSimpleContext({
               },
               ...(accountsAdminServerId() === serverId ? { accountSignIn: accountSignIn(serverId) } : {}),
               ...(accountsAdminServerId() === serverId &&
-              serverSupportsCapability(activeServer(), PROVIDER_ACCOUNT_RELAY_CAPABILITY)
+              (serverSupportsCapability(activeServer(), PROVIDER_ACCOUNT_RELAY_CAPABILITY) ||
+                serverSupportsCapability(activeServer(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY))
                 ? { accountRelay: accountRelay(serverId) }
                 : {}),
               relay: {

@@ -192,7 +192,7 @@ export interface TeamApiConnectors {
 
 /**
  * Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on, and
- * beside `providerAccounts` too, `provider-account-relay-v1`.
+ * beside `providerAccounts` too, `provider-account-relay-v1` and `provider-account-relay-v2`.
  */
 export type TeamApiSignInRelay = Pick<
   SignInRelayHost,
