@@ -10,6 +10,8 @@ export function RavenTeamPanel(props: {
   serverId: string;
   /** The team job to show first, when the Monitor opened the page on it. */
   jobId?: string | undefined;
+  /** The ticket text that the page starts with, when a ticket of the board opened the page. */
+  brief?: string | undefined;
   onBack?: (() => void) | undefined;
 }) {
   const [templates, setTemplates] = createSignal<RavenTeamTemplate[]>([]);
@@ -65,6 +67,7 @@ export function RavenTeamPanel(props: {
         templates={templates()}
         jobs={jobs()}
         models={models()}
+        initialBrief={props.brief}
         onPlan={(input) => window.openbot.ravenTeam.plan(input)}
         onStart={(input) => window.openbot.ravenTeam.start(input)}
         onStop={(jobId) => window.openbot.ravenTeam.stop(jobId)}

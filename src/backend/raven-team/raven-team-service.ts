@@ -515,6 +515,7 @@ export class RavenTeamService {
       preferredProvider: this.#agents.preferredProvider(),
       fullAccess: input.fullAccess ?? [],
       efforts: input.efforts ?? {},
+      skippedRoles: input.skippedRoles ?? [],
       workspaceOnlySupported: this.#workspaceOnlySupported,
       platform: this.#platform,
     });
@@ -907,6 +908,8 @@ export class RavenTeamService {
       }
       // A new commit is a new head. Every verdict of the old head is stale, so the verifiers check this one.
       this.#store.updateJob(jobId, { headCommit: commit, state: "running", question: null }, now);
+      // A job that leaves out every checking role has nothing to wait for: the Builder's commit ends it.
+      if (!job.roles.some(isVerifier)) this.#store.updateJob(jobId, { state: "done" }, now);
       for (const role of job.roles) {
         if (role.roleId === RAVEN_TEAM_BUILDER_ROLE_ID || !(isVerifier(role) || role.roleId === "editor")) continue;
         this.#store.updateRole(jobId, role.roleId, { verdict: null, score: null, commit: null, state: "waiting" }, now);

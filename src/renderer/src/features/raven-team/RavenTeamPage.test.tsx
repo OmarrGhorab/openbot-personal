@@ -6,9 +6,9 @@ import { flush } from "solid-js";
 import { expect, it, vi } from "vitest";
 import { mockRavenTeam } from "../../preview/mock-raven-team";
 
-// Failure modes: an empty ticket shows the host's raw "brief is required."; a role shows a wall of
-// model chips instead of provider, model and effort; a model with no effort levels offers efforts;
-// the ticket and the roles sit in one column.
+// Failure modes: an empty ticket asks the host and shows its raw "brief is required."; a role shows a
+// wall of model chips instead of provider, model and effort; a model with no effort levels offers
+// efforts; a role that a ticket does not need cannot be left out.
 const MODELS: RavenTeamModelChoice[] = [
   {
     id: "gpt-6-luna",
@@ -49,27 +49,20 @@ async function page() {
   return { view, onPlan };
 }
 
-it("shows a translated message for an empty ticket and does not ask the host", async () => {
+it("asks the host nothing for an empty ticket and says to write it first", async () => {
   const { view, onPlan } = await page();
-  fireEvent.click(view.getByRole("button", { name: "Check the team" }));
-  flush();
-  expect(view.getByRole("alert").textContent).toBe("Write the ticket first, then check the team.");
+  expect(view.container.textContent).toContain("Write the ticket to choose a model for each role.");
   expect(onPlan).not.toHaveBeenCalled();
 });
 
-it("puts the ticket on the left and the roles with provider, model and effort on the right", async () => {
+it("checks the team as the ticket is written and shows provider, model and effort for each role", async () => {
   const { view } = await page();
-  const ticketColumn = view.container.querySelector(".raven-team-column-ticket");
-  const rolesColumn = view.container.querySelector(".raven-team-column-roles");
-  expect(ticketColumn?.querySelector("textarea")).not.toBeNull();
-  expect(rolesColumn?.textContent).toContain("Start team");
   const ticket = view.container.querySelector("#raven-team-ticket");
   if (!ticket) throw new Error("no ticket box");
   fireEvent.input(ticket, {
     target: { value: "Ticket #42. Builder: gpt-6-luna. Reviewer: claude-sonnet-5-5." },
   });
   flush();
-  fireEvent.click(view.getByRole("button", { name: "Check the team" }));
   /** A field of a role. Its accessible name also reads its value, so it is found by its own label. */
   const field = (label: string) => {
     const found = view.container.querySelector<HTMLElement>(`[aria-label="${label}"]`);
@@ -86,4 +79,21 @@ it("puts the ticket on the left and the roles with provider, model and effort on
   // No wall of model chips: a role offers its model only through the model field.
   expect(view.queryAllByRole("button", { name: "Claude Sonnet 5.5" })).toHaveLength(0);
   expect(field("Provider for Reviewer").textContent).toContain("Claude");
+});
+
+it("leaves a role out of the job: the plan is asked again without it, and the Builder stays", async () => {
+  const { view, onPlan } = await page();
+  const ticket = view.container.querySelector("#raven-team-ticket");
+  if (!ticket) throw new Error("no ticket box");
+  fireEvent.input(ticket, { target: { value: "Fix a typo in the README." } });
+  flush();
+  await waitFor(() =>
+    expect(view.container.textContent).toContain("4 on the team: Architect · Builder · Reviewer · Quality"),
+  );
+  // The Builder has no switch: its card says it is always on.
+  expect(view.container.textContent).toContain("Always on");
+  fireEvent.click(view.getByRole("switch", { name: "Architect" }));
+  flush();
+  await waitFor(() => expect(view.container.textContent).toContain("3 on the team: Builder · Reviewer · Quality"));
+  expect(onPlan).toHaveBeenLastCalledWith(expect.objectContaining({ skippedRoles: ["architect"] }));
 });

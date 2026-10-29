@@ -16,6 +16,8 @@ const context = createSimpleContext({
       agentId?: string | undefined;
       /** The team job that the team page shows first, when the Monitor opened the page on it. */
       teamJobId?: string | undefined;
+      /** The ticket text that the team page starts with, when a ticket of the board opened the page. */
+      teamBrief?: string | undefined;
       view: HostPaneView;
     }>({
       serverId: null,
@@ -30,6 +32,7 @@ const context = createSimpleContext({
       source: HTMLElement | null,
       agentId?: string,
       teamJobId?: string,
+      teamBrief?: string,
     ) {
       trigger = source;
       setState((draft) => {
@@ -38,6 +41,8 @@ const context = createSimpleContext({
         else draft.agentId = agentId;
         if (teamJobId === undefined) delete draft.teamJobId;
         else draft.teamJobId = teamJobId;
+        if (teamBrief === undefined) delete draft.teamBrief;
+        else draft.teamBrief = teamBrief;
         draft.view = view;
       });
     }
@@ -54,9 +59,9 @@ const context = createSimpleContext({
       open("tasks", serverId, source);
     }
 
-    /** Opens the team page. With `jobId`, the page shows that team job first. */
-    function openTeam(serverId: string, source: HTMLElement | null, jobId?: string) {
-      open("team", serverId, source, undefined, jobId);
+    /** Opens the team page. With `jobId`, the page shows that team job first. With `brief`, the ticket box starts with it. */
+    function openTeam(serverId: string, source: HTMLElement | null, jobId?: string, brief?: string) {
+      open("team", serverId, source, undefined, jobId, brief);
     }
 
     /**
@@ -88,6 +93,7 @@ const context = createSimpleContext({
         draft.serverId = null;
         delete draft.agentId;
         delete draft.teamJobId;
+        delete draft.teamBrief;
       });
     }
 

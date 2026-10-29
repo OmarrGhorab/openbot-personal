@@ -1,7 +1,7 @@
 /*
- * The Raven Stack team page in RavenTeamPage.tsx: two columns, the ticket and the jobs on the left,
- * the roles on the right. The page uses the window width. Each column scrolls on its own and is only
- * as tall as its content. A narrow page shows one column, and the page scrolls as a whole.
+ * The Raven Stack team page in RavenTeamPage.tsx. The left column is the flow: the ticket, then the team
+ * with one card for each role, then the start bar. The right column holds the team jobs. Each column
+ * scrolls on its own. A narrow page shows one column, and the page scrolls as a whole.
  */
 .raven-team-page {
   container-type: inline-size;
@@ -42,7 +42,7 @@
 .raven-team-columns {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
   align-items: start;
   gap: var(--openbot-space-6);
   min-height: 0;
@@ -58,8 +58,6 @@
   overscroll-behavior: contain;
 }
 
-.raven-team-form,
-.raven-team-jobs,
 .raven-team-warnings {
   display: flex;
   flex-direction: column;
@@ -68,6 +66,52 @@
 
 .raven-team-label {
   font-weight: 500;
+}
+
+/* One step of the flow: a numbered head, then its controls. */
+.raven-team-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.raven-team-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+}
+
+.raven-team-panel-head p {
+  margin: var(--openbot-space-0-5) 0 0;
+}
+
+.raven-team-step {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-weight: 600;
+}
+
+.raven-team-panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-panel-foot .raven-team-hint {
+  flex: 1 1 14rem;
 }
 
 .raven-team-ticket::placeholder {
@@ -101,11 +145,41 @@
   gap: var(--openbot-space-2);
 }
 
-.raven-team-start {
-  justify-content: flex-end;
+/* The templates as presets: a name and one line about when to pick it. */
+.raven-team-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--openbot-space-2);
 }
 
-.raven-team-plan,
+.raven-team-preset.ui-button {
+  height: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-3);
+  border-radius: var(--openbot-radius-lg);
+  text-align: start;
+  white-space: normal;
+}
+
+.raven-team-preset[aria-pressed="true"] {
+  border-color: var(--openbot-border-focus);
+  background: var(--openbot-hover);
+}
+
+.raven-team-preset-name {
+  font-weight: 600;
+}
+
+.raven-team-preset-hint {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  font-weight: 400;
+}
+
+/* One card for each role of the template. A left-out role is dimmed and says what that costs. */
+.raven-team-roles,
 .raven-team-job-roles {
   display: flex;
   flex-direction: column;
@@ -115,14 +189,114 @@
   list-style: none;
 }
 
+.raven-team-role-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-team-role-card[data-off] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.raven-team-role-card[data-off] .raven-team-role-label,
+.raven-team-role-card[data-off] .raven-team-role-hint {
+  color: var(--openbot-text-dim);
+}
+
+.raven-team-role-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.raven-team-role-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-role-locked,
+.raven-team-role-hint,
+.raven-team-role-skipnote {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-role-skipnote {
+  color: var(--openbot-warning-text, var(--openbot-text-secondary));
+}
+
+/* The start bar stays in view while the roles scroll. */
+.raven-team-startbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-sidebar);
+}
+
+.raven-team-summary {
+  min-width: 0;
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* The job's roles as a row of steps, coloured by state. */
+.raven-team-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-team-pipeline-step {
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-pipeline-step[data-state="working"] {
+  color: var(--openbot-accent-text);
+}
+
+.raven-team-pipeline-step[data-state="passed"],
+.raven-team-pipeline-step[data-state="reported"] {
+  color: var(--openbot-success-text);
+}
+
+.raven-team-pipeline-step[data-state="failed"],
+.raven-team-pipeline-step[data-state="blocked"] {
+  color: var(--openbot-danger-text);
+}
+
 .raven-team-card {
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-3);
   padding: var(--openbot-space-4);
-  border: 1px solid var(--openbot-border-subtle, transparent);
-  border-radius: var(--openbot-radius-lg, 0.75rem);
-  background: var(--openbot-bg-surface, transparent);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
 }
 
 .raven-team-job-role {
@@ -157,14 +331,9 @@
 .raven-team-role-state,
 .raven-team-role-score,
 .raven-team-job-rounds,
-.raven-team-role-verdict,
-.raven-team-role-choice {
+.raven-team-role-verdict {
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-lg);
-}
-
-.raven-team-role-choice {
-  margin-inline-start: auto;
 }
 
 .raven-team-role-commit {
@@ -193,7 +362,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-/* A narrow page: one column, the ticket first. The page scrolls, not each column. */
+/* A narrow page: one column, the flow first. The page scrolls, not each column. */
 @container (max-width: 52rem) {
   .raven-team-columns {
     grid-template-columns: minmax(0, 1fr);

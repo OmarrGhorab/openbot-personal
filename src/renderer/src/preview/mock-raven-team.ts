@@ -96,6 +96,7 @@ export function mockRavenTeam(
     models?: Record<string, string>;
     fullAccess?: string[];
     efforts?: Record<string, AgentReasoningEffort>;
+    skippedRoles?: string[];
   }): RavenTeamPlan {
     const template = allTemplates().find((candidate) => candidate.id === input.templateId) ?? BUILT_IN;
     const named = new Map<string, string>();
@@ -110,6 +111,7 @@ export function mockRavenTeam(
     for (const role of template.roles) {
       const chosen = named.get(role.id) ?? role.defaultModel ?? PREVIEW_MODELS[0]?.id ?? "";
       if (role.optional && !named.has(role.id)) continue;
+      if (role.id !== "builder" && (input.skippedRoles ?? []).includes(role.id)) continue;
       const option = PREVIEW_MODELS.find((candidate) => candidate.id === chosen);
       if (!option) {
         unknownModels.push({ roleId: role.id, model: chosen });
