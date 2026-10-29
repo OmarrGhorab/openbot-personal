@@ -9,7 +9,12 @@ import {
   ravenTeamPlatformName,
 } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
-import { buildRavenTeamPlan, ravenTeamPlanReady, readRavenTeamNamedModels } from "./raven-team-plan";
+import {
+  buildRavenTeamPlan,
+  ravenTeamPlanReady,
+  ravenTeamRoleEffort,
+  readRavenTeamNamedModels,
+} from "./raven-team-plan";
 
 // Failure modes: a read-only role on a provider that cannot run Workspace only here starts anyway and
 // its message never runs; Full access given on the confirm card does not clear the question; a write
@@ -98,5 +103,40 @@ describe("workspaceOnlySupported", () => {
     expect(ravenTeamPlatformName("linux")).toBe("Linux");
     expect(ravenTeamPlatformName("win32")).toBe("Windows");
     expect(ravenTeamPlatformName("freebsd")).toBeNull();
+  });
+});
+
+describe("Raven Stack team plan: reasoning effort", () => {
+  const efforts = { ...model("codex", "gpt-6-sol"), supportedReasoningEfforts: ["low", "medium", "high"] } as const;
+
+  it("keeps an effort the model supports, and gives the default for another", () => {
+    expect(
+      ravenTeamRoleEffort({ ...efforts, supportedReasoningEfforts: [...efforts.supportedReasoningEfforts] }, "high"),
+    ).toBe("high");
+    expect(
+      ravenTeamRoleEffort({ ...efforts, supportedReasoningEfforts: [...efforts.supportedReasoningEfforts] }, "max"),
+    ).toBe("medium");
+    expect(
+      ravenTeamRoleEffort({ ...efforts, supportedReasoningEfforts: [...efforts.supportedReasoningEfforts] }, undefined),
+    ).toBe("medium");
+  });
+
+  it("has no effort for a model with no effort levels", () => {
+    expect(ravenTeamRoleEffort({ ...model("claude", "x"), reasoningEffortConfigurable: false }, "high")).toBeNull();
+  });
+
+  it("puts the effort in each planned role", () => {
+    const result = buildRavenTeamPlan({
+      template: TEMPLATE,
+      brief: "Ticket 7. Builder: gpt-6-sol.",
+      named: readRavenTeamNamedModels("Ticket 7. Builder: gpt-6-sol.", TEMPLATE.roles),
+      overrides: {},
+      efforts: { builder: "medium" },
+      models: MODELS,
+      preferredProvider: "codex",
+      workspaceOnlySupported: () => true,
+      platform: "linux",
+    });
+    expect(result.roles.every((role) => role.reasoningEffort === "medium")).toBe(true);
   });
 });

@@ -33,7 +33,6 @@ export const messages = {
   "connector.github.statusConnected": "متصل",
   "connector.github.statusConnecting": "بيتصل",
   "connector.github.statusExpired": "منتهي",
-  "connector.github.statusNotSetUp": "مش مُعدّ",
   "connector.github.accountTitle": "الحساب",
   "connector.github.filterPlaceholder": { one: "فلترة {count} مستودع", other: "فلترة {count} مستودع" },
   "connector.github.filterLabel": "فلترة المستودعات",
@@ -69,19 +68,9 @@ export const messages = {
   "connector.statusUnknown": "غير معروف",
   "connector.readFailed": "OpenBot معرفش يقرا حالة الاتصال ده.",
 
-  "connector.hub.onThisComputer": "على الكمبيوتر ده",
-  "connector.hub.onHost": "على {host}",
-  "connector.hub.notSetUp": "مش مُعدّ",
-  "connector.hub.available": "متاح",
-  "connector.hub.localOnly": "الكمبيوتر بتاعك بس",
-  "connector.hub.open": "افتح {name}",
-  "connector.hub.setUp": "إعداد",
-  "connector.hub.usedBy": "بيستخدمه {names}",
-
   "connector.slack.title": "Slack",
   "connector.slack.description":
     "الناس بتعمل mention لـ @OpenBot في Slack أو بتبعتله رسالة مباشرة. الـ Slack Orchestrator بيسأل الإيجنت المناسب وبيرد.",
-  "connector.slack.statusNotSetUp": "مش مُعدّ",
   "connector.slack.statusConnected": "متصل",
   "connector.slack.statusAttention": "محتاج انتباه",
   "connector.slack.summaryConnected": "{workspace} · الـ Slack Orchestrator بيرد",
@@ -94,7 +83,12 @@ export const messages = {
   "connector.slack.connect": "ربط Slack",
   "connector.slack.addAgent": "إضافة إيجنت",
   "connector.slack.actionFailed": "Slack ماقبلش التغيير",
-  "connector.slack.workspaceTitle": "مساحة العمل",
+  "connector.slack.workspaceTitle": "مساحات العمل",
+  "connector.slack.disconnectAllTitle": "فصل Slack",
+  "connector.slack.disconnectAllSummary":
+    "كل مساحات العمل هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق @OpenBot.",
+  "connector.slack.disconnectAllSummaryOrchestrator":
+    "كل مساحات العمل هتتفصل. الـ Slack Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
   "connector.slack.workspaceDescription": "الناس بتعمل mention لـ @OpenBot أو بتبعتله رسالة مباشرة.",
   "connector.slack.disconnectWorkspace": "فصل",
   "connector.slack.missingScopes":
@@ -153,7 +147,6 @@ export const messages = {
   "connector.discord.title": "Discord",
   "connector.discord.description":
     "الناس بتعمل mention لـ @OpenBot في قناة على سيرفر Discord. الـ Discord Orchestrator بيسأل الإيجنت المناسب وبيرد.",
-  "connector.discord.statusNotSetUp": "مش مُعدّ",
   "connector.discord.statusConnected": "متصل",
   "connector.discord.statusAttention": "محتاج انتباه",
   "connector.discord.summaryConnected": "{workspace} · الـ Discord Orchestrator بيرد",
@@ -166,7 +159,12 @@ export const messages = {
   "connector.discord.connect": "ربط Discord",
   "connector.discord.addAgent": "إضافة إيجنت",
   "connector.discord.actionFailed": "Discord ماقبلش التغيير",
-  "connector.discord.workspaceTitle": "سيرفر Discord",
+  "connector.discord.workspaceTitle": "سيرفرات Discord",
+  "connector.discord.disconnectAllTitle": "فصل Discord",
+  "connector.discord.disconnectAllSummary":
+    "كل السيرفرات هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق @OpenBot.",
+  "connector.discord.disconnectAllSummaryOrchestrator":
+    "كل السيرفرات هتتفصل. الـ Discord Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
   "connector.discord.workspaceDescription": "اعمل mention لـ @OpenBot في قناة. ردّ على OpenBot علشان تكمّل.",
   "connector.discord.disconnectWorkspace": "فصل",
   "connector.discord.missingScopes":
@@ -238,7 +236,6 @@ export const messages = {
   "connector.telegram.title": "Telegram",
   "connector.telegram.description":
     "أضف بوت OpenBot لجروب على Telegram أو افتح شات مباشر معاه. الـ Telegram Orchestrator بيسأل الإيجنت المناسب وبيرد.",
-  "connector.telegram.statusNotSetUp": "مش مُعدّ",
   "connector.telegram.statusConnected": "متصل",
   "connector.telegram.statusAttention": "محتاج انتباه",
   "connector.telegram.summaryConnected": {
@@ -271,10 +268,13 @@ export const messages = {
   "connector.telegram.resume": "استئناف",
   "connector.telegram.reconnect": "إعادة الاتصال",
   "connector.telegram.disconnectChat": "فصل",
+  "connector.telegram.disconnectAllTitle": "فصل Telegram",
+  "connector.telegram.disconnectAllSummary":
+    "كل الشاتات هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق بوت OpenBot.",
+  "connector.telegram.disconnectAllSummaryOrchestrator":
+    "كل الشاتات هتتفصل. الـ Telegram Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
+  "connector.telegram.linkChat": "اربط شات",
   "connector.telegram.rowAction": "{action}: {name}",
-  "connector.telegram.linkTitle": "اربط شات تاني",
-  "connector.telegram.linkDescription": "Telegram بيتفتح في المتصفح. الشات هيظهر هنا لما يتربط.",
-  "connector.telegram.linkWaiting": "مستنيين Telegram. اختار الشات في Telegram.",
   "connector.telegram.addToGroup": "إضافة لجروب",
   "connector.telegram.openDirectChat": "فتح شات مباشر",
   "connector.telegram.orchestratorTitle": "Telegram Orchestrator",
@@ -335,7 +335,6 @@ export const messages = {
   "connector.onePassword.stepVaultTitle": "اعمل الخزنة المشتركة",
   "connector.onePassword.stepVaultDescription":
     "OpenBot بيعمل خزنة “Shared with OpenBot” وservice account يقدر يقراها بس. 1Password هيطلب منك الموافقة.",
-  "connector.onePassword.useToken": "استخدم توكن service account بدلًا من كده",
   "connector.onePassword.tokenLabel": "توكن service account",
   "connector.onePassword.tokenPlaceholder": "ops_…",
   "connector.onePassword.connectWithToken": "اتصل",
@@ -350,13 +349,14 @@ export const messages = {
   "connector.onePassword.loginsLoading": "بنقرا بيانات الدخول من 1Password",
   "connector.onePassword.loginCount": { one: "{count} بيانات دخول", other: "{count} بيانات دخول" },
   "connector.onePassword.disconnect": "فصل",
+  "connector.onePassword.useTokenDescription": "بدل الخطوات دي، الصق توكن service account من 1Password.com.",
+  "connector.onePassword.useTokenAction": "استخدم التوكن",
   "connector.onePassword.disconnectTitle": "فصل 1Password",
   "connector.onePassword.disconnectSummary":
     "OpenBot بينسى التوكن. الخزنة والـ service account هيفضلوا في 1Password؛ امسحهم من هناك لو مبقتش محتاجهم.",
   "connector.onePassword.actionFailed": "OpenBot معرفش يغيّر اتصال 1Password.",
   "connector.onePassword.statusConnected": "متصل",
   "connector.onePassword.statusConnecting": "بيتصل",
-  "connector.onePassword.statusNotSetUp": "مش مُعدّ",
   "connector.onePassword.descriptionHost":
     "شارك خزنة 1Password مخصصة مع OpenBot على {host} عن طريق service account، علشان الإيجنتات على {host} تقدر تسجّل الدخول للمواقع في متصفحه.",
   "connector.onePassword.howItWorksHost":
@@ -374,8 +374,17 @@ export const messages = {
   "connector.bitwarden.sessionKey": "مفتاح جلسة Bitwarden",
   "connector.bitwarden.connect": "ربط Bitwarden",
   "connector.bitwarden.disconnect": "فصل Bitwarden",
+  "connector.bitwarden.disconnectAction": "فصل",
+  "connector.bitwarden.disconnectSummary":
+    "OpenBot هينسى مفتاح الجلسة. الإيجنتات مش هتقدر تملا بيانات الدخول من Bitwarden. برامج Bitwarden التانية هتفضل مفتوحة.",
+  "connector.bitwarden.disconnectSummaryHost":
+    "{host} هيشيل مفتاح الـ API والـ master password. الإيجنتات على {host} مش هتقدر تملا بيانات الدخول من Bitwarden.",
+  "connector.bitwarden.folderTitle": "الفولدر المشترك",
+  "connector.bitwarden.folderDescription":
+    "انقل بيانات دخول للفولدر ده في Bitwarden علشان الإيجنتات تقدر تسجّل دخول بيها. شيلها منه علشان توقف ده.",
+  "connector.bitwarden.folderName": "Shared with OpenBot",
+  "connector.bitwarden.folderKind": "فولدر في Bitwarden",
   "connector.bitwarden.connected": "متصل",
-  "connector.bitwarden.disconnected": "مش متصل",
   "connector.bitwarden.actionFailed": "OpenBot معرفش يغيّر اتصال Bitwarden.",
   "connector.bitwarden.descriptionHost": "املّي بيانات دخول المتصفح على {host} من Bitwarden أو Vaultwarden.",
   "connector.bitwarden.setupHost":
@@ -389,5 +398,4 @@ export const messages = {
   "connector.bitwarden.clientSecret": "API key client_secret",
   "connector.bitwarden.masterPassword": "كلمة السر الرئيسية",
   "connector.bitwarden.connecting": "بيتصل",
-  "connector.bitwarden.connectedServer": "متصل بـ {server}.",
 } as const satisfies PartialTranslation<typeof source>;

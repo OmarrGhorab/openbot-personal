@@ -288,7 +288,7 @@ function ProviderList(props: ProviderSettingsPageProps & { onOpen: (id: PageId) 
   );
 }
 
-/** A row that opens a page. The whole row is the button, as on the Connectors list. */
+/** A row that opens a page. The whole row is the button. */
 function NavRow(props: { logo: JSX.Element; name: string; summary: string; end?: JSX.Element; onOpen: () => void }) {
   const { t } = useText();
   return (
@@ -1025,7 +1025,7 @@ function SignInSection(props: SectionProps & { keyShown: boolean }) {
                 {t("provider.action.install")}
               </Button>
             </Show>
-            <Show when={!row().runtimeStatus() && row().browserConnect()}>
+            <Show when={!row().runtimeStatus() && (row().browserConnect() || row().keyConnect())}>
               <Button
                 type="button"
                 variant={browserAction() === "connect" ? "default" : "outline"}

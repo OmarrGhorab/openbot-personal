@@ -2,6 +2,7 @@ import { serializeAttachmentReference } from "@openbot/contracts/attachment-refe
 import { serializeChatTagReference } from "@openbot/contracts/chat-tag-references";
 import type { DraftAttachment, InstalledSkill } from "@openbot/contracts/ipc";
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
+import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
 import { createSignal } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -266,4 +267,33 @@ export const LongFileReference: Story = {
       </div>
     </div>
   ),
+};
+
+/** Enter sends: the text joins the list that Arrow Up recalls, as in a conversation. */
+function sentHistoryFrame(storyArgs: Parameters<typeof ComposerEditor>[0]) {
+  const [value, setValue] = createSignal(storyArgs.value);
+  const [sent, setSent] = createSignal<string[]>([]);
+  return (
+    <div class="composer-wrap" style={{ width: "480px", "max-width": "calc(100vw - 32px)", "margin-top": "260px" }}>
+      <div class="composer">
+        <div class="composer-input-label">
+          <ComposerEditor
+            {...storyArgs}
+            value={value()}
+            sentHistory={composerSentHistory(sent())}
+            onValueChange={setValue}
+            onSubmit={() => {
+              const text = value();
+              if (text.trim()) setSent((previous) => [...previous, text]);
+              setValue("");
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const SentMessageHistory: Story = {
+  render: (storyArgs) => sentHistoryFrame(storyArgs),
 };

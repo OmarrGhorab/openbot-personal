@@ -8,6 +8,7 @@ import {
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, Show } from "solid-js";
 import { useAccountUsagePolling } from "./features/account/account-usage-polling";
+import { useAgentTasks } from "./features/agent-tasks/agent-tasks-context";
 import { useAgents } from "./features/agents/agents-context";
 import { WorkspaceAgentSetup } from "./features/agents/WorkspaceAgentSetup";
 import { useChannels } from "./features/channels/channels-context";
@@ -22,7 +23,12 @@ import { MonitorPane } from "./features/monitor/MonitorPane";
 import { MonitorSidebarPane } from "./features/monitor/MonitorSidebarPane";
 import { MonitorThreadReturn } from "./features/monitor/MonitorThreadReturn";
 import { MonitorProvider } from "./features/monitor/monitor-context";
-import { desktopMonitorSource, desktopMonitorTaskActions, type MonitorActions } from "./features/monitor/monitor-port";
+import {
+  desktopMonitorSource,
+  desktopMonitorTaskActions,
+  desktopMonitorTeamSource,
+  type MonitorActions,
+} from "./features/monitor/monitor-port";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
@@ -96,6 +102,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const activeConversation = () => conversations[activeAgent()?.id ?? ""];
   const { activeDirectMember } = useDirectMessages();
   const { setGlobalSearchVisibility, selectAgent } = useNavigation();
+  const agentTasks = useAgentTasks();
   /** The agent popup stops and resumes tasks on this computer, and opens an agent's thread. */
   const monitorActions: MonitorActions = {
     ...desktopMonitorTaskActions(),
@@ -106,6 +113,15 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     openRoutines: () => {
       windowPage.showAgents();
       layout.setSidebarView("routines");
+    },
+    // A team role is an agent of this computer; its work thread opens in the agent's side panel.
+    openWorkThread: (agentId, taskId) => {
+      selectAgent(agentId);
+      agentTasks.requestOpenTask(agentId, taskId);
+    },
+    openTeamJob: (jobId) => {
+      const server = activeServer();
+      if (server?.kind === "local") usage.openTeam(server.id, null, jobId);
     },
   };
   /** The Monitor reads the channels of this computer, so it shows on the local server only. */
@@ -237,6 +253,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           actions={monitorActions}
           active={monitorOpen}
           channelIds={monitorChannelIds}
+          teams={desktopMonitorTeamSource()}
         >
           <WorkspaceFrame
             class={chatWindow ? "app-frame-chat-window" : undefined}
