@@ -773,12 +773,14 @@ try {
     runningAtOnce.length === 2,
     JSON.stringify(firstView.map((job) => [job?.state, job?.queued])),
   );
+  const queuedJob = queuedAtStart[0];
   check(
     "the third job is Queued, with no work thread",
     queuedAtStart.length === 1 &&
-      queuedAtStart[0]?.id === multiIds[2] &&
-      queuedAtStart[0].state === "running" &&
-      queuedAtStart[0].roles.every((role) => role.taskId === null),
+      queuedJob !== undefined &&
+      queuedJob.id === multiIds[2] &&
+      queuedJob.state === "running" &&
+      queuedJob.roles.every((role) => role.taskId === null),
     JSON.stringify(queuedAtStart.map((job) => [job?.id, job?.roles.map((role) => role.taskId)])),
   );
   const builderThreads = runningAtOnce.map((job) => job?.roles.find((role) => role.roleId === "builder")?.threadId);
@@ -789,7 +791,7 @@ try {
     JSON.stringify(builderThreads),
   );
   // Stop the first job. The second keeps running, and the queued job takes the free slot.
-  const [first, second, third] = multiIds as [string, string, string];
+  const [first = "", second = "", third = ""] = multiIds;
   const secondBefore = team.listJobs().find((job) => job.id === second);
   const stoppedOne = await runCauseEffect(team.stop(first));
   check("stop holds only that job", stoppedOne.state === "stopped", stoppedOne.state);
