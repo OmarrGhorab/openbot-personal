@@ -36,6 +36,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/agent-providers";
+import type { RavenTeamJob } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 
@@ -754,7 +755,7 @@ try {
   const multiTickets = [51, 52, 53].map(
     (number) => `Autopilot lite ticket #${number}. ${MULTI_ASSIGNMENTS} SCRIPT-SLOW Rename helper ${number}.`,
   );
-  const multiJobs = [];
+  const multiJobs: RavenTeamJob[] = [];
   for (const ticket of multiTickets) {
     multiJobs.push(await runCauseEffect(team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: ticket })));
   }
