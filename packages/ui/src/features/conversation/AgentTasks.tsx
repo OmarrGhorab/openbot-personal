@@ -14,8 +14,8 @@ import { ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
 import { ApprovalCard } from "@openbot/ui/features/conversation/ConversationPrompts";
-import { TaskMark, type TaskMarkState } from "@openbot/ui/features/conversation/TaskList";
 import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
+import { TaskMark, type TaskMarkState } from "@openbot/ui/features/conversation/TaskList";
 import { type TextValue, useText } from "@openbot/ui/text";
 import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
