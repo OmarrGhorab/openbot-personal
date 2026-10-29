@@ -306,6 +306,7 @@
     "test:billing-snapshot": "bun apps/auth-api/scripts/billing-snapshot-e2e.ts",
     "test:mobile-connected-devices": "bun scripts/mobile-connected-devices-e2e.ts",
     "test:composer-lists": "bun scripts/composer-markdown-lists-e2e.ts",
+    "test:marketplace-mac-access": "bun scripts/marketplace-mac-access-e2e.ts",
     "test:reply-quote": "bun scripts/reply-quote-markdown-e2e.ts",
     "codex:doctor": "bun scripts/codex-doctor.ts",
     "cua-driver:doctor": "bun scripts/cua-driver-doctor.ts",
