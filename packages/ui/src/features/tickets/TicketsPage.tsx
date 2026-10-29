@@ -1,9 +1,4 @@
-import type {
-  BoardTicket,
-  BoardTicketEvent,
-  BoardTicketStatus,
-  ConversationMessage,
-} from "@openbot/contracts/ipc";
+import type { BoardTicket, BoardTicketEvent, BoardTicketStatus, ConversationMessage } from "@openbot/contracts/ipc";
 import {
   ArrowLeft,
   Button,
