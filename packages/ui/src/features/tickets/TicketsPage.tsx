@@ -13,11 +13,12 @@ import {
   Plus,
   RefreshCw,
   Textarea,
+  UsersRound,
 } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
-import { createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
@@ -67,6 +68,8 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onSteer: (ticket: BoardTicket, text: string) => Promise<boolean>;
   /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
   sync?: TicketsSyncControls | undefined;
+  /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
+  onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
 }
 
 /**
@@ -82,6 +85,15 @@ export function TicketsPage(props: TicketsPageProps) {
   const [agentId, setAgentId] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [syncOpen, setSyncOpen] = createSignal(false);
+  const [query, setQuery] = createSignal("");
+  /** The board shows the tickets that match the search in their title, key or text. */
+  const shown = createMemo(() => {
+    const needle = query().trim().toLowerCase();
+    if (!needle) return props.tickets;
+    return props.tickets.filter((ticket) =>
+      [ticket.title, ticket.body, ticket.external?.key ?? ""].some((text) => text.toLowerCase().includes(needle)),
+    );
+  });
   const canSync = () => (props.sync?.state?.providers.length ?? 0) > 0;
   const agentsLabel = () =>
     t(props.agentsOpen ? "conversation.tasks.page.hideAgents" : "conversation.tasks.page.showAgents");
@@ -140,7 +152,22 @@ export function TicketsPage(props: TicketsPageProps) {
           </h2>
           <Show when={props.available}>
             <div class="tickets-page-tools">
+              <Input
+                class="tickets-search"
+                value={query()}
+                placeholder={t("tickets.search")}
+                aria-label={t("tickets.search")}
+                onValueChange={setQuery}
+              />
               <TicketsViewSwitch view={view()} onChange={setView} />
+              <Show when={props.onOpenTeam}>
+                {(openTeam) => (
+                  <Button size="sm" variant="outline" onClick={() => openTeam()(null)}>
+                    <UsersRound aria-hidden="true" />
+                    {t("tickets.team.open")}
+                  </Button>
+                )}
+              </Show>
               <Show when={canSync()}>
                 <Button size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
                   <RefreshCw aria-hidden="true" />
@@ -169,12 +196,15 @@ export function TicketsPage(props: TicketsPageProps) {
             <Show when={empty()}>
               <TicketsNotice title={t("tickets.empty.title")} body={t("tickets.empty.body")} />
             </Show>
+            <Show when={!empty() && query().trim() !== "" && shown().length === 0}>
+              <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
+            </Show>
             <Show
               when={view() === "agents"}
               fallback={
                 <TicketsColumns
                   agents={props.agents}
-                  tickets={props.tickets}
+                  tickets={shown()}
                   snapshots={props.snapshots}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
@@ -183,7 +213,7 @@ export function TicketsPage(props: TicketsPageProps) {
             >
               <TicketsLanes
                 agents={props.agents}
-                tickets={props.tickets}
+                tickets={shown()}
                 snapshots={props.snapshots}
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
@@ -234,6 +264,7 @@ export function TicketsPage(props: TicketsPageProps) {
                 onAssign={(owner) => props.onAssign(ticket().id, owner)}
                 onDelete={() => props.onDelete(ticket().id)}
                 onOpenThread={props.onOpenThread ? () => props.onOpenThread?.(ticket()) : undefined}
+                onRunTeam={props.onOpenTeam ? () => props.onOpenTeam?.(ticket()) : undefined}
                 onOpenLink={props.onOpenLink}
                 onSteer={(text) => props.onSteer(ticket(), text)}
                 tickets={props.tickets}

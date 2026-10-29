@@ -5,6 +5,7 @@ import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
+import { TicketsProviderMark } from "./TicketsProviderMark";
 import {
   columnTickets,
   isTicketsView,
@@ -106,6 +107,14 @@ export function TicketCard(
       pressed={props.selected}
       onPress={() => props.onSelect(props.ticket.id)}
     >
+      <Show when={props.ticket.external}>
+        {(external) => (
+          <span class="tickets-card-source">
+            <TicketsProviderMark provider={external().provider} class="tickets-card-source-mark" />
+            <span class="tickets-card-key">{external().key}</span>
+          </span>
+        )}
+      </Show>
       <span class="tickets-card-title">{props.ticket.title}</span>
       <Show when={progress()}>{(line) => <span class="tickets-card-progress">{line()}</span>}</Show>
       <Show when={error() !== null}>
@@ -130,7 +139,6 @@ export function TicketCard(
             </span>
           )}
         </Show>
-        <Show when={props.ticket.external}>{(external) => <span class="tickets-card-key">{external().key}</span>}</Show>
       </span>
     </TicketsPressable>
   );

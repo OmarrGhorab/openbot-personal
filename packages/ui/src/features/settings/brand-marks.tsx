@@ -3,6 +3,7 @@
 import {
   DISCORD_MARK_PATH,
   GITHUB_MARK_PATH,
+  JIRA_MARK_PATH,
   ONEPASSWORD_MARK_PATH,
   SLACK_MARK_PATH,
   TELEGRAM_MARK_PATH,
@@ -13,6 +14,15 @@ export function GitHubMark(props: { class?: string | undefined }) {
   return (
     <svg class={props.class} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d={GITHUB_MARK_PATH} />
+    </svg>
+  );
+}
+
+/** Jira's mark, for the same reason. */
+export function JiraMark(props: { class?: string | undefined }) {
+  return (
+    <svg class={props.class} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={JIRA_MARK_PATH} />
     </svg>
   );
 }

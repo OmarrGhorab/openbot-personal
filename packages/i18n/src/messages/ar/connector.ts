@@ -84,13 +84,13 @@ export const messages = {
   "connector.slack.addAgent": "إضافة إيجنت",
   "connector.slack.actionFailed": "Slack ماقبلش التغيير",
   "connector.slack.workspaceTitle": "مساحات العمل",
+  "connector.slack.workspaceDescription": "الناس بتعمل mention لـ @OpenBot أو بتبعتله رسالة مباشرة.",
+  "connector.slack.disconnectWorkspace": "فصل",
   "connector.slack.disconnectAllTitle": "فصل Slack",
   "connector.slack.disconnectAllSummary":
     "كل مساحات العمل هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق @OpenBot.",
   "connector.slack.disconnectAllSummaryOrchestrator":
     "كل مساحات العمل هتتفصل. الـ Slack Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
-  "connector.slack.workspaceDescription": "الناس بتعمل mention لـ @OpenBot أو بتبعتله رسالة مباشرة.",
-  "connector.slack.disconnectWorkspace": "فصل",
   "connector.slack.missingScopes":
     "OpenBot مالوش الصلاحيات دي في Slack: {scopes}. افصل مساحة العمل وبعدين اربطها تاني.",
   "connector.slack.retryAt": "Slack طلب من OpenBot يستنى. هيحاول تاني الساعة {time}.",
@@ -160,13 +160,13 @@ export const messages = {
   "connector.discord.addAgent": "إضافة إيجنت",
   "connector.discord.actionFailed": "Discord ماقبلش التغيير",
   "connector.discord.workspaceTitle": "سيرفرات Discord",
+  "connector.discord.workspaceDescription": "اعمل mention لـ @OpenBot في قناة. ردّ على OpenBot علشان تكمّل.",
+  "connector.discord.disconnectWorkspace": "فصل",
   "connector.discord.disconnectAllTitle": "فصل Discord",
   "connector.discord.disconnectAllSummary":
     "كل السيرفرات هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق @OpenBot.",
   "connector.discord.disconnectAllSummaryOrchestrator":
     "كل السيرفرات هتتفصل. الـ Discord Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
-  "connector.discord.workspaceDescription": "اعمل mention لـ @OpenBot في قناة. ردّ على OpenBot علشان تكمّل.",
-  "connector.discord.disconnectWorkspace": "فصل",
   "connector.discord.missingScopes":
     "OpenBot مالوش الصلاحيات دي في Discord: {scopes}. افصل سيرفر Discord وبعدين اربطه تاني.",
   "connector.discord.retryAt": "Discord طلب من OpenBot يستنى. هيحاول تاني الساعة {time}.",
@@ -273,8 +273,8 @@ export const messages = {
     "كل الشاتات هتتفصل. الناس مش هيقدروا يوصلوا للإيجنتات بتاعتك عن طريق بوت OpenBot.",
   "connector.telegram.disconnectAllSummaryOrchestrator":
     "كل الشاتات هتتفصل. الـ Telegram Orchestrator ومحادثاته هيتمسحوا من OpenBot.",
-  "connector.telegram.linkChat": "اربط شات",
   "connector.telegram.rowAction": "{action}: {name}",
+  "connector.telegram.linkChat": "اربط شات",
   "connector.telegram.addToGroup": "إضافة لجروب",
   "connector.telegram.openDirectChat": "فتح شات مباشر",
   "connector.telegram.orchestratorTitle": "Telegram Orchestrator",
@@ -335,6 +335,8 @@ export const messages = {
   "connector.onePassword.stepVaultTitle": "اعمل الخزنة المشتركة",
   "connector.onePassword.stepVaultDescription":
     "OpenBot بيعمل خزنة “Shared with OpenBot” وservice account يقدر يقراها بس. 1Password هيطلب منك الموافقة.",
+  "connector.onePassword.useTokenDescription": "بدل الخطوات دي، الصق توكن service account من 1Password.com.",
+  "connector.onePassword.useTokenAction": "استخدم التوكن",
   "connector.onePassword.tokenLabel": "توكن service account",
   "connector.onePassword.tokenPlaceholder": "ops_…",
   "connector.onePassword.connectWithToken": "اتصل",
@@ -349,8 +351,6 @@ export const messages = {
   "connector.onePassword.loginsLoading": "بنقرا بيانات الدخول من 1Password",
   "connector.onePassword.loginCount": { one: "{count} بيانات دخول", other: "{count} بيانات دخول" },
   "connector.onePassword.disconnect": "فصل",
-  "connector.onePassword.useTokenDescription": "بدل الخطوات دي، الصق توكن service account من 1Password.com.",
-  "connector.onePassword.useTokenAction": "استخدم التوكن",
   "connector.onePassword.disconnectTitle": "فصل 1Password",
   "connector.onePassword.disconnectSummary":
     "OpenBot بينسى التوكن. الخزنة والـ service account هيفضلوا في 1Password؛ امسحهم من هناك لو مبقتش محتاجهم.",
@@ -379,11 +379,6 @@ export const messages = {
     "OpenBot هينسى مفتاح الجلسة. الإيجنتات مش هتقدر تملا بيانات الدخول من Bitwarden. برامج Bitwarden التانية هتفضل مفتوحة.",
   "connector.bitwarden.disconnectSummaryHost":
     "{host} هيشيل مفتاح الـ API والـ master password. الإيجنتات على {host} مش هتقدر تملا بيانات الدخول من Bitwarden.",
-  "connector.bitwarden.folderTitle": "الفولدر المشترك",
-  "connector.bitwarden.folderDescription":
-    "انقل بيانات دخول للفولدر ده في Bitwarden علشان الإيجنتات تقدر تسجّل دخول بيها. شيلها منه علشان توقف ده.",
-  "connector.bitwarden.folderName": "Shared with OpenBot",
-  "connector.bitwarden.folderKind": "فولدر في Bitwarden",
   "connector.bitwarden.connected": "متصل",
   "connector.bitwarden.actionFailed": "OpenBot معرفش يغيّر اتصال Bitwarden.",
   "connector.bitwarden.descriptionHost": "املّي بيانات دخول المتصفح على {host} من Bitwarden أو Vaultwarden.",
@@ -394,6 +389,11 @@ export const messages = {
   "connector.bitwarden.sessionHost":
     "{host} بيحتفظ بمفتاح الـ API وكلمة السر الرئيسية مشفّرين، علشان يقدر يفتح الخزنة تاني بعد إعادة التشغيل. الكمبيوتر ده مابيحتفظش بيهم. الفصل بيشيلهم من {host}. لازم {host} يوصل لعنوان السيرفر عن طريق HTTPS.",
   "connector.bitwarden.serverUrl": "عنوان السيرفر",
+  "connector.bitwarden.folderTitle": "الفولدر المشترك",
+  "connector.bitwarden.folderDescription":
+    "انقل بيانات دخول للفولدر ده في Bitwarden علشان الإيجنتات تقدر تسجّل دخول بيها. شيلها منه علشان توقف ده.",
+  "connector.bitwarden.folderName": "Shared with OpenBot",
+  "connector.bitwarden.folderKind": "فولدر في Bitwarden",
   "connector.bitwarden.clientId": "API key client_id",
   "connector.bitwarden.clientSecret": "API key client_secret",
   "connector.bitwarden.masterPassword": "كلمة السر الرئيسية",
