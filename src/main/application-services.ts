@@ -2521,6 +2521,8 @@ export async function createApplicationServices({
       memoryLimit: agentMemoryLimitSetting,
       promptCacheTtl,
       routineResults: routineResultRuntime,
+      // `board-tickets-v1`: the Tickets board of this computer. The sync with a ticket system stays here.
+      boardTickets,
     },
     // The host's Team API routes share the IPC handlers' runtime preparation: a first server
     // saved, enabled, or tested remotely must start and await the managed download like a local one.
