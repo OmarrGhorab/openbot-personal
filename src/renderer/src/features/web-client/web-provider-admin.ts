@@ -113,6 +113,7 @@ function webProviderAdmin(
   runtimeRoutes: () => ProviderRuntimeRoutes,
   signInRoutes: () => ProviderCodeLoginRoutes,
   keyRoutes: () => typeof PROVIDERS_ADMIN_ROUTES | typeof PROVIDERS_V5_ROUTES | typeof PROVIDERS_V8_ROUTES,
+  accountRelayV2: () => boolean,
 ): ProviderAdminDesktopApi {
   return {
     startCodeLogin: async (provider, serverId) =>
@@ -207,7 +208,7 @@ function webProviderAdmin(
       runTeamEffect(providerUsageResets(request(serverId), provider).pipe(Effect.mapError((error) => error.cause))),
     resetUsage: async (input, serverId) =>
       runTeamEffect(resetProviderUsage(request(serverId), input).pipe(Effect.mapError((error) => error.cause))),
-    ...webProviderRelay(request),
+    ...webProviderRelay(request, accountRelayV2),
   };
 }
 
@@ -257,6 +258,7 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
         : serverSupportsCapability(options.server(), PROVIDERS_V5_CAPABILITY)
           ? PROVIDERS_V5_ROUTES
           : PROVIDERS_ADMIN_ROUTES,
+    () => serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY),
   );
   const serverId = createMemo(() => remoteAdminServer(options.server(), "providers-v1")?.id);
   const runtimes = createProviderRuntimeStore(
