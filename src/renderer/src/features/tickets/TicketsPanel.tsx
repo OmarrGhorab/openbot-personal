@@ -15,6 +15,7 @@ import { useNavigation } from "../../navigation";
 import { useAgentTasks } from "../agent-tasks/agent-tasks-context";
 import { agentTasksPort } from "../agent-tasks/agent-tasks-port";
 import { useAgents } from "../agents/agents-context";
+import { serverCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 
 export interface TicketsPanelProps {
@@ -25,22 +26,34 @@ export interface TicketsPanelProps {
   onToggleAgents?: (() => void) | undefined;
 }
 
+/** How often the page reads the board of a joined server again. A joined server sends no change event here. */
+const REMOTE_REFRESH_MS = 10_000;
+
 /** Read on each call: stories replace `window.openbot` per case. */
 function boardTickets() {
   return window.openbot.boardTickets;
 }
 
 /**
- * The Tickets page on desktop. The board lives on this computer, so a joined server shows a notice and
- * makes no call. The page reads the board again when main says it changed; it never polls. The work
- * threads of each agent come from the task state, which the agent events keep current.
+ * The Tickets page on desktop. The board of this computer lives in its database: the page reads it
+ * again when main says it changed and never polls. A joined server serves its own board through
+ * `board-tickets-v1` to an owner or admin: the page reads it after each change, when the window gets
+ * focus, and every few seconds while it shows. Any other joined server shows a notice and gets no call.
+ * The work threads of each agent and the sync with a ticket system are on this computer only.
  */
 export function TicketsPanel(props: TicketsPanelProps) {
   const { agentList } = useAgents();
   const { servers } = useServers();
   const agentTasks = useAgentTasks();
   const { selectAgent } = useNavigation();
-  const available = () => servers().some((server) => server.id === props.serverId && server.kind === "local");
+  const server = () => servers().find((item) => item.id === props.serverId);
+  const local = () => server()?.kind === "local";
+  const available = () => {
+    const current = server();
+    return (
+      current?.kind === "local" || (current?.kind === "remote" && serverCanAdminister(current, "board-tickets-v1"))
+    );
+  };
   const [tickets, setTickets] = createSignal<BoardTicket[]>([]);
   const [loaded, setLoaded] = createSignal(false);
   const [selectedTicketId, setSelectedTicketId] = createSignal<string | null>(null);
@@ -66,7 +79,7 @@ export function TicketsPanel(props: TicketsPanelProps) {
     listRequest += 1;
     const request = listRequest;
     boardTickets()
-      .list()
+      .list(props.serverId)
       .then((list) => {
         if (disposed || request !== listRequest) return;
         setTickets(list);
@@ -81,13 +94,20 @@ export function TicketsPanel(props: TicketsPanelProps) {
     eventsRequest += 1;
     const request = eventsRequest;
     boardTickets()
-      .events(ticketId)
+      .events(ticketId, props.serverId)
       .then((list) => {
         if (!disposed && request === eventsRequest) setEvents(list);
       })
       .catch((error) => {
         if (request === eventsRequest) fail(error, "tickets.error.activity");
       });
+  }
+
+  /** A joined server sends no change event here, so the page reads its board after each change. */
+  function changedOnServer(ticketId?: string): void {
+    if (local() || disposed) return;
+    loadTickets();
+    if (ticketId && selectedTicketId() === ticketId) loadEvents(ticketId);
   }
 
   function loadSync(): void {
@@ -122,9 +142,22 @@ export function TicketsPanel(props: TicketsPanelProps) {
       .catch((error) => fail(error, "conversation.tasks.error.load"));
   }
 
-  createEffect(available, (local) => {
-    if (!local) return;
+  createEffect(available, (on) => {
+    if (!on) return;
     loadTickets();
+    if (!local()) {
+      const refresh = () => {
+        loadTickets();
+        const open = selectedTicketId();
+        if (open) loadEvents(open);
+      };
+      const timer = setInterval(refresh, REMOTE_REFRESH_MS);
+      window.addEventListener("focus", refresh);
+      return () => {
+        clearInterval(timer);
+        window.removeEventListener("focus", refresh);
+      };
+    }
     loadSync();
     const stopTickets = boardTickets().onChanged((change) => {
       loadTickets();
@@ -139,7 +172,7 @@ export function TicketsPanel(props: TicketsPanelProps) {
   });
 
   createEffect(
-    () => (available() ? agentList().map((agent) => agent.id) : []),
+    () => (available() && local() ? agentList().map((agent) => agent.id) : []),
     (agentIds) => {
       for (const agentId of agentIds) if (!listed[agentId]) loadThreads(agentId);
     },
@@ -196,7 +229,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
       messages={messages()}
       onCreate={async (ticket) => {
         try {
-          await boardTickets().create(ticket);
+          await boardTickets().create(ticket, props.serverId);
+          changedOnServer();
           return true;
         } catch (error) {
           fail(error, "tickets.error.create");
@@ -205,8 +239,9 @@ export function TicketsPanel(props: TicketsPanelProps) {
       }}
       onStart={async (start) => {
         try {
-          await boardTickets().start(start);
-          loadThreads(start.agentId);
+          await boardTickets().start(start, props.serverId);
+          if (local()) loadThreads(start.agentId);
+          changedOnServer(start.ticketId);
           return true;
         } catch (error) {
           fail(error, "tickets.error.start");
@@ -215,19 +250,22 @@ export function TicketsPanel(props: TicketsPanelProps) {
       }}
       onMove={(ticketId, status) => {
         boardTickets()
-          .move({ ticketId, status })
+          .move({ ticketId, status }, props.serverId)
+          .then(() => changedOnServer(ticketId))
           .catch((error) => fail(error, "tickets.error.move"));
       }}
       onAssign={(ticketId, agentId) => {
         boardTickets()
-          .update({ ticketId, agentId })
+          .update({ ticketId, agentId }, props.serverId)
+          .then(() => changedOnServer(ticketId))
           .catch((error) => fail(error, "tickets.error.assign"));
       }}
       onDelete={(ticketId) => {
         boardTickets()
-          .delete(ticketId)
+          .delete(ticketId, props.serverId)
           .then(() => {
             if (selectedTicketId() === ticketId) setSelectedTicketId(null);
+            changedOnServer();
           })
           .catch((error) => fail(error, "tickets.error.delete"));
       }}
@@ -243,25 +281,31 @@ export function TicketsPanel(props: TicketsPanelProps) {
         if (!ticket.agentId || !ticket.taskId) return false;
         if (!(await agentTasks.sendToTask(ticket.agentId, ticket.taskId, text))) return false;
         try {
-          await boardTickets().comment({ ticketId: ticket.id, text });
+          await boardTickets().comment({ ticketId: ticket.id, text }, props.serverId);
+          changedOnServer(ticket.id);
         } catch (error) {
           fail(error, "tickets.error.steer");
         }
         return true;
       }}
-      sync={{
-        state: syncState(),
-        onLoadProjects: async (provider) => {
-          try {
-            return await boardTickets().syncProjects(provider);
-          } catch (error) {
-            fail(error, "tickets.error.syncProjects");
-            return null;
-          }
-        },
-        onSetTarget: (target) => syncAction(() => boardTickets().setSyncTarget(target)),
-        onSyncNow: () => syncAction(() => boardTickets().syncNow()),
-      }}
+      // The sync with a ticket system uses the connections of this computer, so a joined server has none.
+      sync={
+        local()
+          ? {
+              state: syncState(),
+              onLoadProjects: async (provider) => {
+                try {
+                  return await boardTickets().syncProjects(provider);
+                } catch (error) {
+                  fail(error, "tickets.error.syncProjects");
+                  return null;
+                }
+              },
+              onSetTarget: (target) => syncAction(() => boardTickets().setSyncTarget(target)),
+              onSyncNow: () => syncAction(() => boardTickets().syncNow()),
+            }
+          : undefined
+      }
       onStopThread={(thread) => threadAction(thread, (input) => agentTasksPort().agent.stopTask(input))}
       onPauseThread={(thread) => threadAction(thread, (input) => agentTasksPort().agent.pauseTask(input))}
       onResumeThread={(thread) => threadAction(thread, (input) => agentTasksPort().agent.resumeTask(input))}

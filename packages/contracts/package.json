@@ -114,6 +114,7 @@
     "./team-protocol/agent-memories-v1": "./src/team-protocol/agent-memories-v1.ts",
     "./team-protocol/agent-backup-models-v1": "./src/team-protocol/agent-backup-models-v1.ts",
     "./team-protocol/agent-task-limit-v1": "./src/team-protocol/agent-task-limit-v1.ts",
+    "./team-protocol/board-tickets-v1": "./src/team-protocol/board-tickets-v1.ts",
     "./team-protocol/agent-host-settings-v1": "./src/team-protocol/agent-host-settings-v1.ts",
     "./team-protocol/agent-memory-limit-v1": "./src/team-protocol/agent-memory-limit-v1.ts",
     "./team-protocol/prompt-cache-ttl-v1": "./src/team-protocol/prompt-cache-ttl-v1.ts",

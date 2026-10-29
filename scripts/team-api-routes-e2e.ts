@@ -42,6 +42,7 @@ import {
   BITWARDEN_CONNECTOR_CAPABILITY,
   BITWARDEN_CONNECTOR_ROUTES,
 } from "@openbot/contracts/team-protocol/bitwarden-connector-v1";
+import { BOARD_TICKETS_CAPABILITY, BOARD_TICKETS_ROUTES } from "@openbot/contracts/team-protocol/board-tickets-v1";
 import {
   BROWSER_PROFILES_CAPABILITY,
   BROWSER_PROFILES_ROUTES,
@@ -69,6 +70,8 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { SteerUnsupportedError } from "../src/backend/agent/queue-controls";
 import { AgentLifecycleFailed } from "../src/backend/agent-service";
+import { BoardTicketService } from "../src/backend/board-tickets/board-ticket-service";
+import { BoardTicketStore } from "../src/backend/board-tickets/board-ticket-store";
 import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
 import type { BrowserTabSession } from "../src/backend/browser-state";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -600,6 +603,15 @@ try {
     chat: new TeamChatStore(database),
     // The real host-settings service, over an agent writer that records each change.
     admin: {
+      // The real board over the real database. A start records the work thread that it asks for.
+      boardTickets: new BoardTicketService({
+        store: new BoardTicketStore(database),
+        changed: (ticketIds) => record("boardTicketsChanged", ticketIds),
+        startWorkThread: async (agentId, text) => {
+          record("startWorkThread", agentId, text);
+          return { id: "task-board-1", threadId: "thread-board-1", state: "queued" };
+        },
+      }),
       agentHost: createAgentHostSettings({
         agents: {
           listAgents: () => agents,
@@ -1546,6 +1558,86 @@ try {
         errorIs(hiddenSet, 404, sourceText("error.team.agentNotFound")) &&
         callsOf("updateAgent").length === writes + 2,
       [summary(hiddenRead), summary(hiddenSet)],
+    );
+  }
+
+  // ---- Tickets board (board-tickets-v1) ----
+  {
+    const boardCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, BOARD_TICKETS_CAPABILITY];
+    const board = (path: string, json: Json = {}, token = adaToken, protocol?: number) =>
+      call("POST", path, {
+        token,
+        json,
+        capabilities: boardCapabilities,
+        ...(protocol === undefined ? {} : { protocol }),
+      });
+    const unsupported = await call("POST", BOARD_TICKETS_ROUTES.list, { token: adaToken, json: {} });
+    check(
+      "the board routes without the capability get 400 boardTicketsUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.boardTicketsUnsupported")),
+      summary(unsupported),
+    );
+    const memberList = await board(BOARD_TICKETS_ROUTES.list, {}, bobToken);
+    const memberCreate = await board(BOARD_TICKETS_ROUTES.create, { title: "From a member" }, bobToken);
+    check(
+      "a member cannot read or change the board",
+      errorIs(memberList, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberCreate, 403, sourceText("error.team.adminRequired")) &&
+        callsOf("boardTicketsChanged").length === 0,
+      [summary(memberList), summary(memberCreate)],
+    );
+    const created = await board(BOARD_TICKETS_ROUTES.create, { title: "Fix the server login", agentId: "agent-ada" });
+    const ticketId = String(field(created.body, "id"));
+    const listed = await board(BOARD_TICKETS_ROUTES.list);
+    check(
+      "an admin creates a ticket on the server, and the board lists it in Backlog",
+      created.status === 200 &&
+        field(created.body, "status") === "backlog" &&
+        list(field(listed.body, "tickets")).some((ticket) => field(ticket, "id") === ticketId),
+      [summary(created), summary(listed)],
+    );
+    const moved = await board(BOARD_TICKETS_ROUTES.move, { ticketId, status: "queued" });
+    const commented = await board(BOARD_TICKETS_ROUTES.comment, { ticketId, text: "Check the SSH key first." });
+    const activity = await board(BOARD_TICKETS_ROUTES.events, { ticketId });
+    check(
+      "an admin moves the ticket and comments on it, and reads its activity",
+      moved.status === 200 &&
+        field(moved.body, "status") === "queued" &&
+        commented.status === 200 &&
+        field(commented.body, "kind") === "comment" &&
+        list(field(activity.body, "events")).length >= 3,
+      [summary(moved), summary(commented), summary(activity)],
+    );
+    const started = await board(BOARD_TICKETS_ROUTES.start, { agentId: "agent-ada", title: "Start on the server" });
+    check(
+      "a start creates the ticket and starts one work thread of its agent on the host",
+      started.status === 200 &&
+        field(started.body, "taskId") === "task-board-1" &&
+        callsOf("startWorkThread").length === 1,
+      summary(started),
+    );
+    const again = await board(BOARD_TICKETS_ROUTES.start, {
+      agentId: "agent-ada",
+      ticketId: String(field(started.body, "id")),
+    });
+    check(
+      "a second start of the same ticket gets 409 with its catalog text",
+      errorIs(again, 409, sourceText("error.agent.boardTickets.alreadyStarted")) &&
+        callsOf("startWorkThread").length === 1,
+      summary(again),
+    );
+    const hiddenStart = await board(BOARD_TICKETS_ROUTES.start, { agentId: "agent-pi", title: "Hidden" }, adaToken, 6);
+    check(
+      "an admin cannot start a ticket for an agent that the client protocol does not show",
+      errorIs(hiddenStart, 404, sourceText("error.team.agentNotFound")) && callsOf("startWorkThread").length === 1,
+      summary(hiddenStart),
+    );
+    const deleted = await board(BOARD_TICKETS_ROUTES.delete, { ticketId });
+    const gone = await board(BOARD_TICKETS_ROUTES.events, { ticketId });
+    check(
+      "an admin deletes the ticket, and then it is not found",
+      deleted.status === 200 && errorIs(gone, 404, sourceText("error.agent.boardTickets.notFound")),
+      [summary(deleted), summary(gone)],
     );
   }
 
