@@ -178,8 +178,10 @@ export const messages = {
   "marketplace.plugin.paper.prompt.codeToDesign": "استخدم الأنماط الموجودة في المستودع ده وصمّم صفحة إعدادات في Paper.",
   "marketplace.plugin.paper.prompt.tokens": "اعرض الـ design tokens في ملف Paper المفتوح وقارنها بالثيم بتاعنا.",
   "marketplace.plugin.appleApps.tagline": "Mail وCalendar وغيرهم على الـ Mac بتاعك",
-  "marketplace.plugin.appleApps.description": "Apple apps بتخلّي الإيجنتات تستخدم Mail وCalendar وContacts وReminders وNotes وMessages وSafari على الـ Mac ده. شغّالة على macOS بس. OpenBot بيشغّل mcp-icloud، وده سيرفر من المجتمع مش معمول من Apple ولا من OpenBot. السيرفر بيتحكم في التطبيقات عن طريق AppleScript على الكمبيوتر ده، ومش محتاج حساب ولا مفتاح. أول مرة إيجنت يستخدم تطبيق، macOS هيسألك لو OpenBot يقدر يتحكم فيه. علشان تغيّر ده بعدين، افتح System Settings › Privacy & Security › Automation. الإيجنتات تقدر تبعت إيميلات ورسايل iMessage، وتغيّر أو تمسح مواعيد وجهات اتصال وتذكيرات، فراجع كل تعديل قبل ما توافق عليه. اللي الأدوات بتقراه، زي نص الإيميلات، بيروح لمزوّد الموديل بتاع الإيجنت.",
-  "marketplace.plugin.appleApps.app": "Mail وCalendar وContacts وReminders وNotes وMessages وSafari، من خلال سيرفر mcp-icloud المحلي. محتاج macOS وصلاحية Automation.",
+  "marketplace.plugin.appleApps.description":
+    "Apple apps بتخلّي الإيجنتات تستخدم Mail وCalendar وContacts وReminders وNotes وMessages وSafari على الـ Mac ده. شغّالة على macOS بس. OpenBot بيشغّل mcp-icloud، وده سيرفر من المجتمع مش معمول من Apple ولا من OpenBot. السيرفر بيتحكم في التطبيقات عن طريق AppleScript على الكمبيوتر ده، ومش محتاج حساب ولا مفتاح. أول مرة إيجنت يستخدم تطبيق، macOS هيسألك لو OpenBot يقدر يتحكم فيه. علشان تغيّر ده بعدين، افتح System Settings › Privacy & Security › Automation. الإيجنتات تقدر تبعت إيميلات ورسايل iMessage، وتغيّر أو تمسح مواعيد وجهات اتصال وتذكيرات، فراجع كل تعديل قبل ما توافق عليه. اللي الأدوات بتقراه، زي نص الإيميلات، بيروح لمزوّد الموديل بتاع الإيجنت.",
+  "marketplace.plugin.appleApps.app":
+    "Mail وCalendar وContacts وReminders وNotes وMessages وSafari، من خلال سيرفر mcp-icloud المحلي. محتاج macOS وصلاحية Automation.",
   "marketplace.plugin.appleApps.prompt.unread": "لخّص الإيميلات اللي لسه ماتقرتش في Apple Mail من النهارده.",
   "marketplace.plugin.appleApps.prompt.today": "إيه اللي عندي في Apple Calendar النهارده وبكره؟",
   "marketplace.plugin.appleApps.prompt.schedule": "دوّر على آخر إيميل عن اجتماع المشروع وضيف الاجتماع للكالندر بتاعي.",
@@ -200,14 +202,18 @@ export const messages = {
   "marketplace.plugin.vercel.prompt.recentDeployments": "اعرض عمليات النشر بتاعة النهارده وحالتها.",
   "marketplace.plugin.vercel.prompt.runtimeErrors": "أنهي routes حصل فيها أخطاء تشغيل في آخر ساعة؟",
   "marketplace.plugin.cloudflare.tagline": "Workers وDNS والتخزين والسجلات",
-  "marketplace.plugin.cloudflare.description": "Cloudflare بتخلّي الإيجنتات تعرض وتدير الـ Workers وسجلات DNS وR2 وD1 وKV من خلال Cloudflare API، وتستعلم عن سجلات الـ Workers، وتدوّر في توثيق Cloudflare. كل مستخدم بيسجّل الدخول في حساب Cloudflare بتاعه من المتصفح. في صفحة الموافقة بتاعة Cloudflare، اختار Read only: الاختيار الافتراضي Minimal مش بيخلّي الإيجنتات تشوف الـ Workers ولا السجلات ولا سجلات DNS. مع صلاحيات الكتابة، الإيجنتات تقدر تنشر وتمسح Workers، وتغيّر سجلات DNS، وتغيّر إعدادات تانية في الحساب.",
-  "marketplace.plugin.cloudflare.app": "Workers وDNS والتخزين والسجلات، من خلال سيرفر API MCP بتاع Cloudflare مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.cloudflare.description":
+    "Cloudflare بتخلّي الإيجنتات تعرض وتدير الـ Workers وسجلات DNS وR2 وD1 وKV من خلال Cloudflare API، وتستعلم عن سجلات الـ Workers، وتدوّر في توثيق Cloudflare. كل مستخدم بيسجّل الدخول في حساب Cloudflare بتاعه من المتصفح. في صفحة الموافقة بتاعة Cloudflare، اختار Read only: الاختيار الافتراضي Minimal مش بيخلّي الإيجنتات تشوف الـ Workers ولا السجلات ولا سجلات DNS. مع صلاحيات الكتابة، الإيجنتات تقدر تنشر وتمسح Workers، وتغيّر سجلات DNS، وتغيّر إعدادات تانية في الحساب.",
+  "marketplace.plugin.cloudflare.app":
+    "Workers وDNS والتخزين والسجلات، من خلال سيرفر API MCP بتاع Cloudflare مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.cloudflare.prompt.workers": "أنهي Workers متنشورة في حساب Cloudflare بتاعي؟",
   "marketplace.plugin.cloudflare.prompt.errors": "أنهي Workers في Cloudflare سجّلت أخطاء في آخر ساعة؟",
   "marketplace.plugin.cloudflare.prompt.dns": "اعرض سجلات DNS لكل zone في حساب Cloudflare بتاعي.",
   "marketplace.plugin.supabase.tagline": "قواعد البيانات والسجلات والـ edge functions",
-  "marketplace.plugin.supabase.description": "Supabase بتخلّي الإيجنتات تعرض المشاريع، وتشغّل SQL، وتقرا schemas الجداول والسجلات، وتراجع نصايح الأمان والأداء، وتدير الـ edge functions والـ branches، وتدوّر في توثيق Supabase. كل مستخدم بيسجّل الدخول في حساب Supabase بتاعه من المتصفح وبيختار organization. الإيجنتات بتاخد صلاحيات كاملة: تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتطبّق migrations، وتنشر edge functions، وتعمل مشاريع أو توقّفها مؤقتًا.",
-  "marketplace.plugin.supabase.app": "قواعد البيانات والسجلات والـ edge functions، من خلال سيرفر MCP بتاع Supabase مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.supabase.description":
+    "Supabase بتخلّي الإيجنتات تعرض المشاريع، وتشغّل SQL، وتقرا schemas الجداول والسجلات، وتراجع نصايح الأمان والأداء، وتدير الـ edge functions والـ branches، وتدوّر في توثيق Supabase. كل مستخدم بيسجّل الدخول في حساب Supabase بتاعه من المتصفح وبيختار organization. الإيجنتات بتاخد صلاحيات كاملة: تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتطبّق migrations، وتنشر edge functions، وتعمل مشاريع أو توقّفها مؤقتًا.",
+  "marketplace.plugin.supabase.app":
+    "قواعد البيانات والسجلات والـ edge functions، من خلال سيرفر MCP بتاع Supabase مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.supabase.prompt.projects": "إيه المشاريع اللي في الـ organization بتاعتي على Supabase؟",
   "marketplace.plugin.supabase.prompt.tables": "اعرض الجداول والأعمدة بتاعة قاعدة بيانات Supabase بتاعتي.",
   "marketplace.plugin.supabase.prompt.errors": "إيه الأخطاء اللي مشروع Supabase بتاعي سجّلها في آخر ساعة؟",
@@ -259,12 +265,15 @@ export const messages = {
   "marketplace.plugin.braveSearch.prompt.news": "دوّر على إعلانات النهارده في مجال المنتج ده.",
   "marketplace.plugin.braveSearch.prompt.compare": "قارن بين البائعين دول مع ذكر المصادر.",
   "marketplace.plugin.obsidian.tagline": "الملاحظات اللي في الـ vault بتاعك",
-  "marketplace.plugin.obsidian.description": "Obsidian بتخلّي الإيجنتات تدوّر في الملاحظات اللي في الـ vault بتاعك وتقراها وتكتب فيها، علشان الـ vault يبقى الذاكرة بتاعتهم. السيرفر المحلي بيتوصّل بـ plugin الـ Local REST API في تطبيق Obsidian على الكمبيوتر ده. مفتاح الـ API بتاع الـ plugin بيتبعت للسيرفر المحلي كمتغير بيئة واحد. خلّي Obsidian مفتوح وانت الإيجنتات بتستخدمه.",
-  "marketplace.plugin.obsidian.app": "البحث في الملاحظات وقرايتها وتعديلها، من خلال سيرفر MCP محلي بمفتاح plugin الـ Local REST API.",
+  "marketplace.plugin.obsidian.description":
+    "Obsidian بتخلّي الإيجنتات تدوّر في الملاحظات اللي في الـ vault بتاعك وتقراها وتكتب فيها، علشان الـ vault يبقى الذاكرة بتاعتهم. السيرفر المحلي بيتوصّل بـ plugin الـ Local REST API في تطبيق Obsidian على الكمبيوتر ده. مفتاح الـ API بتاع الـ plugin بيتبعت للسيرفر المحلي كمتغير بيئة واحد. خلّي Obsidian مفتوح وانت الإيجنتات بتستخدمه.",
+  "marketplace.plugin.obsidian.app":
+    "البحث في الملاحظات وقرايتها وتعديلها، من خلال سيرفر MCP محلي بمفتاح plugin الـ Local REST API.",
   "marketplace.plugin.obsidian.prompt.recall": "ملاحظاتي بتقول إيه عن القرارات اللي اتاخدت في المشروع ده؟",
   "marketplace.plugin.obsidian.prompt.save": "احفظ القرار ده كملاحظة جديدة في الـ vault بتاعي.",
   "marketplace.plugin.obsidian.prompt.log": "ضيف ملخص شغل النهارده لملاحظة Work log بتاعتي.",
-  "marketplace.plugin.obsidian.hint.apiKey": "في Obsidian، افتح Settings > Local REST API. انسخ مفتاح الـ API وشغّل \"Enable non-encrypted (HTTP) server\".",
+  "marketplace.plugin.obsidian.hint.apiKey":
+    'في Obsidian، افتح Settings > Local REST API. انسخ مفتاح الـ API وشغّل "Enable non-encrypted (HTTP) server".',
   "marketplace.plugin.resend.tagline": "البريد الإلكتروني للمعاملات",
   "marketplace.plugin.resend.description":
     "Resend بتخلّي الإيجنتات تبعت إيميلات المعاملات وتتأكد من وصولها من خلال API واحد. الـ API key من لوحة تحكم Resend بيتبعت للسيرفر المحلي كمتغير بيئة واحد.",
@@ -283,56 +292,74 @@ export const messages = {
   "marketplace.plugin.composio.hint.url": "الـ URL بتاع سيرفر MCP في حساب Composio بتاعك",
   "marketplace.plugin.composio.hint.apiKey": "هتلاقيه في حساب Composio بتاعك، من Settings > Sessions & API Key.",
   "marketplace.plugin.neon.tagline": "مشاريع Postgres والـ branches والـ migrations",
-  "marketplace.plugin.neon.description": "Neon بتخلّي الإيجنتات تعرض المشاريع والـ branches، وتشغّل SQL، وتقرا schemas الجداول، وتجرّب تغييرات الـ schema على branch مؤقت، وتلاقي الاستعلامات البطيئة، وتدوّر في توثيق Neon. كل مستخدم بيسجّل الدخول في حساب Neon بتاعه من المتصفح ويقدر يختار صلاحية قراية بس وهو بيوافق. مع الصلاحية الكاملة، الإيجنتات تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتعمل أو تعيد ضبط أو تمسح branches وقواعد بيانات ومشاريع. Neon بتنصح بسيرفر MCP بتاعها للتطوير والتجربة، مش لقواعد بيانات الـ production.",
-  "marketplace.plugin.neon.app": "مشاريع Postgres والـ branches وSQL والـ migrations، من خلال سيرفر MCP بتاع Neon مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.neon.description":
+    "Neon بتخلّي الإيجنتات تعرض المشاريع والـ branches، وتشغّل SQL، وتقرا schemas الجداول، وتجرّب تغييرات الـ schema على branch مؤقت، وتلاقي الاستعلامات البطيئة، وتدوّر في توثيق Neon. كل مستخدم بيسجّل الدخول في حساب Neon بتاعه من المتصفح ويقدر يختار صلاحية قراية بس وهو بيوافق. مع الصلاحية الكاملة، الإيجنتات تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتعمل أو تعيد ضبط أو تمسح branches وقواعد بيانات ومشاريع. Neon بتنصح بسيرفر MCP بتاعها للتطوير والتجربة، مش لقواعد بيانات الـ production.",
+  "marketplace.plugin.neon.app":
+    "مشاريع Postgres والـ branches وSQL والـ migrations، من خلال سيرفر MCP بتاع Neon مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.neon.prompt.projects": "إيه المشاريع والـ branches اللي في حساب Neon بتاعي؟",
   "marketplace.plugin.neon.prompt.slowQueries": "أنهي استعلامات هي الأبطأ على قاعدة بيانات Neon بتاعتي، وليه؟",
   "marketplace.plugin.neon.prompt.migration": "ضيف index على جدول orders في branch مؤقت، ووريني النتيجة قبل ما تطبّقه.",
   "marketplace.plugin.prisma.tagline": "قواعد بيانات Postgres والنسخ الاحتياطية وتطبيقات Compute",
-  "marketplace.plugin.prisma.description": "Prisma بتخلّي الإيجنتات تعرض وتعمل قواعد بيانات Prisma Postgres، وتقرا الـ schemas، وتشغّل SQL، وتعرض النسخ الاحتياطية وترجّعها في قاعدة بيانات جديدة، وتدير buckets الـ Object Storage، وتقرا عمليات بناء وسجلات Compute، وتدوّر في توثيق Prisma. كل مستخدم بيسجّل الدخول في حساب Prisma بتاعه من المتصفح وبيختار workspace. الإيجنتات بتاخد صلاحيات كاملة: تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتحدّث الـ schemas، وتمسح قواعد بيانات وbuckets، وتوقّف أو ترجّع أو تمسح عمليات نشر Compute.",
-  "marketplace.plugin.prisma.app": "قواعد البيانات وSQL والنسخ الاحتياطية وتطبيقات Compute، من خلال سيرفر MCP بتاع Prisma مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.prisma.description":
+    "Prisma بتخلّي الإيجنتات تعرض وتعمل قواعد بيانات Prisma Postgres، وتقرا الـ schemas، وتشغّل SQL، وتعرض النسخ الاحتياطية وترجّعها في قاعدة بيانات جديدة، وتدير buckets الـ Object Storage، وتقرا عمليات بناء وسجلات Compute، وتدوّر في توثيق Prisma. كل مستخدم بيسجّل الدخول في حساب Prisma بتاعه من المتصفح وبيختار workspace. الإيجنتات بتاخد صلاحيات كاملة: تقدر تشغّل SQL بيغيّر أو بيمسح بيانات، وتحدّث الـ schemas، وتمسح قواعد بيانات وbuckets، وتوقّف أو ترجّع أو تمسح عمليات نشر Compute.",
+  "marketplace.plugin.prisma.app":
+    "قواعد البيانات وSQL والنسخ الاحتياطية وتطبيقات Compute، من خلال سيرفر MCP بتاع Prisma مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.prisma.prompt.databases": "إيه قواعد البيانات اللي في الـ workspace بتاعي على Prisma؟",
   "marketplace.plugin.prisma.prompt.backups": "وريني كل النسخ الاحتياطية المتاحة لقاعدة البيانات بتاعتي.",
   "marketplace.plugin.prisma.prompt.logs": "اعرض سجلات التشغيل بتاعة آخر نشر Compute عندي.",
   "marketplace.plugin.netlify.tagline": "المشاريع وعمليات النشر وسجلات الطلبات",
-  "marketplace.plugin.netlify.description": "Netlify بتخلّي الإيجنتات تعرض المشاريع وعمليات النشر، وتقرا سجلات طلبات الـ edge، وتعمل مشاريع، وتنشر كود على مشروع موجود. كل مستخدم بيسجّل الدخول في حساب Netlify بتاعه من المتصفح. الإيجنتات بتاخد نفس صلاحيات حساب المستخدم: تقدر تغيّر متغيرات البيئة والـ forms وصلاحيات دخول الزوار، وتثبّت أو تشيل extensions، وتمسح ردود الـ forms ومتغيرات البيئة.",
-  "marketplace.plugin.netlify.app": "المشاريع وعمليات النشر وسجلات الطلبات وإعدادات الموقع، من خلال سيرفر MCP بتاع Netlify مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.netlify.description":
+    "Netlify بتخلّي الإيجنتات تعرض المشاريع وعمليات النشر، وتقرا سجلات طلبات الـ edge، وتعمل مشاريع، وتنشر كود على مشروع موجود. كل مستخدم بيسجّل الدخول في حساب Netlify بتاعه من المتصفح. الإيجنتات بتاخد نفس صلاحيات حساب المستخدم: تقدر تغيّر متغيرات البيئة والـ forms وصلاحيات دخول الزوار، وتثبّت أو تشيل extensions، وتمسح ردود الـ forms ومتغيرات البيئة.",
+  "marketplace.plugin.netlify.app":
+    "المشاريع وعمليات النشر وسجلات الطلبات وإعدادات الموقع، من خلال سيرفر MCP بتاع Netlify مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.netlify.prompt.latestDeploy": "إيه حالة آخر نشر لكل مشروع من مشاريعي على Netlify؟",
   "marketplace.plugin.netlify.prompt.errors": "أنهي روابط في موقعي رجّعت أخطاء سيرفر في آخر يوم؟",
   "marketplace.plugin.netlify.prompt.deploy": "انشر الفولدر ده على مشروع Netlify الموجود عندي.",
   "marketplace.plugin.railway.tagline": "المشاريع والخدمات وعمليات النشر",
-  "marketplace.plugin.railway.description": "Railway بتخلّي الإيجنتات تعرض المشاريع والخدمات، وتعمل مشاريع، وتعيد نشر الخدمات، وتدير الـ feature flags. وكمان الإيجنتات تقدر تدّي شغل من كذا خطوة لـ Railway Agent، اللي بيقرا السجلات، ويعرف ليه النشر فشل، ويعمل خدمات، ويضبط المتغيرات. كل مستخدم بيسجّل الدخول في حساب Railway بتاعه من المتصفح وبيختار الـ workspaces والمشاريع اللي الإيجنتات تقدر تستخدمها. في المشاريع دي الإيجنتات بتاخد صلاحيات كاملة: تقدر تنشر التغييرات المجهّزة، وتمسح feature flags، وتغيّر الخدمات والمتغيرات وقواعد البيانات والشبكات من خلال Railway Agent.",
-  "marketplace.plugin.railway.app": "المشاريع والخدمات وعمليات النشر، من خلال سيرفر MCP بتاع Railway مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.railway.description":
+    "Railway بتخلّي الإيجنتات تعرض المشاريع والخدمات، وتعمل مشاريع، وتعيد نشر الخدمات، وتدير الـ feature flags. وكمان الإيجنتات تقدر تدّي شغل من كذا خطوة لـ Railway Agent، اللي بيقرا السجلات، ويعرف ليه النشر فشل، ويعمل خدمات، ويضبط المتغيرات. كل مستخدم بيسجّل الدخول في حساب Railway بتاعه من المتصفح وبيختار الـ workspaces والمشاريع اللي الإيجنتات تقدر تستخدمها. في المشاريع دي الإيجنتات بتاخد صلاحيات كاملة: تقدر تنشر التغييرات المجهّزة، وتمسح feature flags، وتغيّر الخدمات والمتغيرات وقواعد البيانات والشبكات من خلال Railway Agent.",
+  "marketplace.plugin.railway.app":
+    "المشاريع والخدمات وعمليات النشر، من خلال سيرفر MCP بتاع Railway مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.railway.prompt.projects": "إيه المشاريع والخدمات اللي في الـ workspace بتاعي على Railway؟",
   "marketplace.plugin.railway.prompt.crash": "ليه خدمة الـ backend بتاعتي على Railway بتقع وقت النشر؟",
   "marketplace.plugin.railway.prompt.redeploy": "اعمل نشر تاني لخدمة الـ API في مشروع Railway بتاعي.",
   "marketplace.plugin.render.tagline": "الخدمات وعمليات النشر والسجلات",
-  "marketplace.plugin.render.description": "Render بتخلّي الإيجنتات تعرض الـ workspaces والخدمات، وتقرا السجلات والأحداث والمقاييس، وتشوف تاريخ عمليات النشر، وتبدأ نشر، وتشغّل SQL للقراية بس على Render Postgres. مفتاح Render API بيتحط في header واحد اسمه Authorization. المفتاح بيوصل لكل workspaces حساب Render. الإيجنتات تقدر تعمل web services ومواقع static وcron jobs وقواعد بيانات Postgres وKey Value instances، ودول ممكن يكلّفوا فلوس، وتقدر تستبدل متغيرات البيئة بتاعة أي خدمة. السيرفر مايقدرش يمسح أي مورد.",
-  "marketplace.plugin.render.app": "الخدمات وعمليات النشر والسجلات والمقاييس، من خلال سيرفر MCP بتاع Render بمفتاح API.",
+  "marketplace.plugin.render.description":
+    "Render بتخلّي الإيجنتات تعرض الـ workspaces والخدمات، وتقرا السجلات والأحداث والمقاييس، وتشوف تاريخ عمليات النشر، وتبدأ نشر، وتشغّل SQL للقراية بس على Render Postgres. مفتاح Render API بيتحط في header واحد اسمه Authorization. المفتاح بيوصل لكل workspaces حساب Render. الإيجنتات تقدر تعمل web services ومواقع static وcron jobs وقواعد بيانات Postgres وKey Value instances، ودول ممكن يكلّفوا فلوس، وتقدر تستبدل متغيرات البيئة بتاعة أي خدمة. السيرفر مايقدرش يمسح أي مورد.",
+  "marketplace.plugin.render.app":
+    "الخدمات وعمليات النشر والسجلات والمقاييس، من خلال سيرفر MCP بتاع Render بمفتاح API.",
   "marketplace.plugin.render.prompt.services": "إيه الخدمات اللي في الـ workspace بتاعي على Render؟",
   "marketplace.plugin.render.prompt.logs": "إيه الأخطاء اللي الـ web service بتاعتي على Render سجّلتها في آخر ساعة؟",
   "marketplace.plugin.render.prompt.deploy": "ليه آخر نشر لخدمتي على Render فشل؟",
   "marketplace.plugin.atlassian.tagline": "عناصر شغل Jira وصفحات Confluence",
-  "marketplace.plugin.atlassian.description": "Atlassian بتخلّي الإيجنتات تدوّر وتقرا عناصر شغل Jira وصفحات Confluence والـ pull requests في Bitbucket، وتعمل أو تحدّث عناصر شغل وصفحات وتعليقات. كل مستخدم بيسجّل الدخول في حساب Atlassian بتاعه من المتصفح وبيوافق على الصلاحيات في شاشة موافقة. الإيجنتات بتاخد نفس صلاحيات المستخدم: تقدر تغيّر عناصر الشغل والصفحات، وتغيّر صلاحيات الصفحات، وتعمل merge للـ pull requests. الأدوات اللي بتمسح بيانات Jira بتفضل مقفولة لحد ما أدمن الـ organization يشغّلها. كل استدعاء أداة بيستهلك Rovo credits.",
-  "marketplace.plugin.atlassian.app": "Jira وConfluence وBitbucket، من خلال سيرفر MCP بتاع Atlassian مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.atlassian.description":
+    "Atlassian بتخلّي الإيجنتات تدوّر وتقرا عناصر شغل Jira وصفحات Confluence والـ pull requests في Bitbucket، وتعمل أو تحدّث عناصر شغل وصفحات وتعليقات. كل مستخدم بيسجّل الدخول في حساب Atlassian بتاعه من المتصفح وبيوافق على الصلاحيات في شاشة موافقة. الإيجنتات بتاخد نفس صلاحيات المستخدم: تقدر تغيّر عناصر الشغل والصفحات، وتغيّر صلاحيات الصفحات، وتعمل merge للـ pull requests. الأدوات اللي بتمسح بيانات Jira بتفضل مقفولة لحد ما أدمن الـ organization يشغّلها. كل استدعاء أداة بيستهلك Rovo credits.",
+  "marketplace.plugin.atlassian.app":
+    "Jira وConfluence وBitbucket، من خلال سيرفر MCP بتاع Atlassian مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.atlassian.prompt.assigned": "أنهي عناصر شغل Jira مفتوحة ومتعيّنة ليا؟",
   "marketplace.plugin.atlassian.prompt.releasePage": "دوّر على صفحة Confluence اللي عن طريقة الإصدار عندنا ولخّصها.",
   "marketplace.plugin.atlassian.prompt.newItem": "اعمل عنصر شغل في Jira لمشكلة تسجيل الدخول مع خطوات تكرارها.",
   "marketplace.plugin.todoist.tagline": "المهام والمشاريع والتذكيرات",
-  "marketplace.plugin.todoist.description": "Todoist بتخلّي الإيجنتات تلاقي المهام بالتاريخ أو النص أو الـ label أو الفلتر، وتضيف مهام وتغيّر مواعيدها، وتدير المشاريع والأقسام والـ labels والتعليقات والتذكيرات. كل مستخدم بيسجّل الدخول في حساب Todoist بتاعه من المتصفح. الإيجنتات بتاخد صلاحية قراية وكتابة: تقدر تغيّر وتكمّل وتمسح مهام ومشاريع وعناصر تانية.",
-  "marketplace.plugin.todoist.app": "المهام والمشاريع والتذكيرات، من خلال سيرفر MCP بتاع Todoist مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.todoist.description":
+    "Todoist بتخلّي الإيجنتات تلاقي المهام بالتاريخ أو النص أو الـ label أو الفلتر، وتضيف مهام وتغيّر مواعيدها، وتدير المشاريع والأقسام والـ labels والتعليقات والتذكيرات. كل مستخدم بيسجّل الدخول في حساب Todoist بتاعه من المتصفح. الإيجنتات بتاخد صلاحية قراية وكتابة: تقدر تغيّر وتكمّل وتمسح مهام ومشاريع وعناصر تانية.",
+  "marketplace.plugin.todoist.app":
+    "المهام والمشاريع والتذكيرات، من خلال سيرفر MCP بتاع Todoist مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.todoist.prompt.today": "أنهي مهام Todoist ميعادها النهارده؟",
   "marketplace.plugin.todoist.prompt.capture": "ضيف النقاط المطلوبة دي للـ Inbox بتاعي في Todoist.",
   "marketplace.plugin.todoist.prompt.overdue": "انقل مهام Todoist المتأخرة لبكره.",
   "marketplace.plugin.trello.tagline": "الـ boards والقوايم والكروت",
-  "marketplace.plugin.trello.description": "Trello بتخلّي الإيجنتات تدوّر وتقرا الـ boards والقوايم والكروت والـ checklists والتعليقات، وتعمل boards وكروت، وتنقل القوايم والكروت، وتعلّم الكروت إنها خلصت، وتضيف checklists وتعليقات وlabels. وكمان الإيجنتات تقدر تقرا وتضيف كروت في الـ Inbox بتاع المستخدم في Trello، وتقرا أحداث الـ Planner، اللي ممكن تيجي من كالندر Google أو Outlook متوصّل. كل مستخدم بيسجّل الدخول في حساب Trello بتاعه من المتصفح وبيختار الـ workspaces في شاشة موافقة. الإيجنتات بتاخد نفس صلاحيات المستخدم في الـ workspaces دي. تقدر تأرشف كروت وقوايم، بس السيرفر مايقدرش يمسح أي حاجة نهائيًا.",
-  "marketplace.plugin.trello.app": "الـ boards والقوايم والكروت، من خلال سيرفر MCP بتاع Trello مع تسجيل الدخول من المتصفح.",
+  "marketplace.plugin.trello.description":
+    "Trello بتخلّي الإيجنتات تدوّر وتقرا الـ boards والقوايم والكروت والـ checklists والتعليقات، وتعمل boards وكروت، وتنقل القوايم والكروت، وتعلّم الكروت إنها خلصت، وتضيف checklists وتعليقات وlabels. وكمان الإيجنتات تقدر تقرا وتضيف كروت في الـ Inbox بتاع المستخدم في Trello، وتقرا أحداث الـ Planner، اللي ممكن تيجي من كالندر Google أو Outlook متوصّل. كل مستخدم بيسجّل الدخول في حساب Trello بتاعه من المتصفح وبيختار الـ workspaces في شاشة موافقة. الإيجنتات بتاخد نفس صلاحيات المستخدم في الـ workspaces دي. تقدر تأرشف كروت وقوايم، بس السيرفر مايقدرش يمسح أي حاجة نهائيًا.",
+  "marketplace.plugin.trello.app":
+    "الـ boards والقوايم والكروت، من خلال سيرفر MCP بتاع Trello مع تسجيل الدخول من المتصفح.",
   "marketplace.plugin.trello.prompt.myCards": "أنهي كروت Trello متعيّنة ليا؟",
   "marketplace.plugin.trello.prompt.board": "لخّص اللي شغّال عليه دلوقتي في الـ board بتاعي على Trello.",
   "marketplace.plugin.trello.prompt.newCards": "ضيف النقاط المطلوبة دي ككروت في الـ board بتاعي على Trello.",
   "marketplace.plugin.huggingface.tagline": "الموديلات والـ datasets والأبحاث على الـ Hub",
-  "marketplace.plugin.huggingface.description": "Hugging Face بتخلّي الإيجنتات تدوّر على الموديلات والـ datasets والـ Spaces والـ collections والأبحاث على Hugging Face Hub، وتقرا الـ model cards وملفات الـ repositories، وتعاين الـ datasets، وتدوّر في توثيق Hugging Face. بتستخدم بيانات الـ Hub العامة ومش محتاجة حساب ولا مفتاح. الأدوات بتقرا بس: الإيجنتات ماتقدرش تعمل repositories ولا تشغّل jobs.",
-  "marketplace.plugin.huggingface.app": "البحث في الموديلات والـ datasets والـ Spaces والأبحاث والتوثيق، من خلال سيرفر MCP بتاع Hugging Face من غير تسجيل دخول.",
+  "marketplace.plugin.huggingface.description":
+    "Hugging Face بتخلّي الإيجنتات تدوّر على الموديلات والـ datasets والـ Spaces والـ collections والأبحاث على Hugging Face Hub، وتقرا الـ model cards وملفات الـ repositories، وتعاين الـ datasets، وتدوّر في توثيق Hugging Face. بتستخدم بيانات الـ Hub العامة ومش محتاجة حساب ولا مفتاح. الأدوات بتقرا بس: الإيجنتات ماتقدرش تعمل repositories ولا تشغّل jobs.",
+  "marketplace.plugin.huggingface.app":
+    "البحث في الموديلات والـ datasets والـ Spaces والأبحاث والتوثيق، من خلال سيرفر MCP بتاع Hugging Face من غير تسجيل دخول.",
   "marketplace.plugin.huggingface.prompt.models": "دوّر على موديلات مفتوحة صغيرة للتعرّف على الكلام على Hugging Face.",
   "marketplace.plugin.huggingface.prompt.papers": "أنهي أبحاث رايجة على Hugging Face النهارده؟",
   "marketplace.plugin.huggingface.prompt.dataset": "دوّر على dataset لسلاسل زمنية للطقس ووريني الأعمدة بتاعتها.",
