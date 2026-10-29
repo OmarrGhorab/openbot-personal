@@ -1460,16 +1460,18 @@ export const IPC_ENDPOINTS = {
   },
   // The Tickets board of this computer. The one event carries the changed ticket IDs, so the view reads
   // the list again instead of polling.
+  // The board requests take the server: a joined server serves its board through `board-tickets-v1`.
+  // The sync stays on this computer.
   boardTickets: {
-    list: request<undefined, BoardTicket[]>()("board-tickets:list"),
-    events: request<string, BoardTicketEvent[]>()("board-tickets:events"),
-    create: request<CreateBoardTicketInput, BoardTicket>()("board-tickets:create"),
-    update: request<UpdateBoardTicketInput, BoardTicket>()("board-tickets:update"),
-    move: request<MoveBoardTicketInput, BoardTicket>()("board-tickets:move"),
-    comment: request<CommentBoardTicketInput, BoardTicketEvent>()("board-tickets:comment"),
+    list: scopedQuery<BoardTicket[]>()("board-tickets:list"),
+    events: scopedRequest<string, BoardTicketEvent[]>()("board-tickets:events"),
+    create: scopedRequest<CreateBoardTicketInput, BoardTicket>()("board-tickets:create"),
+    update: scopedRequest<UpdateBoardTicketInput, BoardTicket>()("board-tickets:update"),
+    move: scopedRequest<MoveBoardTicketInput, BoardTicket>()("board-tickets:move"),
+    comment: scopedRequest<CommentBoardTicketInput, BoardTicketEvent>()("board-tickets:comment"),
     // Creates the ticket when it has no ID yet, and starts its work thread.
-    start: request<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
-    delete: request<string, void>()("board-tickets:delete"),
+    start: scopedRequest<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
+    delete: scopedRequest<string, void>()("board-tickets:delete"),
     changed: event<BoardTicketsChanged>()("board-tickets:changed"),
     // The sync with a connected ticket system. The state lists no system when none is connected.
     syncState: request<undefined, BoardTicketSyncState>()("board-tickets:sync-state"),

@@ -88,6 +88,7 @@ export const messages = {
   "error.team.routineResultsUnsupported": "وجهات الروتين مش مدعومة في الاتصال ده.",
   "error.team.agentMemoryLimitUnsupported": "حد ذاكرة الإيجنت مش مدعوم في الاتصال ده.",
   "error.team.promptCacheTtlUnsupported": "مدة كاش الـ prompt مش مدعومة في الاتصال ده.",
+  "error.team.boardTicketsUnsupported": "لوحة التذاكر مش مدعومة في الاتصال ده.",
   "error.team.agentAccessUnsupported": "الأدوار مش مدعومة في الاتصال ده.",
   "error.team.agentAccessStale": "حد غيّر الأدوار. افتحها تاني وعدّل اللي عايزه.",
   "error.team.agentViewOnly": "تقدر تشوف الإيجنت ده بس.",
