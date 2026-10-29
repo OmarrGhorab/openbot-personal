@@ -40,6 +40,7 @@ import {
 } from "@openbot/ui/features/conversation/ComposerNotice";
 import { ComposerCompactionNotice, ContextUsageMeter } from "@openbot/ui/features/conversation/ContextUsage";
 import { CloseIcon, StopIcon } from "@openbot/ui/features/conversation/ConversationIcons";
+import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
 import { type OpenWaitItem, OpenWaits } from "@openbot/ui/features/conversation/OpenWaits";
 import { ReplyQuote } from "@openbot/ui/features/conversation/ReplyQuote";
 import { SpeakingBar } from "@openbot/ui/features/conversation/SpeakingBar";
@@ -129,6 +130,19 @@ export function ConversationComposer() {
         ? t("composer.placeholder.message", { name: props.agent.name })
         : t("composer.placeholder.messageAgent");
   const [pickerOpen, setPickerOpen] = createSignal(false);
+  /* What Arrow Up recalls: the reader's own text messages in this conversation, not a teammate's. */
+  const sentHistory = createMemo(() =>
+    composerSentHistory(
+      props.messages
+        .filter(
+          (message) =>
+            message.author === "you" &&
+            (message.kind === undefined || message.kind === "text") &&
+            (!message.senderMember || props.isOwnSender(message.senderMember.id)),
+        )
+        .map((message) => message.body),
+    ),
+  );
   const [skillPickerRequest, setSkillPickerRequest] = createSignal(0);
   let skillPickerChosen = false;
   // A pending Save keeps its exact request for retry. Block changes until retry or cancel.
@@ -635,6 +649,7 @@ export function ConversationComposer() {
               mcpServers={mcpServers()}
               attachments={currentDraft().attachments}
               value={currentDraft().text}
+              sentHistory={sentHistory()}
               disabled={submitting() || voicePhase() === "transcribing" || editorLocked() || savePending()}
               placeholder={
                 !agentReady()

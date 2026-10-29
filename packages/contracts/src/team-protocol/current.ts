@@ -56,6 +56,7 @@ import { ONEPASSWORD_CONNECTOR_CAPABILITY } from "./onepassword-connector-v1";
 import { PROMPT_CACHE_TTL_CAPABILITY } from "./prompt-cache-ttl-v1";
 import { TEAM_PROMPT_MULTI_SELECT_CAPABILITY } from "./prompt-multi-select-v1";
 import { PROVIDER_ACCOUNT_RELAY_CAPABILITY } from "./provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY } from "./provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "./provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_CAPABILITY } from "./provider-host-sign-in-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "./provider-usage-reset-v1";
@@ -161,6 +162,7 @@ export {
   ONEPASSWORD_CONNECTOR_CAPABILITY,
   PROMPT_CACHE_TTL_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_HOST_SIGN_IN_CAPABILITY,
   PROVIDER_USAGE_RESET_CAPABILITY,
@@ -296,6 +298,7 @@ export const TEAM_CURRENT_CAPABILITIES = [
   AGENT_TASK_LIMIT_CAPABILITY,
   BROWSER_PROFILES_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
   STORAGE_DISK_CAPABILITY,
   PROMPT_CACHE_TTL_CAPABILITY,
 ] as const;
@@ -413,6 +416,7 @@ export const TEAM_BOOTSTRAP_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
     capability !== AGENT_TASK_LIMIT_CAPABILITY &&
     capability !== BROWSER_PROFILES_CAPABILITY &&
     capability !== PROVIDER_ACCOUNT_RELAY_CAPABILITY &&
+    capability !== PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY &&
     capability !== STORAGE_DISK_CAPABILITY &&
     capability !== PROMPT_CACHE_TTL_CAPABILITY,
 );
@@ -473,6 +477,7 @@ export function legacyTeamCapabilities(capabilities: readonly string[]): string[
       capability !== AGENT_TASK_LIMIT_CAPABILITY &&
       capability !== BROWSER_PROFILES_CAPABILITY &&
       capability !== PROVIDER_ACCOUNT_RELAY_CAPABILITY &&
+      capability !== PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY &&
       capability !== STORAGE_DISK_CAPABILITY &&
       capability !== PROMPT_CACHE_TTL_CAPABILITY,
   );

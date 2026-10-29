@@ -68,6 +68,16 @@ export const LinuxWindow: Story = {
   ),
 };
 
+/** On a Mac where macOS refuses OpenBot access to Mail and Messages: installing Apple apps names them. */
+export const MacAutomationRefused: Story = {
+  render: () => <OpenBotPlayground options={{ macAutomationAnswers: { mail: "denied", messages: "denied" } }} />,
+};
+
+/** On a Mac where OpenBot cannot ask macOS about Safari: installing Apple apps says to try again. */
+export const MacAutomationFailed: Story = {
+  render: () => <OpenBotPlayground options={{ macAutomationAnswers: { safari: "failed" } }} />,
+};
+
 export const EmptyWorkspace: Story = {
   render: () => (
     <OpenBotPlayground

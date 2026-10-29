@@ -232,8 +232,6 @@ export const messages = {
   "server.settings.importDescription": "انقل الإيجنتات بتاعتك من Grok Bot أو Hermes Agent للسيرفر ده.",
   "server.settings.transferTitle": "النقل",
   "server.settings.transferDescription": "انقل إيجنتات السيرفر ده وإعداداته لملف أو من ملف.",
-  "server.settings.connectorsTitle": "الموصّلات",
-  "server.settings.connectorsDescription": "وصّل حسابات أي إيجنت على السيرفر ده يقدر يستخدمها.",
   "server.settings.routinesTitle": "الروتينات",
   "server.settings.routinesDescription": "اعرض جدول روتينات الكمبيوتر ده في تطبيق تقويم.",
   "server.routineFeed.title": "خلاصة التقويم",
