@@ -53,6 +53,14 @@ type RelayApi = Pick<
   | "cancelRelaySignIn"
 >;
 
+/**
+ * The providers whose account after the first the host relays: Gemini's too when the host advertises
+ * `provider-account-relay-v2`, Codex and Claude (`provider-account-relay-v1`) otherwise.
+ */
+export function accountRelayProviders(v2: boolean): readonly AgentProviderId[] {
+  return v2 ? PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS : PROVIDER_ACCOUNT_RELAY_PROVIDERS;
+}
+
 /** `accountRelayV2` answers whether the connected host advertises `provider-account-relay-v2`. */
 export function webProviderRelay(
   request: (serverId?: string) => TeamApiRequest,

@@ -8,14 +8,8 @@ import type {
 import { decodeRegistryEntries, decodeRegistryInstallResult, decodeRegistryOperations } from "@openbot/contracts/ipc";
 import { ownBackend } from "@openbot/contracts/own-backend";
 import { ACP_REGISTRY_ROUTES } from "@openbot/contracts/team-protocol/acp-registry-v1";
-import {
-  PROVIDER_ACCOUNT_RELAY_CAPABILITY,
-  PROVIDER_ACCOUNT_RELAY_PROVIDERS,
-} from "@openbot/contracts/team-protocol/provider-account-relay-v1";
-import {
-  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
-  PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
-} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
+import { PROVIDER_ACCOUNT_RELAY_CAPABILITY } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY } from "@openbot/contracts/team-protocol/provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
 import { PROVIDERS_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/providers-v1";
@@ -78,7 +72,7 @@ import { remoteProviderRuntimes } from "../provider-updates/remote-provider-runt
 import { remoteAdminServer, serverSupportsCapability } from "../servers/server-capabilities";
 import type { HostProviderSettings } from "../settings/ProviderSettingsSection";
 import { hostProviderKeyApi } from "../settings/provider-key-api";
-import { webProviderRelay } from "./web-provider-relay";
+import { accountRelayProviders, webProviderRelay } from "./web-provider-relay";
 
 /** How often the host status is read while a code sign-in waits, in case a status event is lost. */
 const CODE_LOGIN_POLL_MS = 3000;
@@ -361,9 +355,9 @@ export function createWebProviderSettings(options: WebProviderSettingsOptions) {
   /** As on desktop: the other relay requests run an account's relayed sign-in by its provider. */
   function accountRelay(id: string) {
     return {
-      providers: serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY)
-        ? PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS
-        : PROVIDER_ACCOUNT_RELAY_PROVIDERS,
+      providers: accountRelayProviders(
+        serverSupportsCapability(options.server(), PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY),
+      ),
       hostName: options.server()?.name ?? "",
       start: (provider: AgentProviderId, accountId: string | null) =>
         admin.startAccountRelaySignIn({ provider, accountId }, id),
