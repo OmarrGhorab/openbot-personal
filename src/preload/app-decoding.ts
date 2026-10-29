@@ -27,6 +27,7 @@ import {
   type AppInfo,
   type AppInterfaceSizePreference,
   type AppLanguagePreference,
+  type AppLinkBrowserPreference,
   type AppLogoColorPreference,
   type ApprovalAutomationPreference,
   type AppSetupState,
@@ -61,6 +62,7 @@ import {
   isAppAppearance,
   isAppInterfaceSize,
   isAppLanguage,
+  isAppLinkBrowser,
   isAppLogoColor,
   isAppLogoShape,
   isAppLogoTile,
@@ -162,6 +164,12 @@ export function decodeBusyMessageModePreference(value: unknown): BusyMessageMode
   const preference = decodeRecord(value, "busy message mode preference");
   if (!isBusyMessageMode(preference.mode)) throw new Error("Invalid busy message mode.");
   return { mode: preference.mode };
+}
+
+export function decodeAppLinkBrowserPreference(value: unknown): AppLinkBrowserPreference {
+  const preference = decodeRecord(value, "link browser preference");
+  if (!isAppLinkBrowser(preference.browser)) throw new Error("Invalid link browser.");
+  return { browser: preference.browser };
 }
 
 export function decodeAgentDefaults(value: unknown): AgentDefaults {

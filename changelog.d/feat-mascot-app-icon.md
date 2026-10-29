@@ -10,6 +10,7 @@
 - Agents can create a channel. Ask an agent to make a channel with other agents, and it uses the new create_channel tool: it adds itself and the agents you name, and leads the channel unless you say otherwise.
 - The threads (tasks) of an agent sit in the chat header, next to its name: a chip for each open thread with a button to close it, a plus for a new one, and History. A chip or a History row shows that thread in place of the chat, and the agent name goes back to the chat. History lists every thread, closed ones too, newest first. A count button opens the open threads with rename, pause, resume and close. The sidebar no longer lists threads.
 - Ask an agent to kick off threads, and it starts its own threads with titles that name their topic. Before, it could message other agents instead.
+- Settings > General > Open external links in now works, and offers Google Chrome, Brave, Firefox and Microsoft Edge. The choice is saved on this computer. A browser that is not installed opens the link in the default browser. OpenBot shows a link from a conversation in the browser pane.
 
 ### Changed
 

@@ -5,6 +5,7 @@ import type {
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
+  AppLinkBrowserPreference,
   BrowserDockAction,
   BrowserDockFrame,
   BrowserDockPresentation,
@@ -52,6 +53,7 @@ import {
   isAppAppearance,
   isAppInterfaceSize,
   isAppLanguage,
+  isAppLinkBrowser,
   isAppLogoColor,
   isAppLogoShape,
   isAppLogoTile,
@@ -104,6 +106,11 @@ export function parseAnalyticsPreference(input: unknown): SetAnalyticsPreference
 export function parseBusyMessageModePreference(input: unknown): BusyMessageModePreference {
   if (!isDynamicRecord(input) || !isBusyMessageMode(input.mode)) throw new Error("Busy message mode is required.");
   return { mode: input.mode };
+}
+
+export function parseAppLinkBrowserPreference(input: unknown): AppLinkBrowserPreference {
+  if (!isDynamicRecord(input) || !isAppLinkBrowser(input.browser)) throw new Error("A link browser is required.");
+  return { browser: input.browser };
 }
 
 export function parseAgentDefaults(input: unknown): AgentDefaults {

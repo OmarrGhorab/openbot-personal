@@ -117,6 +117,7 @@ import {
 } from "./main-window";
 import { ensureMacApplicationPresence, secondLaunchResponse } from "./main-window-state";
 import { MessageLinkRelay, openHttpLink } from "./message-link-relay";
+import { openLink } from "./open-in-browser";
 import { startMainLog } from "./provider-log";
 import { watchRemoteHostDirectory } from "./remote-server-host-directory";
 import { createRendererForwarders } from "./renderer-forwarders";
@@ -552,6 +553,7 @@ function registerIpcHandlers({
   interfaceSize,
   notificationPreference,
   busyMessageMode,
+  linkBrowser,
   agentDefaults,
   agentMemoryLimit,
   agentAccess,
@@ -617,6 +619,10 @@ function registerIpcHandlers({
   // window that the user works in: when a chat window has focus, the main window can be hidden.
   const getDialogParent = () => windows.getChatWindows().find((window) => window.isFocused()) ?? windowHolder.current;
 
+  // The browser that the user chose for links, read for each link.
+  const openChosenLink = (address: string) =>
+    openLink(linkBrowser.get().browser, address, (url) => shell.openExternal(url));
+
   registerIpcGroups({
     ...appIpcHandlers({
       service,
@@ -627,6 +633,7 @@ function registerIpcHandlers({
       analyticsPreferenceFile,
       approvalAutomation,
       busyMessageMode,
+      linkBrowser,
       agentDefaults,
       agentMemoryLimit,
       remoteSessionReuse,
@@ -807,9 +814,9 @@ function registerIpcHandlers({
       messageLinks: new MessageLinkRelay({
         remoteServers,
         relay: signInRelayClient,
-        openUrl: (url) => openHttpLink(url, (address) => shell.openExternal(address)),
+        openUrl: (url) => openHttpLink(url, openChosenLink),
       }),
-      openExternal: (address) => shell.openExternal(address),
+      openExternal: openChosenLink,
     }),
     ...browserIpcHandlers({ browserPictureInPicture, browser, remoteServers, browserView, localSignIn }),
   });

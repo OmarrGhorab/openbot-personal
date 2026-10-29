@@ -10,6 +10,7 @@ export interface SettingsPort {
   getAnalyticsPreference: OpenBotDesktopApi["getAnalyticsPreference"];
   getAppBehaviorPreference: OpenBotDesktopApi["getAppBehaviorPreference"];
   getApprovalAutomation: OpenBotDesktopApi["getApprovalAutomation"];
+  getAppLinkBrowserPreference: OpenBotDesktopApi["getAppLinkBrowserPreference"];
   getBusyMessageModePreference: OpenBotDesktopApi["getBusyMessageModePreference"];
   getRemoteNetworkRoute: OpenBotDesktopApi["getRemoteNetworkRoute"];
   getRemoteSessionReusePreference: OpenBotDesktopApi["getRemoteSessionReusePreference"];
@@ -19,6 +20,7 @@ export interface SettingsPort {
   setAgentDefaults: OpenBotDesktopApi["setAgentDefaults"];
   setAnalyticsPreference: OpenBotDesktopApi["setAnalyticsPreference"];
   setAppBehaviorPreference: OpenBotDesktopApi["setAppBehaviorPreference"];
+  setAppLinkBrowserPreference: OpenBotDesktopApi["setAppLinkBrowserPreference"];
   setBusyMessageModePreference: OpenBotDesktopApi["setBusyMessageModePreference"];
   setRemoteNetworkRoute: OpenBotDesktopApi["setRemoteNetworkRoute"];
   setRemoteSessionReusePreference: OpenBotDesktopApi["setRemoteSessionReusePreference"];

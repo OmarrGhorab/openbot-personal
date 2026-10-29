@@ -36,6 +36,7 @@ import {
   type AppInfo,
   type AppInterfaceSizePreference,
   type AppLanguagePreference,
+  type AppLinkBrowserPreference,
   type AppLogoColorPreference,
   type ApprovalAutomationPreference,
   type AppSetupState,
@@ -68,6 +69,7 @@ import {
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_APP_APPEARANCE,
   DEFAULT_APP_INTERFACE_SIZE,
+  DEFAULT_APP_LINK_BROWSER,
   DEFAULT_APP_LOGO_COLOR,
   DEFAULT_APP_LOGO_SHAPE,
   DEFAULT_APP_LOGO_TILE,
@@ -416,6 +418,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
+  let linkBrowser: AppLinkBrowserPreference = { browser: DEFAULT_APP_LINK_BROWSER };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
   let promptCacheTtl: PromptCacheTtlSetting = { ...DEFAULT_PROMPT_CACHE_TTL };
@@ -1051,6 +1054,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     onApprovalAutomation: (listener) => {
       approvalAutomationListeners.add(listener);
       return () => approvalAutomationListeners.delete(listener);
+    },
+    getAppLinkBrowserPreference: async () => clone(linkBrowser),
+    setAppLinkBrowserPreference: async ({ browser }) => {
+      linkBrowser = { browser };
+      return clone(linkBrowser);
     },
     getBusyMessageModePreference: async () => clone(busyMessageMode),
     getAppBehaviorPreference: async () => clone(appBehavior),

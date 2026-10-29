@@ -51,6 +51,7 @@ import type { ManagedProviderId } from "./agent-providers";
 import type { AppAppearancePreference, SetAppAppearancePreferenceInput } from "./app-appearance";
 import type { AppInterfaceSizePreference, SetAppInterfaceSizePreferenceInput } from "./app-interface-size";
 import type { AppLanguagePreference, SetAppLanguagePreferenceInput } from "./app-language";
+import type { AppLinkBrowserPreference } from "./app-link-browser";
 import type { AppLogoColorPreference, SetAppLogoColorPreferenceInput } from "./app-logo-color";
 import type { BillingPortalRequest, BillingState } from "./billing";
 import type {
@@ -654,6 +655,8 @@ export const IPC_ENDPOINTS = {
     setBusyMessageModePreference: request<BusyMessageModePreference, BusyMessageModePreference>()(
       "app:set-busy-message-mode",
     ),
+    getAppLinkBrowserPreference: request<undefined, AppLinkBrowserPreference>()("app:get-link-browser"),
+    setAppLinkBrowserPreference: request<AppLinkBrowserPreference, AppLinkBrowserPreference>()("app:set-link-browser"),
     getAgentDefaults: request<undefined, AgentDefaults>()("app:get-agent-defaults"),
     setAgentDefaults: request<AgentDefaults, AgentDefaults>()("app:set-agent-defaults"),
     getAgentMemoryLimitPreference: request<undefined, AgentMemoryLimitPreference>()("app:get-agent-memory-limit"),

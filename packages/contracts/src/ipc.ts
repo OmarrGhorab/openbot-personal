@@ -4,6 +4,7 @@ export * from "./agent-providers";
 export * from "./app-appearance";
 export * from "./app-interface-size";
 export * from "./app-language";
+export * from "./app-link-browser";
 export * from "./app-logo-color";
 export * from "./ipc-acp-registry";
 export * from "./ipc-agent-access";

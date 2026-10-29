@@ -1,4 +1,4 @@
-import { APP_INTERFACE_SIZES, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
+import { APP_INTERFACE_SIZES, APP_LINK_BROWSERS, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Item,
@@ -28,7 +28,7 @@ import { useInterfaceSizeChoice } from "../../interface-size";
 import { mascotThumbnailUrl, useLogoColorChoice } from "../../logo-color";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
-const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = ["Default browser", "OpenBot"];
+const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = [...APP_LINK_BROWSERS];
 
 /**
  * The saved value is the English name, because it is what `app-settings.ts` persists and what the
@@ -37,6 +37,10 @@ const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = ["Defaul
 const LINK_TARGET_KEYS = {
   "Default browser": "settings.externalLinks.defaultBrowser",
   OpenBot: "settings.externalLinks.openbot",
+  "Google Chrome": "settings.externalLinks.chrome",
+  Brave: "settings.externalLinks.brave",
+  Firefox: "settings.externalLinks.firefox",
+  "Microsoft Edge": "settings.externalLinks.edge",
 } as const satisfies Record<GeneralSettingsValue["externalLinkTarget"], AppTextKey>;
 
 interface SettingsGeneralTabProps {

@@ -241,6 +241,7 @@ import { InstanceTransferService } from "./instance-transfer-service";
 import { InterfaceSizeService } from "./interface-size-service";
 import { prepareToolRuntimeForTest } from "./ipc/mcp-server-handlers";
 import { LanguageService } from "./language-service";
+import { LinkBrowserPreferenceStore } from "./link-browser-preference-store";
 import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { createLoginItem } from "./login-item";
 import { LogoColorService } from "./logo-color-service";
@@ -387,6 +388,7 @@ const INTERFACE_SIZE_PREFERENCE_FILE = "openbot-interface-size-preference-v1.jso
 const UPDATE_PREFERENCE_FILE = "openbot-update-preference-v1.json";
 const NOTIFICATION_PREFERENCE_FILE = "openbot-notification-preference-v1.json";
 const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
+const LINK_BROWSER_PREFERENCE_FILE = "openbot-link-browser-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
@@ -611,6 +613,7 @@ export interface ApplicationServices {
   interfaceSize: InterfaceSizeService;
   notificationPreference: NotificationPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
+  linkBrowser: LinkBrowserPreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   agentAccess: AgentAccessStore;
@@ -1260,6 +1263,8 @@ export async function createApplicationServices({
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
   await runCauseEffect(busyMessageMode.load());
+  const linkBrowser = new LinkBrowserPreferenceStore(join(app.getPath("userData"), LINK_BROWSER_PREFERENCE_FILE));
+  await runCauseEffect(linkBrowser.load());
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -3228,6 +3233,7 @@ export async function createApplicationServices({
     interfaceSize,
     notificationPreference,
     busyMessageMode,
+    linkBrowser,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     agentAccess,

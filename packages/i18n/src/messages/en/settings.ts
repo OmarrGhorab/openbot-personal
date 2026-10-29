@@ -68,6 +68,11 @@ export const messages = defineMessages("settings", {
   // The two link targets. The saved value stays in English; only the label is translated.
   "settings.externalLinks.defaultBrowser": "Default browser",
   "settings.externalLinks.openbot": "OpenBot",
+  // Browser names are product names. A browser that is not installed opens the link in the default browser.
+  "settings.externalLinks.chrome": "Google Chrome",
+  "settings.externalLinks.brave": "Brave",
+  "settings.externalLinks.firefox": "Firefox",
+  "settings.externalLinks.edge": "Microsoft Edge",
   // The message send shortcut. The saved mode stays in English; only the labels are translated.
   "settings.sendShortcut.title": "Send shortcut",
   "settings.sendShortcut.description": "Choose the keys that send a message on this device and browser.",

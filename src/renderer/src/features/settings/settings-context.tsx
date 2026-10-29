@@ -132,6 +132,7 @@ const Settings = createSimpleContext({
     let autoInstallUpdatesChanged = false;
     let notificationPreferenceChanged = false;
     let busyMessageModeChanged = false;
+    let externalLinkTargetChanged = false;
     let agentDefaultsChanged = false;
     let agentMemoryLimitChanged = false;
     let keepRemoteSessionsChanged = false;
@@ -262,6 +263,14 @@ const Settings = createSimpleContext({
           persistField("desktopNotifications", saved, (preference) => preference.desktopNotifications);
         if (previous.notificationPreview !== value.notificationPreview)
           persistField("notificationPreview", saved, (preference) => preference.messagePreview);
+      }
+      if (previous.externalLinkTarget !== value.externalLinkTarget) {
+        externalLinkTargetChanged = true;
+        persistField(
+          "externalLinkTarget",
+          settingsPort().setAppLinkBrowserPreference({ browser: value.externalLinkTarget }),
+          (preference) => preference.browser,
+        );
       }
       if (previous.busyMessageMode !== value.busyMessageMode) {
         busyMessageModeChanged = true;
@@ -468,6 +477,12 @@ const Settings = createSimpleContext({
                 : preference.allowRemoteUpdates,
               autoInstallUpdates: autoInstallUpdatesChanged ? current.autoInstallUpdates : preference.autoInstall,
             }));
+          }),
+        settingsPort()
+          .getAppLinkBrowserPreference()
+          .then((preference) => {
+            if (externalLinkTargetChanged) return;
+            setGeneralSettings((current) => ({ ...current, externalLinkTarget: preference.browser }));
           }),
         settingsPort()
           .getBusyMessageModePreference()
