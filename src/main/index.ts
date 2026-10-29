@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import {
   type AgentEvent,
-  type AppLogoColor,
+  type AppLogoColorPreference,
   type CentralAuthState,
   type HostStatus,
   IPC_ENDPOINTS,
@@ -28,7 +28,8 @@ import {
   shell,
 } from "electron";
 import { runCauseEffect } from "../backend/effect-boundary";
-import { readAppVariant, resolveAppIconPath, resolveLogoColorIconPath } from "./app-icon";
+import { readAppVariant, resolveAppIconPath, resolveMascotPath } from "./app-icon";
+import { composeMascotIcon } from "./app-icon-mascot";
 import { type ApplicationServices, createApplicationServices } from "./application-services";
 import { type BackgroundTray, createBackgroundTray } from "./background-tray";
 import { type DeepLink, findDeepLink, parseDeepLink } from "./deep-link-router";
@@ -416,22 +417,24 @@ let appIconColorImage: NativeImage | undefined;
 let backgroundTray: BackgroundTray | null = null;
 
 /**
- * Shows the chosen logo color on the Dock icon, or on each window icon where there is no Dock. A dev
- * or preview build keeps the icon of its build, so it is not mistaken for the release. macOS has no
- * alternate app icon API, so when the app is closed the Dock shows the icon inside the app bundle:
- * changing that file would break the code signature.
+ * Shows the chosen mascot, color and tile on the Dock icon, or on each window icon where there is no
+ * Dock. A dev or preview build keeps the icon of its build, so it is not mistaken for the release.
+ * macOS has no alternate app icon API, so when the app is closed the Dock shows the icon inside the
+ * app bundle: changing that file would break the code signature.
  */
-function applyAppIconColor(color: AppLogoColor): void {
+function applyAppIconColor(preference: AppLogoColorPreference): void {
   if (appVariant !== "production") return;
-  const icon = nativeImage.createFromPath(
-    resolveLogoColorIconPath({
-      color,
-      platform: process.platform,
+  const icon = composeMascotIcon({
+    preference,
+    platform: process.platform,
+    mascotPath: resolveMascotPath({
+      shape: preference.shape,
+      color: preference.color,
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
       sourceRoot: resolve(__dirname, "../.."),
     }),
-  );
+  });
   if (icon.isEmpty()) return;
   if (process.platform === "darwin") {
     app.dock?.setIcon(icon);
@@ -1278,9 +1281,9 @@ if (!hasSingleInstanceLock) {
           sendToRenderer(window, IPC_ENDPOINTS.app.appLanguagePreference, preference);
         }
       });
-      applyAppIconColor(logoColor.preference.color);
+      applyAppIconColor(logoColor.preference);
       logoColor.subscribe((preference) => {
-        applyAppIconColor(preference.color);
+        applyAppIconColor(preference);
         for (const window of BrowserWindow.getAllWindows()) {
           sendToRenderer(window, IPC_ENDPOINTS.app.appLogoColorPreference, preference);
         }
