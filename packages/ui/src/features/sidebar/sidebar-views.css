@@ -28,13 +28,13 @@
   flex: none;
 }
 
-/* The open work threads (tasks) of an agent, under its row. */
+/* The open work threads (tasks) of an agent: a list, shown in the popover beside its row. */
 .sidebar-work-threads {
   display: flex;
   flex-direction: column;
   gap: 1px;
   margin: 0;
-  padding: 0 0 var(--openbot-space-1) var(--openbot-space-6);
+  padding: 0;
   list-style: none;
 }
 
@@ -90,4 +90,46 @@
   padding: 0 var(--openbot-space-2);
   color: var(--openbot-text-primary);
   font-size: var(--openbot-text-sm);
+}
+
+/* The button beside the agent row: the lead task's mark and the count of open tasks, at the row's end. */
+.sidebar-work-threads-trigger {
+  position: absolute;
+  inset-inline-end: var(--openbot-space-2);
+  bottom: var(--openbot-space-2);
+  display: inline-flex;
+  height: 1.375rem;
+  min-width: 1.375rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--openbot-space-1);
+  padding: 0 var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.sidebar-work-threads-trigger-active {
+  color: var(--openbot-text-secondary);
+}
+
+.sidebar-work-threads-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The preview leaves room for the button, so the two never overlap. */
+.sidebar-agent-item[data-threads] .agent-row-preview {
+  padding-inline-end: 3rem;
+}
+
+.ui-popover-menu-surface.sidebar-work-threads-popover {
+  z-index: var(--openbot-layer-popover);
+  width: min(22rem, calc(100vw - var(--openbot-space-6)));
+  padding: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface-raised);
+  box-shadow:
+    0 0 0 1px var(--openbot-border-strong),
+    var(--openbot-shadow-raised);
 }

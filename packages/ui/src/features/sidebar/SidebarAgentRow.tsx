@@ -17,7 +17,7 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import { agentAccessLockLabel } from "../agents/agent-access";
 import { SidebarAgentContextMenu } from "./SidebarAgentContextMenu";
 import { SidebarAgentIndicator, SidebarWaitIcon } from "./SidebarAgentIndicator";
-import { SidebarWorkThreads } from "./SidebarWorkThreads";
+import { SidebarWorkThreadsButton } from "./SidebarWorkThreads";
 import {
   SIDEBAR_WAIT_ACTION,
   SIDEBAR_WAIT_HINT,
@@ -65,7 +65,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
   // mood inside an effect, where a memo cannot be created.
   const mood = () => (rowProps.userHidden ? "asleep" : (props.agentMoods[rowProps.agent.id] ?? "idle"));
   const hiddenLabel = () => (rowProps.userHidden ? `${t("sidebar.hidden.title")}. ` : "");
-  /** The work threads show under the row in a section, not in the "Needs you" or "Hidden" group. */
+  /** The work threads show beside the row in a section, not in the "Needs you" or "Hidden" group. */
   const workThreads = () =>
     rowProps.waiting || rowProps.userHidden || props.compact ? undefined : props.workThreads?.(rowProps.agent.id);
   const draggable = () => layoutMutable() && !props.compact && !rowProps.waiting && !rowProps.userHidden;
@@ -196,6 +196,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
       ]}
       style={`--sidebar-drag-y: ${dragOffset(rowProps.agent.id).y}px;`}
       data-chat-id={rowProps.waiting || rowProps.userHidden ? undefined : rowProps.agent.id}
+      data-threads={workThreads() ? "" : undefined}
       draggable={draggable() ? "true" : "false"}
       onDragStart={(event: DragEvent & { currentTarget: HTMLElement }) => startChatDragging(event, rowProps.agent.id)}
       onDragEnd={endChatDragging}
@@ -234,7 +235,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
         )}
       </Show>
       <Show when={workThreads()}>
-        {(threads) => <SidebarWorkThreads agentName={rowProps.agent.name} threads={threads()} />}
+        {(threads) => <SidebarWorkThreadsButton agentName={rowProps.agent.name} threads={threads()} />}
       </Show>
     </div>
   );

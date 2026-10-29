@@ -1,11 +1,14 @@
 /**
- * The open work threads of one agent, under its row: one row for each open task with its state, and
- * a "New task" action. A task row opens the task in the side panel of the agent's chat. Its context
- * menu renames, pauses, resumes or closes the task. The closed tasks stay in the Tasks pane.
+ * The open work threads of one agent: one row for each open task with its state, and a "New task"
+ * action. A task row opens the task in the side panel of the agent's chat. Its context menu renames,
+ * pauses, resumes or closes the task. The closed tasks stay in the Tasks pane.
+ *
+ * The threads sit beside the agent's row, not under it: a small button at the row's end shows the state
+ * of the lead task and how many are open, and opens the list.
  */
 
 import { isAgentTaskActive, isAgentTaskOpen } from "@openbot/team-client/agent-tasks";
-import { Button, buttonVariants, ContextMenu, Input, Pause, Play, Plus, X } from "@openbot/ui";
+import { Button, buttonVariants, ContextMenu, Input, Pause, Play, Plus, Popover, X } from "@openbot/ui";
 import { createSignal, For, Show } from "solid-js";
 import { useText } from "../../text";
 import { AgentTaskMark, agentTaskStatus, isAgentTaskPaused } from "../conversation/AgentTasks";
@@ -142,5 +145,37 @@ export function SidebarWorkThreads(props: { agentName: string; threads: SidebarW
         </Button>
       </li>
     </ul>
+  );
+}
+
+/**
+ * The threads of an agent as a button beside its row. The mark is the state of the lead task: the first
+ * one that works, else the first open one. The number is how many tasks are open, and a plus shows when
+ * none is. The popover holds the same list as before, with "New task" last.
+ */
+export function SidebarWorkThreadsButton(props: { agentName: string; threads: SidebarWorkThreadsData }) {
+  const { t } = useText();
+  const openTasks = () => props.threads.tasks.filter(isAgentTaskOpen);
+  const lead = () => openTasks().find(isAgentTaskActive) ?? openTasks()[0];
+  return (
+    <Popover.Root placement="right-start" gutter={8}>
+      <Popover.Trigger
+        class={["sidebar-work-threads-trigger", { "sidebar-work-threads-trigger-active": lead() !== undefined }]}
+        aria-label={t("sidebar.workThreads.label", { name: props.agentName })}
+      >
+        <Show when={lead()} fallback={<Plus class="sidebar-work-thread-icon" aria-hidden="true" />}>
+          {(task) => <AgentTaskMark task={task()} decorative />}
+        </Show>
+        <Show when={openTasks().length > 0}>
+          <span class="sidebar-work-threads-count">{openTasks().length}</span>
+        </Show>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content class="ui-popover-menu-surface sidebar-work-threads-popover">
+          <Popover.Title class="sr-only">{t("sidebar.workThreads.label", { name: props.agentName })}</Popover.Title>
+          <SidebarWorkThreads agentName={props.agentName} threads={props.threads} />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
