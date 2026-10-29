@@ -182,7 +182,7 @@ import { createMockAuth, type MockAuthOptions } from "./mock-auth";
 import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
-import { mockBoardTickets } from "./mock-board-tickets";
+import { mockBoardTickets, type PreviewBoardTicketSync } from "./mock-board-tickets";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
@@ -242,6 +242,8 @@ export interface MockOpenBotOptions
   routineFlowSteps?: RoutineFlowStep[];
   /** The Tickets board when the preview starts. Empty by default, as after the upgrade. */
   boardTickets?: BoardTicket[];
+  /** The ticket systems that the Tickets board can sync with. None by default: the board shows no sync. */
+  boardTicketSync?: PreviewBoardTicketSync;
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -1319,6 +1321,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       (listener) => {
         boardTaskListeners.add(listener);
       },
+      options.boardTicketSync,
     ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },

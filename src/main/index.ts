@@ -602,6 +602,7 @@ function registerIpcHandlers({
   ravenTeam,
   routineResults,
   boardTickets,
+  boardTicketSync,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -731,7 +732,7 @@ function registerIpcHandlers({
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
     ...autonomyIpcHandlers({ autonomy }),
-    ...boardTicketIpcHandlers({ boardTickets }),
+    ...boardTicketIpcHandlers({ boardTickets, boardTicketSync }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

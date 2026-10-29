@@ -26,6 +26,11 @@ export interface AgentTicketWatchInput {
   label: string;
 }
 
+/** Whether the text is a GitHub repository as `owner/repo`. */
+export function isGitHubProject(project: string): boolean {
+  return GITHUB_PROJECT_PATTERN.test(project);
+}
+
 /** Carries the field that failed, never the value. */
 export class TicketWatchInvalid extends Schema.TaggedError<TicketWatchInvalid>()("TicketWatchInvalid", {
   field: Schema.Literals(["provider", "project", "label"]),
@@ -38,8 +43,7 @@ export class TicketWatchInvalid extends Schema.TaggedError<TicketWatchInvalid>()
 export function validateTicketWatchInput(input: AgentTicketWatchInput): AgentTicketWatchInput {
   if (!TICKET_PROVIDERS.includes(input.provider)) throw new TicketWatchInvalid({ field: "provider" });
   const project = input.project.trim();
-  if (input.provider === "github" && !GITHUB_PROJECT_PATTERN.test(project))
-    throw new TicketWatchInvalid({ field: "project" });
+  if (input.provider === "github" && !isGitHubProject(project)) throw new TicketWatchInvalid({ field: "project" });
   if (project.length === 0 || project.length > 300) throw new TicketWatchInvalid({ field: "project" });
   const label = input.label.trim();
   if (label.length === 0 || label.length > TICKET_LABEL_MAX_LENGTH) throw new TicketWatchInvalid({ field: "label" });

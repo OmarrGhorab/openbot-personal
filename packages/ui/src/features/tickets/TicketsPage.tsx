@@ -11,6 +11,7 @@ import {
   PanelLeft,
   Play,
   Plus,
+  RefreshCw,
   Textarea,
 } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
@@ -26,6 +27,7 @@ import {
   TicketsLanes,
   TicketsViewSwitch,
 } from "./TicketsBoard";
+import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
 import type { TicketStart, TicketsView } from "./tickets-model";
 
 /** A ticket that the New ticket dialog adds to the backlog. */
@@ -63,6 +65,8 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (ticket: BoardTicket, text: string) => Promise<boolean>;
+  /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
+  sync?: TicketsSyncControls | undefined;
 }
 
 /**
@@ -77,6 +81,8 @@ export function TicketsPage(props: TicketsPageProps) {
   const [view, setView] = createSignal<TicketsView>("board");
   const [agentId, setAgentId] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
+  const [syncOpen, setSyncOpen] = createSignal(false);
+  const canSync = () => (props.sync?.state?.providers.length ?? 0) > 0;
   const agentsLabel = () =>
     t(props.agentsOpen ? "conversation.tasks.page.hideAgents" : "conversation.tasks.page.showAgents");
   const empty = () => props.loaded && props.tickets.length === 0;
@@ -135,6 +141,12 @@ export function TicketsPage(props: TicketsPageProps) {
           <Show when={props.available}>
             <div class="tickets-page-tools">
               <TicketsViewSwitch view={view()} onChange={setView} />
+              <Show when={canSync()}>
+                <Button size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
+                  <RefreshCw aria-hidden="true" />
+                  {t("tickets.sync.open")}
+                </Button>
+              </Show>
               <Button size="sm" onClick={() => setCreating(true)}>
                 <Plus aria-hidden="true" />
                 {t("tickets.new")}
@@ -228,6 +240,9 @@ export function TicketsPage(props: TicketsPageProps) {
             )}
           </Show>
         </Show>
+      </Show>
+      <Show when={syncOpen() && canSync() ? props.sync : undefined}>
+        {(sync) => <TicketsSyncDialog sync={sync()} onClose={() => setSyncOpen(false)} />}
       </Show>
       <Show when={creating()}>
         <TicketsNewDialog

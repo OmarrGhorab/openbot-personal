@@ -39,6 +39,11 @@ export interface BoardTicketAgentUpdate {
 /** The links that a ticket created by the work-thread module, a team job or the sync starts with. */
 export type BoardTicketLinks = Pick<NewBoardTicket, "taskId" | "threadId" | "teamJobId" | "teamRoleId" | "external">;
 
+/** A move into another column or a comment, for the sync. `actor` says who made it. */
+export type BoardTicketActivity =
+  | { kind: "moved"; ticket: BoardTicket; from: BoardTicketStatus; to: BoardTicketStatus; actor: BoardTicketActor }
+  | { kind: "comment"; ticket: BoardTicket; text: string; actor: BoardTicketActor };
+
 /**
  * The Tickets board: the domain rules over `BoardTicketStore`. It validates each change, writes it,
  * records the activity, and sends one change event. It never imports the database facade.
@@ -47,6 +52,7 @@ export class BoardTicketService {
   readonly #store: BoardTicketStore;
   readonly #changed: (ticketIds: string[]) => void;
   readonly #startWorkThread: StartWorkThread | undefined;
+  readonly #activity = new Set<(activity: BoardTicketActivity) => void>();
 
   constructor(options: BoardTicketServiceOptions) {
     this.#store = options.store;
@@ -81,6 +87,14 @@ export class BoardTicketService {
     if (update.comment !== undefined) this.comment({ ticketId: ticket.id, text: update.comment }, "agent");
     if (update.status !== undefined) this.moveIfNeeded(ticket.id, update.status, "agent");
     return this.#require(ticket.id);
+  }
+
+  /** Tells the listener each move into another column and each comment. Answers the unsubscribe. */
+  onActivity(listener: (activity: BoardTicketActivity) => void): () => void {
+    this.#activity.add(listener);
+    return () => {
+      this.#activity.delete(listener);
+    };
   }
 
   events(ticketId: string): BoardTicketEvent[] {
@@ -129,10 +143,13 @@ export class BoardTicketService {
   }
 
   move(input: MoveBoardTicketInput, actor: BoardTicketActor = "user", note: string | null = null): BoardTicket {
-    this.#require(input.ticketId);
+    const current = this.#require(input.ticketId);
     const moved = this.#store.move(input.ticketId, input.status, input.beforeTicketId ?? null, actor, note);
     if (!moved) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     this.#changed([moved.id]);
+    if (moved.status !== current.status) {
+      this.#tell({ kind: "moved", ticket: moved, from: current.status, to: moved.status, actor });
+    }
     return moved;
   }
 
@@ -157,6 +174,7 @@ export class BoardTicketService {
       text: text.slice(0, BOARD_TICKET_COMMENT_LIMIT),
     });
     this.#changed([input.ticketId]);
+    this.#tell({ kind: "comment", ticket: this.#require(input.ticketId), text: event.text ?? text, actor });
     return event;
   }
 
@@ -184,6 +202,10 @@ export class BoardTicketService {
   delete(ticketId: string): void {
     if (!this.#store.delete(ticketId)) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     this.#changed([ticketId]);
+  }
+
+  #tell(activity: BoardTicketActivity): void {
+    for (const listener of this.#activity) listener(activity);
   }
 
   #require(ticketId: string): BoardTicket {

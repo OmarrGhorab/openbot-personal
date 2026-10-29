@@ -840,6 +840,22 @@ service.
 Linear and Jira watches are not polled yet. Webhook delivery from GitHub is not in this version, so failed
 checks and review comments do not reach a work thread yet.
 
+## Tickets board sync
+
+The Tickets board can sync with one GitHub repository while GitHub is connected on this computer. The
+sync is off until you choose a repository with Sync on the Tickets page. Then OpenBot reads the open
+issues of that repository every five minutes and when you select Sync now, from this computer, with
+the GitHub connection of this computer. Requests do not pass through OpenBot's cloud services.
+
+Each open issue becomes a ticket in Backlog. The local database keeps the issue title, the issue text
+(up to 20,000 characters), the issue key and its link. When a linked ticket moves to Done, OpenBot
+closes the issue; when it leaves Done, OpenBot opens the issue again. A comment that the ticket's agent
+adds is posted on the issue, and every GitHub user who can see the issue can read it. The messages that
+you send to the ticket's work thread are not posted.
+
+Stop sync, or a disconnected GitHub connection, stops every request. The tickets stay on this
+computer. Jira and Linear have no connection in OpenBot, so the board does not sync with them.
+
 ## Slack connections
 
 A workspace member installs the OpenBot Slack app in their workspace from OpenBot on their computer.

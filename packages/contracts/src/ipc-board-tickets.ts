@@ -85,6 +85,31 @@ export interface BoardTicketsChanged {
   ticketIds: string[];
 }
 
+/** The longest repository or project name that a sync target takes. */
+export const BOARD_TICKET_SYNC_PROJECT_LIMIT = 300;
+/** The most repositories or projects that one list returns. */
+const BOARD_TICKET_SYNC_PROJECT_LIST_LIMIT = 1_000;
+
+/** The repository or project that the board syncs with, such as `owner/repo` for GitHub. */
+export interface BoardTicketSyncTarget {
+  provider: BoardTicketProvider;
+  project: string;
+}
+
+/**
+ * The sync of the board with a ticket system. `providers` are the systems that are connected on this
+ * computer and that the board can sync with. Empty: the board does not sync, and the page shows no sync
+ * control. `target` is null when no target is chosen, or when its system is not connected now.
+ */
+export interface BoardTicketSyncState {
+  providers: BoardTicketProvider[];
+  target: BoardTicketSyncTarget | null;
+  /** When the last import ended. Null before the first one. */
+  lastSyncedAt: string | null;
+  /** The last import failure, as a sentence. Null after an import that worked. */
+  error: string | null;
+}
+
 export interface CreateBoardTicketInput {
   title: string;
   body?: string;
@@ -164,6 +189,39 @@ export function boardTicketWorkStep(
 
 export function isBoardTicketStatus(value: unknown): value is BoardTicketStatus {
   return isOneOf(BOARD_TICKET_STATUSES, value);
+}
+
+export function isBoardTicketProvider(value: unknown): value is BoardTicketProvider {
+  return isOneOf(BOARD_TICKET_PROVIDERS, value);
+}
+
+function isBoardTicketSyncTarget(value: unknown): value is BoardTicketSyncTarget {
+  return (
+    isDynamicRecord(value) &&
+    isBoardTicketProvider(value.provider) &&
+    isBoundedString(value.project, BOARD_TICKET_SYNC_PROJECT_LIMIT) &&
+    value.project.length > 0
+  );
+}
+
+export function isBoardTicketSyncState(value: unknown): value is BoardTicketSyncState {
+  return (
+    isDynamicRecord(value) &&
+    Array.isArray(value.providers) &&
+    value.providers.length <= BOARD_TICKET_PROVIDERS.length &&
+    value.providers.every(isBoardTicketProvider) &&
+    (value.target === null || isBoardTicketSyncTarget(value.target)) &&
+    isNullableBoundedString(value.lastSyncedAt, 160) &&
+    isNullableBoundedString(value.error, BOARD_TICKET_ERROR_LIMIT)
+  );
+}
+
+export function isBoardTicketSyncProjects(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= BOARD_TICKET_SYNC_PROJECT_LIST_LIMIT &&
+    value.every((project) => isBoundedString(project, BOARD_TICKET_SYNC_PROJECT_LIMIT) && project.length > 0)
+  );
 }
 
 function isBoardTicketExternal(value: unknown): value is BoardTicketExternal {

@@ -4,10 +4,14 @@ import {
   BOARD_TICKET_COMMENT_LIMIT,
   BOARD_TICKET_ERROR_LIMIT,
   BOARD_TICKET_PROGRESS_LIMIT,
+  BOARD_TICKET_SYNC_PROJECT_LIMIT,
   BOARD_TICKET_TITLE_LIMIT,
+  type BoardTicketProvider,
   type BoardTicketStatus,
+  type BoardTicketSyncTarget,
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
+  isBoardTicketProvider,
   isBoardTicketStatus,
   type MoveBoardTicketInput,
   type StartBoardTicketInput,
@@ -96,5 +100,20 @@ export function parseStartBoardTicket(value: unknown): StartBoardTicketInput {
     agentId,
     title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
     ...(body === undefined ? {} : { body }),
+  };
+}
+
+export function parseBoardTicketProvider(value: unknown): BoardTicketProvider {
+  if (!isBoardTicketProvider(value)) throw new Error("Invalid ticket system.");
+  return value;
+}
+
+/** A sync target, or null to stop the sync. */
+export function parseBoardTicketSyncTarget(value: unknown): BoardTicketSyncTarget | null {
+  if (value === null) return null;
+  if (!isObject(value)) throw new Error("Invalid ticket sync request.");
+  return {
+    provider: parseBoardTicketProvider(value.provider),
+    project: requireString(value.project, "project", BOARD_TICKET_SYNC_PROJECT_LIMIT),
   };
 }

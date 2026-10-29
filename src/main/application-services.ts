@@ -11,7 +11,9 @@ import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
+import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
 import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
+import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
@@ -121,6 +123,7 @@ import { AgentTicketSettings } from "../backend/agent-tickets/agent-ticket-setti
 import { AgentTicketStore } from "../backend/agent-tickets/agent-ticket-store";
 import { GitHubTicketSource } from "../backend/agent-tickets/github-ticket-source";
 import { TicketPullRegistry } from "../backend/agent-tickets/ticket-pull-registry";
+import { TicketSourceFailed } from "../backend/agent-tickets/ticket-source";
 import { AutonomyAuditStore } from "../backend/autonomy/autonomy-audit-store";
 import { AutonomyUsageStore } from "../backend/autonomy/autonomy-usage-store";
 import { BrowserHost } from "../backend/browser-host";
@@ -489,6 +492,8 @@ const TEARDOWN_ORDER = {
   bitwardenConnector: 106.5,
   // Before the GitHub connection and the agent service: the ticket intake reads the GitHub token and starts threads.
   agentTickets: 106.75,
+  // Before the GitHub connection: the Tickets board sync reads the GitHub token.
+  boardTicketSync: 106.8,
   // Before the agent service, so no agent is handed a token file that is being removed.
   githubConnector: 107,
   // Before the agent service, so no script starts a run while the service stops.
@@ -558,6 +563,8 @@ export interface ApplicationServices {
   providerCredentials: ProviderCredentialStore;
   /** The Tickets board of this computer. */
   boardTickets: BoardTicketService;
+  /** The sync of the Tickets board with a connected ticket system. */
+  boardTicketSync: BoardTicketSync;
   /** The Slack and Telegram connections of the agents on this host. */
   messaging: MessagingService;
   /** Reached by the entry point for one thing only: handing a returning grant to its sign-in. */
@@ -1716,8 +1723,9 @@ export async function createApplicationServices({
   // The Tickets board. Its tickets are rows in this computer's database; the view reads the list
   // again on the change event, so no window polls. It is made before the agent service, whose
   // `update_ticket` tool writes to it.
+  const boardTicketStore = new BoardTicketStore(store.database);
   const boardTickets = new BoardTicketService({
-    store: new BoardTicketStore(store.database),
+    store: boardTicketStore,
     changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
     // "Start now" starts one work thread of the agent, as the ticket intake does.
     startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
@@ -1868,6 +1876,34 @@ export async function createApplicationServices({
   });
   ticketWatcher.start();
   teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
+  // The sync of the Tickets board. It works only while GitHub is connected on this computer: Jira and
+  // Linear have no connection in OpenBot yet. It reads the GitHub token at each call, and it stops
+  // before the GitHub connection does (see TEARDOWN_ORDER).
+  const boardTicketSync = new BoardTicketSync({
+    store: boardTicketStore,
+    board: boardTickets,
+    sources: {
+      github: new GitHubBoardSyncSource({
+        issues: new GitHubTicketSource({
+          accessToken: () => githubConnector.accessToken(),
+          fetch: (url, init) => fetch(url, init),
+        }),
+        repositories: () =>
+          githubConnector.repositories().pipe(
+            Effect.map((answer) => answer.repositories.map((repository) => repository.fullName)),
+            Effect.mapError((cause) => new TicketSourceFailed({ cause })),
+          ),
+      }),
+    },
+    connected: () => (githubConnector.status().state === "connected" ? ["github"] : []),
+    changed: (state) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state),
+  });
+  const stopBoardSyncConnection = githubConnector.onChanged(() => boardTicketSync.connectionChanged());
+  boardTicketSync.start();
+  teardown.push(TEARDOWN_ORDER.boardTicketSync, "the Tickets board sync", () => {
+    stopBoardSyncConnection();
+    return boardTicketSync.stop();
+  });
   const monitor = new MonitorService({
     sources: {
       channelPage: (channelId) => service.channels.store.page(channelId),
@@ -3142,6 +3178,7 @@ export async function createApplicationServices({
     providerRuntimes,
     providerCredentials,
     boardTickets,
+    boardTicketSync,
     messaging,
     mcpOAuth,
     signInRelayClient,
