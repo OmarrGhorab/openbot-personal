@@ -28,7 +28,7 @@ export interface AtlassianToolsOptions {
 }
 
 /** The saved, enabled Atlassian MCP server, or null when the Marketplace has not added one. */
-export function atlassianServer(servers: readonly McpServerConfig[]): McpServerConfig | null {
+function atlassianServer(servers: readonly McpServerConfig[]): McpServerConfig | null {
   return (
     servers.find(
       (server) =>

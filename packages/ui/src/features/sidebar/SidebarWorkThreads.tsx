@@ -15,7 +15,7 @@ import { AgentTaskMark, agentTaskStatus, isAgentTaskPaused } from "../conversati
 import { EditIcon } from "./SidebarIcons";
 import type { SidebarWorkThreads as SidebarWorkThreadsData } from "./sidebar-types";
 
-export function SidebarWorkThreads(props: { agentName: string; threads: SidebarWorkThreadsData }) {
+function SidebarWorkThreads(props: { agentName: string; threads: SidebarWorkThreadsData }) {
   const { t } = useText();
   /** The task whose title the rename field holds, with the draft title. */
   const [renaming, setRenaming] = createSignal<{ taskId: string; title: string } | null>(null);

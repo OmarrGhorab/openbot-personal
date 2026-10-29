@@ -19,7 +19,7 @@ export interface RavenTeamModelChoice {
 }
 
 /** The effort names of the provider picker. */
-export const RAVEN_TEAM_EFFORT_LABEL = {
+const RAVEN_TEAM_EFFORT_LABEL = {
   low: "provider.effort.low",
   medium: "provider.effort.medium",
   high: "provider.effort.high",

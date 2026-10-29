@@ -103,7 +103,7 @@ function isVerifierRole(role: RavenTeamRoleDefinition): boolean {
  * the Architect, hands its skills to the Builder, as Autopilot lite does, so the Builder plans in its own
  * turn. A role that checks the work, such as the Reviewer, leaves with its skills: nobody checks in its place.
  */
-export function withoutSkippedRoles(template: RavenTeamTemplate, skipped: readonly string[]): RavenTeamTemplate {
+function withoutSkippedRoles(template: RavenTeamTemplate, skipped: readonly string[]): RavenTeamTemplate {
   const left = new Set(skipped.filter((roleId) => roleId !== RAVEN_TEAM_BUILDER_ROLE_ID));
   if (left.size === 0) return template;
   const handed = template.roles
