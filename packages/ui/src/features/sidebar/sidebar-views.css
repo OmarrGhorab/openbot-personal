@@ -92,11 +92,8 @@
   font-size: var(--openbot-text-sm);
 }
 
-/* The button beside the agent row: the lead task's mark and the count of open tasks, at the row's end. */
+/* The count button of the threads, in the chat header: the lead task's mark and the count of open tasks. */
 .sidebar-work-threads-trigger {
-  position: absolute;
-  inset-inline-end: var(--openbot-space-2);
-  bottom: var(--openbot-space-2);
   display: inline-flex;
   height: 1.375rem;
   min-width: 1.375rem;
@@ -118,11 +115,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The preview leaves room for the button, so the two never overlap. */
-.sidebar-agent-item[data-threads] .agent-row-preview {
-  padding-inline-end: 3rem;
-}
-
 .ui-popover-menu-surface.sidebar-work-threads-popover {
   z-index: var(--openbot-layer-popover);
   width: min(22rem, calc(100vw - var(--openbot-space-6)));
@@ -132,4 +124,60 @@
   box-shadow:
     0 0 0 1px var(--openbot-border-strong),
     var(--openbot-shadow-raised);
+}
+
+/* The actions of a thread, in the popover: shown while the pointer or the focus is on the row, so no
+   right-click is needed. They take the place of the state text. */
+.sidebar-work-thread {
+  position: relative;
+}
+
+.sidebar-work-thread-actions {
+  position: absolute;
+  inset-inline-end: var(--openbot-space-1);
+  top: 50%;
+  display: none;
+  align-items: center;
+  gap: var(--openbot-space-0-5);
+  transform: translateY(-50%);
+}
+
+.sidebar-work-thread:hover .sidebar-work-thread-actions,
+.sidebar-work-thread:focus-within .sidebar-work-thread-actions {
+  display: inline-flex;
+}
+
+.sidebar-work-thread:hover .sidebar-work-thread-status,
+.sidebar-work-thread:focus-within .sidebar-work-thread-status {
+  visibility: hidden;
+}
+
+/* The threads of the agent in the chat header, beside its name. */
+.conversation-threads-strip {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin-inline-start: var(--openbot-space-2);
+}
+
+.conversation-thread-chip.ui-button {
+  max-width: 11rem;
+  gap: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.conversation-thread-chip[aria-pressed="true"] {
+  background: var(--openbot-bg-control-hover);
+  color: var(--openbot-text-primary);
+}
+
+.conversation-thread-chip-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

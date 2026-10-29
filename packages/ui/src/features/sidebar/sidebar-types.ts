@@ -123,7 +123,6 @@ export interface SidebarProps {
    * The work threads (tasks) of an agent, shown under its row. Undefined for an agent whose tasks
    * did not load, and for a host without tasks.
    */
-  workThreads?: ((agentId: string) => SidebarWorkThreads | undefined) | undefined;
   compact: boolean;
   /** A card under the chat list, such as an announcement. The compact sidebar has no room for it. */
   footer?: JSX.Element;
