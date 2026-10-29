@@ -1,0 +1,248 @@
+/* The Tickets page in features/tickets: the agent strip, the board or the lanes, the agent panel and the ticket drawer. */
+
+/* One colour per column. Every part reads `--tickets-status` from its own `data-status`. */
+[data-status="backlog"]:is(.tickets-column-dot, .tickets-card) {
+  --tickets-status: var(--openbot-text-dim);
+}
+
+[data-status="queued"]:is(.tickets-column-dot, .tickets-card) {
+  --tickets-status: var(--openbot-warning);
+}
+
+[data-status="running"]:is(.tickets-column-dot, .tickets-card) {
+  --tickets-status: var(--openbot-accent);
+}
+
+[data-status="needs_review"]:is(.tickets-column-dot, .tickets-card) {
+  --tickets-status: var(--openbot-danger);
+}
+
+[data-status="done"]:is(.tickets-column-dot, .tickets-card) {
+  --tickets-status: var(--openbot-success);
+}
+
+/* The strip of agents. */
+.tickets-strip {
+  display: flex;
+  gap: var(--openbot-space-2);
+  overflow-x: auto;
+  padding: 0 var(--openbot-space-6) var(--openbot-space-3);
+}
+
+.tickets-strip-agent.ui-button {
+  height: auto;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1-5) var(--openbot-space-3) var(--openbot-space-1-5) var(--openbot-space-2);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-surface);
+}
+
+.tickets-strip-agent[aria-pressed="true"] {
+  border-color: var(--openbot-accent);
+}
+
+.tickets-strip-agent[data-busy] .tickets-strip-count {
+  color: var(--openbot-accent-text);
+}
+
+.tickets-strip-avatar.agent-avatar,
+.tickets-lane-avatar.agent-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.tickets-card-avatar.agent-avatar {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.tickets-strip-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-strip-name {
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-strip-count {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}
+
+/* The columns. */
+.tickets-columns {
+  display: grid;
+  min-width: 56rem;
+  grid-template-columns: repeat(5, minmax(10rem, 1fr));
+  gap: var(--openbot-space-3);
+}
+
+.tickets-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-hover);
+}
+
+.tickets-column-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-column-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--tickets-status);
+}
+
+.tickets-column-name {
+  flex: 1;
+}
+
+.tickets-column-count {
+  color: var(--openbot-text-muted);
+}
+
+.tickets-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-column-empty {
+  margin: 0;
+  padding: var(--openbot-space-3) var(--openbot-space-1);
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+/* A card. */
+.tickets-card.ui-button {
+  height: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-inline-start: 2px solid var(--tickets-status);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  text-align: start;
+  white-space: normal;
+}
+
+.tickets-card[aria-pressed="true"] {
+  border-color: var(--openbot-accent);
+}
+
+.tickets-card-title {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-card-progress {
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-card-error {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}
+
+.tickets-card-error svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+}
+
+.tickets-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}
+
+.tickets-card-agent {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1);
+}
+
+.tickets-card-agent-none {
+  color: var(--openbot-text-dim);
+}
+
+.tickets-card-key {
+  color: var(--openbot-text-dim);
+}
+
+/* The lanes. */
+.tickets-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-5);
+}
+
+.tickets-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-lane-header.ui-button,
+.tickets-lane-header-static {
+  display: flex;
+  height: auto;
+  align-items: center;
+  align-self: flex-start;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+}
+
+.tickets-lane-name {
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.tickets-lane-count {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}

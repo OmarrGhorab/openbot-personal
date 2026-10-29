@@ -40,6 +40,7 @@
 @import "./features/usage/usage.css";
 @import "./features/schedule/schedule.css";
 @import "@openbot/ui/features/tasks/tasks.css";
+@import "@openbot/ui/features/tickets/tickets.css";
 @import "@openbot/ui/features/raven-team/raven-team.css";
 @import "@openbot/ui/features/monitor/monitor.css";
 @import "@openbot/ui/styles/chart.css";
