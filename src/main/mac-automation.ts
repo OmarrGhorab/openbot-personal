@@ -49,7 +49,7 @@ const requestOne = (target: MacAutomationTarget) =>
     (signal) =>
       new Promise<MacAutomationResult>((resolve) => {
         execFile(
-          "osascript",
+          "/usr/bin/osascript",
           ["-e", automationScript(BUNDLE_IDS[target])],
           { timeout: PROMPT_DEADLINE_MS, signal },
           (error, _stdout, stderr) => {
