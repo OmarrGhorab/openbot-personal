@@ -1522,11 +1522,25 @@ export function createConversationViewScope(props: ConversationProps) {
     }
   });
 
+  /** The browser tab that each link of a conversation opened. */
+  const linkTabIds = new Map<string, string>();
+
   async function openExternalMessageUrl(url: string) {
     const target = currentTarget();
     const runtime = conversationRuntime(props);
     try {
-      if (target && runtime.agent.openMessageLink) {
+      // A joined server relays its links, so a sign-in page returns to this computer: only a local link can open here.
+      if (props.externalLinkTarget === "OpenBot" && props.server?.kind !== "remote" && /^https?:\/\//i.test(url)) {
+        // The page opens as a card in the browser sidebar does: shown, in the expanded browser.
+        // A second click on the same link shows its tab again: a page redirects, so the tab's address is not the link.
+        const known = linkTabIds.get(url);
+        const tab = browserTabs().find((entry) => entry.id === known) ?? (await openBrowserAddress(url, true));
+        if (tab) {
+          linkTabIds.set(url, tab.id);
+          props.onActivateBrowserTab(tab.id);
+        }
+        setActiveRightPanel(tab ? "browser-expanded" : "browser");
+      } else if (target && runtime.agent.openMessageLink) {
         const page = await runtime.agent.openMessageLink({ agentId: target.agentId, url }, target.serverId);
         if (page) setMessageLinkRelay({ url, target, page });
       } else await runtime.openUrl(url);

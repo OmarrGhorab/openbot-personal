@@ -623,6 +623,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         remoteBackupModelsLoaded={remoteAgentAdmin.backupModels() !== undefined}
         remoteTaskLimitLoaded={remoteAgentAdmin.taskLimit() !== undefined}
         onUpdateAgentPermissions={permissionsEditable() ? writeAgentPermissions : undefined}
+        externalLinkTarget={generalSettings().externalLinkTarget}
         defaultBusyMessageMode={generalSettings().busyMessageMode}
         agentDefaults={generalSettings().agentDefaults}
         agentMemoryLimit={generalSettings().agentMemoryLimit}
