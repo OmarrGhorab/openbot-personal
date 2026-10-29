@@ -587,6 +587,28 @@
   gap: var(--openbot-space-1-5);
 }
 
+/* A role ticket of a team job in the job's drawer: the role agent, the title and the column. */
+.tickets-role-ticket {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--openbot-space-1-5);
+}
+
+.tickets-role-ticket-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-role-ticket-status {
+  flex: 0 0 auto;
+  color: var(--openbot-text-dim);
+  font-weight: var(--openbot-weight-regular);
+}
+
 .tickets-drawer-avatar.agent-avatar {
   width: 18px;
   height: 18px;

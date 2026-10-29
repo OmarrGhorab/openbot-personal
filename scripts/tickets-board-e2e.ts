@@ -6,6 +6,8 @@
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
 // and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
 // connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
+// Each Raven team job has its own ticket and one ticket per role, assigned to the role's agent; the job's
+// drawer lists its role tickets, and the tickets move when the job stops and the queued job starts (#157).
 //
 // Pass the Storybook URL that `bun run storybook` reports:
 //   bun scripts/tickets-board-e2e.ts --storybook=http://localhost:6006
@@ -34,6 +36,10 @@ const STEER = "Keep the old session API for one release.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
+/** The seeded Autopilot lite team jobs: one runs, one waits in Queued. */
+const TEAM_JOB = "Add a retry to the upload";
+const TEAM_JOB_ID = "story-team-job-1";
+const QUEUED_JOB = "Show the sync time on the board";
 
 interface Report {
   steps: string[];
@@ -46,13 +52,18 @@ const report: Report = { steps: [], errors: [], passed: false };
 
 function column(
   page: Page,
-  status: "tickets.status.backlog" | "tickets.status.running" | "tickets.status.needsReview",
+  status: "tickets.status.backlog" | "tickets.status.queued" | "tickets.status.running" | "tickets.status.needsReview",
 ): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
 
 function card(scope: Locator | Page, title: string): Locator {
   return scope.getByRole("button").filter({ hasText: title });
+}
+
+/** The card of a team job's own ticket, not the cards of its role tickets. */
+function jobCard(scope: Locator | Page, title: string): Locator {
+  return card(scope, title).filter({ hasNotText: "Builder: " }).filter({ hasNotText: "Reviewer: " });
 }
 
 async function screenshot(page: Page, name: string): Promise<void> {
@@ -239,6 +250,58 @@ try {
   await screenshot(page, "needs-review");
   report.steps.push(
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
+  );
+
+  // Raven team jobs: each job has its own ticket and one ticket per role, assigned to the role's agent.
+  // The running job's Builder works and its Reviewer waits; the queued job's tickets wait in Queued.
+  const running = column(page, "tickets.status.running");
+  const backlog = column(page, "tickets.status.backlog");
+  const queued = column(page, "tickets.status.queued");
+  await jobCard(running, TEAM_JOB).waitFor();
+  await card(running, `Builder: ${TEAM_JOB}`).waitFor();
+  await card(backlog, `Reviewer: ${TEAM_JOB}`).waitFor();
+  await jobCard(queued, QUEUED_JOB).waitFor();
+  await card(queued, `Builder: ${QUEUED_JOB}`).waitFor();
+  await card(queued, `Reviewer: ${QUEUED_JOB}`).waitFor();
+  report.steps.push(
+    "A running and a queued team job each have a ticket and one ticket per role, in the right columns.",
+  );
+
+  // The job's drawer lists its role tickets with their agents; a role ticket opens and links back to the job.
+  await jobCard(running, TEAM_JOB).click();
+  const jobDrawer = page.getByRole("complementary", { name: TEAM_JOB, exact: true });
+  await jobDrawer.getByRole("heading", { name: t("tickets.drawer.roleTickets"), exact: true }).waitFor();
+  const builderRow = jobDrawer.getByRole("button").filter({ hasText: `Builder: ${TEAM_JOB}` });
+  await builderRow.getByText(t("tickets.status.running"), { exact: true }).waitFor();
+  await jobDrawer
+    .getByRole("button")
+    .filter({ hasText: `Reviewer: ${TEAM_JOB}` })
+    .getByText(t("tickets.status.backlog"), { exact: true })
+    .waitFor();
+  await screenshot(page, "team-job-drawer");
+  await builderRow.click();
+  const builderDrawer = page.getByRole("complementary", { name: `Builder: ${TEAM_JOB}`, exact: true });
+  await builderDrawer.getByText(t("tickets.drawer.agent", { name: CHIEF }), { exact: true }).waitFor();
+  await builderDrawer.getByRole("button", { name: t("tickets.drawer.openTeamJob"), exact: true }).click();
+  await jobDrawer.waitFor();
+  await jobDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
+  await jobDrawer.waitFor({ state: "detached" });
+  report.steps.push("The job's drawer lists its role tickets; a role ticket shows its role agent and opens its job.");
+
+  // The tickets move with the job, with no click on the board. The team page's Stop is covered by
+  // scripts/raven-team-e2e.ts; here the same preview call stops the running job. Its ticket goes back to
+  // Backlog with the reason, and the queued job takes the free slot: its tickets leave Queued.
+  await page.evaluate(`window.openbot.ravenTeam.stop(${JSON.stringify(TEAM_JOB_ID)})`);
+  await jobCard(backlog, TEAM_JOB)
+    .getByText(sourceText("error.agent.boardTickets.teamJobStopped"), { exact: true })
+    .waitFor();
+  await jobCard(running, QUEUED_JOB).waitFor();
+  await card(running, `Builder: ${QUEUED_JOB}`).waitFor();
+  await card(backlog, `Reviewer: ${QUEUED_JOB}`).waitFor();
+  assert.equal(await card(queued, QUEUED_JOB).count(), 0);
+  await screenshot(page, "team-job-stopped");
+  report.steps.push(
+    "Stopping a team job moves its tickets to Backlog with the reason, and the queued job's tickets move out of Queued.",
   );
 
   // Open thread leaves the page for the agent's chat. The steered thread may have moved the ticket.

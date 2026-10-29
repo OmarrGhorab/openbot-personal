@@ -50,6 +50,8 @@ export const messages = {
   "tickets.drawer.send": "ابعت",
   "tickets.drawer.openThread": "افتح الثريد",
   "tickets.drawer.openIssue": "افتح الإيشو",
+  "tickets.drawer.roleTickets": "تذاكر الأدوار",
+  "tickets.drawer.openTeamJob": "افتح شغلانة الفريق",
   "tickets.drawer.deleteTitle": "تمسح التذكرة دي؟",
   "tickets.drawer.deleteBody": "النشاط بتاعها هيتمسح كمان. الثريد بتاعها هيفضل.",
   "tickets.event.created": "اتعملت في {status}",

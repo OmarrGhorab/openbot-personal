@@ -50,6 +50,8 @@ export const messages = defineMessages("tickets", {
   "tickets.drawer.send": "Send",
   "tickets.drawer.openThread": "Open thread",
   "tickets.drawer.openIssue": "Open issue",
+  "tickets.drawer.roleTickets": "Role tickets",
+  "tickets.drawer.openTeamJob": "Open team job",
   "tickets.drawer.deleteTitle": "Delete this ticket?",
   "tickets.drawer.deleteBody": "Its activity is deleted too. Its thread stays.",
   "tickets.event.created": "Created in {status}",

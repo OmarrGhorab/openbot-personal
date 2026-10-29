@@ -4,6 +4,8 @@
 // ticket of each work thread as the desktop does: Running while a turn runs, Needs review when it ends,
 // and back to Backlog with the failure line when it fails or is stopped. With `sync`, ticket systems are
 // connected: the board imports the open issues of the chosen project into Backlog, as the desktop does.
+// With `followTeam`, each Raven team job gets its own ticket and one ticket for each role, assigned to the
+// role's agent, and they move with the job by the rule of the desktop.
 
 import {
   type AgentTasksSnapshot,
@@ -17,10 +19,15 @@ import {
   type BoardTicketSyncState,
   type BoardTicketSyncTarget,
   type BoardTicketsChanged,
+  type BoardTicketTeamFailure,
+  type BoardTicketTeamStep,
+  boardTicketTeamJobStep,
+  boardTicketTeamRoleStep,
   boardTicketWorkStep,
   type CreateBoardTicketInput,
   type MoveBoardTicketInput,
   type OpenBotDesktopApi,
+  type RavenTeamJob,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 
@@ -31,6 +38,9 @@ type StartMockThread = (agentId: string, text: string) => { taskId: string; thre
 
 /** Hands each task list of the agent mock to the listener, as `agent-tasks-changed` does. */
 type FollowMockTasks = (listener: (snapshot: AgentTasksSnapshot) => void) => void;
+
+/** Hands each changed job of the Raven Stack team mock to the listener, as the team's change event does. */
+type FollowMockTeam = (listener: (job: RavenTeamJob) => void) => void;
 
 /** The connected ticket systems of the preview, their projects, and the open issues of each project. */
 export interface PreviewBoardTicketSync {
@@ -46,6 +56,7 @@ export function mockBoardTickets(
   startThread?: StartMockThread,
   followTasks?: FollowMockTasks,
   sync: PreviewBoardTicketSync = NO_SYNC,
+  followTeam?: FollowMockTeam,
 ): BoardTicketsApi {
   let tickets: BoardTicket[] = seed.map((ticket) => ({ ...ticket, statusTimes: { ...ticket.statusTimes } }));
   const events: BoardTicketEvent[] = [];
@@ -296,6 +307,63 @@ export function mockBoardTickets(
         replace({ ...ticket, error, updatedAt: now() });
       }
       if (ticket.status !== step.status) moveTicket({ ticketId: ticket.id, status: step.status }, "agent");
+    }
+  });
+  // Each team job has its own ticket and one for each role, moved with the rule of the desktop: only when
+  // the column or the failure that the job asks for changes, and never out of Done unless the job runs.
+  const teamAsked = new Map<string, string>();
+  const teamFailure = (failure: BoardTicketTeamFailure) =>
+    failure === "stopped"
+      ? sourceText("error.agent.boardTickets.teamJobStopped")
+      : sourceText("error.agent.boardTickets.teamJobNotDone");
+  const applyTeamStep = (ticketId: string, key: string, step: BoardTicketTeamStep) => {
+    const asked = `${step.status}/${step.failure ?? ""}`;
+    if (teamAsked.get(key) === asked) return;
+    teamAsked.set(key, asked);
+    const ticket = tickets.find((candidate) => candidate.id === ticketId);
+    if (!ticket || (ticket.status === "done" && step.status !== "running")) return;
+    const error = step.failure === null ? null : teamFailure(step.failure);
+    if (error !== ticket.error) replace({ ...ticket, error, updatedAt: now() });
+    if (ticket.status !== step.status) moveTicket({ ticketId, status: step.status }, "agent");
+  };
+  const createTeamTicket = (
+    input: CreateBoardTicketInput,
+    links: Pick<BoardTicket, "teamJobId" | "teamRoleId" | "taskId" | "threadId">,
+  ): BoardTicket => replace({ ...createTicket(input, "agent", null), ...links });
+  followTeam?.((job) => {
+    const title =
+      job.brief
+        .split("\n")
+        .map((line) => line.replace(/\s+/gu, " ").trim())
+        .find((line) => line.length > 0) ?? job.id;
+    const own = tickets.filter((ticket) => ticket.teamJobId === job.id);
+    const jobStep = boardTicketTeamJobStep(job);
+    const jobTicket =
+      own.find((ticket) => ticket.teamRoleId === null) ??
+      createTeamTicket(
+        { title, body: job.brief, status: jobStep.status },
+        { teamJobId: job.id, teamRoleId: null, taskId: null, threadId: null },
+      );
+    applyTeamStep(jobTicket.id, job.id, jobStep);
+    for (const role of job.roles) {
+      const key = `${job.id}/${role.roleId}`;
+      const step = boardTicketTeamRoleStep(job, role);
+      const existing = own.find((ticket) => ticket.teamRoleId === role.roleId);
+      const ticket =
+        existing ??
+        createTeamTicket(
+          {
+            title: `${role.label}: ${title}`,
+            status: step?.status ?? (role.state === "working" ? "running" : "needs_review"),
+            agentId: role.agentId,
+          },
+          { teamJobId: job.id, teamRoleId: role.roleId, taskId: role.taskId, threadId: role.threadId },
+        );
+      if (existing && (existing.agentId !== role.agentId || existing.taskId !== role.taskId)) {
+        replace({ ...existing, agentId: role.agentId, taskId: role.taskId, threadId: role.threadId, updatedAt: now() });
+      }
+      if (step) applyTeamStep(ticket.id, key, step);
+      else teamAsked.delete(key);
     }
   });
   return api;
