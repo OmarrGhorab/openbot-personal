@@ -1,4 +1,4 @@
-import type { RavenTeamJob, RavenTeamTemplate } from "@openbot/contracts/ipc";
+import { providerDisplayName, type RavenTeamJob, type RavenTeamTemplate } from "@openbot/contracts/ipc";
 import { type RavenTeamModelChoice, RavenTeamPage } from "@openbot/ui/features/raven-team/RavenTeamPage";
 import { createSignal, onSettled, Show } from "solid-js";
 
@@ -22,7 +22,19 @@ export function RavenTeamPanel(props: { serverId: string; onBack?: (() => void) 
     ]).then(([nextTemplates, nextJobs, nextModels]) => {
       setTemplates(nextTemplates);
       setJobs(nextJobs);
-      setModels(nextModels.map((model) => ({ id: model.id, name: model.name })));
+      setModels(
+        nextModels.map((model) => {
+          const efforts = model.reasoningEffortConfigurable === false ? [] : [...model.supportedReasoningEfforts];
+          return {
+            id: model.id,
+            name: model.name,
+            provider: model.provider,
+            providerName: providerDisplayName(model.provider),
+            efforts,
+            defaultEffort: efforts.length ? model.defaultReasoningEffort : null,
+          };
+        }),
+      );
       setLoaded(true);
     });
     // Solid runs the function that onSettled returns as its cleanup; onCleanup is not allowed here.
