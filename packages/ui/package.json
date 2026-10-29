@@ -227,6 +227,7 @@
     "./features/settings/LogoColorPicker": "./src/features/settings/LogoColorPicker.tsx",
     "./features/settings/SoundThemePicker": "./src/features/settings/SoundThemePicker.tsx",
     "./features/settings/SendShortcutSelect": "./src/features/settings/SendShortcutSelect.tsx",
+    "./features/settings/McpConnectDialog": "./src/features/settings/McpConnectDialog.tsx",
     "./features/settings/McpConnectShell": "./src/features/settings/McpConnectShell.tsx",
     "./features/settings/McpKeyDialog": "./src/features/settings/McpKeyDialog.tsx",
     "./features/settings/McpLocalDialog": "./src/features/settings/McpLocalDialog.tsx",

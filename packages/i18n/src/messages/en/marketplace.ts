@@ -20,10 +20,12 @@ export const messages = defineMessages("marketplace", {
 
   // The dialog frame: title, close and tabs.
   "marketplace.title": "Marketplace",
-  "marketplace.close": "Close marketplace",
   "marketplace.kinds": "Marketplace content types",
   "marketplace.tab.agents": "Agents",
   "marketplace.tab.skills": "Skills",
+  "marketplace.description.apps": "Connect the tools and services that your agents work with.",
+  "marketplace.description.agents": "Ready-made agents with their own instructions and skills.",
+  "marketplace.description.skills": "Instructions that teach an agent a task or a tool.",
 
   // A plugin link.
   "marketplace.plugins.missing": "This plugin is not in the OpenBot catalog.",
@@ -93,18 +95,25 @@ export const messages = defineMessages("marketplace", {
   "marketplace.app.reconnectNamed": "Reconnect {name}",
   "marketplace.app.connected": "Connected",
   "marketplace.app.attention": "Needs attention",
+  // The plugin page alert when only some of its apps or skills are installed. {name} is the plugin name.
+  "marketplace.app.partialTitle": "{name} is not complete",
+  "marketplace.app.partialDescription": "Some of its apps or skills are not installed. Reconnect installs them.",
   "marketplace.app.notConnected": "Not connected",
   "marketplace.app.custom": "MCP server",
   "marketplace.app.githubTagline": "Repositories, issues and pull requests",
   "marketplace.app.onePasswordTagline": "Sign in to sites with logins you share",
-  // The category row in the 1Password page's information.
+  "marketplace.app.slackTagline": "Mentions and direct messages in Slack",
+  "marketplace.app.discordTagline": "Mentions and direct messages in Discord",
+  "marketplace.app.telegramTagline": "Groups and direct chats in Telegram",
+  "marketplace.app.bitwardenTagline": "Sign in to sites with logins from a shared folder",
+  // The category row in the information of a password manager page: 1Password and Bitwarden.
   "marketplace.app.onePasswordCategory": "Login and Credential Management",
   "marketplace.app.yourApps": "Your apps",
-  "marketplace.app.moreApps": "More apps",
+  "marketplace.app.addCustom": "Add custom",
   "marketplace.app.server": "Server",
   "marketplace.app.command": "Command",
   "marketplace.app.address": "Address",
-  "marketplace.app.disconnect.title": "Disconnect",
+  "marketplace.app.disconnect.title": "Disconnect {name}",
   "marketplace.app.disconnect.description":
     "Remove {name} and its skills from this computer. You can connect it again later.",
   "marketplace.app.disconnect.action": "Disconnect",
@@ -113,6 +122,20 @@ export const messages = defineMessages("marketplace", {
   "marketplace.app.remove.action": "Remove",
   "marketplace.app.remove.confirmTitle": "Remove {name}?",
   "marketplace.app.remove.keep": "Keep",
+  // The plugin page section with one row for each app, and the row text by how the app connects.
+  // {name} is the app name, {field} the label of its key field, {host} "this computer" or a server name.
+  "marketplace.app.connection": "Connection",
+  "marketplace.app.setup.account": "Sign in with your {name} account in the browser.",
+  "marketplace.app.setup.key": "Needs an API key from your {name} account.",
+  "marketplace.app.setup.keySaved": "{field} saved on {host}.",
+  "marketplace.app.setup.desktop": "Runs in the {name} desktop app at {address}.",
+  "marketplace.app.setup.desktopConnected": "Connected to {address}.",
+  "marketplace.app.setup.open": "No sign-in or key needed.",
+  "marketplace.app.connectAgain": "Connect again",
+  // The plugin page alert when the server refused an app's saved sign-in.
+  "marketplace.app.signInTitle": "Sign in to {name} again",
+  "marketplace.app.signInDescription":
+    "{name} refused the saved sign-in. Your agents cannot use it until you sign in again.",
 
   // The catalog apps' listing text, by slug. Each English text is the catalog's own text, byte for
   // byte: a key whose English no longer matches the catalog is not used. The prompts are requests that

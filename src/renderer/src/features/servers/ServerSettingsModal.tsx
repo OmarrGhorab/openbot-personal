@@ -147,6 +147,9 @@ export interface ServerSettingsModalProps {
   /** An MCP row to sign in to when the list holds it: the user pressed Sign in on an agent's card. */
   mcpSignInRequest?: string | null | undefined;
   onMcpSignInRequestHandled?: (() => void) | undefined;
+  /** Opens the MCP form for a new server once the section shows. */
+  mcpAddRequest?: boolean | undefined;
+  onMcpAddRequestHandled?: (() => void) | undefined;
   /**
    * Fired when the MCP section becomes visible. The list is read then, not when the dialog opens,
    * because most visits to this dialog never reach that section.
@@ -775,6 +778,8 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
                 signIn={props.mcpSignIn}
                 signInRequest={props.mcpSignInRequest}
                 onSignInRequestHandled={props.onMcpSignInRequestHandled}
+                addRequest={props.mcpAddRequest}
+                onAddRequestHandled={props.onMcpAddRequestHandled}
               />
             </Tabs.Content>
           )}
