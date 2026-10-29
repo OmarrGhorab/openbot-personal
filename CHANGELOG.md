@@ -33,6 +33,7 @@ All notable changes to OpenBot will be documented here. The project follows
 - Choosing the agent in the New ticket dialog works. Before, the menu opened behind the dialog and you could not pick an agent.
 - Choosing the ticket system and the repository in Sync tickets works. Before, the menus opened behind the dialog, so you could not pick a repository and Save and sync stayed off.
 - Opening the + menu in the chat composer and choosing Use a skill no longer freezes the window.
+- Quitting OpenBot no longer shows the error "OpenBot database is not initialized." A stopped Codex process no longer sends output to the agent service, and MCP secret redaction now hides all text when it cannot read the MCP servers.
 
 ## [0.51.1] - 2026-10-29
 
