@@ -246,3 +246,125 @@
   font-size: var(--openbot-text-sm);
   font-weight: var(--openbot-weight-regular);
 }
+
+/* The side region: the agent panel or the ticket drawer. */
+.tickets-side {
+  display: flex;
+  width: min(26rem, 42%);
+  min-width: 20rem;
+  flex-direction: column;
+  border-inline-start: 1px solid var(--openbot-glass-border);
+  background: var(--openbot-bg-surface);
+  overflow: hidden;
+}
+
+.tickets-side-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-2);
+}
+
+.tickets-side-header h3 {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-md);
+}
+
+.tickets-panel-avatar.agent-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.tickets-side-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  overflow-y: auto;
+  padding: var(--openbot-space-2) var(--openbot-space-4) var(--openbot-space-4);
+}
+
+.tickets-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-section h4 {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-muted {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+/* A work thread in the agent panel. */
+.tickets-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.tickets-thread-head {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-thread-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-thread-state {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-thread-state[data-state="running"] {
+  color: var(--openbot-accent-text);
+}
+
+.tickets-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--openbot-space-1) var(--openbot-space-3);
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-facts dt {
+  color: var(--openbot-text-muted);
+}
+
+.tickets-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tickets-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
