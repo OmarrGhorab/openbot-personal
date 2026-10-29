@@ -14,6 +14,8 @@ const context = createSimpleContext({
     const [state, setState] = createStore<{
       serverId: string | null;
       agentId?: string | undefined;
+      /** The team job that the team page shows first, when the Monitor opened the page on it. */
+      teamJobId?: string | undefined;
       view: HostPaneView;
     }>({
       serverId: null,
@@ -22,12 +24,20 @@ const context = createSimpleContext({
     const { activeServerId } = useServers();
     let trigger: HTMLElement | null = null;
 
-    function open(view: HostPaneView, serverId: string, source: HTMLElement | null, agentId?: string) {
+    function open(
+      view: HostPaneView,
+      serverId: string,
+      source: HTMLElement | null,
+      agentId?: string,
+      teamJobId?: string,
+    ) {
       trigger = source;
       setState((draft) => {
         draft.serverId = serverId;
         if (agentId === undefined) delete draft.agentId;
         else draft.agentId = agentId;
+        if (teamJobId === undefined) delete draft.teamJobId;
+        else draft.teamJobId = teamJobId;
         draft.view = view;
       });
     }
@@ -44,8 +54,9 @@ const context = createSimpleContext({
       open("tasks", serverId, source);
     }
 
-    function openTeam(serverId: string, source: HTMLElement | null) {
-      open("team", serverId, source);
+    /** Opens the team page. With `jobId`, the page shows that team job first. */
+    function openTeam(serverId: string, source: HTMLElement | null, jobId?: string) {
+      open("team", serverId, source, undefined, jobId);
     }
 
     /**
@@ -76,6 +87,7 @@ const context = createSimpleContext({
       setState((draft) => {
         draft.serverId = null;
         delete draft.agentId;
+        delete draft.teamJobId;
       });
     }
 

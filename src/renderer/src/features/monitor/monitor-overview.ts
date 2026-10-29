@@ -101,12 +101,6 @@ export function mergeMonitorAgents(overviews: readonly (MonitorChannelOverview |
   );
 }
 
-/** The "Live now" counts: how many agents work, wait and have an error. */
-export function countLiveAgents(agents: readonly MonitorOverviewAgent[]) {
-  const count = (status: MonitorAgentStatus) => agents.filter((agent) => agent.status === status).length;
-  return { working: count("working"), waiting: count("waiting"), error: count("error") };
-}
-
 /** The newest snapshot time over the channels, or null before the first one. */
 export function newestMonitorUpdate(overviews: readonly (MonitorChannelOverview | undefined)[]): string | null {
   let newest: string | null = null;

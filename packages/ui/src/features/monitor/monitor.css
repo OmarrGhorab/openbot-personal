@@ -645,6 +645,90 @@
   margin-inline-end: var(--openbot-space-1);
 }
 
+/* The team jobs in "Live now": each job with its team roles. */
+.monitor-sidebar-teams {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  margin-top: var(--openbot-space-2);
+}
+
+.monitor-sidebar-subheading {
+  margin: 0;
+  padding-inline: var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-sm);
+}
+
+.monitor-team-job {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.monitor-team-job-row.ui-button,
+.monitor-team-role.ui-button {
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-lg);
+  font-weight: var(--openbot-weight-regular);
+  text-align: start;
+}
+
+.monitor-team-job-row.ui-button {
+  padding: var(--openbot-space-2);
+}
+
+.monitor-team-job-row.ui-button:hover,
+.monitor-team-role.ui-button:hover:not(:disabled) {
+  background: var(--openbot-hover);
+}
+
+.monitor-team-job-icon {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+  color: var(--openbot-text-dim);
+}
+
+.monitor-team-roles {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  padding-inline-start: calc(var(--openbot-icon-md) + var(--openbot-space-2));
+  list-style: none;
+}
+
+.monitor-team-role.ui-button {
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  font-size: var(--openbot-text-sm);
+}
+
+.monitor-team-role.ui-button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.monitor-team-role-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-team-role-state {
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+}
+
 /* The main area of the Monitor page. */
 .monitor-page {
   display: flex;
