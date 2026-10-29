@@ -5,6 +5,8 @@ import type {
   AgentTicketWatch,
   BoardTicket,
   HiddenAgentsSnapshot,
+  MacAutomationResult,
+  MacAutomationTarget,
   McpSignInApp,
   McpSignInAppState,
 } from "@openbot/contracts/ipc";
@@ -253,6 +255,8 @@ export interface MockOpenBotOptions
   channels?: MockChannelSeed[];
   /** The sidebar sections and assignments when the preview starts. */
   sidebarLayout?: SidebarLayoutSnapshot;
+  /** What macOS answers for each Apple app that the Marketplace asks about. An app not listed is allowed. */
+  macAutomationAnswers?: Partial<Record<MacAutomationTarget, MacAutomationResult["status"]>>;
 }
 
 /** A message that the preview sent. A listener that returns true answers it, and the mock adds no reply. */
@@ -1168,6 +1172,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       openChat: async () => undefined,
       onFocusAgent: () => () => undefined,
       onComposerDictation: () => () => undefined,
+    },
+    // The preview has no Apple apps to ask. Each app answers from the options, and allows by default.
+    macAutomation: {
+      request: async (targets) =>
+        targets.map((target) => ({ target, status: options.macAutomationAnswers?.[target] ?? "granted" })),
     },
     computerUse: {
       getState: async () => computerUseState(),

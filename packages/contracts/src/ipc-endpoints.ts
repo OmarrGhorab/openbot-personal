@@ -156,6 +156,8 @@ import type {
   HostUpdateSettingsChange,
   HostUpdateStatus,
   IdleRestartTarget,
+  MacAutomationResult,
+  MacAutomationTarget,
   MacPermissionId,
   ProviderRuntimeSnapshot,
   SaveSetupInput,
@@ -928,6 +930,10 @@ export const IPC_ENDPOINTS = {
     revealPermissionApp: request<undefined, void>()("computer-use:reveal-permission-app"),
     highlightPlacement: event<ComputerUseHighlightPlacement>()("computer-use:highlight-placement"),
   },
+  macAutomation: {
+    /** Sends one harmless Apple Event to each app, so macOS shows its Automation prompts now. */
+    request: request<readonly MacAutomationTarget[], MacAutomationResult[]>()("mac-automation:request"),
+  },
   skills: {
     localList: request<undefined, MarketplaceSkillDetail[]>()("skills:local-list"),
     localGet: request<LocalSkillRevisionInput, MarketplaceSkillDetail>()("skills:local-get"),
@@ -1027,7 +1033,7 @@ export const IPC_ENDPOINTS = {
     // `openRelaySignIn` opens the page when the user asks, and `pasteRelaySignIn` takes the address
     // the browser shows when the callback cannot reach this computer.
     startRelaySignIn: scopedRequest<AgentProviderId, void, "required">()("provider-admin:start-relay-sign-in"),
-    // The relayed sign-in of an account after the first (`provider-account-relay-v1`). The other relay
+    // The relayed sign-in of an account after the first (`provider-account-relay-v1` or `-v2`). The other relay
     // requests run it, by its provider, as they run `startRelaySignIn`'s.
     startAccountRelaySignIn: scopedRequest<ConnectProviderAccountInput, void, "required">()(
       "provider-admin:start-account-relay-sign-in",
@@ -1872,6 +1878,7 @@ export const IPC_GROUP_PATHS = {
   globalVoice: "globalVoice",
   browserDock: "browserDock",
   computerUse: "computerUse",
+  macAutomation: "macAutomation",
   skills: "skills",
   customProviders: "customProviders",
   providerDetection: "providerDetection",
