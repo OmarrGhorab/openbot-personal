@@ -4,6 +4,7 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Deferred, Effect, Result, Schema } from "effect";
 import { type AgentProvider, ProviderTurnActiveError } from "../agent-client";
 import type { AgentStore } from "../agent-store";
+import type { AutonomyController } from "../autonomy/autonomy-controller";
 import type { ChannelService } from "../channel-service";
 import { causeHelpers } from "../effect-boundary";
 import type { DeliveryContext, MailboxStore } from "../mailbox-store";
@@ -87,6 +88,10 @@ export interface TaskLanes {
   limit(agentId: string): number;
   /** Whether the agent's provider runs one turn at a time, across its own chat and its tasks. */
   oneTurnAtATime(agentId: string): boolean;
+  /** Whether the person paused this open task. Stored, so a pause outlives a restart. */
+  paused(taskId: string): boolean;
+  /** Whether the turn of this open task waits for an answer. Such a task holds no turn slot. */
+  blocked(taskId: string): boolean;
 }
 
 /**
@@ -125,6 +130,8 @@ export interface DrainSchedulerOptions {
   threads: ThreadLifecycle;
   memory: MemoryHold;
   usageLimits: UsageLimitGate;
+  /** Stop all agents and the budgets of the person. Absent in tests that do not set them. */
+  autonomy?: Pick<AutonomyController, "holdFor">;
   tasks: TaskLanes;
   hooks: DrainHooks;
   channels?: ChannelService;
@@ -157,6 +164,7 @@ export class DrainScheduler {
   readonly #threads: ThreadLifecycle;
   readonly #memory: MemoryHold;
   readonly #usageLimits: UsageLimitGate;
+  readonly #autonomy: Pick<AutonomyController, "holdFor"> | undefined;
   readonly #tasks: TaskLanes;
   readonly #slots: TurnSlots;
   /** Lanes that a full set of turn slots held back. A drain that may free a slot tries them again. */
@@ -206,6 +214,7 @@ export class DrainScheduler {
     this.#threads = options.threads;
     this.#memory = options.memory;
     this.#usageLimits = options.usageLimits;
+    this.#autonomy = options.autonomy;
     this.#tasks = options.tasks;
     this.#hooks = options.hooks;
     this.#channels = options.channels;
@@ -220,7 +229,7 @@ export class DrainScheduler {
       isRunning: (key) => {
         const lane = laneOf(key);
         // A compaction holds the agent's own session, so it uses the slot of the agent's own chat.
-        return this.#laneRunning(lane) || (lane.taskId === null && !this.#compaction.mayDrain(lane.agentId));
+        return this.#laneHoldsSlot(lane) || (lane.taskId === null && !this.#compaction.mayDrain(lane.agentId));
       },
       isWaiting: (key) => {
         const lane = laneOf(key);
@@ -259,6 +268,17 @@ export class DrainScheduler {
     );
   }
 
+  /**
+   * Whether this lane holds a turn slot and counts toward the task limit: it runs a turn that does not
+   * wait for an answer. A task whose turn waits for the user frees its slot, so another task can run.
+   * Its own queue still waits for that turn (`#heldBy`, "active-turn"). A provider that runs one turn
+   * at a time keeps the full count (`oneTurnAtATime`).
+   */
+  #laneHoldsSlot(lane: Lane): boolean {
+    if (lane.taskId !== null && this.#tasks.blocked(lane.taskId)) return false;
+    return this.#laneRunning(lane);
+  }
+
   #laneTurnActive(lane: Lane): boolean {
     if (lane.taskId === null) return Boolean(this.#conversation.workingSnapshot(lane.agentId)?.activeTurnId);
     const threadId = this.#tasks.threadId(lane.taskId);
@@ -271,9 +291,12 @@ export class DrainScheduler {
   #heldBy(lane: Lane): string | null {
     const { agentId, taskId } = lane;
     if (this.#settingsHolds.has(agentId)) return "session-settings";
+    // Stop all agents and a reached budget hold every lane before a new turn can start.
+    const autonomyHold = this.#autonomy?.holdFor(agentId, taskId);
+    if (autonomyHold) return autonomyHold;
     if (this.#laneTurnActive(lane)) return "active-turn";
     // A paused task lets its running turn end. Its queued messages wait until `resumeLane`.
-    if (taskId !== null && this.#pausedLanes.has(laneKey(lane))) return "paused";
+    if (taskId !== null && this.isLanePaused(agentId, taskId)) return "paused";
     // The provider has one turn of the agent at a time, so each lane waits for the turn of any other.
     if (
       this.#tasks.oneTurnAtATime(agentId) &&
@@ -284,7 +307,7 @@ export class DrainScheduler {
       if (this.#tasks.threadId(taskId) === null) return "task-closed";
       const running = this.#tasks
         .openTaskIds(agentId)
-        .filter((other) => other !== taskId && this.#laneRunning({ agentId, taskId: other })).length;
+        .filter((other) => other !== taskId && this.#laneHoldsSlot({ agentId, taskId: other })).length;
       if (running >= this.#tasks.limit(agentId)) return "task-limit";
     }
     // The agent's own process restarts when its access or account changed. A turn of another lane
@@ -348,7 +371,7 @@ export class DrainScheduler {
   }
 
   isLanePaused(agentId: string, taskId: string): boolean {
-    return this.#pausedLanes.has(laneKey({ agentId, taskId }));
+    return this.#pausedLanes.has(laneKey({ agentId, taskId })) || this.#tasks.paused(taskId);
   }
 
   /** `followUsageLimit` is false after a move that failed, so that the drain does not try it again. */
@@ -732,6 +755,8 @@ export class DrainScheduler {
       }
       this.#conversation.emitConversation(snapshot);
 
+      // A work thread's turn runs in its own git worktree; every other turn in the agent workspace.
+      const turnCwd = taskThreadId ? yield* this.#threads.sessionCwd(agent, taskThreadId) : agent.workspacePath;
       const startTurn = (providerThreadId: string) =>
         Effect.gen({ self: this }, function* () {
           // Read again here, not only above: the provider, the thread and the channel are prepared in
@@ -756,7 +781,7 @@ export class DrainScheduler {
                 answerOptional:
                   delivery.sender.kind === "agent" && delivery.expectsReply === false && !delivery.replyToMessageId,
                 input: inputForThread(providerThreadId),
-                cwd: agent.workspacePath,
+                cwd: turnCwd,
                 runtimeWorkspaceRoots: workspaceWritableRoots(agent, this.#store.sharedRoot),
                 approvalPolicy: "on-request",
                 sandboxPolicy: codexSandboxPolicy(agent, this.#store.sharedRoot),

@@ -10,6 +10,8 @@ import {
   decodeAgentImportResult,
   decodeAgentProfileDraft,
   decodeAgentTaskLimitSettings,
+  decodeAutonomyAuditPage,
+  decodeAutonomySnapshot,
   decodeBrowserProfileList,
   decodeBrowserProfileSummary,
   decodeBrowserTabProfiles,
@@ -96,6 +98,7 @@ import {
   decodeMemory,
   decodeMemorySelection,
   decodeOptionalMemorySelection,
+  decodeProjectMemoryState,
   decodeProviderApiKeyState,
   decodeProviderCodeLoginStart,
   decodeProviderUsageResetOutcomeFromMain,
@@ -115,6 +118,7 @@ import {
   decodeAccountSessions,
   decodeAgentDefaults,
   decodeAgentImportSkill,
+  decodeAgentMcpChangesPreference,
   decodeAgentMemoryLimitPreference,
   decodeAnalyticsPreference,
   decodeAppAppearancePreference,
@@ -176,6 +180,15 @@ import {
   decodeVoid,
 } from "./app-decoding";
 import {
+  decodeBoardTicket,
+  decodeBoardTicketEvent,
+  decodeBoardTicketEvents,
+  decodeBoardTicketSyncProjects,
+  decodeBoardTicketSyncState,
+  decodeBoardTickets,
+  decodeBoardTicketsChanged,
+} from "./board-ticket-decoding";
+import {
   decodeBrowserBounds,
   decodeBrowserControlState,
   decodeBrowserDisplayState,
@@ -208,6 +221,7 @@ import {
   decodeConversationPageFromMain,
   decodeConversationSearchPageFromMain,
   decodeFilePreview,
+  decodeOpenQuestions,
   decodeQueue,
   decodeReadState,
   decodeReadStates,
@@ -230,6 +244,7 @@ import {
   decodeNullableGlobalVoicePickerSnapshot,
 } from "./global-voice-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
+import { decodeMacAutomationResults } from "./mac-automation-decoding";
 import {
   decodeAddOrchestratorReply,
   decodeDiscordAccessReply,
@@ -239,6 +254,13 @@ import {
 } from "./messaging-decoding";
 import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
+import {
+  decodeRavenChanged,
+  decodeRavenJob,
+  decodeRavenJobs,
+  decodeRavenPlan,
+  decodeRavenTemplates,
+} from "./raven-team-decoding";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
 import {
   decodeRoutineResultDeliveries,
@@ -288,6 +310,7 @@ import {
   decodeTeamPresenceSnapshot,
   decodeTeamSessions,
 } from "./team-decoding";
+import { decodeAgentTicketWatch, decodeAgentTicketWatchOrNull } from "./ticket-watch-decoding";
 import { decodeVaultImportResult, decodeVaultSecret, decodeVaultState } from "./vault-decoding";
 
 const attachmentImportListeners = new Set<(event: AttachmentImportEvent) => void>();
@@ -529,6 +552,8 @@ const agentGroup = bridgeGroup(IPC_ENDPOINTS.agent, {
   resumeTask: decodeVoid,
   closeTask: decodeVoid,
   reopenTask: decodeVoid,
+  renameTask: decodeAgentTask,
+  deleteTask: decodeVoid,
   acknowledgeFailedTurn: decodeVoid,
   cancelQueuedMessage: decodeVoid,
   steerQueuedMessage: decodeVoid,
@@ -604,6 +629,8 @@ const openbotApi: OpenBotDesktopApi = {
     agentMemoryLimitPreference: decodeAgentMemoryLimitPreference,
     getAppBehaviorPreference: decodeAppBehaviorPreference,
     setAppBehaviorPreference: decodeAppBehaviorPreference,
+    getAgentMcpChangesPreference: decodeAgentMcpChangesPreference,
+    setAgentMcpChangesPreference: decodeAgentMcpChangesPreference,
     getRemoteSessionReusePreference: decodeRemoteSessionReusePreference,
     setRemoteSessionReusePreference: decodeRemoteSessionReusePreference,
     getRemoteNetworkRoute: decodeRemoteNetworkRouteState,
@@ -699,12 +726,44 @@ const openbotApi: OpenBotDesktopApi = {
     revealPermissionApp: decodeVoid,
     highlightPlacement: decodeComputerUseHighlightPlacement,
   }),
+  macAutomation: bridgeGroup(IPC_ENDPOINTS.macAutomation, {
+    request: decodeMacAutomationResults,
+  }),
   providerRuntimes: bridgeGroup(IPC_ENDPOINTS.providerRuntimes, {
     getStatus: decodeProviderRuntimeSnapshot,
     download: decodeProviderRuntimeSnapshot,
     cancel: decodeProviderRuntimeSnapshot,
     checkForUpdates: decodeProviderRuntimeSnapshot,
     event: decodeProviderRuntimeSnapshot,
+  }),
+  boardTickets: bridgeGroup(IPC_ENDPOINTS.boardTickets, {
+    list: decodeBoardTickets,
+    events: decodeBoardTicketEvents,
+    create: decodeBoardTicket,
+    update: decodeBoardTicket,
+    move: decodeBoardTicket,
+    comment: decodeBoardTicketEvent,
+    start: decodeBoardTicket,
+    delete: decodeVoid,
+    changed: decodeBoardTicketsChanged,
+    syncState: decodeBoardTicketSyncState,
+    syncProjects: decodeBoardTicketSyncProjects,
+    setSyncTarget: decodeBoardTicketSyncState,
+    syncNow: decodeBoardTicketSyncState,
+    syncChanged: decodeBoardTicketSyncState,
+  }),
+  ravenTeam: bridgeGroup(IPC_ENDPOINTS.ravenTeam, {
+    listTemplates: decodeRavenTemplates,
+    saveTemplate: decodeRavenTemplates,
+    deleteTemplate: decodeRavenTemplates,
+    plan: decodeRavenPlan,
+    start: decodeRavenJob,
+    listJobs: decodeRavenJobs,
+    setRoleModel: decodeRavenJob,
+    giveRoleFullAccess: decodeRavenJob,
+    stop: decodeRavenJob,
+    resume: decodeRavenJob,
+    changed: decodeRavenChanged,
   }),
   routineFlows: bridgeGroup(IPC_ENDPOINTS.routineFlows, {
     canvas: decodeRoutineFlowCanvas,
@@ -847,6 +906,14 @@ const openbotApi: OpenBotDesktopApi = {
     get: decodeRoutineFeed,
     create: decodeRoutineFeed,
     remove: decodeRoutineFeed,
+  }),
+  autonomy: bridgeGroup(IPC_ENDPOINTS.autonomy, {
+    getSnapshot: decodeAutonomySnapshot,
+    setApprovalRules: decodeAutonomySnapshot,
+    setBudgets: decodeAutonomySnapshot,
+    stopAll: decodeAutonomySnapshot,
+    resumeAll: decodeAutonomySnapshot,
+    listAuditLog: decodeAutonomyAuditPage,
   }),
   monitor: bridgeGroup(IPC_ENDPOINTS.monitor, {
     getSnapshot: decodeMonitorSnapshot,
@@ -1038,9 +1105,24 @@ const openbotApi: OpenBotDesktopApi = {
       deleteMemory: decodeVoid,
       clearMemories: decodeVoid,
     }),
+    ...bridgeGroup(IPC_ENDPOINTS.agentQuestions, {
+      listOpenQuestions: decodeOpenQuestions,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.projectMemories, {
+      getProjectMemories: decodeProjectMemoryState,
+      createProjectMemory: decodeProjectMemoryState,
+      updateProjectMemory: decodeProjectMemoryState,
+      deleteProjectMemory: decodeProjectMemoryState,
+      undoProjectMemory: decodeProjectMemoryState,
+    }),
     ...bridgeGroup(IPC_ENDPOINTS.sharedTables, {
       listTables: decodeTables,
       deleteTable: decodeVoid,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.agentTicketWatch, {
+      ticketWatch: decodeAgentTicketWatchOrNull,
+      setTicketWatch: decodeAgentTicketWatch,
+      clearTicketWatch: decodeVoid,
     }),
     ...bridgeGroup(IPC_ENDPOINTS.agentRoutines, {
       listRoutines: decodeRoutines,

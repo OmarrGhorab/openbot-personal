@@ -21,6 +21,8 @@ export function BrowserSecretCard(props: {
   /** Offer "Save to Vault" for a password. Only the local server has a Vault. */
   vaultSave?: boolean | undefined;
   onRespond: (input: LocalBrowserSecretResponse) => Promise<void>;
+  /** The title of the work thread (task) whose turn asks, when the request is not from the main chat. */
+  threadTitle?: string | undefined;
 }) {
   const { t } = useText();
   const saveId = `browser-secret-save-${createUniqueId()}`;
@@ -138,6 +140,9 @@ export function BrowserSecretCard(props: {
           <X aria-hidden="true" />
         </Button>
       </header>
+      <Show when={props.threadTitle}>
+        {(title) => <p class="conversation-interaction-thread">{t("prompt.workThread.from", { title: title() })}</p>}
+      </Show>
       <Show
         when={password()}
         fallback={

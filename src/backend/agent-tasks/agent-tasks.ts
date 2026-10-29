@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
@@ -7,8 +8,12 @@ import {
   type AgentSummary,
   type AgentTask,
   type AgentTaskHold,
+  type AgentTaskQuestion,
   type AgentTasksSnapshot,
   agentTaskLimit,
+  BOARD_TICKET_COMMENT_LIMIT,
+  BOARD_TICKET_PROGRESS_LIMIT,
+  type BoardTicketStatus,
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
@@ -21,6 +26,8 @@ import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from 
 import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import type { AgentTaskOrigin, AgentTaskRecord, AgentTaskStore } from "./agent-task-store";
+import type { AgentWorkThreadRecord, AgentWorkThreadStore } from "./agent-work-thread-store";
+import type { AgentWorktrees } from "./agent-worktrees";
 
 const logger = createOpenBotLogger("agent-tasks");
 
@@ -28,6 +35,43 @@ const logger = createOpenBotLogger("agent-tasks");
 const AGENT_STARTED_OPEN_TASKS = 8;
 
 export const START_TASK_TOOL = "start_task";
+
+/** The agent calls it in a ticket work thread after it opens its pull request. */
+export const REGISTER_PULL_REQUEST_TOOL = "register_pull_request";
+
+export const registerPullRequestToolSchema = z.strictObject({
+  project: z.string().trim().min(1).max(300),
+  pullNumber: z.number().int().positive(),
+});
+
+/** Records which work thread owns a pull request. The composition root gives the ticket store. */
+export interface AgentTaskPullRegistry {
+  registerForTask(
+    taskId: string,
+    project: string,
+    pullNumber: number,
+  ): "registered" | "not-a-ticket-task" | "owned-by-another";
+}
+
+/** The agent calls it in the work thread of a Tickets board ticket, to update that ticket. */
+export const UPDATE_TICKET_TOOL = "update_ticket";
+
+/** The columns an agent can move its own ticket to. Done is the person's approval. */
+const AGENT_TICKET_STATUSES = ["backlog", "running", "needs_review"] as const;
+
+export const updateTicketToolSchema = z.strictObject({
+  status: z.enum(AGENT_TICKET_STATUSES).optional(),
+  progress: z.string().trim().max(BOARD_TICKET_PROGRESS_LIMIT).optional(),
+  comment: z.string().trim().min(1).max(BOARD_TICKET_COMMENT_LIMIT).optional(),
+});
+
+type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
+
+/** The Tickets board, for the `update_ticket` tool. The composition root gives `BoardTicketService`. */
+export interface AgentTaskBoard {
+  /** Updates the ticket of the work thread. Null when the work thread does no ticket. */
+  updateForTask(taskId: string, update: AgentTicketUpdate): { id: string; status: BoardTicketStatus } | null;
+}
 
 export const startTaskToolSchema = z.strictObject({
   title: z.string().trim().min(1).max(INPUT_LIMITS.agentTaskTitle),
@@ -42,6 +86,10 @@ export interface AgentTasksHooks {
   hold(agentId: string, taskId: string): string | null;
   /** A message is queued in a task: the queue and the drain take it. */
   queued(agentId: string): void;
+  /** The question that a thread waits on, or null. Read at each snapshot and each drain pass. */
+  question(threadId: string): AgentTaskQuestion | null;
+  /** A question of this agent was asked or answered: the task list changes and the drain runs again. */
+  questionChanged(agentId: string): void;
 }
 
 /** Where `start_task` was called, as the tool router knows it. */
@@ -53,9 +101,16 @@ export interface AgentTaskCaller {
 
 export interface AgentTasksOptions {
   store: AgentTaskStore;
+  /** The workspace folder and the pause state of each work thread (migration 46). */
+  workThreads: AgentWorkThreadStore;
+  worktrees: AgentWorktrees;
   mailbox: MailboxStore;
   conversation: ConversationRuntime;
   hooks: AgentTasksHooks;
+  /** Pull requests of ticket work threads. Null when the composition root has no ticket intake. */
+  pulls?: AgentTaskPullRegistry | null;
+  /** The Tickets board, for the agent's own ticket updates. Null when the composition root has no board. */
+  board?: AgentTaskBoard | null;
 }
 
 /**
@@ -67,9 +122,13 @@ export interface AgentTasksOptions {
  */
 export class AgentTasks implements TaskLanes {
   readonly #store: AgentTaskStore;
+  readonly #workThreads: AgentWorkThreadStore;
+  readonly #worktrees: AgentWorktrees;
   readonly #mailbox: MailboxStore;
   readonly #conversation: ConversationRuntime;
   readonly #hooks: AgentTasksHooks;
+  readonly #pulls: AgentTaskPullRegistry | null;
+  readonly #board: AgentTaskBoard | null;
   /** The last progress line of each running task turn, by task id. */
   readonly #progress = new Map<string, string>();
   /** The last turn of each task that the user stopped, by task id. */
@@ -77,9 +136,13 @@ export class AgentTasks implements TaskLanes {
 
   constructor(options: AgentTasksOptions) {
     this.#store = options.store;
+    this.#workThreads = options.workThreads;
+    this.#worktrees = options.worktrees;
     this.#mailbox = options.mailbox;
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
+    this.#pulls = options.pulls ?? null;
+    this.#board = options.board ?? null;
   }
 
   threadId(taskId: string): string | null {
@@ -101,6 +164,58 @@ export class AgentTasks implements TaskLanes {
     const agent = this.#hooks.agent(agentId);
     return agent !== undefined && !agentProviderDescriptor(agent.provider).concurrentTurns;
   }
+
+  /** Whether the turn of this open task waits for an answer to a question. */
+  blocked(taskId: string): boolean {
+    const task = this.#store.task(taskId);
+    if (!task || task.closedAt !== null) return false;
+    return this.#hooks.question(task.threadId) !== null;
+  }
+
+  /** The id and title of the open task that owns this thread, or null for the agent's own chat. */
+  openTaskOfThread(threadId: string): { taskId: string; title: string } | null {
+    const task = this.#store.taskForThread(threadId);
+    return task && task.closedAt === null ? { taskId: task.taskId, title: task.title } : null;
+  }
+
+  /** Whether the person paused this open task. The pause is stored, so it outlives a restart. */
+  paused(taskId: string): boolean {
+    const task = this.#store.task(taskId);
+    if (!task || task.closedAt !== null) return false;
+    return this.#workThreads.find(taskId)?.pausedAt != null;
+  }
+
+  /** Stores the pause of the task, or clears it. The drain reads it at its next pass. */
+  setPaused(task: AgentTaskRecord, paused: boolean): void {
+    const current = this.#workThreads.find(task.taskId)?.pausedAt ?? null;
+    if ((current !== null) === paused) return;
+    this.#workThreads.setPaused(task.taskId, task.agentId, paused ? new Date().toISOString() : null);
+  }
+
+  /**
+   * The folder that the provider sessions of this thread run in: the work thread's own git worktree,
+   * or null for the agent workspace (the main thread, and a work thread outside a git repository).
+   * The first session of a work thread makes its worktree; every later session uses it again.
+   */
+  readonly sessionFolder = Effect.fn("AgentTasks.sessionFolder")(function* (
+    this: AgentTasks,
+    agentId: string,
+    threadId: string,
+    workspacePath: string,
+  ): Effect.fn.Return<string | null> {
+    const task = this.#store.taskForThread(threadId);
+    if (!task || task.agentId !== agentId) return null;
+    const record = this.#workThreads.find(task.taskId);
+    if (record?.workspace.mode === "worktree") {
+      // A worktree that the person removed is made again at the same path, on the same branch.
+      if (existsSync(record.workspace.path)) return record.workspace.path;
+    } else if (record) {
+      return null;
+    }
+    const workspace = yield* this.#worktrees.prepare(workspacePath, task.taskId);
+    this.#workThreads.setWorkspace(task.taskId, agentId, workspace);
+    return workspace.mode === "worktree" ? workspace.path : null;
+  });
 
   /** The error of a task turn, redacted by the caller. The panel shows it until the next turn starts. */
   failed(taskId: string, message: string): void {
@@ -169,6 +284,33 @@ export class AgentTasks implements TaskLanes {
     return this.#publicTask(task);
   }
 
+  /** Gives the task a new title, cut to the title limit. */
+  rename(task: AgentTaskRecord, text: string): AgentTaskRecord {
+    const title = taskTitle(text);
+    if (!title) throw new Error(sourceText("error.backend.taskTitleRequired"));
+    this.#store.rename(task.taskId, title);
+    this.changed(task.agentId);
+    return this.require(task.agentId, task.taskId);
+  }
+
+  /** The workspace record of the task, for a delete that removes its worktree. */
+  workspace(taskId: string, agentId: string): AgentWorkThreadRecord["workspace"] {
+    return this.#workThreads.get(taskId, agentId).workspace;
+  }
+
+  /**
+   * Removes a closed task with its thread and history. The caller releases its provider sessions
+   * first, and removes its worktree after.
+   */
+  delete(task: AgentTaskRecord): void {
+    if (task.closedAt === null) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+    this.#conversation.forgetExecutionThread(task.threadId);
+    this.#store.delete(task.taskId);
+    this.#progress.delete(task.taskId);
+    this.#stoppedTurns.delete(task.taskId);
+    this.changed(task.agentId);
+  }
+
   close(task: AgentTaskRecord): void {
     this.#store.close(task.taskId);
     this.#progress.delete(task.taskId);
@@ -230,6 +372,8 @@ export class AgentTasks implements TaskLanes {
     params: DynamicToolCallParams,
     caller: AgentTaskCaller,
   ): Effect.fn.Return<OpenBotToolResponse | null> {
+    if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
+    if (params.tool === UPDATE_TICKET_TOOL) return this.#updateTicket(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -326,8 +470,55 @@ export class AgentTasks implements TaskLanes {
         // A queued task message changes the task's state, and the drain's reason to hold it.
         if (this.#store.openTaskIds(event.snapshot.agentId).length > 0) this.changed(event.snapshot.agentId);
         return false;
+      case "prompt":
+      case "agent-input-resolved":
+        // A question starts or ends the wait of a task turn: the task's state and its slot change. The
+        // event still reaches the chat, so this returns false.
+        if (event.type === "agent-input-resolved" && event.kind !== "prompt") return false;
+        if (this.#store.openTaskIds(event.agentId).length > 0) {
+          this.changed(event.agentId);
+          this.#hooks.questionChanged(event.agentId);
+        }
+        return false;
       default:
         return false;
+    }
+  }
+
+  /** Answers `register_pull_request` from the work thread that calls it. */
+  #registerPull(params: DynamicToolCallParams, agentId: string): OpenBotToolResponse {
+    const parsed = registerPullRequestToolSchema.safeParse(params.arguments);
+    if (!parsed.success) return openBotToolFailure(sourceText("error.backend.pullRequestToolInvalid"));
+    // The provider's thread ID is not OpenBot's; the router maps it the same way before it checks a thread.
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    if (!task || !this.#pulls) return openBotToolFailure(sourceText("error.backend.pullRequestNotTicketTask"));
+    const outcome = this.#pulls.registerForTask(task.taskId, parsed.data.project, parsed.data.pullNumber);
+    if (outcome === "registered") {
+      return openBotToolResult({
+        status: "registered",
+        project: parsed.data.project,
+        pullNumber: parsed.data.pullNumber,
+      });
+    }
+    if (outcome === "owned-by-another") return openBotToolFailure(sourceText("error.backend.pullRequestOwned"));
+    return openBotToolFailure(sourceText("error.backend.pullRequestNotTicketTask"));
+  }
+
+  /** Answers `update_ticket` from the work thread that calls it: only its own ticket changes. */
+  #updateTicket(params: DynamicToolCallParams, agentId: string): OpenBotToolResponse {
+    const parsed = updateTicketToolSchema.safeParse(params.arguments);
+    const update = parsed.success ? parsed.data : null;
+    if (!update || (update.status === undefined && update.progress === undefined && update.comment === undefined)) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
+    }
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    if (!task || !this.#board) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    try {
+      const ticket = this.#board.updateForTask(task.taskId, update);
+      if (!ticket) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+      return openBotToolResult({ ticketId: ticket.id, status: ticket.status });
+    } catch (error) {
+      return openBotToolFailure(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -351,6 +542,7 @@ export class AgentTasks implements TaskLanes {
     const state =
       task.closedAt !== null ? "closed" : running ? "running" : queuedMessages.length > 0 ? "queued" : "idle";
     const hold = state === "queued" ? publicHold(this.#hooks.hold(task.agentId, task.taskId)) : null;
+    const workThread = this.#workThreads.get(task.taskId, task.agentId);
     return {
       id: task.taskId,
       agentId: task.agentId,
@@ -367,6 +559,9 @@ export class AgentTasks implements TaskLanes {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       closedAt: task.closedAt,
+      pausedAt: task.closedAt === null ? workThread.pausedAt : null,
+      workspace: workThread.workspace,
+      question: task.closedAt === null ? this.#hooks.question(task.threadId) : null,
     };
   }
 }

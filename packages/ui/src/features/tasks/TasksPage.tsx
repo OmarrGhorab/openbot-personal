@@ -1,4 +1,4 @@
-import type { AgentTask } from "@openbot/contracts/ipc";
+import type { AgentTask, OpenQuestion } from "@openbot/contracts/ipc";
 import { plainTaskTitle, TASKS_CLOSED_SHOWN, taskSections, taskTone } from "@openbot/team-client/agent-tasks";
 import {
   ArrowLeft,
@@ -29,6 +29,7 @@ import { useText } from "@openbot/ui/text";
 import { prefersReducedMotion } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createStore, createUniqueId, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { TaskQuestions } from "./TaskQuestions";
 import { TasksEmptyBoard, TasksEmptyPitch } from "./TasksEmpty";
 
 /** The microphone of the Tasks composer. The page shows it; the app records and transcribes. */
@@ -88,6 +89,9 @@ export interface TasksPageProps {
   panel: (taskId: string) => JSX.Element;
   /** Whether the task's running turn waits for an approval. */
   waitsForApproval?: ((task: AgentTask) => boolean) | undefined;
+  /** The questions of all agents, above the list. Absent where the page cannot answer them. */
+  questions?: readonly OpenQuestion[] | undefined;
+  onAnswerQuestion?: ((question: OpenQuestion, answers: Record<string, string[]>) => Promise<boolean>) | undefined;
 }
 
 const agentOf = (agents: readonly AgentProfile[], agentId: string) => agents.find((agent) => agent.id === agentId);
@@ -552,6 +556,12 @@ export function TasksPage(props: TasksPageProps) {
           <div class="tasks-page-took-slot" aria-live="polite">
             <Show when={props.took}>{(took) => <TaskTookLine {...props} took={took()} />}</Show>
           </div>
+          <Show when={props.questions !== undefined && props.questions.length > 0}>
+            <TaskQuestions
+              questions={props.questions ?? []}
+              onAnswer={(question, answers) => props.onAnswerQuestion?.(question, answers) ?? Promise.resolve(false)}
+            />
+          </Show>
           <TasksList {...props} />
           <Show when={empty()}>
             <TasksEmptyBoard agents={props.agents} />

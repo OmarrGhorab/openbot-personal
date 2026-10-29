@@ -357,6 +357,42 @@ export function isVaultChangeMarker(message: ConversationMessage): boolean {
 }
 
 /**
+ * The item type of the note that an agent changed an MCP server without an approval card, because
+ * the user lets agents with Full access do that. The text is a readable sentence that names the
+ * action, the server and its address or command line with known secrets masked, and how to undo it.
+ */
+export const MCP_CHANGE_ITEM_TYPE = "mcp-change";
+
+export function isMcpChangeMarker(message: ConversationMessage): boolean {
+  return (
+    message.author === "system" &&
+    message.source === "system" &&
+    message.status === "completed" &&
+    message.itemType === MCP_CHANGE_ITEM_TYPE
+  );
+}
+
+/**
+ * The item types of the note that a `mark_done` call posts: every check passed and the work is done,
+ * every check passed and the work waits for the reviewer, or one check failed. The text is a readable
+ * sentence with the redacted end of the failing output, never a secret.
+ */
+export const DONE_CHECK_PASSED_ITEM_TYPE = "done-check-passed";
+export const DONE_CHECK_REVIEW_ITEM_TYPE = "done-check-review";
+export const DONE_CHECK_FAILED_ITEM_TYPE = "done-check-failed";
+
+export type DoneCheckResult = "passed" | "review" | "failed";
+
+/** What a check note says: done, waiting for review, or failed. Null when the message is not a check note. */
+export function doneCheckResult(message: ConversationMessage): DoneCheckResult | null {
+  if (message.author !== "system" || message.source !== "system" || message.status !== "completed") return null;
+  if (message.itemType === DONE_CHECK_PASSED_ITEM_TYPE) return "passed";
+  if (message.itemType === DONE_CHECK_REVIEW_ITEM_TYPE) return "review";
+  if (message.itemType === DONE_CHECK_FAILED_ITEM_TYPE) return "failed";
+  return null;
+}
+
+/**
  * The item type of a message that one agent sends to another, in the sender's thread and in the
  * recipient's thread. It is traffic between agents, not a message to the user.
  */

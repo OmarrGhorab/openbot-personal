@@ -1,4 +1,5 @@
 import type { Effect } from "effect";
+import type { BoardTicketService } from "../../backend/board-tickets/board-ticket-service";
 import type { ChannelService } from "../../backend/channel-service";
 import type { AcpRegistry } from "../acp-registry";
 import type { AgentAccessStore } from "../agent-access-store";
@@ -192,7 +193,7 @@ export interface TeamApiConnectors {
 
 /**
  * Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on, and
- * beside `providerAccounts` too, `provider-account-relay-v1`.
+ * beside `providerAccounts` too, `provider-account-relay-v1` and `provider-account-relay-v2`.
  */
 export type TeamApiSignInRelay = Pick<
   SignInRelayHost,
@@ -311,9 +312,17 @@ export interface TeamApiAdmin {
   memoryLimit?: AgentMemoryLimitSetting;
   /** `prompt-cache-ttl-v1`: how long the provider keeps the prompt cache of this computer's agents. */
   promptCacheTtl?: Pick<PromptCacheTtlPreferenceStore, "get" | "set">;
+  /** `board-tickets-v1`: the Tickets board of this computer. */
+  boardTickets?: TeamApiBoardTickets;
   /** `routine-results-v1`: the place where an agent routine sends its answers. */
   routineResults?: TeamApiRoutineResults;
 }
+
+/** The board operations that `board-tickets-v1` serves. The sync stays on this computer. */
+type TeamApiBoardTickets = Pick<
+  BoardTicketService,
+  "list" | "get" | "events" | "create" | "update" | "move" | "comment" | "start" | "delete"
+>;
 
 /** A failure keeps its cause; a `RoutineResultError` cause is a refusal that the reader sees. */
 interface TeamApiRoutineResults {
@@ -336,7 +345,10 @@ interface TeamApiProviders {
     "startProviderCodeLogin" | "submitProviderCodeLogin" | "cancelProviderCodeLogin" | "changeProviderCredential"
   >;
   credentials: Pick<ProviderCredentialStore, "status" | "set" | "clear">;
-  runtimes: Pick<ProviderRuntimeManager, "getStatus" | "download" | "cancel" | "checkForUpdates">;
+  runtimes: Pick<
+    ProviderRuntimeManager,
+    "getStatus" | "download" | "cancel" | "checkForUpdates" | "startKeyProviderCli"
+  >;
   customProviders: PeerCustomProviderChanges;
   /**
    * Whether this host can run the Claude pasted-code sign-in. `providers-v3` promises it, so a host

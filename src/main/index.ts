@@ -53,11 +53,14 @@ import { acpRegistryIpcHandlers } from "./ipc/acp-registry-handlers";
 import { agentAdminIpcHandlers } from "./ipc/agent-admin-handlers";
 import { agentIpcHandlers } from "./ipc/agent-handlers";
 import { agentImportIpcHandlers } from "./ipc/agent-import-handlers";
+import { agentQuestionIpcHandlers } from "./ipc/agent-question-handlers";
 import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
+import { autonomyIpcHandlers } from "./ipc/autonomy-handlers";
 import { billingIpcHandlers } from "./ipc/billing-handlers";
 import { bitwardenConnectorIpcHandlers } from "./ipc/bitwarden-connector-handlers";
+import { boardTicketIpcHandlers } from "./ipc/board-ticket-handlers";
 import { browserDockIpcHandlers } from "./ipc/browser-dock-handlers";
 import { browserIpcHandlers } from "./ipc/browser-handlers";
 import { channelMemoryIpcHandlers } from "./ipc/channel-memory-handlers";
@@ -75,6 +78,7 @@ import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
 import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
 import { instanceTransferIpcHandlers } from "./ipc/instance-transfer-handlers";
 import { licenseIpcHandlers } from "./ipc/license-handlers";
+import { macAutomationIpcHandlers } from "./ipc/mac-automation-handlers";
 import { marketplaceAgentIpcHandlers } from "./ipc/marketplace-agent-handlers";
 import { mcpServerIpcHandlers } from "./ipc/mcp-server-handlers";
 import { memoryIpcHandlers } from "./ipc/memory-handlers";
@@ -83,9 +87,11 @@ import { monitorIpcHandlers } from "./ipc/monitor-handlers";
 import { notificationIpcHandlers } from "./ipc/notification-handlers";
 import { onePasswordConnectorIpcHandlers } from "./ipc/onepassword-connector-handlers";
 import { pluginIpcHandlers } from "./ipc/plugin-handlers";
+import { projectMemoryIpcHandlers } from "./ipc/project-memory-handlers";
 import { providerAdminIpcHandlers } from "./ipc/provider-admin-handlers";
 import { providerDetectionIpcHandlers } from "./ipc/provider-detection-handlers";
 import { providerIpcHandlers } from "./ipc/provider-handlers";
+import { ravenTeamIpcHandlers } from "./ipc/raven-team-handlers";
 import { routineFeedIpcHandlers } from "./ipc/routine-feed-handlers";
 import { routineFlowIpcHandlers } from "./ipc/routine-flow-handlers";
 import { routineIpcHandlers } from "./ipc/routine-handlers";
@@ -94,6 +100,7 @@ import { sharedTableIpcHandlers } from "./ipc/shared-table-handlers";
 import { skillIpcHandlers } from "./ipc/skill-handlers";
 import { storageIpcHandlers } from "./ipc/storage-handlers";
 import { teamIpcHandlers } from "./ipc/team-handlers";
+import { ticketWatchIpcHandlers } from "./ipc/ticket-watch-handlers";
 import { updateIpcHandlers } from "./ipc/update-handlers";
 import { vaultIpcHandlers } from "./ipc/vault-handlers";
 import { voiceIpcHandlers } from "./ipc/voice-handlers";
@@ -535,6 +542,7 @@ function registerIpcHandlers({
   requestedUpdate,
   idleRestart,
   approvalAutomation,
+  autonomy,
   agentAdminSettings,
   agentHostSettings,
   browserProfiles,
@@ -551,6 +559,7 @@ function registerIpcHandlers({
   serverTimezone,
   promptCacheTtl,
   remoteSessionReuse,
+  agentMcpChanges,
   remoteNetworkRoute,
   remoteSessionCache,
   appBehavior,
@@ -563,6 +572,7 @@ function registerIpcHandlers({
   skills,
   hostedSites,
   githubConnector,
+  agentTicketSettings,
   onePasswordConnector,
   bitwardenConnector,
   vault,
@@ -593,7 +603,10 @@ function registerIpcHandlers({
   trace,
   resourceMonitor,
   routineFlows,
+  ravenTeam,
   routineResults,
+  boardTickets,
+  boardTicketSync,
 }: ApplicationServices): void {
   // Every renderer-to-main endpoint is bound by one of these, one file per domain under ./ipc.
   // Nothing is bound inline here: this is the trust boundary, and a reviewer should be able to read
@@ -617,6 +630,7 @@ function registerIpcHandlers({
       agentDefaults,
       agentMemoryLimit,
       remoteSessionReuse,
+      agentMcpChanges,
       remoteNetworkRoute,
       applyRemoteNetworkRoute: () => runCauseEffect(host.applyNetworkRoute()),
       remoteSessionCache,
@@ -643,6 +657,7 @@ function registerIpcHandlers({
       openExternal: (url) => shell.openExternal(url),
       permissionHelp: computerUsePermissionHelp,
     }),
+    ...macAutomationIpcHandlers({ platform: process.platform }),
     ...providerIpcHandlers({ service, providerRuntimes, credentials: providerCredentials }),
     ...voiceIpcHandlers({ voice, speech, service }),
     ...accountIpcHandlers({ centralAuth, host }),
@@ -711,12 +726,18 @@ function registerIpcHandlers({
       takePendingPluginSlug: () => takePendingDeepLink("plugin"),
     }),
     ...memoryIpcHandlers({ service, remoteServers }),
+    ...agentQuestionIpcHandlers({ service }),
+    ...projectMemoryIpcHandlers({ service }),
     ...sharedTableIpcHandlers({ service, remoteServers }),
     ...routineIpcHandlers({ service, remoteServers }),
+    ...ticketWatchIpcHandlers({ settings: agentTicketSettings }),
     ...routineFlowIpcHandlers({ routineFlows, remoteServers }),
+    ...ravenTeamIpcHandlers({ ravenTeam }),
     ...routineResultIpcHandlers({ routineResults }),
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
+    ...autonomyIpcHandlers({ autonomy }),
+    ...boardTicketIpcHandlers({ boardTickets, boardTicketSync, remoteServers }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

@@ -152,4 +152,11 @@ export const messages = {
   "mcp.signIn.relaySend": "إرسال",
   "mcp.panel.callbackUrlRelayed":
     "صفحة تسجيل الدخول بتتفتح في المتصفح بتاعك، وOpenBot على الكمبيوتر بتاعك بيبعت تسجيل الدخول لـ {host}. أضف الـ URL ده بالظبط لروابط إعادة التوجيه المسموحة في التطبيق.",
+  "mcp.changes.withoutApprovalTitle": "الإيجنتات تدير سيرفرات MCP من غير ما تسأل",
+  "mcp.changes.withoutApprovalDescription":
+    "مقفول: كل سيرفر MCP بيضيفه إيجنت أو يغيّره أو يشغّله أو يقفله أو يشيله بيستنى موافقتك. مفتوح: الإيجنتات اللي عندها وصول كامل بتعمل ده من غير موافقة، وكل تغيير بيظهر في المحادثة.",
+  "mcp.changes.withoutApprovalWarning":
+    "تحذير: الإيجنت ساعتها يقدر يشغّل أي أمر على الكمبيوتر ده كسيرفر MCP، وكل إيجنتات السيرفر ده بتاخد أدواته. اقفله عشان يسأل تاني من التغيير الجاي. السيرفرات اللي الإيجنتات ضافتها قبل كده بتفضل موجودة.",
+  "mcp.changes.loadFailed": "معرفناش نقرا إعداد موافقة MCP.",
+  "mcp.changes.saveFailed": "معرفناش نحفظ إعداد موافقة MCP.",
 } as const satisfies PartialTranslation<typeof source>;

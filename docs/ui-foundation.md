@@ -12,7 +12,7 @@ Features — the `src/renderer/src/features/<domain>/` directories — import pr
 - `Button` — an action with a label. `default` serves the single most important action in a context, `secondary` standard actions, `ghost` toolbars, `destructive` destructive operations, and `link` actions embedded in text.
 - `IconButton` — a standalone icon; always pass `label`. `tooltip` may add the shortcut, but it does not replace the accessible label.
 - `Badge` — a short, non-interactive state or category. Do not use it as a button.
-- `Input`, `Textarea`, `NativeSelect` — native controls in a uniform anatomy. Wrap them in `Field` to wire up label, description, error, `required` and `aria-describedby` automatically.
+- `Input`, `Textarea`, `NativeSelect` — native controls in a uniform anatomy. Wrap them in `Field` to wire up label, description, error, `required` and `aria-describedby` automatically. Use `Select` for a picker: `NativeSelect` opens the OS popup, and `bun run check:ui` rejects it in the renderer.
 - `Switch` — an immediate change to a binary setting. For a decision that needs the form submitted, use a checkbox or RadioGroup.
 - `Card`, `Separator`, `Spinner`, `Skeleton`, `Kbd` — surface, structure and feedback elements.
 - `Dialog`, `AlertDialog`, `DropdownMenu`, `Popover`, `Tooltip`, `Tabs`, `RadioGroup`, `Select`, `Combobox` and `Listbox` — the exported Kobalte adapters for complex interactions.

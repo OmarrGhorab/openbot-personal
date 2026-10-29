@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs OpenBot as a self-hosted server on a Linux computer with no screen:
 #
-#   curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/OmarrGhorab/openbot-personal/main/scripts/install-server.sh | sudo bash
 #
 # Options (after `sudo bash -s --`):
 #   --user <name>             The user that runs OpenBot and its agents. Default: the user of the

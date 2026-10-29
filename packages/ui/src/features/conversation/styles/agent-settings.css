@@ -134,6 +134,18 @@
   font-size: var(--openbot-text-sm);
 }
 
+.agent-routine-templates {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.agent-routine-templates h3 {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: 500;
+}
+
 .agent-routine-action-buttons svg {
   width: 15px;
   height: 15px;
@@ -627,7 +639,8 @@
 }
 
 .agent-memories-header-actions svg,
-.agent-memory-delete-button svg {
+.agent-memory-delete-button svg,
+.project-memory-edit-button svg {
   width: var(--openbot-icon-sm);
   height: var(--openbot-icon-sm);
 }
@@ -761,6 +774,22 @@
   align-self: center;
   align-items: center;
   justify-self: center;
+  color: var(--openbot-text-muted);
+}
+
+/* A project memory entry has two actions, edit and delete, side by side in the second column. */
+.project-memory-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.project-memory-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-0-5);
+  padding-inline-end: var(--openbot-space-1);
+}
+
+.project-memory-edit-button {
   color: var(--openbot-text-muted);
 }
 
@@ -1404,6 +1433,11 @@
   text-wrap: pretty;
 }
 
+/* The description of the definition of done sits above the commands field, not against its label. */
+.agent-settings-checks > .agent-settings-runtime-note {
+  margin-block-end: var(--openbot-space-3);
+}
+
 .agent-settings-save-error {
   margin: 0 var(--openbot-space-1);
   color: var(--openbot-danger);
@@ -1445,4 +1479,43 @@
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
   line-height: 15px;
+}
+
+/* The ticket source page: the frame of the other agent settings pages, over the settings list. */
+.agent-ticket-watch .settings-panel-content {
+  flex: 1;
+}
+
+.agent-ticket-watch-provider {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.agent-ticket-watch-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+}
+
+/* A long repository name ends in an ellipsis, so it never covers the Ticket source label. */
+.settings-link.agent-ticket-watch-link {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.agent-ticket-watch-link .settings-link-value {
+  min-width: 0;
+  justify-content: flex-end;
+  gap: var(--openbot-space-1);
+}
+
+.agent-ticket-watch-link .settings-link-value > svg,
+.agent-ticket-watch-off {
+  flex: none;
+}
+
+.agent-ticket-watch-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

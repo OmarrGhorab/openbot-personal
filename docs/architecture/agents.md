@@ -113,6 +113,26 @@ short digest of its answer to the chat session's pending handoff (`appendRoutine
 characters for each run, 6,000 in total), so the next chat turn reads it. The chat session keeps its
 id and its context. A restart during a run marks the run interrupted: the session is not saved.
 
+## Routine templates
+
+The routine list of an agent on this computer has **Start from a template**. Each template saves an
+active routine with a weekly or monthly schedule, one click each. The templates are in
+`src/renderer/src/features/conversation/routine-templates.ts`. Each instruction is the body of a
+Markdown skill in `resources/autonomy-skills/<name>/SKILL.md`, read with `?raw`. The saved routine
+keeps the instruction, so a user can edit it like any routine. The template saves with
+`limitPolicy: "skip"` and `missedPolicy: "skip"`. The first line of the instruction names the
+template: `<!-- openbot-routine-template: <id> -->`. A routine with that line shows its template as
+**Scheduled**, and the template cannot be saved again. The id does not change with the routine name
+or the app language, and a routine the user wrote has no such line. The section is hidden for a remote host and for a channel.
+
+A coding routine needs no new field. Its repository is the agent's workspace. Its branch is named by
+the instruction. Its work thread is the routine session in the agent chat. It needs `gh` signed in on
+the computer. The instruction tells the agent to call `routine_no_update` when nothing changed and
+`routine_report_failure` when the job cannot run.
+
+A webhook event is redacted with `redactText` in `webhookRunInstruction` before it is stored and
+sent to the agent (`src/backend/webhook-trigger.ts`).
+
 ## Routine calendar feed
 
 `src/main/routine-feed-server.ts` is a loopback HTTP listener that serves the routines of this
@@ -203,7 +223,41 @@ its agent count and no actions. A joined server without the capability has no se
 the profile's agents to Shared. The agent has no tool to change its profile, and tool results do not
 name it. See [Browser sessions](browser.md#browser-sessions) for the storage and the partitions.
 
+## Project memory
+
+Project memory keeps the facts about one project folder: commands that work, rules, known problems
+with their fixes, and decisions. It is in SQLite (`project_memories`, migration 47), and the user's
+database is its only copy.
+
+- **Scope.** The project is the agent's workspace path. Every work thread of that agent reads the same
+  entries, and so does every other agent whose workspace is that folder. Work threads in a git worktree
+  use the agent folder, not the worktree path. Each agent's own memories stay private to it (see
+  [Agent memory](#agent-memory-scope) below).
+- **Start of a work thread.** The developer instructions of a new session carry an `<openbot_project_memory>`
+  block with at most 4,096 bytes of entries, rules first. A later save reaches the next session that
+  starts, not a running one. Entries past the budget are named and found with `search_project_memory`.
+- **Agent tools.** `save_lesson` saves one entry of a kind. `learn_from_failure` saves a known problem with
+  its failure and rule, after a check fails for a new reason. `search_project_memory` finds entries by any
+  word. An exact duplicate is not saved twice. A folder holds 128 entries, and a save past it is refused.
+- **Redaction.** Every save, from an agent or the user, redacts secrets first (`redactText`). The undo
+  slot keeps the text of the last change only, and it is cleared by the next change.
+- **User control.** The settings panel of the agent lists the entries, with the kind, the agent that saved
+  each one and the dates. The user edits, deletes, and undoes the last change of the folder
+  (`project_memory_undo`, one row per folder). Mobile, the web client and the Team API do not show it.
+
+The memory tools of an agent are unchanged: `remember`, `search_memories`, `list_memories`,
+`set_memory_inclusion` and `forget_memory` work on the agent's own memories only.
+
+### Agent memory scope
+
+An agent's own memories belong to its identity and are shared by all of its work threads. They are not
+visible to another agent. Project memory is the only store that two agents can share.
+
 ## Agent tasks
+
+[Agent work threads](agent-work-threads.md) has the design of work threads (tasks with their own
+git worktree, pause and rename) and of the side chat. [Agent ticket intake](agent-ticket-intake.md)
+starts a work thread for each new ticket that carries a watch label.
 
 A task is a separate execution thread of one agent. The agent keeps one identity, workspace and
 provider settings; each task has its own provider thread, conversation, queue, progress and result.
@@ -294,7 +348,20 @@ servers, so an agent cannot tell a disabled plugin from a missing one.
 When the user asks for it, an agent adds, changes, turns on or off, tests and removes MCP servers with
 the MCP server tools (`src/backend/agent/mcp-tools.ts`, issue #2673). Each change waits for the
 approval of `AttentionRegistry.awaitToolApproval`, which states that every agent on the server gets
-the tools. Full access answers it, as for other built-in tool approvals. `save_mcp_server` connects
+the tools. The card is `alwaysAsk`: a Full access grant does not answer it, because the change
+reaches every agent (issue #106). The one way past it is the setting "Agents can manage MCP servers
+without asking" (Server settings, MCP, on this computer only; `openbot-agent-mcp-changes-v1.json`,
+`app:get-agent-mcp-changes` / `app:set-agent-mcp-changes`). It is off by default. On, an agent with
+Full access (`AttentionRegistry.hasFullAccess`) changes MCP servers with no card; a Workspace only or
+Ask first agent still asks. The router reads the setting and the grant at each change, so off asks
+again from the next change, and it removes no server. Secrets and sign-in cards do not change.
+Each change that runs without the card posts an `mcp-change` note (`MCP_CHANGE_ITEM_TYPE`, issue
+#107) in the conversation: the action, the server name, its address without the query or its
+command line with known secrets masked, and how to undo it in Server settings, MCP. An approved
+change has its approval card and gets no note. `bun run test:mcp-create` (`scripts/mcp-create-e2e.ts`,
+issue #108) drives the skill flow, the approval with the setting off and on, the notes and the
+preference store on the real modules, and writes `.openbot-build/mcp-create-e2e/report.json`. A
+joined server keeps its own setting, which this desktop does not change. `save_mcp_server` connects
 before it saves (`inspectMcpServer`, the silent Test): a server that does not answer is not saved; a
 server that needs an OAuth sign-in or a key is saved. The tools never take or return a header or
 environment value, and show an address without its query: the user enters a key in Server settings,
@@ -304,6 +371,16 @@ the folder a stdio server starts in. A sign-in shows an `mcp-sign-in:<id>` card 
 the conversation. Its Sign in opens Server settings, MCP, and starts the row's normal sign-in, so a
 joined server signs in through its relay or live page. Continue sends a message that tells the agent
 to test again. A saved change reaches the agents from their next turn.
+
+For a system that has no MCP server, OpenBot writes the managed skill `openbot-mcp-server-creator`
+(`resources/managed-skills/openbot-mcp-server-creator/SKILL.md`, issue #105) into every agent
+workspace with the other managed skills (`ManagedSkillService`). The skill tells the agent to read
+the system, write a stdio server in `~/OpenBot/mcp-servers/<name>/` (TypeScript
+`@modelcontextprotocol/sdk` by default), read secrets from environment variables only, start it once,
+then register it with `save_mcp_server` and test it. A server it made has an `openbot-mcp.json`
+beside the code with names only, never values. An update changes that folder and keeps the row's
+name, command, arguments and folder, so it never adds a duplicate and a row that holds keys keeps
+them. The MCP tool guidance points to the skill.
 
 When its own tools fail, the agent checks its teammates. When a teammate reports that it is blocked
 or waits for the user, the requester does not repeat that work or send the same request again; it

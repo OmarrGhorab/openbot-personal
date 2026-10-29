@@ -1,4 +1,5 @@
 import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
+import type { AgentEvent } from "@openbot/contracts/ipc";
 import { ANALYTICS_GENERATIONS, openPanelTransport, ReportQueue } from "@openbot/telemetry";
 import { fileReportStorage } from "@openbot/telemetry/node";
 import { Effect, Fiber } from "effect";
@@ -8,8 +9,16 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
+import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
+import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
+import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
+import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
+import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
+import { RavenTeamService } from "../backend/raven-team/raven-team-service";
+import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
 import { RoutineFlowStore } from "../backend/routine-flows/routine-flow-store";
 import { createRoutineFlows, type RoutineFlowsHandle } from "../backend/routine-flows/routine-flows";
@@ -20,6 +29,8 @@ import { type AgentAdminSettingsService, createAgentAdminSettings } from "./agen
 import { spawnAgentDatabaseHost } from "./agent-database-host-process";
 import { agentDisplayEnvironment, hasSeparateAgentDisplay } from "./agent-display";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
+import { type AutonomyAdmin, createAutonomyAdmin } from "./autonomy-admin";
+import { AUTONOMY_PREFERENCE_FILE, AutonomyPreferences } from "./autonomy-preferences";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
 import { HostReleaseService, readInstallationMode } from "./host-release-service";
 import {
@@ -108,6 +119,14 @@ import { toMcpGatewayFailed } from "../backend/agent/mcp-gateway";
 import { ProviderAccountStore } from "../backend/agent/provider-account-store";
 import { AgentLifecycleFailed, AgentService } from "../backend/agent-service";
 import { AgentStore } from "../backend/agent-store";
+import { AgentTicketIntake, TicketIntakeFailed } from "../backend/agent-tickets/agent-ticket-intake";
+import { AgentTicketSettings } from "../backend/agent-tickets/agent-ticket-settings";
+import { AgentTicketStore } from "../backend/agent-tickets/agent-ticket-store";
+import { GitHubTicketSource } from "../backend/agent-tickets/github-ticket-source";
+import { TicketPullRegistry } from "../backend/agent-tickets/ticket-pull-registry";
+import { TicketSourceFailed } from "../backend/agent-tickets/ticket-source";
+import { AutonomyAuditStore } from "../backend/autonomy/autonomy-audit-store";
+import { AutonomyUsageStore } from "../backend/autonomy/autonomy-usage-store";
 import { BrowserHost } from "../backend/browser-host";
 import { BrowserProfileStore } from "../backend/browser-profiles/browser-profile-store";
 import { runCauseEffect } from "../backend/effect-boundary";
@@ -132,11 +151,16 @@ import { AgentImportService } from "./agent-import-service";
 import { AgentInitializationGate } from "./agent-initialization";
 import { AgentMarketplaceService } from "./agent-marketplace-service";
 import {
+  type AgentMcpChangesPreferenceStore,
+  createAgentMcpChangesPreferenceStore,
+} from "./agent-mcp-changes-preference-store";
+import {
   AgentMemoryLimitPreferenceStore,
   type AgentMemoryLimitSetting,
   reloadingAgentMemoryLimit,
 } from "./agent-memory-limit-preference-store";
 import { AgentTemplateService } from "./agent-template-service";
+import { AgentTicketWatcher } from "./agent-ticket-watcher";
 import { HostAnalytics } from "./analytics";
 import { analyticsInventoryDayStore, collectAnalyticsInventory } from "./analytics-inventory";
 import { catalogPluginSlug, isReportedMcpServerName, loadCatalogPluginServers } from "./analytics-plugin-catalog";
@@ -238,7 +262,14 @@ import {
   sendComputerUseHighlightPlacement,
   showMainWindow,
 } from "./main-window";
-import { DATA_SKILL_SLUG, ManagedSkillService, SKILL_CREATOR_SKILL_SLUG } from "./managed-skill-service";
+import {
+  ASK_WHEN_BLOCKED_SKILL_SLUG,
+  CONFIDENCE_NOTES_SKILL_SLUG,
+  DATA_SKILL_SLUG,
+  ManagedSkillService,
+  MCP_SERVER_CREATOR_SKILL_SLUG,
+  SKILL_CREATOR_SKILL_SLUG,
+} from "./managed-skill-service";
 import { McpHostSignIns } from "./mcp-host-sign-ins";
 import { McpOAuthProxySettingsFile } from "./mcp-oauth-proxy-store";
 import {
@@ -360,6 +391,7 @@ const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
 const SERVER_TIMEZONE_PREFERENCE_FILE = "openbot-server-timezone-v1.json";
 const PROMPT_CACHE_TTL_PREFERENCE_FILE = "openbot-prompt-cache-ttl-v1.json";
 const REMOTE_SESSION_REUSE_PREFERENCE_FILE = "openbot-remote-session-reuse-preference-v1.json";
+const AGENT_MCP_CHANGES_PREFERENCE_FILE = "openbot-agent-mcp-changes-v1.json";
 const REMOTE_NETWORK_ROUTE_PREFERENCE_FILE = "openbot-remote-network-route-v1.json";
 const APP_BEHAVIOR_PREFERENCE_FILE = "openbot-app-behavior-preference-v1.json";
 const DYNAMIC_ISLAND_PREFERENCE_FILE = "openbot-dynamic-island-preference-v1.json";
@@ -450,12 +482,19 @@ const TEARDOWN_ORDER = {
   teamWebRtcBridge: 100,
   // Before the agent service, so no handoff is sent to an agent while the service stops.
   routineFlows: 103,
+  // After the agent events it listens to, and before the agent service stops, so no team turn is
+  // answered while the service stops.
+  ravenTeam: 103.5,
   // Before the agent service, so no calendar read finds it stopping.
   routineFeed: 104,
   mcpOAuthRedirect: 105,
   // Before the agent service. It holds no file an agent reads; only a CLI run that waits is stopped.
   onePasswordConnector: 106,
   bitwardenConnector: 106.5,
+  // Before the GitHub connection and the agent service: the ticket intake reads the GitHub token and starts threads.
+  agentTickets: 106.75,
+  // Before the GitHub connection: the Tickets board sync reads the GitHub token.
+  boardTicketSync: 106.8,
   // Before the agent service, so no agent is handed a token file that is being removed.
   githubConnector: 107,
   // Before the agent service, so no script starts a run while the service stops.
@@ -519,9 +558,14 @@ export interface ApplicationServiceContext {
 export interface ApplicationServices {
   service: AgentService;
   routineFlows: RoutineFlowsHandle;
+  ravenTeam: RavenTeamService;
   routineResults: RoutineResultsHandle;
   providerRuntimes: ProviderRuntimeManager;
   providerCredentials: ProviderCredentialStore;
+  /** The Tickets board of this computer. */
+  boardTickets: BoardTicketService;
+  /** The sync of the Tickets board with a connected ticket system. */
+  boardTicketSync: BoardTicketSync;
   /** The Slack and Telegram connections of the agents on this host. */
   messaging: MessagingService;
   /** Reached by the entry point for one thing only: handing a returning grant to its sign-in. */
@@ -531,6 +575,8 @@ export interface ApplicationServices {
   /** The Slack and Discord installs that this computer opened for a joined server. */
   relayedMessagingInstalls: RelayedMessagingInstalls;
   githubConnector: GitHubConnectorService;
+  /** The ticket source of each agent, for the settings screen. */
+  agentTicketSettings: AgentTicketSettings;
   onePasswordConnector: OnePasswordConnectorService;
   bitwardenConnector: BitwardenConnectorService;
   vault: VaultService;
@@ -553,6 +599,7 @@ export interface ApplicationServices {
   analyticsPreferenceFile: string;
   updatePreferenceFile: string;
   approvalAutomation: ApprovalAutomation;
+  autonomy: AutonomyAdmin;
   agentAdminSettings: AgentAdminSettingsService;
   agentHostSettings: AgentHostSettingsService;
   browserProfiles: BrowserProfileService;
@@ -568,6 +615,7 @@ export interface ApplicationServices {
   serverTimezone: ServerTimezonePreferenceStore;
   promptCacheTtl: PromptCacheTtlPreferenceStore;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
+  agentMcpChanges: AgentMcpChangesPreferenceStore;
   remoteNetworkRoute: RemoteNetworkRoutePreferenceStore;
   remoteSessionCache: RemoteSessionCache;
   appBehavior: AppBehaviorService;
@@ -1057,9 +1105,36 @@ export async function createApplicationServices({
     undefined,
     DATA_SKILL_SLUG,
   );
+  const mcpServerCreator = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", MCP_SERVER_CREATOR_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${MCP_SERVER_CREATOR_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    MCP_SERVER_CREATOR_SKILL_SLUG,
+  );
+  const askWhenBlockedSkill = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", ASK_WHEN_BLOCKED_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${ASK_WHEN_BLOCKED_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    ASK_WHEN_BLOCKED_SKILL_SLUG,
+  );
+  const confidenceNotesSkill = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", CONFIDENCE_NOTES_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${CONFIDENCE_NOTES_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    CONFIDENCE_NOTES_SKILL_SLUG,
+  );
   await Effect.runPromise(managedSkills.syncAll(store.list()));
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
+  await Effect.runPromise(mcpServerCreator.syncAll(store.list()));
+  await Effect.runPromise(askWhenBlockedSkill.syncAll(store.list()));
+  await Effect.runPromise(confidenceNotesSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
   const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
     // Read at request time: the team store is created later, and the server can register after launch.
@@ -1202,6 +1277,10 @@ export async function createApplicationServices({
     join(app.getPath("userData"), REMOTE_SESSION_REUSE_PREFERENCE_FILE),
   );
   await runCauseEffect(remoteSessionReuse.load());
+  const agentMcpChanges = createAgentMcpChangesPreferenceStore(
+    join(app.getPath("userData"), AGENT_MCP_CHANGES_PREFERENCE_FILE),
+  );
+  await runCauseEffect(agentMcpChanges.load());
   const remoteNetworkRoute = createRemoteNetworkRoutePreferenceStore(
     join(app.getPath("userData"), REMOTE_NETWORK_ROUTE_PREFERENCE_FILE),
   );
@@ -1229,6 +1308,9 @@ export async function createApplicationServices({
   forgetSignedOutSessions(centralAuth.getState());
   centralAuth.on("changed", forgetSignedOutSessions);
   const updatePreference = await runCauseEffect(readUpdatePreference(updatePreferenceFile));
+  // Graded permissions, budgets and Stop all agents. Loaded before the agent service reads them.
+  const autonomyPreferences = new AutonomyPreferences(join(app.getPath("userData"), AUTONOMY_PREFERENCE_FILE));
+  await runCauseEffect(autonomyPreferences.load());
   const approvalAutomationFile = join(app.getPath("userData"), APPROVAL_AUTOMATION_FILE);
   const approvalAutomation = new ApprovalAutomation({
     path: approvalAutomationFile,
@@ -1637,7 +1719,21 @@ export async function createApplicationServices({
   // Outside every workspace. Each saved key is masked in the logs before the first agent starts.
   const agentApiKeys = new AgentApiKeys(join(app.getPath("userData"), "agent-api-keys"));
   await Effect.runPromise(agentApiKeys.registerSaved());
+  // The ticket store is shared by the agent service (pull ownership for the agent's tool) and the watcher.
+  const ticketStore = new AgentTicketStore(store.database);
+  // The Tickets board. Its tickets are rows in this computer's database; the view reads the list
+  // again on the change event, so no window polls. It is made before the agent service, whose
+  // `update_ticket` tool writes to it.
+  const boardTicketStore = new BoardTicketStore(store.database);
+  const boardTickets = new BoardTicketService({
+    store: boardTicketStore,
+    changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
+    // "Start now" starts one work thread of the agent, as the ticket intake does.
+    startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
+  });
   const service: AgentService = new AgentService({
+    ticketPulls: new TicketPullRegistry(ticketStore),
+    boardTickets,
     store,
     mailbox,
     browser,
@@ -1678,6 +1774,9 @@ export async function createApplicationServices({
         yield* managedSkills.syncAgent(agent);
         yield* skillCreator.syncAgent(agent);
         yield* dataSkill.syncAgent(agent);
+        yield* mcpServerCreator.syncAgent(agent);
+        yield* askWhenBlockedSkill.syncAgent(agent);
+        yield* confidenceNotesSkill.syncAgent(agent);
       }),
     hostedSites: {
       list: () => hostedSites.list().pipe(toHostedSiteOperationFailed),
@@ -1740,7 +1839,9 @@ export async function createApplicationServices({
     // `events` is built later, after the account service and the relay.
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
+    autonomy: autonomyPreferences,
     busyMessageMode: () => busyMessageMode.get().mode,
+    mcpChangesWithoutApproval: () => agentMcpChanges.get().withoutApproval,
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     timezone: () => serverTimezone.effective(),
     // `host` is built later, after the agent service; a channel tool reads it when it runs.
@@ -1751,6 +1852,59 @@ export async function createApplicationServices({
     tables,
   });
   teardown.push(TEARDOWN_ORDER.service, "the agent service", () => runCauseEffect(service.stop()));
+  // The ticket intake: a timer that starts one work thread per new ticket of each watch. It reads the
+  // GitHub token at each pass, and it stops before the GitHub connection does (see TEARDOWN_ORDER).
+  const ticketWatcher = new AgentTicketWatcher({
+    intake: new AgentTicketIntake({
+      store: ticketStore,
+      sources: {
+        github: new GitHubTicketSource({
+          accessToken: () => githubConnector.accessToken(),
+          fetch: (url, init) => fetch(url, init),
+        }),
+      },
+      startTask: (agentId, text) =>
+        service.startTask({ agentId, text }).pipe(
+          Effect.map((task) => ({ taskId: task.id })),
+          Effect.mapError((cause) => new TicketIntakeFailed({ cause })),
+        ),
+      agentName: (agentId) => service.listAgents().find((agent) => agent.id === agentId)?.name ?? null,
+    }),
+  });
+  const agentTicketSettings = new AgentTicketSettings({
+    store: ticketStore,
+    agentExists: (agentId) => service.listAgents().some((agent) => agent.id === agentId),
+  });
+  ticketWatcher.start();
+  teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
+  // The sync of the Tickets board. It works only while GitHub is connected on this computer: Jira and
+  // Linear have no connection in OpenBot yet. It reads the GitHub token at each call, and it stops
+  // before the GitHub connection does (see TEARDOWN_ORDER).
+  const boardTicketSync = new BoardTicketSync({
+    store: boardTicketStore,
+    board: boardTickets,
+    sources: {
+      github: new GitHubBoardSyncSource({
+        issues: new GitHubTicketSource({
+          accessToken: () => githubConnector.accessToken(),
+          fetch: (url, init) => fetch(url, init),
+        }),
+        repositories: () =>
+          githubConnector.repositories().pipe(
+            Effect.map((answer) => answer.repositories.map((repository) => repository.fullName)),
+            Effect.mapError((cause) => new TicketSourceFailed({ cause })),
+          ),
+      }),
+    },
+    connected: () => (githubConnector.status().state === "connected" ? ["github"] : []),
+    changed: (state) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state),
+  });
+  const stopBoardSyncConnection = githubConnector.onChanged(() => boardTicketSync.connectionChanged());
+  boardTicketSync.start();
+  teardown.push(TEARDOWN_ORDER.boardTicketSync, "the Tickets board sync", () => {
+    stopBoardSyncConnection();
+    return boardTicketSync.stop();
+  });
   const monitor = new MonitorService({
     sources: {
       channelPage: (channelId) => service.channels.store.page(channelId),
@@ -1791,6 +1945,11 @@ export async function createApplicationServices({
   service.on("event", (event) => {
     if (event.type === "agents-changed") Effect.runFork(automation.requestSync());
   });
+  // Each agent moves the tickets of its work threads as their turns start, wait, end or fail.
+  const boardTicketFollower = new BoardTicketWorkFollower(boardTickets);
+  service.on("event", (event) => {
+    if (event.type === "agent-tasks-changed") boardTicketFollower.follow(event.snapshot);
+  });
   teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));
   // An agent routine's answer handed on from agent to agent; see `routine-flows.ts`.
   const routineFlowRuntime = await Effect.runPromise(
@@ -1811,6 +1970,36 @@ export async function createApplicationServices({
     }),
   );
   teardown.push(TEARDOWN_ORDER.routineFlows, "the routine flows", () => Effect.runPromise(routineFlowRuntime.close()));
+  // A team's roles are local agents, and their turns arrive as the same agent events. The view reads a
+  // job again when it changes, so no window polls.
+  // Each team job has a ticket on the Tickets board, and each of its roles has its own ticket, assigned
+  // to the role's agent. They move as the job and the role's work threads go.
+  const boardTicketTeamFollower = new BoardTicketTeamFollower(boardTickets);
+  const ravenTeam: RavenTeamService = new RavenTeamService({
+    store: new RavenTeamStore(store.database),
+    agents: service,
+    changed: (jobId) => {
+      sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenTeam.changed, { jobId });
+      const job = jobId === null ? null : ravenTeam.job(jobId);
+      if (job) boardTicketTeamFollower.follow(job);
+    },
+  });
+  const ravenTeamListener = (event: AgentEvent) => {
+    Effect.runFork(ravenTeam.notice(event));
+  };
+  // The turn channel: a work thread's turns leave `event` for the task module, and the team needs them.
+  service.on("turn", ravenTeamListener);
+  // The event channel: an agent change can answer the access question, and a message that did not
+  // start a turn must not leave a role Working.
+  // Turn events come from the turn channel only, so a turn is never read twice.
+  const ravenTeamAgentListener = (event: AgentEvent) => {
+    if (event.type === "agents-changed" || event.type === "error") ravenTeamListener(event);
+  };
+  service.on("event", ravenTeamAgentListener);
+  teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    service.off("turn", ravenTeamListener);
+    service.off("event", ravenTeamAgentListener);
+  });
   // An agent routine's answer sent on to a messaging place; see `routine-results.ts`.
   const routineResultRuntime = await Effect.runPromise(
     createRoutineResults({
@@ -2078,6 +2267,12 @@ export async function createApplicationServices({
     }),
   );
   const agentAdminSettings = createAgentAdminSettings({ agents: service, approvalAutomation });
+  const autonomy = createAutonomyAdmin({
+    preferences: autonomyPreferences,
+    service,
+    audit: new AutonomyAuditStore(store.database),
+    usage: new AutonomyUsageStore(store.database),
+  });
   const agentHostSettings = createAgentHostSettings({ agents: service, busyMessageMode, agentDefaults });
   const browserProfiles = createBrowserProfileService({ store: browserProfileStore, agents: service, browser });
   const customProviderChanges = createCustomProviderChanges({ service, customProviders });
@@ -2326,6 +2521,8 @@ export async function createApplicationServices({
       memoryLimit: agentMemoryLimitSetting,
       promptCacheTtl,
       routineResults: routineResultRuntime,
+      // `board-tickets-v1`: the Tickets board of this computer. The sync with a ticket system stays here.
+      boardTickets,
     },
     // The host's Team API routes share the IPC handlers' runtime preparation: a first server
     // saved, enabled, or tested remotely must start and await the managed download like a local one.
@@ -2986,14 +3183,18 @@ export async function createApplicationServices({
   return {
     service,
     routineFlows: routineFlowRuntime,
+    ravenTeam,
     routineResults: routineResultRuntime,
     providerRuntimes,
     providerCredentials,
+    boardTickets,
+    boardTicketSync,
     messaging,
     mcpOAuth,
     signInRelayClient,
     relayedMessagingInstalls: new RelayedMessagingInstalls(remoteServers),
     githubConnector,
+    agentTicketSettings,
     onePasswordConnector,
     bitwardenConnector,
     vault,
@@ -3009,6 +3210,7 @@ export async function createApplicationServices({
     analyticsPreferenceFile,
     updatePreferenceFile,
     approvalAutomation,
+    autonomy,
     agentAdminSettings,
     agentHostSettings,
     browserProfiles,
@@ -3024,6 +3226,7 @@ export async function createApplicationServices({
     serverTimezone,
     promptCacheTtl,
     remoteSessionReuse,
+    agentMcpChanges,
     remoteNetworkRoute,
     remoteSessionCache,
     appBehavior,

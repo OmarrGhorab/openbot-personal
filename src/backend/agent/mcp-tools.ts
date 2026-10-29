@@ -18,7 +18,9 @@ import { ToolOperationFailed, toolStep } from "./tool-operation";
 /**
  * The MCP tools: an agent adds, changes, tests, turns on or off, and removes the MCP servers of its
  * OpenBot server when the user asks. A server applies to every agent there, so each change waits
- * for the user's approval as other tools do, and an agent with Full access is answered for.
+ * for the user's approval, also for an agent with Full access. Only when the user lets agents with
+ * Full access change MCP servers without asking, and this agent has Full access, does the change run
+ * without the card (`withoutApproval`).
  *
  * No value of a header or of the environment goes in or out: a key stays in Server settings, where
  * the user enters it. A sign-in is handed to the user with a card in the conversation.
@@ -55,7 +57,7 @@ const setEnabledSchema = z.strictObject({ name: serverName, enabled: z.boolean()
 
 const MCP_SCOPE = "Every agent on this OpenBot server gets the tools of an enabled MCP server.";
 const MCP_APPROVAL =
-  "The user's request is the permission: call the tool without asking first. OpenBot asks the user to approve when your access needs it.";
+  "The user's request is the permission: call the tool without asking first. OpenBot asks the user to approve the change unless the user lets agents with Full access manage MCP servers without asking.";
 
 export const MCP_SERVER_TOOL_DEFINITIONS = [
   {
@@ -137,6 +139,16 @@ export interface McpServerToolCall {
   tool: McpServerToolName;
   arguments: unknown;
   /**
+   * The change runs without `approve`: the user turned on "Agents can manage MCP servers without
+   * asking" and this agent has Full access. Read for each call, so off asks again at once.
+   */
+  withoutApproval: boolean;
+  /**
+   * Puts the note of a change made without approval in the conversation, so the user sees it and
+   * can undo it. `text` names the action, the server and its target, with the secrets masked.
+   */
+  recordChange(text: string): Effect.Effect<void, ToolOperationFailed>;
+  /**
    * Asks the user to approve the change that `reason` states. `cwd` is the folder a stdio server
    * starts in, when it names one. True when it is approved.
    */
@@ -186,7 +198,7 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
       const key = existing ? "status.agent.mcpServerChange" : "status.agent.mcpServerAdd";
       // The command line can quote a key the user typed: the reason also reaches Slack and the phone.
       const reason = servers.redact(sourceText(key, { name: config.name, target: serverTarget(config) }));
-      if (!(yield* call.approve(reason, config.transport === "stdio" ? config.workingDirectory || null : null)))
+      if (!(yield* confirm(call, reason, config.transport === "stdio" ? config.workingDirectory || null : null)))
         return openBotToolFailure(sourceText("error.agent.mcpServerDeclined"));
       // A server that does not answer is not saved, so no agent is given a broken entry. A server that
       // needs a sign-in or a key is saved: the sign-in and the key belong to a saved row.
@@ -196,27 +208,59 @@ const runMcpServerTool = Effect.fn("McpServerTools.handle")(function* (
           servers.redact(sourceText("error.agent.mcpServerNotSaved", { error: outcome.error })),
         );
       yield* servers.save(config);
+      yield* noteChange(servers, call, existing ? "changed" : "added", config);
       return yield* report(servers, call, config, outcome, true);
     }
     case "set_mcp_server_enabled": {
       const { name, enabled } = yield* toolStep(() => setEnabledSchema.parse(call.arguments));
       const config = yield* findServer(servers, name);
       const key = enabled ? "status.agent.mcpServerEnable" : "status.agent.mcpServerDisable";
-      if (!(yield* call.approve(sourceText(key, { name: config.name }))))
+      if (!(yield* confirm(call, sourceText(key, { name: config.name }))))
         return openBotToolFailure(sourceText("error.agent.mcpServerDeclined"));
       yield* servers.setEnabled(config.id, enabled);
+      yield* noteChange(servers, call, enabled ? "enabled" : "disabled", config);
       return openBotToolResult({ name: config.name, enabled, appliesFrom: "the next turn of each agent" });
     }
     case "remove_mcp_server": {
       const { name } = yield* toolStep(() => namedServerSchema.parse(call.arguments));
       const config = yield* findServer(servers, name);
-      if (!(yield* call.approve(sourceText("status.agent.mcpServerRemove", { name: config.name }))))
+      if (!(yield* confirm(call, sourceText("status.agent.mcpServerRemove", { name: config.name }))))
         return openBotToolFailure(sourceText("error.agent.mcpServerDeclined"));
       yield* servers.remove(config.id);
+      yield* noteChange(servers, call, "removed", config);
       return openBotToolResult({ name: config.name, removed: true, appliesFrom: "the next turn of each agent" });
     }
   }
 });
+
+/** The user's approval, or true at once when the change runs without it. */
+const confirm = (call: McpServerToolCall, reason: string, cwd?: string | null) =>
+  call.withoutApproval ? Effect.succeed(true) : call.approve(reason, cwd);
+
+const CHANGE_NOTES = {
+  added: "status.agent.mcpServerAddedWithoutApproval",
+  changed: "status.agent.mcpServerChangedWithoutApproval",
+  enabled: "status.agent.mcpServerEnabledWithoutApproval",
+  disabled: "status.agent.mcpServerDisabledWithoutApproval",
+  removed: "status.agent.mcpServerRemovedWithoutApproval",
+} as const;
+
+/**
+ * The note of a change that ran without approval: the action, the server, and its address or
+ * command line, which a removal no longer holds anywhere else. A change that the user approved has
+ * its approval card instead, so it gets no note.
+ */
+const noteChange = (
+  servers: AgentMcpServers,
+  call: McpServerToolCall,
+  action: keyof typeof CHANGE_NOTES,
+  config: McpServerConfig,
+) =>
+  call.withoutApproval
+    ? call.recordChange(
+        servers.redact(sourceText(CHANGE_NOTES[action], { name: config.name, target: serverTarget(config) })),
+      )
+    : Effect.void;
 
 const findServer = (servers: AgentMcpServers, name: string) => {
   const config = servers.list().find((candidate) => candidate.name === name);

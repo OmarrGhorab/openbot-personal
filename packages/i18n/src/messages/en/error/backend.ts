@@ -158,6 +158,8 @@ export const messages = defineMessages("error.backend", {
   "error.backend.routineRunNoSession":
     "OpenBot cannot interrupt the active routine run because its provider session is unavailable.",
   "error.backend.interruptSelf": "An agent cannot interrupt itself.",
+  "error.backend.markDoneInvalid": "Call mark_done with no argument, or with reviewRound from 1 to 3.",
+  "error.backend.markDoneNoAgent": "The agent of this chat was not found.",
   "error.backend.interruptOtherWork":
     "This agent works on a task that your message did not start. Only the user or the sender of that task can stop it.",
   "error.backend.interruptStarting": "This agent is still starting a turn. Try again after the turn starts.",
@@ -165,6 +167,10 @@ export const messages = defineMessages("error.backend", {
     "OpenBot cannot interrupt this agent because its provider session is unavailable.",
   "error.backend.memoryTextRequired": "Memory text is required.",
   "error.backend.memoryTextTooLong": "Memory text is too long.",
+  "error.backend.projectMemoryLimit":
+    "This project has reached the limit of {limit} memories. Tell the user; they can edit or delete one.",
+  "error.backend.projectMemoryDuplicate": "This project already has a memory with this text.",
+  "error.backend.projectMemoryUndoEmpty": "There is no project memory change to undo.",
   "error.backend.mcpServerGone": "This MCP server no longer exists.",
   "error.backend.routineFlowLinkGone": "This connection no longer exists.",
   "error.backend.routineFlowSameAgent": "An agent cannot hand work to itself.",
@@ -313,9 +319,14 @@ export const messages = defineMessages("error.backend", {
   "error.backend.taskMoveRefused": "Only a message that you sent to this agent alone can run as a task.",
   "error.backend.taskNotFound": "This task is not available.",
   "error.backend.taskClosed": "This task is closed. Open it again to send a message.",
+  "error.backend.taskDeleteOpen": "Close the task before you delete it.",
   "error.backend.taskStillRunning": "This task still runs. Wait until it stops, then close it.",
   "error.backend.taskTitleRequired": "Give the task a short title.",
   "error.backend.taskToolInvalid": "Give the task a title of at most 120 characters and a brief that says what to do.",
+  "error.backend.pullRequestToolInvalid": "Give the project as owner/repo and the pull request number.",
+  "error.backend.pullRequestNotTicketTask": "Only a work thread that started from a ticket can own a pull request.",
+  "error.backend.pullRequestOwned": "Another work thread already owns this pull request.",
+  "error.backend.ticketWatchInvalid": "Check the project and the label. For GitHub, the project is owner/repo.",
   "error.backend.taskOwnChatOnly":
     "Start a task only from your own chat. A channel, a messaging conversation or another task cannot start one.",
   "error.backend.taskOpenLimit":

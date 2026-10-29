@@ -18,6 +18,7 @@ import { AGENT_TASK_LIMIT_CODECS } from "./agent-task-limit-v1";
 import { AGENT_TASKS_CODECS } from "./agent-tasks-v1";
 import { AGENT_UPDATE_CODECS } from "./agent-update-v1";
 import { BITWARDEN_CONNECTOR_CODECS } from "./bitwarden-connector-v1";
+import { BOARD_TICKETS_CODECS } from "./board-tickets-v1";
 import { BROWSER_PAGE_STATE_CODECS } from "./browser-page-state-v1";
 import { BROWSER_PROFILES_CODECS } from "./browser-profiles-v1";
 import { BROWSER_SIGN_IN_CODECS } from "./browser-sign-in-v1";
@@ -43,6 +44,7 @@ import { MCP_SIGN_IN_CODECS } from "./mcp-sign-in-v1";
 import { ONEPASSWORD_CONNECTOR_CODECS } from "./onepassword-connector-v1";
 import { PROMPT_CACHE_TTL_CODECS } from "./prompt-cache-ttl-v1";
 import { PROVIDER_ACCOUNT_RELAY_CODECS } from "./provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_V2_CODECS } from "./provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CODECS } from "./provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_CODECS } from "./provider-host-sign-in-v1";
 import { PROVIDER_USAGE_RESET_CODECS } from "./provider-usage-reset-v1";
@@ -119,6 +121,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...STORAGE_DISK_CODECS,
   ...PROVIDER_ACCOUNTS_CODECS,
   ...PROVIDER_ACCOUNT_RELAY_CODECS,
+  ...PROVIDER_ACCOUNT_RELAY_V2_CODECS,
   ...PROVIDER_USAGE_RESET_CODECS,
   ...ONEPASSWORD_CONNECTOR_CODECS,
   ...BITWARDEN_CONNECTOR_CODECS,
@@ -130,6 +133,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...AGENT_TASKS_CODECS,
   ...SIDE_QUESTION_CODECS,
   ...BROWSER_PROFILES_CODECS,
+  ...BOARD_TICKETS_CODECS,
 ]);
 
 export function optionalRouteCodec(path: string): OptionalRouteCodec | undefined {

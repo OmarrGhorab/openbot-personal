@@ -40,6 +40,37 @@ table, IPC channel or product string, or when a term in the code disagrees with 
 - **server**: a joined team server (`ServerSummary`, `servers:*`), the local Team API host
   (`HostStatus`, `host:*`, `src/main/team-api-server.ts`), the account API (`apps/auth-api`,
   `auth:*`), or an MCP server (`createSdkMcpServer`).
+- **team job**: one run of a Raven Stack team on one ticket: its roles, its head commit, its fix
+  rounds and its state (`RavenTeamJob`, `raven_team_jobs`, `ipc-raven-team.ts`, `raven-team:*`).
+  Several tickets start several jobs. A job whose role agents already run as many jobs as their
+  work-thread limit is **queued** (`RavenTeamJob.queued`, derived, not a column): it has no work
+  thread yet and starts when a slot frees.
+
+- **job ticket** and **role ticket**: the Tickets board tickets of a team job. The job ticket has the
+  job's `teamJobId` and no `teamRoleId`; each role ticket has both, is assigned to the role's agent, and
+  moves with the role's work thread (`BoardTicketTeamFollower`).
+- **team role**: a part of a Raven Stack team job, such as Architect, Builder, Reviewer or Quality. A role
+  is one agent on one model, with its own work thread (`RavenTeamRoleRun`, `raven_team_roles`,
+  `RavenTeamRoleDefinition` in a template). **teammate** and **group** stay prompt and UI words.
+
+- **team template**: the roles of a team, with the skills, the default model and the access of each
+  role. The built-in templates are code; a user copy is a row (`RavenTeamTemplate`,
+  `raven_team_templates`). The UI calls the built-in "Raven Stack team" **Autopilot (full)**:
+  Architect, Builder, Reviewer, Quality and the optional Editor. **Autopilot lite**
+  (`RAVEN_STACK_LITE_TEMPLATE_ID`) is for small tickets: the Builder plans in its own turn, then the
+  Reviewer gives the verdict. It has no Architect, Quality or Editor.
+
+- **work thread**: one agent task (`projection_agent_tasks`, `AgentTask`, `agent:tasks:*`,
+  `agent-tasks-v1`) with its own thread, provider session, queue and stop, beside the agent's main
+  chat. `projection_agent_work_threads` adds its workspace (a git worktree under
+  `.openbot/worktrees/` on branch `openbot/<id>`, or the shared workspace) and its pause. The UI
+  keeps the released word **task**; "work thread" is a code and documentation term. A **side chat**
+  is the released side question (`AskSideQuestionInput`, `SideQuestionPanel`) attached to one work
+  thread with `taskId`: a tool-less, unsaved generation that reads the thread and never changes it.
+- **question**: a prompt that waits for the user's answer (`AgentPromptQuestion`, `prompt` events,
+  `respondToPrompt`). A work thread whose turn waits for one is **blocked** (`AgentTask.question`),
+  and holds no turn slot. The **Questions** list (`OpenQuestion`, `agent:open-questions`) shows the
+  questions of every agent and thread on this computer.
 - **thread**: durable `projection_threads` record. **conversation**: its read projection, with no
   separate table. **provider session**: private CLI resume state (`projection_provider_sessions`).
   **team session**: authenticated remote connection. **turn**: one exchange in a thread.

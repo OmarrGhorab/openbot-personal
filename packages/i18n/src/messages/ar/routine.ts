@@ -360,4 +360,21 @@ export const messages = {
   "routine.settings.discardDescription": "التغييرات اللي ماحفظتهاش في الروتين ده هتضيع.",
   "routine.settings.discardConfirm": "تجاهل التغييرات",
   "routine.settings.keepEditing": "كمّل التعديل",
+
+  "routine.template.title": "ابدأ من قالب",
+  "routine.template.description":
+    "مهام كود مجدولة لمستودع الوكيل ده. محتاج مستودع Git فيه GitHub remote، و gh متسجّل دخوله على الجهاز ده.",
+  "routine.template.schedule": "جدوِل",
+  "routine.template.scheduleNamed": "جدوِل {name}",
+  "routine.template.scheduled": "متجدوِل",
+  "routine.template.scheduledNotice": "{name} اتجدولت.",
+  "routine.template.failed": "مقدرناش نجدول الروتين.",
+  "routine.template.updateDependencies.name": "حدّث الـ dependencies",
+  "routine.template.updateDependencies.summary": "كل أسبوع. بيفتح Pull Request مسودة فيه التحديثات الصغيرة.",
+  "routine.template.triageFlakyTests.name": "راجع التيستات المتقلبة",
+  "routine.template.triageFlakyTests.summary": "كل أسبوع. بيدوّر على تيستات بتفشل وتنجح على نفس الـ commit.",
+  "routine.template.cleanTodos.name": "نضّف الـ TODOs القديمة",
+  "routine.template.cleanTodos.summary": "كل شهر. بيصلّح الـ TODOs الصغيرة القديمة وبيفتح تذاكر للكبيرة.",
+  "routine.template.triageStaleIssues.name": "راجع الـ issues القديمة",
+  "routine.template.triageStaleIssues.summary": "كل أسبوع. بينبّه على الـ issues اللي مفيهاش نشاط، وبعدين بيقفلها.",
 } as const satisfies PartialTranslation<typeof source>;

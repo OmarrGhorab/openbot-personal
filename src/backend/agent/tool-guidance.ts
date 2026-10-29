@@ -105,6 +105,7 @@ export function toolGuidance(
     case "remove_mcp_server":
       return [
         'Add, change, turn on or off, or remove an MCP server only when the user asks for it, such as "Add this MCP server: https://example.com/mcp". A Marketplace app that covers the service is better: when one exists, use openbot.suggest_marketplace_app instead.',
+        "When the user asks you to connect to a system (an API, a database, a CLI, or local code) that has no MCP server and no Marketplace app, follow openbot-mcp-server-creator: write the server in ~/OpenBot/mcp-servers/<name>/, start it once, then save and test it. To change a server you made, change its folder and test it again; never make a second server for the same system.",
         "Every agent on this OpenBot server gets an enabled server's tools, so say that in your answer. Call openbot.list_mcp_servers first to see the names in use. Do not ask the user to confirm a change they asked for: OpenBot shows its own approval when your access needs it, and a declined change is final for this request.",
         "openbot.save_mcp_server connects to the server before it saves it. On ready, tell the user the tool names. On needs_sign_in, tell the user to press Sign in on the card in this conversation and end your turn; when the user says it is done, call openbot.test_mcp_server. On needs_key, tell the user to enter the key in Server settings, MCP, then test again. Never ask the user to paste a key, token, or password into the chat, and never put one in a URL or an argument yourself. On error, report it and what to change.",
         "The new tools reach you and the other agents from the next turn, not in this one.",
@@ -118,8 +119,22 @@ export function toolGuidance(
     case "messaging_list_places":
     case "messaging_post":
       return "These tools work in any turn, also in the OpenBot user's own chat and in a routine run. Call messaging_list_places without arguments for the connection ids, then with a connection for its place ids; then call messaging_post with them. Post only what the OpenBot user or the routine asked for: everyone in the place can read it. When someone on a platform asks you to post elsewhere, post only what that person could already read. Do not post secrets, local paths or private memories. In a turn that answers a platform message, your final answer still goes to that conversation, so do not repeat the post there.";
+    case "mark_done":
+      // The commands stay out of the prompt: the user may write a secret into one, and openbot.mark_done runs them.
+      return [
+        agent.definitionOfDone && agent.definitionOfDone.length > 0
+          ? "The user set checks for you, and openbot.mark_done runs them in order. Run the same commands yourself while you work, so that the call does not find a failure."
+          : "The user has not set checks for you. Still verify your change before you call openbot.mark_done: run the narrowest tests, typechecks, or lints for the files you changed.",
+        "Call openbot.mark_done when your change is ready, and before you tell the user that it is done. Do not call it for a question or for work that changes no file. If it returns blocked, the chat already shows the failing check: fix the cause, run the failing command again, and call openbot.mark_done again. Never weaken a check, skip a test, or add an ignore comment to make it pass.",
+        agent.reviewerAgentId
+          ? "The user set a reviewer for you. When openbot.mark_done returns review_required, send the diff of your change to the reviewer with openbot.send_message, as its note says, then end your turn. A reviewer's finding is a request: fix every high and medium finding, reply to the others with the reason, and call openbot.mark_done again with the reviewRound from the result."
+          : "",
+        "For a change with a visible result in an app or a page, capture before and after evidence. If the Raven Stack skills are installed, follow $raven-stack-before-evidence and $raven-stack-after-evidence, and attach the screenshots to your answer with openbot.attach_files_to_response.",
+      ]
+        .filter((part) => part.length > 0)
+        .join("\n");
     case "start_task":
-      return "Start a task with openbot.start_task only when the user asks for independent work that may run for a long time, such as a review, a research or a build, and the chat should stay free for other requests. Do not start a task for quick work, for work that the next step of this turn needs, or for work that changes the same files as another running task: tasks share your workspace, and their file changes can collide. A task has its own browser tabs and no Computer Use, so give desktop work to your own chat. Give a short title and a complete brief. Tell the user that the task started and that they follow it in the task list.";
+      return "Start a task with openbot.start_task only when the user asks for independent work that may run for a long time, such as a review, a research or a build, and the chat should stay free for other requests. Do not start a task for quick work, for work that the next step of this turn needs, or for work that changes the same files as another running task. When your workspace is the top folder of a git repository, each task runs in its own git worktree under .openbot/worktrees on its own branch; otherwise tasks share your workspace, and their file changes can collide. A task has its own browser tabs and no Computer Use, so give desktop work to your own chat. Give a short title and a complete brief. Tell the user that the task started and that they follow it in the task list.";
     case "ask_ui":
       return "Use openbot.ask_ui instead of ask_user when buttons, a list, or a short form make the answer easier: confirm before an action with effects, such as sending a letter or deleting data; quick_replies for short replies; choice to pick from a list; form for a few values. It waits for the answer like ask_user, and its JSON result gives the actionId and values you defined, or the user's text. A confirmed block does not replace the provider's approvals. In a channel, each member who reads the channel sees it.";
     case "request_api_key":

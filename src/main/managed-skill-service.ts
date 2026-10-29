@@ -13,11 +13,20 @@ import { isPathInside } from "../backend/path-containment";
 const MANAGED_SKILL_SLUG = "openbot-site-hosting";
 export const SKILL_CREATOR_SKILL_SLUG = "openbot-skill-creator";
 export const DATA_SKILL_SLUG = "openbot-data";
+/** Tells an agent how to write, register, test and update an MCP server for a system that has none. */
+export const MCP_SERVER_CREATOR_SKILL_SLUG = "openbot-mcp-server-creator";
+/** Tells an agent when a question is worth stopping its work for, and when to decide alone. */
+export const ASK_WHEN_BLOCKED_SKILL_SLUG = "ask-when-blocked";
+/** Tells an agent to end a finished task with the parts it is not sure about, and why. */
+export const CONFIDENCE_NOTES_SKILL_SLUG = "confidence-notes";
 /** The skills OpenBot writes into every agent workspace. Add a new managed skill here too. */
 export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
   MANAGED_SKILL_SLUG,
   SKILL_CREATOR_SKILL_SLUG,
   DATA_SKILL_SLUG,
+  MCP_SERVER_CREATOR_SKILL_SLUG,
+  ASK_WHEN_BLOCKED_SKILL_SLUG,
+  CONFIDENCE_NOTES_SKILL_SLUG,
 ]);
 export const OWNERSHIP_MARKER = ".openbot-managed.json";
 /** The workspace skill folders OpenBot writes. Each provider reads at least one of them. */

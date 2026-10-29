@@ -892,7 +892,13 @@ function markerLabel(
   sourceText: (text: string) => string,
 ): string {
   if (marker.kind === "unavailable") return marker.label;
-  if (marker.kind === "model-switch" || marker.kind === "channel-change" || marker.kind === "vault-change")
+  if (
+    marker.kind === "model-switch" ||
+    marker.kind === "channel-change" ||
+    marker.kind === "vault-change" ||
+    marker.kind === "mcp-change" ||
+    marker.kind === "done-check"
+  )
     return sourceText(marker.text);
   if (marker.kind === "context-reset") return t("chat.marker.contextReset");
   if (marker.kind === "marketplace-suggestion") return t("chat.marker.marketplaceSuggestion");
@@ -970,7 +976,9 @@ function markerAccessibleLabel(
     marker.kind === "mcp-sign-in" ||
     marker.kind === "model-switch" ||
     marker.kind === "channel-change" ||
-    marker.kind === "vault-change"
+    marker.kind === "vault-change" ||
+    marker.kind === "mcp-change" ||
+    marker.kind === "done-check"
   )
     return label;
   if (marker.kind === "skill-lifecycle") return t("chat.marker.accessible.named", { label, name: marker.skillName });

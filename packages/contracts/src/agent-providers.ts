@@ -453,7 +453,7 @@ export function isManagedRuntimeProvider(provider: AgentProviderId): provider is
 
 /**
  * The providers that only newer Team API protocols carry: Gemini and custom ACP agents from protocol
- * 5, Cursor and Cline from protocol 6, Pi and Muse from protocol 7. No protocol carries Inception yet.
+ * 5, Cursor and Cline from protocol 6, Pi and Muse from protocol 7, Inception from protocol 8.
  * A joined server's settings list one only when the host's status names it.
  */
 export const LOCAL_ONLY_PROVIDERS = [
@@ -471,12 +471,33 @@ export function isLocalOnlyProvider(provider: AgentProviderId): boolean {
 }
 
 /**
+ * The providers that sign in only with an API key that the user saves in OpenBot. They run in the Pi
+ * CLI, so their Connect and Reconnect open the key dialog. Upstream also lists DeepSeek and OpenRouter.
+ */
+export const KEY_ONLY_PROVIDERS = ["inception"] as const satisfies readonly AgentProviderId[];
+export type KeyOnlyProviderId = (typeof KEY_ONLY_PROVIDERS)[number];
+
+export function isKeyOnlyProvider(provider: AgentProviderRef): provider is KeyOnlyProviderId {
+  return isOneOf(KEY_ONLY_PROVIDERS, provider);
+}
+
+/**
  * Whether a computer on `platform` can run a sign-in whose code the user pastes back (Claude). The
  * CLI shows its prompt only on a terminal, and only the util-linux `script` gives it one there: see
  * the backend `startCliCodeLogin`.
  */
 export function pasteCodeSignInSupported(platform: string): boolean {
   return platform === "linux";
+}
+
+/**
+ * Whether a Workspace only agent of `provider` can run on a computer on `platform`. A
+ * `confined-process` provider runs in an operating system sandbox that only macOS has now
+ * (`process-confinement.ts`), so on Linux and Windows its Workspace only agent does not start and
+ * only Full access runs it.
+ */
+export function workspaceOnlySupported(provider: AgentProviderId, platform: string): boolean {
+  return agentProviderDescriptor(provider).workspaceEnforcement !== "confined-process" || platform === "darwin";
 }
 
 /**

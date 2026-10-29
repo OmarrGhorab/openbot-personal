@@ -183,7 +183,7 @@ function userTables(db: DatabaseSync): string[] {
   return db
     .prepare(
       `SELECT name FROM sqlite_master
-       WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'schema_migrations'
+       WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'autonomy_%' AND name <> 'schema_migrations'
        ORDER BY name`,
     )
     .all()
@@ -214,7 +214,7 @@ function schemaShape(db: DatabaseSync) {
   const objects = db
     .prepare(
       `SELECT type, name, tbl_name FROM sqlite_master
-       WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name`,
+       WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE 'autonomy_%' ORDER BY type, name`,
     )
     .all()
     .map((row) => ({ ...row }));
@@ -231,7 +231,7 @@ function schemaShape(db: DatabaseSync) {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 45 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 51 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });

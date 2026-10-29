@@ -7,13 +7,14 @@ import type {
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { isAgentTaskActive, isAgentTaskOpen } from "@openbot/team-client/agent-tasks";
-import { ArrowUp, Button, ChevronLeft, ChevronRight, Plus, X } from "@openbot/ui";
+import { ArrowUp, Button, ChevronLeft, ChevronRight, Input, Plus, X } from "@openbot/ui";
 import type { AgentMessage, AgentProfile } from "@openbot/ui/data";
 import { AgentActivityIndicator, nextAgentActivityLabel } from "@openbot/ui/features/conversation/AgentActivity";
 import { ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow";
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
 import { ApprovalCard } from "@openbot/ui/features/conversation/ConversationPrompts";
+import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
 import { TaskMark, type TaskMarkState } from "@openbot/ui/features/conversation/TaskList";
 import { type TextValue, useText } from "@openbot/ui/text";
 import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
@@ -45,10 +46,22 @@ function taskMarkState(task: AgentTask): TaskMarkState {
  */
 export function agentTaskStatus(task: AgentTask, t: TextValue["t"], waitsForApproval = false): string {
   if (task.state === "running" && waitsForApproval) return t("conversation.tasks.state.waitingApproval");
+  if (task.state === "running" && task.question) return t("conversation.tasks.state.waitingAnswer");
   if (task.state === "running") return task.progress ?? t("conversation.tasks.state.running");
+  if (isAgentTaskPaused(task)) return t("conversation.tasks.state.paused");
   if (task.state === "queued") return t("conversation.tasks.state.queued");
   if (task.outcome === null) return t("conversation.tasks.state.new");
   return t(OUTCOME_TEXT[task.outcome]);
+}
+
+/** Whether `pauseTask` holds the queue of this open task. A closed task is never paused. */
+export function isAgentTaskPaused(task: AgentTask): boolean {
+  return task.state !== "closed" && typeof task.pausedAt === "string";
+}
+
+/** The branch of a task that runs in its own git worktree, else null. */
+export function agentTaskBranch(task: AgentTask): string | null {
+  return task.workspace?.mode === "worktree" ? task.workspace.branch : null;
 }
 
 /**
@@ -169,7 +182,16 @@ export interface AgentTaskPanelProps {
   onStop: () => void;
   onCloseTask: () => void;
   onReopen: () => void;
+  /** Holds the queue of the task. Absent where the host cannot pause, as on a joined server. */
+  onPause?: (() => void) | undefined;
+  onResume?: (() => void) | undefined;
+  /** Gives the task a new title. Resolves false when the title did not change. */
+  onRename?: ((title: string) => Promise<boolean>) | undefined;
+  /** Deletes a closed task with its history. */
+  onDelete?: (() => void) | undefined;
   onClosePanel: () => void;
+  /** Opens the side chat about this task. It reads the task and never changes it. */
+  onAskSide?: (() => void) | undefined;
   /** Back to the task list of the side panel. */
   onBack?: (() => void) | undefined;
   onOpenLink: (url: string) => void;
@@ -300,13 +322,31 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
   const { t } = useText();
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
+  const sentMessages = () =>
+    composerSentHistory(
+      props.messages
+        .filter((message) => message.author === "you" && (message.kind === undefined || message.kind === "text"))
+        .map((message) => message.body),
+    );
+  /** The title that the rename field holds, or null when the title shows. */
+  const [renaming, setRenaming] = createSignal<string | null>(null);
   // The panel stays mounted when the user opens another task, so text typed for one task must not go to the next.
   createEffect(
     () => props.task?.id,
     () => {
       setDraft("");
+      setRenaming(null);
     },
   );
+  const submitRename = async () => {
+    const title = renaming()?.trim();
+    const rename = props.onRename;
+    if (!title || !rename || title === props.task?.title) {
+      setRenaming(null);
+      return;
+    }
+    if (await rename(title)) setRenaming(null);
+  };
   const activityLabel = nextAgentActivityLabel();
   const fades = createScrollFades();
   onSettled(() => fades.stop);
@@ -356,7 +396,86 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
         <Show when={props.task}>
           {(task) => <AgentTaskMark task={task()} waitsForApproval={props.approval !== undefined} />}
         </Show>
-        <h2 title={title()}>{title()}</h2>
+        <Show
+          when={renaming() !== null}
+          fallback={
+            <h2 title={title()}>
+              <Show when={props.task && props.onRename} fallback={title()}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  class="agent-tasks-panel-title"
+                  aria-label={t("sidebar.workThreads.rename")}
+                  title={t("sidebar.workThreads.rename")}
+                  onClick={() => setRenaming(props.task?.title ?? "")}
+                >
+                  {title()}
+                </Button>
+              </Show>
+            </h2>
+          }
+        >
+          <form
+            class="agent-tasks-panel-rename"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitRename();
+            }}
+          >
+            <Input
+              class="agent-tasks-panel-rename-input"
+              size="sm"
+              aria-label={t("sidebar.workThreads.renameLabel")}
+              value={renaming() ?? ""}
+              maxlength={160}
+              ref={(element: HTMLInputElement) => queueMicrotask(() => element.select())}
+              onValueChange={(value) => setRenaming(value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setRenaming(null);
+              }}
+              onBlur={() => void submitRename()}
+            />
+          </form>
+        </Show>
+        <Show when={props.task && isAgentTaskOpen(props.task) ? props.task : undefined}>
+          {(task) => (
+            <Show
+              when={isAgentTaskPaused(task())}
+              fallback={
+                <Show when={props.onPause}>
+                  {(pause) => (
+                    <Button type="button" variant="ghost" size="xs" onClick={() => pause()()}>
+                      {t("conversation.tasks.panel.pause")}
+                    </Button>
+                  )}
+                </Show>
+              }
+            >
+              <Show when={props.onResume}>
+                {(resume) => (
+                  <Button type="button" variant="ghost" size="xs" onClick={() => resume()()}>
+                    {t("conversation.tasks.panel.resume")}
+                  </Button>
+                )}
+              </Show>
+            </Show>
+          )}
+        </Show>
+        <Show when={props.task && props.onAskSide}>
+          {(ask) => (
+            <Button type="button" variant="ghost" size="xs" onClick={() => ask()()}>
+              {t("conversation.tasks.panel.askSide")}
+            </Button>
+          )}
+        </Show>
+        <Show when={closed() && props.onDelete}>
+          {(remove) => (
+            <Button type="button" variant="ghost" size="xs" class="agent-tasks-panel-delete" onClick={() => remove()()}>
+              {t("conversation.tasks.panel.delete")}
+            </Button>
+          )}
+        </Show>
         <Show when={props.task}>
           {(task) => (
             <Show
@@ -399,6 +518,13 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
         onScroll={fades.measure}
       >
         <div class="virtual-chat-list virtual-chat-list-static" ref={fades.watch}>
+          <Show when={props.task && agentTaskBranch(props.task)}>
+            {(branch) => (
+              <p class="agent-tasks-panel-origin agent-tasks-panel-branch">
+                {t("conversation.tasks.panel.worktree", { branch: branch() })}
+              </p>
+            )}
+          </Show>
           <Show when={props.task?.origin === "agent"}>
             <p class="agent-tasks-panel-origin">
               {t("conversation.tasks.panel.startedByAgent", { name: props.agent.name })}
@@ -482,6 +608,7 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
                 agentId={props.agent.id}
                 agents={props.agents}
                 value={draft()}
+                sentHistory={sentMessages()}
                 placeholder={placeholder()}
                 ariaLabel={placeholder()}
                 disabled={sending()}

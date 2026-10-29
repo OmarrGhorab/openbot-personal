@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
+import { redactProjectMemoryToolInput } from "../project-memory/project-memory-history-redaction";
 import { decodeThreadItem, type ThreadItem } from "../protocol";
 import type { ProviderHistoryFragment } from "../provider-history";
 import type { DatabaseCore } from "./database-core";
@@ -191,10 +192,12 @@ export class ProviderHistoryStore {
         const absoluteIndex =
           previous && item.id && input.fragment.itemOffset === undefined ? previous.itemIndex : provisionalIndex;
         const itemKey = item.id ?? `${item.type}:${absoluteIndex}`;
-        const storedItem =
+        // A project-memory tool saved its text redacted; the model's call input keeps no copy of a secret either.
+        const storedItem = redactProjectMemoryToolInput(
           previous && item.id && input.fragment.itemOffset === undefined
             ? mergeHistoryItem(previous.itemJson, item)
-            : item;
+            : item,
+        );
         const itemJson = JSON.stringify(storedItem);
         if (previous && previous.itemIndex === absoluteIndex && previous.itemJson === itemJson) continue;
         changed = true;

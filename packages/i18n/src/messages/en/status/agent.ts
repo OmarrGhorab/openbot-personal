@@ -9,6 +9,10 @@ export const messages = defineMessages("status.agent", {
   "status.agent.modelSwitchedForError": "Provider error. Switched to {model}.",
   "status.agent.modelReturnedAfterError": "Switched back to {model} after the provider error.",
   "status.agent.marketplaceSuggested": "Suggested a Marketplace app: {app}.",
+  "status.agent.doneChecksPassed": "Checks passed: {count}.",
+  "status.agent.doneChecksPassedReview": "Checks passed: {count} · waiting for review by {reviewer}.",
+  "status.agent.doneCheckFailed": "Check failed: {command} (exit {exitCode}).",
+  "status.agent.doneCheckStopped": "Check stopped before it finished: {command}.",
   "status.agent.channelMemberAdded": "{agent} added {member} to the channel. {person} asked for it.",
   "status.agent.channelMemberRemoved": "{agent} removed {member} from the channel. {person} asked for it.",
   "status.agent.channelInstructionsChanged": "{agent} changed the channel instructions. {person} asked for it.",
@@ -43,6 +47,16 @@ export const messages = defineMessages("status.agent", {
   "status.agent.mcpServerEnable": "Turn on the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerDisable": "Turn off the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerRemove": "Remove the MCP server {name} and its sign-in from every agent on this server.",
+  "status.agent.mcpServerAddedWithoutApproval":
+    "Added the MCP server {name} without asking: {target}. Every agent on this server gets its tools. To undo, remove it in Server settings, MCP.",
+  "status.agent.mcpServerChangedWithoutApproval":
+    "Changed the MCP server {name} without asking: {target}. To undo, edit it in Server settings, MCP.",
+  "status.agent.mcpServerEnabledWithoutApproval":
+    "Turned on the MCP server {name} without asking: {target}. To undo, turn it off in Server settings, MCP.",
+  "status.agent.mcpServerDisabledWithoutApproval":
+    "Turned off the MCP server {name} without asking: {target}. To undo, turn it on in Server settings, MCP.",
+  "status.agent.mcpServerRemovedWithoutApproval":
+    "Removed the MCP server {name} without asking: {target}. To undo, add it again in Server settings, MCP.",
   "status.agent.mcpSignInRequested": "The MCP server {name} needs a sign-in. Sign in from Server settings, MCP.",
   "status.agent.vaultAdded": "Saved to Vault: {name}",
   "status.agent.vaultUpdated": "Changed in Vault: {name}",

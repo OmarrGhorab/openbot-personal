@@ -2,9 +2,14 @@ import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbo
 import type {
   AcpRegistryEntry,
   AgentSessionSettings,
+  AgentTicketWatch,
+  BoardTicket,
   HiddenAgentsSnapshot,
+  MacAutomationResult,
+  MacAutomationTarget,
   McpSignInApp,
   McpSignInAppState,
+  RavenTeamJob,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
@@ -13,6 +18,7 @@ import {
   type AgentBrowserProfile,
   type AgentDefaults,
   type AgentEvent,
+  type AgentMcpChangesPreference,
   type AgentMemory,
   type AgentMemoryLimitPreference,
   type AgentMemorySelection,
@@ -58,6 +64,7 @@ import {
   createMcpServerId,
   DEFAULT_AGENT_ACCESS,
   DEFAULT_AGENT_DEFAULTS,
+  DEFAULT_AGENT_MCP_CHANGES_PREFERENCE,
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_APP_APPEARANCE,
   DEFAULT_APP_INTERFACE_SIZE,
@@ -97,6 +104,10 @@ import {
   type OpenBotDesktopApi,
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
+  PROJECT_MEMORY_LIMIT,
+  type ProjectMemory,
+  type ProjectMemoryState,
+  type ProjectMemoryUndo,
   type PromptCacheTtlSetting,
   type ProviderAccountStatus,
   type ProviderDetectionSettings,
@@ -173,8 +184,10 @@ import {
 } from "./fixtures";
 import { mockAgentAnalytics, mockHostAnalytics } from "./mock-agent-analytics";
 import { createMockAuth, type MockAuthOptions } from "./mock-auth";
+import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
+import { mockBoardTickets, type PreviewBoardTicketSync } from "./mock-board-tickets";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
@@ -187,6 +200,7 @@ import { createMockMessaging } from "./mock-messaging";
 import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
+import { mockRavenTeam } from "./mock-raven-team";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
 import { createMockRoutineFeed } from "./mock-routine-feed";
 import { mockRoutineFlows } from "./mock-routine-flows";
@@ -231,6 +245,12 @@ export interface MockOpenBotOptions
   routineRuns?: Record<string, RoutineRun[]>;
   routineFlowLinks?: RoutineFlowLink[];
   routineFlowSteps?: RoutineFlowStep[];
+  /** The Tickets board when the preview starts. Empty by default, as after the upgrade. */
+  boardTickets?: BoardTicket[];
+  /** The ticket systems that the Tickets board can sync with. None by default: the board shows no sync. */
+  boardTicketSync?: PreviewBoardTicketSync;
+  /** The Raven Stack team jobs when the preview starts, newest first. None by default. */
+  ravenTeamJobs?: RavenTeamJob[];
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -242,6 +262,8 @@ export interface MockOpenBotOptions
   channels?: MockChannelSeed[];
   /** The sidebar sections and assignments when the preview starts. */
   sidebarLayout?: SidebarLayoutSnapshot;
+  /** What macOS answers for each Apple app that the Marketplace asks about. An app not listed is allowed. */
+  macAutomationAnswers?: Partial<Record<MacAutomationTarget, MacAutomationResult["status"]>>;
 }
 
 /** A message that the preview sent. A listener that returns true answers it, and the mock adds no reply. */
@@ -400,6 +422,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let agentAccess: AgentAccessChange = { revision: 0, everyone: {}, roles: [] };
   const agentMemoryLimitListeners = new Set<(preference: AgentMemoryLimitPreference) => void>();
   let remoteSessionReuse: RemoteSessionReusePreference = { ...DEFAULT_REMOTE_SESSION_REUSE_PREFERENCE };
+  let agentMcpChanges: AgentMcpChangesPreference = { ...DEFAULT_AGENT_MCP_CHANGES_PREFERENCE };
   // The preview computer has Tailscale, so the private route shows what it finds.
   let remoteNetworkRoute: RemoteNetworkRouteState = { route: DEFAULT_REMOTE_NETWORK_ROUTE, tailscaleConnected: true };
   let appBehavior: AppBehaviorPreference = {
@@ -642,6 +665,42 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   );
   const memories = new Map<string, AgentMemory[]>(Object.entries(clone(options.memories ?? {})));
   const memorySelections = new Map<string, AgentMemorySelection>();
+  // One project folder for every preview agent, so the preview shows the list that agents share.
+  const previewProjectPath = "/Users/preview/OpenBot/project";
+  const previewAuthor = agents[0]?.id ?? null;
+  let projectMemoryEntries: ProjectMemory[] = [
+    {
+      id: "project-memory-command",
+      kind: "command",
+      text: "Run bun run test:changed before you push.",
+      savedByAgentId: previewAuthor,
+      updatedByAgentId: null,
+      createdAt: "2026-10-20T09:00:00.000Z",
+      updatedAt: "2026-10-20T09:00:00.000Z",
+    },
+    {
+      id: "project-memory-rule",
+      kind: "rule",
+      text: "Keep the renderer-to-main trust boundary unchanged.",
+      savedByAgentId: null,
+      updatedByAgentId: null,
+      createdAt: "2026-10-21T10:30:00.000Z",
+      updatedAt: "2026-10-21T10:30:00.000Z",
+    },
+  ];
+  let projectMemoryBefore: ProjectMemory[] | null = null;
+  let projectMemoryUndo: ProjectMemoryUndo | null = null;
+  const projectMemoryState = (): ProjectMemoryState =>
+    clone({
+      projectPath: previewProjectPath,
+      memories: projectMemoryEntries,
+      limit: PROJECT_MEMORY_LIMIT,
+      undo: projectMemoryUndo,
+    });
+  const recordProjectChange = (action: ProjectMemoryUndo["action"], memoryId: string, before: ProjectMemory[]) => {
+    projectMemoryBefore = clone(before);
+    projectMemoryUndo = { action, memoryId, changedByAgentId: null, changedAt: new Date().toISOString() };
+  };
   for (const entries of memories.values()) {
     const selected: AgentMemory[] = [];
     for (const entry of [...entries].sort((left, right) => {
@@ -683,6 +742,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
 
   let tables: SharedTable[] = clone(options.tables ?? STORY_SHARED_TABLES);
   const routines = new Map<string, Routine[]>(Object.entries(clone(options.routines ?? {})));
+  const ticketWatches = new Map<string, AgentTicketWatch>();
   const routineRuns = new Map<string, RoutineRun[]>(Object.entries(clone(options.routineRuns ?? {})));
 
   function emitAgentEvent(event: AgentEvent): void {
@@ -690,6 +750,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   }
 
   const tasks = new Map<string, AgentTask[]>(Object.entries(clone(options.tasks ?? {})));
+  /** The Tickets board mock, which moves the tickets of work threads as their turns go. */
+  const boardTaskListeners = new Set<(snapshot: AgentTasksSnapshot) => void>();
   const taskConversations = new Map<string, ConversationSnapshot>(
     Object.entries(clone(options.taskConversations ?? {})),
   );
@@ -720,7 +782,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   }
 
   function emitTasks(agentId: string): void {
-    emitAgentEvent({ type: "agent-tasks-changed", snapshot: taskList(agentId) });
+    const snapshot = taskList(agentId);
+    emitAgentEvent({ type: "agent-tasks-changed", snapshot });
+    for (const listener of boardTaskListeners) listener(clone(snapshot));
   }
 
   function findTask(agentId: string, taskId: string): AgentTask {
@@ -768,6 +832,13 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       createdAt: now,
       updatedAt: now,
       closedAt: null,
+      pausedAt: null,
+      // The preview has no git repository, so each mock work thread has its own worktree path.
+      workspace: {
+        mode: "worktree",
+        path: `~/OpenBot/Agents/${agentId}/.openbot/worktrees/${messageCounter}`,
+        branch: `openbot/${messageCounter}`,
+      },
     };
     tasks.set(agentId, [task, ...(tasks.get(agentId) ?? [])]);
     return task;
@@ -963,6 +1034,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   );
   const billingPlans = previewBillingServers();
 
+  const ravenTeam = mockRavenTeam(options.ravenTeamJobs);
   const api: OpenBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
     getSetupState: async () => clone(setupState),
@@ -985,6 +1057,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     setAppBehaviorPreference: async (change) => {
       appBehavior = { ...appBehavior, ...change };
       return clone(appBehavior);
+    },
+    getAgentMcpChangesPreference: async () => clone(agentMcpChanges),
+    setAgentMcpChangesPreference: async ({ withoutApproval }) => {
+      agentMcpChanges = { withoutApproval };
+      return clone(agentMcpChanges);
     },
     getRemoteSessionReusePreference: async () => clone(remoteSessionReuse),
     setRemoteSessionReusePreference: async ({ keepBetweenRuns }) => {
@@ -1111,6 +1188,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       openChat: async () => undefined,
       onFocusAgent: () => () => undefined,
       onComposerDictation: () => () => undefined,
+    },
+    // The preview has no Apple apps to ask. Each app answers from the options, and allows by default.
+    macAutomation: {
+      request: async (targets) =>
+        targets.map((target) => ({ target, status: options.macAutomationAnswers?.[target] ?? "granted" })),
     },
     computerUse: {
       getState: async () => computerUseState(),
@@ -1247,6 +1329,30 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     providerRuntimes: mockProviderRuntimes.providerRuntimes,
     openUrl: async () => undefined,
     voice: mockVoice.voice,
+    ravenTeam,
+    boardTickets: mockBoardTickets(
+      options.boardTickets,
+      (agentId, text) => {
+        const task = createTask(agentId, text);
+        runTaskTurn(task, text);
+        return { taskId: task.id, threadId: task.threadId };
+      },
+      (listener) => {
+        boardTaskListeners.add(listener);
+      },
+      options.boardTicketSync,
+      // Each team job's tickets follow the job, as the desktop's team follower does.
+      (listener) => {
+        const followJob = async (jobId: string) => {
+          const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
+          if (job) listener(clone(job));
+        };
+        ravenTeam.onChanged(({ jobId }) => {
+          if (jobId) void followJob(jobId);
+        });
+        for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
+      },
+    ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },
       (agentId) => emitAgentEvent({ type: "routine-flows-changed", agentId }),
@@ -1309,6 +1415,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     monitor: createMockMonitor(
       (channelId) => options.channels?.find((seed) => seed.channel.id === channelId)?.channel.name,
     ),
+    autonomy: createMockAutonomy(() => agents),
     hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
@@ -2079,9 +2186,16 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           allowAutomation,
           allowNewChat,
           quickAcknowledgement,
+          definitionOfDone,
+          reviewerAgentId,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
+        // Same rules as the store: `null` or an empty list clears the checks, and `null` clears the reviewer.
+        if (definitionOfDone === null || definitionOfDone?.length === 0) delete updated.definitionOfDone;
+        else if (definitionOfDone !== undefined) updated.definitionOfDone = definitionOfDone;
+        if (reviewerAgentId === null) delete updated.reviewerAgentId;
+        else if (reviewerAgentId !== undefined) updated.reviewerAgentId = reviewerAgentId;
         // `null` returns the agent to the account default, which an agent records by having no value.
         const flags = { allowAutomation, allowNewChat, quickAcknowledgement };
         for (const key of AGENT_DEFAULT_KEYS) {
@@ -2215,9 +2329,60 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         memories.delete(agentId);
         emitAgentEvent({ type: "memories-changed", agentId });
       },
+      getProjectMemories: async () => projectMemoryState(),
+      createProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        const now = new Date().toISOString();
+        const memory: ProjectMemory = {
+          id: `project-memory-${Date.now()}`,
+          kind: input.kind,
+          text: input.text.trim(),
+          savedByAgentId: null,
+          updatedByAgentId: null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        projectMemoryEntries = [memory, ...before];
+        recordProjectChange("create", memory.id, before);
+        return projectMemoryState();
+      },
+      updateProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        const now = new Date().toISOString();
+        projectMemoryEntries = before.map((memory) =>
+          memory.id === input.memoryId
+            ? { ...memory, kind: input.kind, text: input.text.trim(), updatedByAgentId: null, updatedAt: now }
+            : memory,
+        );
+        recordProjectChange("update", input.memoryId, before);
+        return projectMemoryState();
+      },
+      deleteProjectMemory: async (input) => {
+        const before = projectMemoryEntries;
+        projectMemoryEntries = before.filter((memory) => memory.id !== input.memoryId);
+        recordProjectChange("delete", input.memoryId, before);
+        return projectMemoryState();
+      },
+      undoProjectMemory: async () => {
+        if (projectMemoryBefore) projectMemoryEntries = clone(projectMemoryBefore);
+        projectMemoryBefore = null;
+        projectMemoryUndo = null;
+        return projectMemoryState();
+      },
       listTables: async () => clone(tables),
       deleteTable: async (input) => {
         tables = tables.filter((table) => table.name !== input.name);
+      },
+      ticketWatch: async (agentId) => ticketWatches.get(agentId) ?? null,
+      setTicketWatch: async (input) => {
+        const now = new Date().toISOString();
+        const previous = ticketWatches.get(input.agentId);
+        const watch: AgentTicketWatch = { ...input, createdAt: previous?.createdAt ?? now, updatedAt: now };
+        ticketWatches.set(input.agentId, watch);
+        return clone(watch);
+      },
+      clearTicketWatch: async (agentId) => {
+        ticketWatches.delete(agentId);
       },
       listRoutines: async (agentId) => clone(routines.get(agentId) ?? []),
       createRoutine: async (input) => {
@@ -2515,6 +2680,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       listWaits: async (agentId) => ({ agentId, waits: [] }),
       cancelWait: async () => undefined,
       listTasks: async (agentId) => taskList(agentId),
+      // The preview has no provider, so no agent asks a question.
+      listOpenQuestions: async () => ({ questions: [] }),
       readTask: async (input) => clone(taskConversation(findTask(input.agentId, input.taskId))),
       startTask: async (input) => {
         const task = createTask(input.agentId, input.text);
@@ -2548,11 +2715,13 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         emitTasks(input.agentId);
       },
       pauseTask: async (input) => {
-        findTask(input.agentId, input.taskId);
+        const task = findTask(input.agentId, input.taskId);
+        task.pausedAt = new Date().toISOString();
         emitTasks(input.agentId);
       },
       resumeTask: async (input) => {
-        findTask(input.agentId, input.taskId);
+        const task = findTask(input.agentId, input.taskId);
+        task.pausedAt = null;
         emitTasks(input.agentId);
       },
       closeTask: async (input) => {
@@ -2566,12 +2735,36 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           hold: null,
           closedAt: now,
           updatedAt: now,
+          pausedAt: null,
         });
         emitTasks(input.agentId);
       },
       reopenTask: async (input) => {
         const task = findTask(input.agentId, input.taskId);
         Object.assign(task, { state: "idle", closedAt: null, updatedAt: new Date().toISOString() });
+        emitTasks(input.agentId);
+      },
+      renameTask: async (input) => {
+        const task = findTask(input.agentId, input.taskId);
+        const title =
+          input.title
+            .split("\n")
+            .find((line) => line.trim())
+            ?.trim()
+            .slice(0, 120) ?? "";
+        if (!title) throw new Error(sourceText("error.backend.taskTitleRequired"));
+        Object.assign(task, { title, updatedAt: new Date().toISOString() });
+        emitTasks(input.agentId);
+        return clone(task);
+      },
+      deleteTask: async (input) => {
+        const task = findTask(input.agentId, input.taskId);
+        if (!task.closedAt) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+        tasks.set(
+          input.agentId,
+          (tasks.get(input.agentId) ?? []).filter((candidate) => candidate.id !== task.id),
+        );
+        taskConversations.delete(task.id);
         emitTasks(input.agentId);
       },
       acknowledgeFailedTurn: async () => undefined,

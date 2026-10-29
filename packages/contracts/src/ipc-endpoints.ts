@@ -10,6 +10,27 @@ import type {
   ResetAgentSessionSettingInput,
   SetAgentSessionSettingInput,
 } from "./ipc-agent-session-settings";
+import type { AgentTicketWatch, AgentTicketWatchInput } from "./ipc-agent-ticket-watch";
+import type {
+  AutonomyAuditFilter,
+  AutonomyAuditPage,
+  AutonomySnapshot,
+  SetAgentApprovalRulesInput,
+  SetAgentBudgetsInput,
+} from "./ipc-autonomy";
+import type {
+  BoardTicket,
+  BoardTicketEvent,
+  BoardTicketProvider,
+  BoardTicketSyncState,
+  BoardTicketSyncTarget,
+  BoardTicketsChanged,
+  CommentBoardTicketInput,
+  CreateBoardTicketInput,
+  MoveBoardTicketInput,
+  StartBoardTicketInput,
+  UpdateBoardTicketInput,
+} from "./ipc-board-tickets";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
 // is a request the renderer invokes or an event the main process sends. That is what lets a
 // registrar bind its handlers as an object keyed by endpoint, so a channel with no handler, and a
@@ -76,6 +97,7 @@ import type {
   SaveAgentProfileInput,
   SaveAgentProfileResult,
 } from "./ipc-agent-profile";
+import type { OpenQuestionsSnapshot } from "./ipc-agent-questions";
 import type { AgentRuntimeSnapshot } from "./ipc-agent-runtime";
 import type { AskSideQuestionInput } from "./ipc-agent-side-question";
 import type {
@@ -101,6 +123,7 @@ import type {
   AgentTask,
   AgentTaskInput,
   AgentTasksSnapshot,
+  RenameAgentTaskInput,
   RunQueuedMessageAsTaskInput,
   StartAgentTaskInput,
 } from "./ipc-agent-tasks";
@@ -136,6 +159,8 @@ import type {
   HostUpdateSettingsChange,
   HostUpdateStatus,
   IdleRestartTarget,
+  MacAutomationResult,
+  MacAutomationTarget,
   MacPermissionId,
   ProviderRuntimeSnapshot,
   SaveSetupInput,
@@ -317,6 +342,7 @@ import type {
   SubmitMarketplaceAgentInput,
 } from "./ipc-marketplace-agents";
 import type {
+  AgentMcpChangesPreference,
   CancelMcpSignInInput,
   CompleteMcpSignInRelayInput,
   McpServerConfig,
@@ -372,6 +398,13 @@ import type {
   OnePasswordConnectorStatus,
   OnePasswordHostConnectInput,
 } from "./ipc-onepassword-connector";
+import type {
+  CreateProjectMemoryInput,
+  DeleteProjectMemoryInput,
+  ProjectMemoryAgentInput,
+  ProjectMemoryState,
+  UpdateProjectMemoryInput,
+} from "./ipc-project-memories";
 import type { PromptCacheTtl, PromptCacheTtlSetting } from "./ipc-prompt-cache";
 import type {
   DetectedModelServer,
@@ -391,6 +424,16 @@ import type {
   SteerQueuedMessageInput,
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
+import type {
+  GiveRavenTeamRoleFullAccessInput,
+  PlanRavenTeamInput,
+  RavenTeamChanged,
+  RavenTeamJob,
+  RavenTeamPlan,
+  RavenTeamTemplate,
+  SaveRavenTeamTemplateInput,
+  SetRavenTeamRoleModelInput,
+} from "./ipc-raven-team";
 import type {
   RemoteDesktopSetupAction,
   RemoteDesktopSetupStatus,
@@ -617,6 +660,10 @@ export const IPC_ENDPOINTS = {
     // Server settings set the limit of this computer (`hostAdmin.setAgentMemoryLimit`), here or from a
     // joined admin, so main tells the window.
     agentMemoryLimitPreference: event<AgentMemoryLimitPreference>()("app:agent-memory-limit"),
+    getAgentMcpChangesPreference: request<undefined, AgentMcpChangesPreference>()("app:get-agent-mcp-changes"),
+    setAgentMcpChangesPreference: request<AgentMcpChangesPreference, AgentMcpChangesPreference>()(
+      "app:set-agent-mcp-changes",
+    ),
     getRemoteSessionReusePreference: request<undefined, RemoteSessionReusePreference>()("app:get-remote-session-reuse"),
     setRemoteSessionReusePreference: request<RemoteSessionReusePreference, RemoteSessionReusePreference>()(
       "app:set-remote-session-reuse",
@@ -886,6 +933,10 @@ export const IPC_ENDPOINTS = {
     revealPermissionApp: request<undefined, void>()("computer-use:reveal-permission-app"),
     highlightPlacement: event<ComputerUseHighlightPlacement>()("computer-use:highlight-placement"),
   },
+  macAutomation: {
+    /** Sends one harmless Apple Event to each app, so macOS shows its Automation prompts now. */
+    request: request<readonly MacAutomationTarget[], MacAutomationResult[]>()("mac-automation:request"),
+  },
   skills: {
     localList: request<undefined, MarketplaceSkillDetail[]>()("skills:local-list"),
     localGet: request<LocalSkillRevisionInput, MarketplaceSkillDetail>()("skills:local-get"),
@@ -985,7 +1036,7 @@ export const IPC_ENDPOINTS = {
     // `openRelaySignIn` opens the page when the user asks, and `pasteRelaySignIn` takes the address
     // the browser shows when the callback cannot reach this computer.
     startRelaySignIn: scopedRequest<AgentProviderId, void, "required">()("provider-admin:start-relay-sign-in"),
-    // The relayed sign-in of an account after the first (`provider-account-relay-v1`). The other relay
+    // The relayed sign-in of an account after the first (`provider-account-relay-v1` or `-v2`). The other relay
     // requests run it, by its provider, as they run `startRelaySignIn`'s.
     startAccountRelaySignIn: scopedRequest<ConnectProviderAccountInput, void, "required">()(
       "provider-admin:start-account-relay-sign-in",
@@ -1361,6 +1412,9 @@ export const IPC_ENDPOINTS = {
     resumeTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:resume"),
     closeTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:close"),
     reopenTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:reopen"),
+    // Local only, as pause: `agent-tasks-v1` has no rename or delete route.
+    renameTask: scopedRequest<RenameAgentTaskInput, AgentTask>()("agent:tasks:rename"),
+    deleteTask: scopedRequest<AgentTaskInput, void>()("agent:tasks:delete"),
     acknowledgeFailedTurn: scopedRequest<AcknowledgeFailedTurnInput, void>()("agent:acknowledge-failed-turn"),
     cancelQueuedMessage: scopedRequest<CancelQueuedMessageInput, void>()("agent:cancel-queued-message"),
     steerQueuedMessage: scopedRequest<SteerQueuedMessageInput, void>()("agent:steer-queued-message"),
@@ -1375,6 +1429,57 @@ export const IPC_ENDPOINTS = {
     respondToBrowserSecret: scopedRequest<LocalBrowserSecretResponse, void>()("agent:respond-to-browser-secret"),
     respondToBrowserTakeover: scopedRequest<RespondToBrowserTakeoverInput, void>()("agent:respond-to-browser-takeover"),
     scopedEvent: event<ScopedAgentEvent>()("agent:event"),
+  },
+  // The questions of every agent of this computer, for the Questions list. Local only: a joined server
+  // has no route for them, so its questions reach the phone and the web as prompts, as before.
+  agentQuestions: {
+    listOpenQuestions: request<undefined, OpenQuestionsSnapshot>()("agent:open-questions"),
+  },
+  // Project memory lives on this computer only, so its calls are plain requests, not scoped to a host.
+  projectMemories: {
+    getProjectMemories: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:get-project-memories"),
+    createProjectMemory: request<CreateProjectMemoryInput, ProjectMemoryState>()("agent:create-project-memory"),
+    updateProjectMemory: request<UpdateProjectMemoryInput, ProjectMemoryState>()("agent:update-project-memory"),
+    deleteProjectMemory: request<DeleteProjectMemoryInput, ProjectMemoryState>()("agent:delete-project-memory"),
+    undoProjectMemory: request<ProjectMemoryAgentInput, ProjectMemoryState>()("agent:undo-project-memory"),
+  },
+  // A Raven Stack team runs on this computer; its roles are local agents. The one event carries the
+  // job that changed, so the view reads the job again instead of polling.
+  ravenTeam: {
+    listTemplates: request<undefined, RavenTeamTemplate[]>()("raven-team:list-templates"),
+    saveTemplate: request<SaveRavenTeamTemplateInput, RavenTeamTemplate[]>()("raven-team:save-template"),
+    deleteTemplate: request<string, RavenTeamTemplate[]>()("raven-team:delete-template"),
+    plan: request<PlanRavenTeamInput, RavenTeamPlan>()("raven-team:plan"),
+    start: request<PlanRavenTeamInput, RavenTeamJob>()("raven-team:start"),
+    listJobs: request<undefined, RavenTeamJob[]>()("raven-team:list-jobs"),
+    setRoleModel: request<SetRavenTeamRoleModelInput, RavenTeamJob>()("raven-team:set-role-model"),
+    giveRoleFullAccess: request<GiveRavenTeamRoleFullAccessInput, RavenTeamJob>()("raven-team:give-role-full-access"),
+    stop: request<string, RavenTeamJob>()("raven-team:stop"),
+    resume: request<string, RavenTeamJob>()("raven-team:resume"),
+    changed: event<RavenTeamChanged>()("raven-team:changed"),
+  },
+  // The Tickets board of this computer. The one event carries the changed ticket IDs, so the view reads
+  // the list again instead of polling.
+  // The board requests take the server: a joined server serves its board through `board-tickets-v1`.
+  // The sync stays on this computer.
+  boardTickets: {
+    list: scopedQuery<BoardTicket[]>()("board-tickets:list"),
+    events: scopedRequest<string, BoardTicketEvent[]>()("board-tickets:events"),
+    create: scopedRequest<CreateBoardTicketInput, BoardTicket>()("board-tickets:create"),
+    update: scopedRequest<UpdateBoardTicketInput, BoardTicket>()("board-tickets:update"),
+    move: scopedRequest<MoveBoardTicketInput, BoardTicket>()("board-tickets:move"),
+    comment: scopedRequest<CommentBoardTicketInput, BoardTicketEvent>()("board-tickets:comment"),
+    // Creates the ticket when it has no ID yet, and starts its work thread.
+    start: scopedRequest<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
+    delete: scopedRequest<string, void>()("board-tickets:delete"),
+    changed: event<BoardTicketsChanged>()("board-tickets:changed"),
+    // The sync with a connected ticket system. The state lists no system when none is connected.
+    syncState: request<undefined, BoardTicketSyncState>()("board-tickets:sync-state"),
+    syncProjects: request<BoardTicketProvider, string[]>()("board-tickets:sync-projects"),
+    // A new target imports its issues at once. Null stops the sync; the tickets stay.
+    setSyncTarget: request<BoardTicketSyncTarget | null, BoardTicketSyncState>()("board-tickets:set-sync-target"),
+    syncNow: request<undefined, BoardTicketSyncState>()("board-tickets:sync-now"),
+    syncChanged: event<BoardTicketSyncState>()("board-tickets:sync-changed"),
   },
   agentMemories: {
     getMemorySelection: scopedRequest<string, AgentMemorySelectionState | null>()("agent:get-memory-selection"),
@@ -1392,6 +1497,12 @@ export const IPC_ENDPOINTS = {
     // every table in the one shared database, and the user's delete is not owner-gated.
     listTables: scopedQuery<SharedTable[]>()("shared:list-tables"),
     deleteTable: scopedRequest<DeleteSharedTableInput, void>()("shared:delete-table"),
+  },
+  agentTicketWatch: {
+    // The ticket source of an agent. It is local to this computer.
+    ticketWatch: request<string, AgentTicketWatch | null>()("agent:ticket-watch:get"),
+    setTicketWatch: request<AgentTicketWatchInput, AgentTicketWatch>()("agent:ticket-watch:set"),
+    clearTicketWatch: request<string, void>()("agent:ticket-watch:clear"),
   },
   agentRoutines: {
     listRoutines: scopedRequest<string, Routine[]>()("agent:list-routines"),
@@ -1591,6 +1702,15 @@ export const IPC_ENDPOINTS = {
       "agent:admin:add-template-agent",
     ),
   },
+  // Graded permissions, budgets, the audit log and Stop all agents, for the agents of this computer.
+  autonomy: {
+    getSnapshot: request<undefined, AutonomySnapshot>()("autonomy:get-snapshot"),
+    setApprovalRules: request<SetAgentApprovalRulesInput, AutonomySnapshot>()("autonomy:set-approval-rules"),
+    setBudgets: request<SetAgentBudgetsInput, AutonomySnapshot>()("autonomy:set-budgets"),
+    stopAll: request<undefined, AutonomySnapshot>()("autonomy:stop-all"),
+    resumeAll: request<undefined, AutonomySnapshot>()("autonomy:resume-all"),
+    listAuditLog: request<AutonomyAuditFilter, AutonomyAuditPage>()("autonomy:list-audit-log"),
+  },
   // A separate group, not part of `servers`: a group is what one registrar covers in full, and
   // `servers` is bound against `RemoteServerManager` while these are bound against `AgentService`.
   mcpServers: {
@@ -1770,6 +1890,7 @@ export const IPC_GROUP_PATHS = {
   globalVoice: "globalVoice",
   browserDock: "browserDock",
   computerUse: "computerUse",
+  macAutomation: "macAutomation",
   skills: "skills",
   customProviders: "customProviders",
   providerDetection: "providerDetection",
@@ -1786,6 +1907,8 @@ export const IPC_GROUP_PATHS = {
   routineFeed: "routineFeed",
   monitor: "monitor",
   routineFlows: "routineFlows",
+  ravenTeam: "ravenTeam",
+  boardTickets: "boardTickets",
   routineResults: "routineResults",
   billing: "billing",
   license: "license",
@@ -1797,8 +1920,11 @@ export const IPC_GROUP_PATHS = {
   notifications: "notifications",
   agent: "agent",
   agentMemories: "agent",
+  projectMemories: "agent",
+  agentQuestions: "agent",
   sharedTables: "agent",
   agentRoutines: "agent",
+  agentTicketWatch: "agent",
   channelMemories: "agent",
   channelRoutines: "agent",
   agentAttachments: "agent",
@@ -1808,6 +1934,7 @@ export const IPC_GROUP_PATHS = {
   browserInput: "browser",
   servers: "servers",
   agentAdmin: "agent",
+  autonomy: "autonomy",
   mcpServers: "agent",
   storage: "storage",
   agentImport: "agentImport",

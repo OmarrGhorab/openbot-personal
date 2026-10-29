@@ -293,6 +293,7 @@ export function createConversationViewScope(props: ConversationProps) {
     setSideQuestionDraft,
     openSideQuestion,
     askSideQuestion,
+    sendSideQuestionToThread,
     deleteSideQuestion,
   } = sideQuestions;
   const skills = createSkillsStore({ props, settingsOpen });
@@ -1717,6 +1718,7 @@ export function createConversationViewScope(props: ConversationProps) {
     setSideQuestionDraft,
     openSideQuestion,
     askSideQuestion,
+    sendSideQuestionToThread,
     conversationPanelElement,
     setAgentActivitySlotElement,
     setBrowserSurfaceElement,

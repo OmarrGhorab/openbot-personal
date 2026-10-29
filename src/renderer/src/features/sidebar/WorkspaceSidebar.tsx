@@ -1,11 +1,14 @@
 import type { ChatWindowTarget } from "@openbot/contracts/ipc";
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
+import { taskApproval } from "@openbot/team-client/agent-tasks";
+import { toast } from "@openbot/ui";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates } from "@openbot/ui/features/sidebar/sidebar-agent-states";
+import type { SidebarWorkThreads } from "@openbot/ui/features/sidebar/sidebar-types";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
@@ -16,9 +19,11 @@ import { DirectConversation } from "../../lazy-views";
 import { useNavigation } from "../../navigation";
 import { usePlatform } from "../../platform";
 import { useTurns } from "../../turns";
+import { useAgentTasks } from "../agent-tasks/agent-tasks-context";
 import { useAgentActions } from "../agents/agent-actions";
 import { agentThreadAttention } from "../agents/agent-thread-attention";
 import { useAgents } from "../agents/agents-context";
+import { createStopAllControl } from "../autonomy/stop-all-control";
 import { useChannels } from "../channels/channels-context";
 import { useConversation } from "../conversation/conversation-context";
 import { useDirectMessages } from "../conversation/direct-messages-context";
@@ -51,6 +56,9 @@ const MOBILE_APP_DISMISSED_STORAGE_KEY = "openbot:mobile-app-card-dismissed";
  */
 export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { t } = useText();
+  // Stop all agents of this computer. The switch is in the top bar, so the sidebar owns its state.
+  const stopAll = createStopAllControl();
+  onSettled(() => void stopAll.refresh());
   const layout = useLayout();
   const windowPage = useWindowPage();
   /** The Tasks page shows beside the list. No row is open, so a click on a row opens its chat. */
@@ -172,6 +180,32 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     }),
   );
 
+  const agentTasks = useAgentTasks();
+  /**
+   * The open tasks of an agent whose task list loaded on this computer. A task row selects the agent
+   * and asks its chat to show the task in the side panel.
+   */
+  const workThreads = (agentId: string): SidebarWorkThreads | undefined => {
+    if (!agentTasks.available()) return undefined;
+    const snapshot = agentTasks.snapshot(agentId);
+    if (!snapshot || snapshot.tasks.length === 0) return undefined;
+    const show = (taskId: string | null) => {
+      if (activeAgent()?.id !== agentId || tasksOpen() || channels.state.selectedId || activeDirectMember())
+        selectAgent(agentId);
+      agentTasks.requestOpenTask(agentId, taskId);
+    };
+    return {
+      tasks: snapshot.tasks,
+      waitsForApproval: (task) => taskApproval(task, approvals()) !== undefined,
+      onOpen: show,
+      onNew: () => show(null),
+      onRename: (taskId, title) => agentTasks.renameTask(agentId, taskId, title),
+      onPause: (taskId) => agentTasks.pauseTask(agentId, taskId),
+      onResume: (taskId) => agentTasks.resumeTask(agentId, taskId),
+      onClose: (taskId) => agentTasks.closeTask(agentId, taskId),
+    };
+  };
+
   return (
     <Sidebar
       channels={visibleChannels()}
@@ -197,6 +231,16 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       onOpenServerSettings={(trigger) => {
         const server = activeServer();
         if (server) openServerSettings(server.id, trigger);
+      }}
+      stopAll={{
+        stopped: stopAll.stopped(),
+        disabled: !stopAll.ready(),
+        onToggle: () =>
+          void stopAll.toggle().catch(() =>
+            toast.error(t("autonomy.stopAll.failed"), {
+              report: { operation: "agent", source: "system", cause_code: "unknown" },
+            }),
+          ),
       }}
       chatHistory={{
         back: chatName(chatHistory.previous()),
@@ -268,6 +312,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
           : (agentId) => void appPort().openChatWindow({ serverId: activeServerId(), agentId })
       }
       windowAgentIds={windowAgentIds()}
+      workThreads={workThreads}
       compact={layout.leftPanelCompact()}
       onExpand={layout.expandSidebar}
       onOpenSearch={() => setGlobalSearchVisibility(true)}

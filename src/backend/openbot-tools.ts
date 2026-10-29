@@ -8,6 +8,7 @@ import {
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
+import { MARK_DONE_TOOL, markDoneToolSchema } from "./agent/agent-done-checks";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
@@ -20,6 +21,7 @@ import {
   updateAgentsToolSchema,
   updateProfileToolSchema,
 } from "./agent/profile-tools";
+import { PROJECT_MEMORY_TOOL_DEFINITIONS } from "./agent/project-memory-tool-inputs";
 import { ROUTINE_NO_UPDATE_TOOL, ROUTINE_REPORT_FAILURE_TOOL } from "./agent/routine-quiet-runs";
 import { captureScreenToolShape } from "./agent/screen-capture";
 import {
@@ -31,7 +33,14 @@ import {
 import { LOCAL_SKILL_TOOL_DEFINITIONS } from "./agent/skill-tools";
 import { CREATE_WEBHOOK_ROUTINE_TOOL, UPDATE_WEBHOOK_ROUTINE_TOOL } from "./agent/webhook-routine-tool";
 import { API_KEY_NAME_PATTERN } from "./agent-api-keys";
-import { START_TASK_TOOL, startTaskToolSchema } from "./agent-tasks/agent-tasks";
+import {
+  REGISTER_PULL_REQUEST_TOOL,
+  registerPullRequestToolSchema,
+  START_TASK_TOOL,
+  startTaskToolSchema,
+  UPDATE_TICKET_TOOL,
+  updateTicketToolSchema,
+} from "./agent-tasks/agent-tasks";
 import {
   AWAIT_EVENT_TOOL,
   awaitEventToolSchema,
@@ -554,7 +563,26 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
     shape: startTaskToolSchema.shape,
   },
+  {
+    name: MARK_DONE_TOOL,
+    description:
+      "Call before you report a change or a task as done. OpenBot runs the checks that the user set for you, one after the other, in your workspace or in your task's worktree, and posts each result in this chat. A failed check means the work is not done: fix the cause, then call again. When the user set a reviewer, a passing call first tells you to send the diff to the reviewer. After its findings, fix every high and medium finding and call again with reviewRound set to the round.",
+    shape: markDoneToolSchema.shape,
+  },
+  {
+    name: REGISTER_PULL_REQUEST_TOOL,
+    description:
+      "Record the pull request that you opened for this task's ticket. Call it once, right after you open the pull request. OpenBot then sends the failed checks and the review comments of that pull request into this task. Only a task that started from a ticket can record one.",
+    shape: registerPullRequestToolSchema.shape,
+  },
+  {
+    name: UPDATE_TICKET_TOOL,
+    description:
+      'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
+    shape: updateTicketToolSchema.shape,
+  },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
+  ...PROJECT_MEMORY_TOOL_DEFINITIONS,
   {
     name: "remember",
     description:

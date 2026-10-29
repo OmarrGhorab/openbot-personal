@@ -136,6 +136,8 @@ export function ApprovalCard(props: {
   onAlwaysAllow?: (() => Promise<boolean>) | undefined;
   /** The agent this grant would cover, for the confirmation the grant deserves. */
   agentName?: string | undefined;
+  /** The title of the work thread (task) whose turn asks, when the request is not from the main chat. */
+  threadTitle?: string | undefined;
 }) {
   const { t, errorMessage, sourceText } = useText();
   const [submitting, setSubmitting] = createSignal(false);
@@ -183,6 +185,7 @@ export function ApprovalCard(props: {
           {t("prompt.approval.badge")}
         </Badge>
       </header>
+      <WorkThreadLabel title={props.threadTitle} />
       <Show when={props.approval.reason}>{(reason) => <p class="approval-reason">{sourceText(reason())}</p>}</Show>
       <div class="approval-card-content">
         <Show when={props.approval.command}>
@@ -250,8 +253,20 @@ export function ApprovalCard(props: {
   );
 }
 
+/** Names the work thread (task) that a request comes from. Nothing for the main chat. */
+function WorkThreadLabel(props: { title: string | undefined }) {
+  const { t } = useText();
+  return (
+    <Show when={props.title}>
+      {(title) => <p class="conversation-interaction-thread">{t("prompt.workThread.from", { title: title() })}</p>}
+    </Show>
+  );
+}
+
 interface BrowserTakeoverCardProps {
   request?: BrowserTakeoverRequest | undefined;
+  /** The title of the work thread (task) whose turn asks, when the request is not from the main chat. */
+  threadTitle?: string | undefined;
   agentName: string;
   tab: BrowserTab | undefined;
   preview: BrowserPreview | null;
@@ -286,6 +301,7 @@ export function BrowserTakeoverCard(props: BrowserTakeoverCardProps) {
         return (
           <BrowserSecretCard
             request={request()}
+            threadTitle={props.threadTitle}
             onOpen={props.onOpen}
             loadPreview={actions.loadPreview}
             vaultSave={actions.vaultSave}
@@ -386,6 +402,7 @@ function BrowserManualTakeoverCard(props: BrowserTakeoverCardProps) {
           </Badge>
         </Show>
       </header>
+      <WorkThreadLabel title={props.threadTitle} />
       <Show when={props.request?.secret?.requiresReload}>
         <p>{t("prompt.browser.reload")}</p>
       </Show>

@@ -352,6 +352,10 @@ export const messages = defineMessages("error.provider", {
     "Muse authentication is not verified. Connect on the host computer, or set a Meta API key.",
   "error.provider.museSignIn": "Sign in to Muse on the host computer to continue.",
   "error.provider.inceptionSignIn": "Add an Inception API key to continue.",
+  "error.provider.keyProviderRefused":
+    "{provider} refused the saved API key. Replace or remove the key in Settings, then try again.",
+  "error.provider.keyProviderNoBalance":
+    "The {provider} account of the saved API key has no balance. Add credit to the account, then try again.",
   "error.provider.terminalLoginFailed":
     "The sign-in terminal could not open. Open the provider CLI on this host and sign in there, then refresh providers.",
   "error.provider.nativeArchiveInvalid": "The provider download does not contain a valid installation.",

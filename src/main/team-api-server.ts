@@ -34,6 +34,7 @@ import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/agent-
 import { AGENT_SESSION_SETTINGS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-session-settings-v1";
 import { AGENT_TASK_LIMIT_CAPABILITY } from "@openbot/contracts/team-protocol/agent-task-limit-v1";
 import { AGENT_TASKS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-tasks-v1";
+import { BOARD_TICKETS_CAPABILITY } from "@openbot/contracts/team-protocol/board-tickets-v1";
 import { BROWSER_PAGE_STATE_CAPABILITY } from "@openbot/contracts/team-protocol/browser-page-state-v1";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { BROWSER_USER_CONTROL_CAPABILITY } from "@openbot/contracts/team-protocol/browser-user-control-v1";
@@ -71,6 +72,7 @@ import {
   ONEPASSWORD_CONNECTOR_CAPABILITY,
   PROMPT_CACHE_TTL_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_HOST_SIGN_IN_CAPABILITY,
   PROVIDER_USAGE_RESET_CAPABILITY,
@@ -186,6 +188,7 @@ import { routeAgentSessionSettings } from "./team-api/route-agent-session-settin
 import { routeAgentTasks } from "./team-api/route-agent-tasks";
 import { routeAgents } from "./team-api/route-agents";
 import { routeBitwardenConnector } from "./team-api/route-bitwarden-connector";
+import { routeBoardTickets } from "./team-api/route-board-tickets";
 import { routeBrowser } from "./team-api/route-browser";
 import { routeBrowserProfiles } from "./team-api/route-browser-profiles";
 import { routeChannels } from "./team-api/route-channels";
@@ -860,6 +863,7 @@ export class TeamApiServer {
         "handled"
       )
         return;
+      if ((await routeBoardTickets(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeRoutineResults(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeAgentSessionSettings(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeAgentHidden(context, this.#options.hiddenAgents, hidden)) === "handled") return;
@@ -1886,7 +1890,7 @@ export class TeamApiServer {
           return this.#options.mcpServers !== undefined && this.#options.mcpSignIns !== undefined;
         if (capability === SIGN_IN_RELAY_CAPABILITY)
           return this.#options.mcpServers !== undefined && this.#options.signInRelay !== undefined;
-        if (capability === PROVIDER_ACCOUNT_RELAY_CAPABILITY)
+        if (capability === PROVIDER_ACCOUNT_RELAY_CAPABILITY || capability === PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY)
           return (
             this.#options.mcpServers !== undefined &&
             this.#options.signInRelay !== undefined &&
@@ -1934,6 +1938,7 @@ export class TeamApiServer {
         if (capability === HOST_TIMEZONE_CAPABILITY) return this.#options.admin?.timezone !== undefined;
         if (capability === AGENT_MEMORY_LIMIT_CAPABILITY) return this.#options.admin?.memoryLimit !== undefined;
         if (capability === PROMPT_CACHE_TTL_CAPABILITY) return this.#options.admin?.promptCacheTtl !== undefined;
+        if (capability === BOARD_TICKETS_CAPABILITY) return this.#options.admin?.boardTickets !== undefined;
         if (capability === AGENT_ACCESS_CAPABILITY) return this.#options.agentAccess !== undefined;
         if (capability === HOST_UPDATE_CAPABILITY || capability === HOST_MEMBER_UPDATE_CAPABILITY)
           return this.#options.admin?.update !== undefined;

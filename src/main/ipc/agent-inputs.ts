@@ -12,10 +12,12 @@ import {
   type CreateAgentMemoryInput,
   type CreateChannelMemoryInput,
   type CreateChannelRoutineInput,
+  type CreateProjectMemoryInput,
   type CreateRoutineInput,
   type DeleteAgentMemoryInput,
   type DeleteChannelMemoryInput,
   type DeleteChannelRoutineInput,
+  type DeleteProjectMemoryInput,
   type DeleteRoutineInput,
   type DownloadAttachmentsInput,
   type EditQueuedMessageInput,
@@ -24,8 +26,10 @@ import {
   type InterruptTurnInput,
   isAgentAccess,
   isAgentBackupModels,
+  isAgentDefinitionOfDone,
   isAgentModel,
   isAgentProvider,
+  isAgentReviewerAgentId,
   isAgentTaskLimit,
   isAvatarHue,
   isAvatarSeed,
@@ -43,7 +47,11 @@ import {
   type OpenSharedFileInput,
   type OpenWorkspaceFileInput,
   type PasteMessageLinkInput,
+  PROJECT_MEMORY_KINDS,
+  type ProjectMemoryAgentInput,
+  type ProjectMemoryKind,
   type ReadConversationPageInput,
+  type RenameAgentTaskInput,
   type ReorderQueueInput,
   type RespondToApprovalInput,
   type RespondToBrowserTakeoverInput,
@@ -69,6 +77,7 @@ import {
   type UpdateAgentMemoryInput,
   type UpdateChannelMemoryInput,
   type UpdateChannelRoutineInput,
+  type UpdateProjectMemoryInput,
   type UpdateQueuedMessageInput,
   type UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
@@ -234,6 +243,43 @@ export function parseUpdateAgentMemory(value: unknown): UpdateAgentMemoryInput {
 
 export function parseDeleteAgentMemory(value: unknown): DeleteAgentMemoryInput {
   if (!isObject(value)) throw new Error("Invalid memory deletion request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),
+  };
+}
+
+export function parseProjectMemoryAgent(value: unknown): ProjectMemoryAgentInput {
+  if (!isObject(value)) throw new Error("Invalid project memory request.");
+  return { agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier) };
+}
+
+function parseProjectMemoryKind(value: unknown): ProjectMemoryKind {
+  if (!isOneOf(PROJECT_MEMORY_KINDS, value)) throw new Error("Invalid project memory kind.");
+  return value;
+}
+
+export function parseCreateProjectMemory(value: unknown): CreateProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory creation request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    kind: parseProjectMemoryKind(value.kind),
+    text: requireString(value.text, "text", INPUT_LIMITS.agentMemoryText),
+  };
+}
+
+export function parseUpdateProjectMemory(value: unknown): UpdateProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory update request.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),
+    kind: parseProjectMemoryKind(value.kind),
+    text: requireString(value.text, "text", INPUT_LIMITS.agentMemoryText),
+  };
+}
+
+export function parseDeleteProjectMemory(value: unknown): DeleteProjectMemoryInput {
+  if (!isObject(value)) throw new Error("Invalid project memory deletion request.");
   return {
     agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
     memoryId: requireString(value.memoryId, "memoryId", INPUT_LIMITS.identifier),
@@ -567,6 +613,14 @@ export function parseAgentTask(value: unknown): AgentTaskInput {
   };
 }
 
+export function parseRenameAgentTask(value: unknown): RenameAgentTaskInput {
+  if (!isObject(value)) throw new Error("Invalid task request.");
+  return {
+    ...parseAgentTask(value),
+    title: requireString(value.title, "title", INPUT_LIMITS.messageText),
+  };
+}
+
 export function parseMessageReaction(value: unknown): SetMessageReactionInput {
   if (!isObject(value)) throw new Error("Invalid message reaction request.");
   const emoji = value.emoji;
@@ -682,6 +736,16 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
         ...(providerAccountId === undefined ? {} : { providerAccountId }),
       })),
     };
+  }
+  if (value.definitionOfDone !== undefined) {
+    if (value.definitionOfDone !== null && !isAgentDefinitionOfDone(value.definitionOfDone))
+      throw new Error("Invalid definition of done.");
+    result.definitionOfDone = value.definitionOfDone;
+  }
+  if (value.reviewerAgentId !== undefined) {
+    if (value.reviewerAgentId !== null && !isAgentReviewerAgentId(value.reviewerAgentId))
+      throw new Error("Invalid reviewer agent.");
+    result.reviewerAgentId = value.reviewerAgentId;
   }
   if (value.leaveUsageLimit !== undefined) {
     if (!isBoolean(value.leaveUsageLimit)) throw new Error("Invalid usage limit switch.");

@@ -27,8 +27,10 @@ import {
   isConversationWithReadState,
   isFilePreviewKind,
   isFilePreviewPageUrl,
+  isOpenQuestionsSnapshot,
   isQueuedMessageReceipt,
   isQueueSnapshot,
+  type OpenQuestionsSnapshot,
   type QueuedMessageReceipt,
   type QueueSnapshot,
 } from "@openbot/contracts/ipc";
@@ -174,6 +176,13 @@ export function decodeWaits(value: unknown): AgentWaitsSnapshot {
 export function decodeAgentTasks(value: unknown): AgentTasksSnapshot {
   if (!isAgentTasksSnapshot(value)) {
     throw new Error("Invalid task list response.");
+  }
+  return value;
+}
+
+export function decodeOpenQuestions(value: unknown): OpenQuestionsSnapshot {
+  if (!isOpenQuestionsSnapshot(value)) {
+    throw new Error("Invalid open questions response.");
   }
   return value;
 }

@@ -534,6 +534,11 @@ is not included in analytics; provider output uses the application's secret reda
   Every agent on this computer can read and write every table in that file, and the user can delete any
   table in agent settings.
 - `~/OpenBot/Downloads` contains files downloaded by the embedded browser.
+- `~/OpenBot/mcp-servers` contains the MCP servers that agents write for a system that has no MCP
+  server (the built-in `openbot-mcp-server-creator` skill): their code, installed dependencies and an
+  `openbot-mcp.json` file with names only. The skill tells agents to read keys from environment
+  variables and never to write a key in these folders. The keys stay in the MCP server settings in the
+  OpenBot database. Removing a server in settings does not delete its folder.
 - `~/Library/Application Support/OpenBot` contains the OpenBot SQLite database, agent metadata,
   conversations, message queues, direct messages, reactions, read state, attachment drafts and
   indexes, team configuration, local team members and sessions, the browser profiles and their
@@ -551,7 +556,7 @@ is not included in analytics; provider output uses the application's secret reda
   choosing Sign out on it, deletes its record. These values are redacted from logs, exports and diagnostics.
   The port and secret of the local MCP sign-in server are kept in
   `~/Library/Application Support/OpenBot/openbot-mcp-oauth-proxy-v1.json`, encrypted in the same way.
-- The GitHub connection (Server settings > Connectors) is kept in
+- The GitHub connection (Marketplace › Apps › GitHub) is kept in
   `~/Library/Application Support/OpenBot/openbot-github-connector-v1.json`, encrypted by the operating
   system's secret storage. It holds the GitHub access and refresh tokens, the account name, ID and
   avatar address, and the port and secret of the local GitHub MCP server.
@@ -571,8 +576,8 @@ is not included in analytics; provider output uses the application's secret reda
   codes go through the main process to the browser page. This folder is an OpenBot access rule;
   the CLI session key can decrypt the wider vault. Use a separate Bitwarden account if you need
   the password manager itself to enforce that separation.
-  An owner or admin of a joined server can connect that server's Bitwarden or Vaultwarden in Server
-  settings › Connectors with the server address, the personal API key and the master password. They
+  An owner or admin of a joined server can connect that server's Bitwarden or Vaultwarden in
+  Marketplace › Apps › Bitwarden with the server address, the personal API key and the master password. They
   go once, over the encrypted connection, to the server, which keeps them in
   `openbot-bitwarden-connector-v1.json` in its application data folder, encrypted by its operating
   system's secret storage, so it can unlock again after a restart. Its CLI keeps its own encrypted
@@ -587,7 +592,7 @@ is not included in analytics; provider output uses the application's secret reda
   or a one-time code is read from 1Password when the browser fills it, goes only to that page, and
   is never sent to an agent, a provider, a log or a team member. The token and each filled value
   are redacted from logs, exports and diagnostics. An owner or admin of a joined server can paste a
-  service account token for that server in Server settings › Connectors. The token goes once, over the
+  service account token for that server in Marketplace › Apps › 1Password. The token goes once, over the
   encrypted connection, to the server, which keeps it in the same file on its own disk. The
   computer that sent it does not keep it, and no answer from the server carries it.
 - The Vault (Server settings › Vault) is kept in
@@ -702,6 +707,12 @@ Network traffic can also occur when:
   Nothing about the user's agents, conversations or files is sent in those requests. The
   registration names OpenBot's logo at `openbot.run`; an authorization service that shows it on its
   sign-in page can make the browser load it from `openbot.run`;
+- an MCP server that an agent wrote with the `openbot-mcp-server-creator` skill runs on this computer
+  and sends requests to the system the user named, such as an API address, with the data that each
+  tool call needs. The skill tells the agent not to add calls to other services. Installing the
+  server's dependencies downloads packages from the npm or PyPI registry. With the setting "Agents can
+  manage MCP servers without asking" on, an agent with Full access can add or change such a server
+  with no approval card; each change shows as a note in the conversation;
 - the user presses Install on the 1Password page. OpenBot downloads the 1Password CLI release that it
   pins from `cache.agilebits.com`, checks its SHA-256, and keeps it in
   `~/Library/Application Support/OpenBot/provider-state/1password-cli`. The request carries no user
@@ -801,6 +812,49 @@ routine's model provider, as other routine input does.
 
 Change a routine to a schedule, or delete it, to stop its URL. Deleting a routine deletes its
 receipts.
+
+## Ticket intake
+
+An agent can watch a GitHub repository for issues with a label, such as `agent`. The watch is off
+until you set it for an agent. OpenBot checks the watched repository every five minutes, from this
+computer. It sends the request to GitHub with the GitHub connection of this computer. Requests do
+not pass through OpenBot's cloud services, and a ticket is not sent to any other ticket system.
+
+For each new matching issue, OpenBot starts a work thread of the agent. The first message of the
+thread holds the issue title, the issue text (up to 8,000 characters) and its link. The agent's
+model provider receives that message, as it receives other messages of the thread. Then OpenBot
+tries to post one comment on the issue. The comment names the agent and the work thread. Every GitHub user
+who can see the issue can read the comment.
+
+OpenBot keeps the watch (the repository, the label and the on or off state) and one link for each
+started issue (the issue key and the work thread) in the local database. The issue text is kept in
+the work thread, as any message is. A watch that is off starts nothing. An issue that already
+started keeps its link, so it does not start again. Deleting a work thread keeps its link.
+
+You set a watch in the agent's settings, under Ticket source. A watch that is off starts nothing.
+
+When the agent opens a pull request for a ticket, it records the pull request with OpenBot. OpenBot stores
+the repository, the pull request number and the work thread. It does not send the pull request to any other
+service.
+
+Linear and Jira watches are not polled yet. Webhook delivery from GitHub is not in this version, so failed
+checks and review comments do not reach a work thread yet.
+
+## Tickets board sync
+
+The Tickets board can sync with one GitHub repository while GitHub is connected on this computer. The
+sync is off until you choose a repository with Sync on the Tickets page. Then OpenBot reads the open
+issues of that repository every five minutes and when you select Sync now, from this computer, with
+the GitHub connection of this computer. Requests do not pass through OpenBot's cloud services.
+
+Each open issue becomes a ticket in Backlog. The local database keeps the issue title, the issue text
+(up to 20,000 characters), the issue key and its link. When a linked ticket moves to Done, OpenBot
+closes the issue; when it leaves Done, OpenBot opens the issue again. A comment that the ticket's agent
+adds is posted on the issue, and every GitHub user who can see the issue can read it. The messages that
+you send to the ticket's work thread are not posted.
+
+Stop sync, or a disconnected GitHub connection, stops every request. The tickets stay on this
+computer. Jira and Linear have no connection in OpenBot, so the board does not sync with them.
 
 ## Slack connections
 
@@ -983,6 +1037,26 @@ it.
 Full access also permits that agent to publish, update and delete public hosted sites without
 another confirmation. Publishing makes the selected site content publicly accessible. At Workspace
 only or Ask first, hosted-site changes require confirmation. Site ownership and source validation still apply.
+
+## Autonomy safety records
+
+OpenBot keeps three records of the agents on this computer for graded permissions, budgets and Stop
+all agents. They stay on this computer. They are not sent to the account service, a team server or a
+provider by this feature, and this feature adds no network request.
+
+- **Settings file** (`openbot-autonomy-v1.json` in the profile folder): the approval rule and the
+  budget limits of each agent, and whether Stop all agents is on.
+- **Audit log** (table `autonomy_audit_log`): one row for each autonomous action of an agent, such as
+  an approval that a rule answered, a budget stop, or a change of a rule. A row holds the time, the
+  agent, the conversation and work thread ids, the action, the risk level, the result, and the command,
+  file or setting that the action touched. Secrets, such as tokens in a command, are masked before the
+  row is written. The log keeps every row until the profile is deleted. It has no automatic retention yet.
+- **Usage records** (table `autonomy_turn_usage`): one row for each finished turn: the agent, the
+  conversation and work thread ids, the start and end time, the tokens and the estimated cost. A model
+  with no known price has no cost.
+
+These records are in the same profile folder as the other OpenBot data. They are removed when that
+folder is removed.
 
 ## Exports
 

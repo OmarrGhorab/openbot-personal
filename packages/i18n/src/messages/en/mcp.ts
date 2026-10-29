@@ -154,4 +154,11 @@ export const messages = defineMessages("mcp", {
   "mcp.signIn.relaySend": "Send",
   "mcp.panel.callbackUrlRelayed":
     "The sign-in page opens in your browser, and OpenBot on your computer sends the sign-in to {host}. Add this exact URL to the allowed redirect URLs of the app.",
+  "mcp.changes.withoutApprovalTitle": "Agents can manage MCP servers without asking",
+  "mcp.changes.withoutApprovalDescription":
+    "Off: each MCP server that an agent adds, changes, turns on or off, or removes waits for your approval. On: agents with Full access do it with no approval, and each change shows in the conversation.",
+  "mcp.changes.withoutApprovalWarning":
+    "Warning: an agent can then run any command on this computer as an MCP server, and every agent on this server gets its tools. Turn it off to ask again from the next change. Servers that agents already added stay.",
+  "mcp.changes.loadFailed": "Could not read the MCP approval setting.",
+  "mcp.changes.saveFailed": "Could not save the MCP approval setting.",
 });

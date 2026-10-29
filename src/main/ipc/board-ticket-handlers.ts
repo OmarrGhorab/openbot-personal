@@ -1,0 +1,132 @@
+// The Tickets board: list, create, update, move, comment, start and delete, and the sync with a
+// connected ticket system. The board requests are server-scoped: this computer's board is in its own
+// database, and a joined server serves its board through `board-tickets-v1`. The sync is a plain request
+// on this computer. The change events of this computer go out from the services.
+
+import {
+  type BoardTicket,
+  type BoardTicketEvent,
+  isBoardTicket,
+  isBoardTicketEvent,
+  isBoardTicketEventList,
+  isBoardTicketList,
+} from "@openbot/contracts/ipc";
+import { isDynamicRecord } from "@openbot/contracts/runtime-values";
+import { BOARD_TICKETS_CAPABILITY, BOARD_TICKETS_ROUTES } from "@openbot/contracts/team-protocol/board-tickets-v1";
+import type { TeamCurrentCapability } from "@openbot/contracts/team-protocol/current";
+import { sourceText } from "@openbot/i18n/source";
+import type { Effect } from "effect";
+import type { BoardTicketService } from "../../backend/board-tickets/board-ticket-service";
+import type { BoardTicketSync } from "../../backend/board-tickets/board-ticket-sync";
+import { runCauseEffect } from "../../backend/effect-boundary";
+import { acceptEmpty, type ResponseDecoder } from "../remote-host-decoding";
+import type { RemoteRequestInit } from "../remote-server-client";
+import type { RemoteWorkflowError } from "../remote-service-effects";
+import {
+  parseBoardTicketId,
+  parseBoardTicketProvider,
+  parseBoardTicketSyncTarget,
+  parseCommentBoardTicket,
+  parseCreateBoardTicket,
+  parseMoveBoardTicket,
+  parseStartBoardTicket,
+  parseUpdateBoardTicket,
+} from "./board-ticket-inputs";
+import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
+import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
+
+interface BoardTicketRemoteServers {
+  supportsCapability(serverId: string, capability: TeamCurrentCapability): boolean;
+  request<T>(
+    serverId: string,
+    path: string,
+    decoder: ResponseDecoder<T>,
+    init?: RemoteRequestInit,
+  ): Effect.Effect<T, RemoteWorkflowError>;
+}
+
+interface BoardTicketIpcDependencies {
+  boardTickets: BoardTicketService;
+  boardTicketSync: BoardTicketSync;
+  remoteServers: BoardTicketRemoteServers;
+}
+
+const decodeTicket: ResponseDecoder<BoardTicket> = (value) => {
+  if (!isBoardTicket(value)) throw new Error("The server sent an invalid ticket.");
+  return value;
+};
+
+const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
+  if (!isBoardTicketEvent(value)) throw new Error("The server sent an invalid ticket comment.");
+  return value;
+};
+
+const decodeTickets: ResponseDecoder<BoardTicket[]> = (value) => {
+  if (!isDynamicRecord(value) || !isBoardTicketList(value.tickets))
+    throw new Error("The server sent an invalid board.");
+  return value.tickets;
+};
+
+const decodeEvents: ResponseDecoder<BoardTicketEvent[]> = (value) => {
+  if (!isDynamicRecord(value) || !isBoardTicketEventList(value.events))
+    throw new Error("The server sent an invalid ticket activity.");
+  return value.events;
+};
+
+export function boardTicketIpcHandlers({
+  boardTickets,
+  boardTicketSync,
+  remoteServers,
+}: BoardTicketIpcDependencies): Pick<IpcGroupHandlers, "boardTickets"> {
+  // A joined server without `board-tickets-v1` keeps its board to itself.
+  function remote<T>(serverId: string, path: string, body: unknown, decode: ResponseDecoder<T>): Promise<T> {
+    if (!remoteServers.supportsCapability(serverId, BOARD_TICKETS_CAPABILITY))
+      throw new Error(sourceText("error.team.boardTicketsUnsupported"));
+    return runCauseEffect(remoteServers.request(serverId, path, decode, { method: "POST", body }));
+  }
+
+  return {
+    boardTickets: {
+      list: scopedQueryHandler({
+        local: () => boardTickets.list(),
+        remote: (serverId) => remote(serverId, BOARD_TICKETS_ROUTES.list, {}, decodeTickets),
+      }),
+      events: scopedHandler(parseBoardTicketId, {
+        local: (ticketId) => boardTickets.events(ticketId),
+        remote: (ticketId, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.events, { ticketId }, decodeEvents),
+      }),
+      create: scopedHandler(parseCreateBoardTicket, {
+        local: (input) => boardTickets.create(input),
+        remote: (input, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.create, input, decodeTicket),
+      }),
+      update: scopedHandler(parseUpdateBoardTicket, {
+        local: (input) => boardTickets.update(input),
+        remote: (input, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.update, input, decodeTicket),
+      }),
+      move: scopedHandler(parseMoveBoardTicket, {
+        local: (input) => boardTickets.move(input),
+        remote: (input, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.move, input, decodeTicket),
+      }),
+      comment: scopedHandler(parseCommentBoardTicket, {
+        local: (input) => boardTickets.comment(input),
+        remote: (input, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.comment, input, decodeEvent),
+      }),
+      start: scopedHandler(parseStartBoardTicket, {
+        local: (input) => boardTickets.start(input),
+        remote: (input, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.start, input, decodeTicket),
+      }),
+      delete: scopedHandler(parseBoardTicketId, {
+        local: (ticketId) => boardTickets.delete(ticketId),
+        remote: (ticketId, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.delete, { ticketId }, acceptEmpty),
+      }),
+      syncState: handler(() => boardTicketSync.state()),
+      syncProjects: payloadHandler(parseBoardTicketProvider, (provider) =>
+        runCauseEffect(boardTicketSync.projects(provider)),
+      ),
+      setSyncTarget: payloadHandler(parseBoardTicketSyncTarget, (target) =>
+        runCauseEffect(boardTicketSync.setTarget(target)),
+      ),
+      syncNow: handler(() => runCauseEffect(boardTicketSync.syncNow())),
+    },
+  };
+}

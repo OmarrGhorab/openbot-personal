@@ -1,6 +1,7 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentDefaults,
+  AgentMcpChangesPreference,
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
@@ -19,6 +20,7 @@ import type {
   IdleRestartTarget,
   InstallMarketplaceAgentInput,
   InstallSkillInput,
+  MacAutomationTarget,
   MacPermissionId,
   MarketplaceAgentQuery,
   MarketplaceSkillQuery,
@@ -64,6 +66,7 @@ import {
   isDynamicIslandWindowPosition,
   isRemoteNetworkRoute,
   isSkillCategory,
+  MAC_AUTOMATION_TARGETS,
 } from "@openbot/contracts/ipc";
 import {
   type DynamicRecord,
@@ -120,6 +123,12 @@ export function parseAgentMemoryLimitPreference(input: unknown): AgentMemoryLimi
 export function parseChatWindowTarget(input: unknown): ChatWindowTarget {
   if (!isDynamicRecord(input)) throw new Error("A chat is required.");
   return { serverId: requireString(input.serverId, "Server"), agentId: requireString(input.agentId, "Agent") };
+}
+
+export function parseAgentMcpChangesPreference(input: unknown): AgentMcpChangesPreference {
+  if (!isDynamicRecord(input) || !isBoolean(input.withoutApproval))
+    throw new Error("The MCP approval setting is required.");
+  return { withoutApproval: input.withoutApproval };
 }
 
 export function parseRemoteSessionReusePreference(input: unknown): RemoteSessionReusePreference {
@@ -266,6 +275,14 @@ export function parseMacPermission(input: unknown): MacPermissionId {
     throw new Error("Unknown macOS permission.");
   }
   return input;
+}
+
+/** Each app once, in the order asked: macOS shows one prompt at a time. */
+export function parseMacAutomationTargets(input: unknown): readonly MacAutomationTarget[] {
+  if (!Array.isArray(input) || !input.every((target) => isOneOf(MAC_AUTOMATION_TARGETS, target))) {
+    throw new Error("Unknown Apple app.");
+  }
+  return [...new Set(input)];
 }
 
 export function parseExternalDestination(input: unknown): ExternalDestination {

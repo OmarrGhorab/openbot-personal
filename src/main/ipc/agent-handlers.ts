@@ -99,6 +99,7 @@ import {
   parsePromptResponse,
   parseQueueEdit,
   parseReadConversationPage,
+  parseRenameAgentTask,
   parseReorderQueue,
   parseRunQueuedMessageAsTask,
   parseSearchConversationFiles,
@@ -458,6 +459,10 @@ export function agentIpcHandlers({
           if (input.backupModels !== undefined || input.leaveUsageLimit !== undefined) {
             throw new Error(sourceText("error.agent.backupModelsLocalOnly"));
           }
+          // Checks and the reviewer are local-only: only the user sets them on the computer that runs the agent.
+          if (input.definitionOfDone !== undefined || input.reviewerAgentId !== undefined) {
+            throw new Error(sourceText("error.agent.settingsLocalOnly"));
+          }
           // The released agent route does not carry the account, so it changes on its own route after
           // the rest: a provider change on the host returns the agent to the new provider's own sign-in.
           const { providerAccountId, ...update } = input;
@@ -657,6 +662,15 @@ export function agentIpcHandlers({
         local: (parsed) => service.reopenTask(parsed),
         remote: (parsed, serverId) =>
           remoteTaskRequest(serverId, AGENT_TASKS_ROUTES.reopen, acceptEmpty, agentTaskBody(parsed)),
+      }),
+      // Local only: `agent-tasks-v1` has no rename or delete route.
+      renameTask: scopedHandler(parseRenameAgentTask, {
+        local: (parsed) => service.renameTask(parsed),
+        remote: taskRemoteUnsupported,
+      }),
+      deleteTask: scopedHandler(parseAgentTask, {
+        local: (parsed) => runCauseEffect(service.deleteTask(parsed)),
+        remote: taskRemoteUnsupported,
       }),
       acknowledgeFailedTurn: scopedHandler(parseAcknowledgeFailedTurn, {
         local: (parsed) => service.acknowledgeFailedTurn(parsed.agentId, parsed.turnId),

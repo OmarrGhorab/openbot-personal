@@ -17,7 +17,6 @@ import { useAuth } from "./features/account/account-context";
 import { useAgents } from "./features/agents/agents-context";
 import { desktopBrowserProfileCalls } from "./features/browser/browser-profiles-port";
 import { createBrowserProfilesStore } from "./features/browser/stores/browser-profiles-store";
-import type { ConnectorRegistry } from "./features/connectors/connector-registry";
 import { useConnectors } from "./features/connectors/connectors-context";
 import { conversationPort } from "./features/conversation/conversation-port";
 import { useCustomAgents } from "./features/custom-agents/custom-agents-context";
@@ -86,18 +85,13 @@ interface AccountProps {
  */
 export function WorkspaceOverlays(props: AccountProps) {
   const { skillsMarketplaceOpen } = useSettings();
-  const { serverSettingsOpen } = useServerSettings();
   const connectors = useConnectors();
   /* The overlays mount with the app. A first read that failed then must not hide a connector for
-     good, and a sign-in can change outside this window, so each window reads them again when it opens. */
-  createEffect(
-    () => skillsMarketplaceOpen() || serverSettingsOpen(),
-    (open) => {
-      if (!open) return;
-      connectors.active.reload();
-      connectors.settings.reload();
-    },
-  );
+     good, and a sign-in can change outside this window, so the Marketplace reads them again when it opens. */
+  createEffect(skillsMarketplaceOpen, (open) => {
+    if (!open) return;
+    connectors.active.reload();
+  });
   return (
     <>
       <SharedAgentInstall />
@@ -107,7 +101,7 @@ export function WorkspaceOverlays(props: AccountProps) {
       <HostedUpsell account={props.account} />
       <LeaveServer />
       <RestartServer />
-      <ServerSettings connectors={connectors.settings} />
+      <ServerSettings />
       <AppSettings account={props.account} />
       <GlobalMessageSearch />
       <RemoteDesktop />
@@ -138,7 +132,9 @@ export function SkillsMarketplace() {
   const { selectAgent } = useNavigation();
   const { activeServer } = useServers();
   const { openInstalledMarketplaceAgent } = useServerSelection();
+  const { openMcpAdd } = useServerSettings();
   const connectors = useConnectors();
+  const platform = usePlatform();
   const { remoteDesktopWorkspaceVisible, hideRemoteDesktopWorkspace } = useRemoteDesktop();
   // The remote desktop covers the window card, so a link or a search that opens the page hides it.
   // The remote desktop session stays.
@@ -163,7 +159,11 @@ export function SkillsMarketplace() {
         setPendingPluginConnect(false);
       }}
       connectors={connectors.active}
-      variant="page"
+      macOS={platform.appInfo()?.platform === "darwin"}
+      onAddServer={(serverId) => {
+        setSkillsMarketplaceOpen(false);
+        openMcpAdd(serverId, null);
+      }}
     />
   );
 }
@@ -313,7 +313,7 @@ function RestartServer() {
  * Settings for one server, which is any server on the rail rather than the
  * active one - hence the target held by the domain instead of `activeServer()`.
  */
-function ServerSettings(props: { connectors: ConnectorRegistry }) {
+function ServerSettings() {
   const windowPage = useWindowPage();
   const usageRows = usePlanLimitRows();
   const platform = usePlatform();
@@ -399,6 +399,8 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
     serverSettingsMcpSignIns,
     serverSettingsMcpSignInRequest,
     clearMcpSignInRequest,
+    serverSettingsMcpAddRequest,
+    clearMcpAddRequest,
     serverSettingsMcpSignInPages,
     serverSettingsMcpSignInRelays,
     openMcpSignInRelay,
@@ -647,6 +649,8 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
           onRemoveMcpServer={removeMcpServer}
           onSetMcpServerEnabled={setMcpServerEnabled}
           onTestMcpServer={testMcpServer}
+          mcpAddRequest={serverSettingsMcpAddRequest()}
+          onMcpAddRequestHandled={clearMcpAddRequest}
           // A remote host with `sign-in-relay-v1` opens the page in this computer's browser. An older
           // host's page shows here through the live view, which streams the active server only.
           mcpSignInRequest={serverSettingsMcpSignInRequest()}
@@ -721,7 +725,6 @@ function ServerSettings(props: { connectors: ConnectorRegistry }) {
                 ? {}
                 : undefined
           }
-          connectors={props.connectors}
           // The feed listens on this computer, so a calendar app on another one cannot read it.
           routineFeed={
             server().kind === "local"

@@ -41,11 +41,13 @@ import type {
   CreateAgentMemoryInput,
   CreateChannelMemoryInput,
   CreateChannelRoutineInput,
+  CreateProjectMemoryInput,
   CreateRoutineInput,
   CustomProviderRestart,
   DeleteAgentMemoryInput,
   DeleteChannelMemoryInput,
   DeleteChannelRoutineInput,
+  DeleteProjectMemoryInput,
   DeleteRoutineInput,
   DeleteSharedTableInput,
   DraftAttachment,
@@ -61,11 +63,14 @@ import type {
   McpSignInAppState,
   McpSignInState,
   McpTestResult,
+  OpenQuestionsSnapshot,
+  ProjectMemoryState,
   ProviderCodeLoginStart,
   ProviderUsageResets,
   QueuedMessageReceipt,
   QueueSnapshot,
   RemoveMcpServerInput,
+  RenameAgentTaskInput,
   ReorderQueueInput,
   ResetAgentSessionSettingInput,
   RespondToApprovalInput,
@@ -97,6 +102,7 @@ import type {
   UpdateAgentMemoryInput,
   UpdateChannelMemoryInput,
   UpdateChannelRoutineInput,
+  UpdateProjectMemoryInput,
   UpdateQueuedMessageInput,
   UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
@@ -164,6 +170,7 @@ import {
   startingChoice,
   startingModel,
 } from "./agent/model-choice";
+import { openQuestionsSnapshot } from "./agent/open-questions";
 import { OpenBotToolRouter } from "./agent/openbot-tool-router";
 import { ProfileClients } from "./agent/profile-clients";
 import {
@@ -183,7 +190,7 @@ import { localTimezone } from "./agent/routine-tools";
 import { buildRuntimeSnapshot } from "./agent/runtime-snapshot";
 import type { ScreenCaptureHost } from "./agent/screen-capture";
 import { SessionSettings } from "./agent/session-settings";
-import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
+import { SIDE_QUESTION_CHAT_MESSAGES, type SideQuestionWorkThread, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
 import {
@@ -195,7 +202,7 @@ import {
 } from "./agent/thread-items";
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
-import { type AgentBrowserHost, TurnLifecycle } from "./agent/turn-lifecycle";
+import { type AgentBrowserHost, TURN_USAGE_MARGIN_MS, TurnLifecycle } from "./agent/turn-lifecycle";
 import { toUsageReadFailed, UsageLimitGate, type UsageLimitKey } from "./agent/usage-limit-gate";
 import type { WebhookRoutineWriter } from "./agent/webhook-routine-tool";
 import type { AgentApiKeys } from "./agent-api-keys";
@@ -203,10 +210,16 @@ import type { AgentProvider } from "./agent-client";
 import type { AgentTables } from "./agent-data/agent-tables";
 import type { AgentStore } from "./agent-store";
 import { AgentTaskStore } from "./agent-tasks/agent-task-store";
-import { AgentTasks } from "./agent-tasks/agent-tasks";
+import { type AgentTaskBoard, type AgentTaskPullRegistry, AgentTasks } from "./agent-tasks/agent-tasks";
+import { AgentWorkThreadStore } from "./agent-tasks/agent-work-thread-store";
+import { AgentWorktrees, worktreeChangedFiles } from "./agent-tasks/agent-worktrees";
 import { AgentWaitStore } from "./agent-waits/agent-wait-store";
 import { AgentWaits } from "./agent-waits/agent-waits";
 import { automationRunCommand } from "./automation-command";
+import { AutonomyAuditStore } from "./autonomy/autonomy-audit-store";
+import { AutonomyController, type RunningTurn } from "./autonomy/autonomy-controller";
+import { type AutonomyPolicy, DEFAULT_AUTONOMY_POLICY } from "./autonomy/autonomy-policy";
+import { AutonomyUsageStore } from "./autonomy/autonomy-usage-store";
 import { toChannelOperationError } from "./channel-effects";
 import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
@@ -255,6 +268,11 @@ export type { ResolvedSharedFile } from "./workspace-paths";
 interface AgentServiceEvents {
   failure: [failure: FailureSignal];
   event: [event: AgentEvent];
+  /**
+   * Each turn start and end, of any thread, including a work thread. `event` leaves these out when the
+   * task module takes them, so a listener that follows a work thread (the Raven Stack team) reads them here.
+   */
+  turn: [event: AgentEvent];
   /** Finished tool steps for the local host's product analytics. Never forwarded to a client. */
   toolUsage: [usage: ToolUsageSignal];
 }
@@ -304,10 +322,20 @@ export interface AgentServiceOptions {
    */
   approvalAutomation?: ApprovalAutomationPolicy | undefined;
   /**
+   * The person's graded permissions, budgets and Stop all agents. The main process owns the settings
+   * file. Omitted, the defaults apply: medium and high risk ask, and no budget or stop is set.
+   */
+  autonomy?: AutonomyPolicy | undefined;
+  /**
    * The app default for a message sent while its agent works. The main process owns the preference.
    * Omitted, such a message waits in the queue, as every one did before the setting existed.
    */
   busyMessageMode?: () => BusyMessageMode;
+  /**
+   * Whether agents with Full access change MCP servers without an approval card. The main process
+   * owns the preference. Omitted, every MCP change asks.
+   */
+  mcpChangesWithoutApproval?: () => boolean;
   /**
    * How many memories one agent can hold. The main process owns the preference. Omitted, the
    * default cap, which was the only cap before the setting existed.
@@ -363,6 +391,10 @@ export interface AgentServiceOptions {
    * while memory is low, and only a fixed number of turns run at the same time.
    */
   hostMemory?: HostMemory | null;
+  /** Gives a pull request to the work thread that started its ticket. Null when no ticket intake runs. */
+  ticketPulls?: AgentTaskPullRegistry | null;
+  /** The Tickets board, for the `update_ticket` tool of a ticket's work thread. Null when no board runs. */
+  boardTickets?: AgentTaskBoard | null;
 }
 
 /** How long a user send's `clientMessageId` answers a retry. A retry follows a lost reply, not a day. */
@@ -388,6 +420,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #memories: AgentMemories;
   readonly #waits: AgentWaits;
   readonly #tasks: AgentTasks;
+  readonly #worktrees = new AgentWorktrees();
   readonly #tables: AgentTables | null;
   readonly #routines: RoutineScheduler;
   readonly #routineTimer: RoutineTimer;
@@ -402,6 +435,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #hostedSites: HostedSiteCoordinator;
   readonly #conversation: ConversationRuntime;
   readonly #attention: AttentionRegistry;
+  readonly #autonomy: AutonomyController;
   readonly #images: ImageGenRuntime;
   readonly #threads: ThreadLifecycle;
   readonly #memoryHold: MemoryHold;
@@ -509,6 +543,10 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     );
     this.#tasks = new AgentTasks({
       store: new AgentTaskStore(store.database),
+      pulls: options.ticketPulls ?? null,
+      board: options.boardTickets ?? null,
+      workThreads: new AgentWorkThreadStore(store.database),
+      worktrees: this.#worktrees,
       mailbox,
       conversation: this.#conversation,
       hooks: {
@@ -520,6 +558,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           this.#mailboxSync.emitQueue(agentId);
           this.#drain.scheduleDrain(agentId);
         },
+        // Read late: the registry is built further down this constructor.
+        question: (threadId) => {
+          const question = this.#attention.questionForThread(threadId);
+          return question ? { text: question.question.trim() || question.header } : null;
+        },
+        // A question starts or ends a wait: a queued task starts in the slot that the wait freed, or waits for it.
+        questionChanged: (agentId) => this.#drain.scheduleDrain(agentId),
       },
     });
     this.#tables = options.tables ?? null;
@@ -763,7 +808,26 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       rotateSession: (agentId, client, threadId) => this.#threads.rotateProviderSession(agentId, client, threadId),
       compacted: (threadId) => this.channels.contextCompacted(threadId),
     });
+    this.#autonomy = new AutonomyController({
+      policy: options.autonomy ?? DEFAULT_AUTONOMY_POLICY,
+      audit: new AutonomyAuditStore(store.database),
+      usage: new AutonomyUsageStore(store.database),
+      readTurnUsage: (agentId, turnId, startedAt) => {
+        try {
+          return store.database.usage.readTurnTotals(
+            agentId,
+            turnId,
+            new Date(startedAt - TURN_USAGE_MARGIN_MS).toISOString(),
+          );
+        } catch (error) {
+          this.#emitError("autonomy_usage_failed", error, agentId);
+          return null;
+        }
+      },
+      stopTurn: (turn) => this.#stopTurnAtBudget(turn),
+    });
     this.#attention = new AttentionRegistry({
+      autonomy: this.#autonomy,
       conversation: this.#conversation,
       browser: this.#browser,
       hostedSites: this.#hostedSites,
@@ -895,6 +959,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       // Only a server has a memory reading.
       serverHost: hostMemory !== null,
       sectionTeammates: (agentId) => this.sectionTeammates(agentId),
+      sessionFolder: (agentId, threadId, workspacePath) => this.#tasks.sessionFolder(agentId, threadId, workspacePath),
       hooks: {
         logRecovery: (agentId, provider, outcome) =>
           logger.warn("Recovered an unavailable provider session.", { agentId, provider, outcome }),
@@ -1140,6 +1205,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       threads: this.#threads,
       memory: this.#memoryHold,
       usageLimits: this.#usageLimits,
+      autonomy: this.#autonomy,
       tasks: this.#tasks,
       hooks: {
         emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
@@ -1229,6 +1295,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       usageLimits: this.#usageLimits,
       hooks: {
         emitFailure: (failure) => this.emit("failure", failure),
+        turnStarted: (turn) => this.#autonomy.turnStarted(turn),
+        turnEnded: (turn) => this.#autonomy.turnEnded(turn),
         emit: (event) => this.#emit(event),
         emitError: (code, error, agentId, context) => this.#emitError(code, error, agentId, context),
         emitRuntimeSnapshot: () => this.#emitRuntimeSnapshot(),
@@ -1314,6 +1382,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       ...(options.visualPreview === undefined ? {} : { visualPreview: options.visualPreview }),
       ...(options.screenCapture === undefined ? {} : { screenCapture: options.screenCapture }),
       mcpServers: mcpServersFromGateway(this.#mcp, options.prepareMcpTest),
+      ...(options.mcpChangesWithoutApproval === undefined
+        ? {}
+        : { mcpChangesWithoutApproval: options.mcpChangesWithoutApproval }),
       apiKeys: options.agentApiKeys ?? null,
       hooks: {
         listAgents: () => this.listAgents(),
@@ -1569,6 +1640,27 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   clearMemories(agentId: string): void {
     this.#memories.clear(agentId);
+  }
+
+  /** The project memory of the agent's folder, shared with every agent in that folder. */
+  getProjectMemories(agentId: string): ProjectMemoryState {
+    return this.#memories.projectState(agentId);
+  }
+
+  createProjectMemory(input: CreateProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.createProjectMemory(input);
+  }
+
+  updateProjectMemory(input: UpdateProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.updateProjectMemory(input);
+  }
+
+  deleteProjectMemory(input: DeleteProjectMemoryInput): ProjectMemoryState {
+    return this.#memories.deleteProjectMemory(input);
+  }
+
+  undoProjectMemory(agentId: string): ProjectMemoryState {
+    return this.#memories.undoProjectMemory(agentId);
   }
 
   listTables(): Effect.Effect<SharedTable[], AgentLifecycleFailed> {
@@ -2024,21 +2116,33 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       if (!model) return yield* failed(sourceText("error.provider.noModel"));
       if (this.#stopping) return yield* failed(sourceText("error.backend.shuttingDown"));
       if (this.#profileClients.busy()) return yield* failed(sourceText("error.agent.sideQuestionBusy"));
-      const messages =
-        this.#conversation.loadedSnapshot(agent.id)?.messages ??
-        this.#store.database.readConversationPage(
-          agent.id,
-          agent.threadId,
-          { type: "latest" },
-          SIDE_QUESTION_CHAT_MESSAGES,
-        ).messages;
+      // A side chat about a work thread reads a snapshot of that task: its messages, its plan and the
+      // files its worktree changed. It reads only, and it never waits for or enters the task's turn.
+      const taskId = input.taskId;
+      const task = taskId ? this.listTasks(agent.id).tasks.find((candidate) => candidate.id === taskId) : undefined;
+      if (taskId && !task) return yield* failed(sourceText("error.backend.taskNotFound"));
+      const messages = task
+        ? this.readTask(agent.id, task.id).messages.slice(-SIDE_QUESTION_CHAT_MESSAGES)
+        : (this.#conversation.loadedSnapshot(agent.id)?.messages ??
+          this.#store.database.readConversationPage(
+            agent.id,
+            agent.threadId,
+            { type: "latest" },
+            SIDE_QUESTION_CHAT_MESSAGES,
+          ).messages);
+      const thread: SideQuestionWorkThread | null = task
+        ? {
+            title: task.title,
+            changedFiles: task.workspace?.mode === "worktree" ? yield* worktreeChangedFiles(task.workspace.path) : null,
+          }
+        : null;
       const client = this.#providers.createProfileClient(agent.provider);
       return yield* this.#profileClients
         .run(client, (cancelled) =>
           generateTextWithoutTools(
             client,
             { ...model, defaultReasoningEffort: agent.reasoningEffort },
-            sideQuestionPrompt(agent, messages, input),
+            sideQuestionPrompt(agent, messages, input, thread),
             cancelled,
           ),
         )
@@ -3443,6 +3547,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     yield* this.#memoryHold.dispose();
     this.#hostedSites.dispose();
     this.#compaction.dispose();
+    this.#autonomy.dispose();
     this.#deltas.dispose();
     this.#conversation.dispose();
     this.#threads.dispose();
@@ -3633,6 +3738,13 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#tasks.snapshot(agentId);
   }
 
+  /** Every question that waits for an answer on this computer, for the Questions list. */
+  listOpenQuestions(): OpenQuestionsSnapshot {
+    return openQuestionsSnapshot(this.#attention.openQuestions(), this.#store.list(), (threadId) =>
+      this.#tasks.openTaskOfThread(threadId),
+    );
+  }
+
   /** The conversation of one task, for its panel. */
   readTask(agentId: string, taskId: string): ConversationSnapshot {
     return structuredClone(this.#tasks.read(agentId, taskId));
@@ -3726,6 +3838,61 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }).bind(this);
 
   /**
+   * Stop all agents: every lane of every agent holds, and each running turn is stopped. Queued
+   * messages keep their place. The caller stores the stop before it calls this, so the stop holds after
+   * a restart too. `resumeAll` releases every lane.
+   */
+  readonly stopAll = Effect.fn("AgentService.stopAll")(function* (this: AgentService) {
+    let stopped = 0;
+    for (const agent of this.#store.list()) {
+      const turns: Array<{ turnId: string; threadId: string | null }> = [];
+      const chat = this.#conversation.workingSnapshot(agent.id);
+      if (chat?.activeTurnId) turns.push({ turnId: chat.activeTurnId, threadId: null });
+      for (const snapshot of this.#conversation.workingTaskSnapshots(agent.id)) {
+        if (snapshot.activeTurnId) turns.push({ turnId: snapshot.activeTurnId, threadId: snapshot.threadId });
+      }
+      for (const turn of turns) {
+        stopped += 1;
+        yield* this.interrupt(agent.id, turn.turnId, turn.threadId ?? undefined).pipe(
+          Effect.catch((error) => Effect.sync(() => this.#emitError("stop_all_failed", error, agent.id))),
+        );
+      }
+    }
+    this.#autonomy.record({
+      action: "stop-all.started",
+      risk: null,
+      result: "stopped",
+      target: "all agents",
+      detail: `${stopped} running turns stopped`,
+    });
+    this.#emitRuntimeSnapshot();
+  }).bind(this);
+
+  /** Releases the lanes that `stopAll` held. Each agent's queue starts again. */
+  readonly resumeAll = Effect.fn("AgentService.resumeAll")(function* (this: AgentService) {
+    yield* Effect.sync(() => {
+      for (const agent of this.#store.list()) this.#drain.scheduleDrain(agent.id);
+      this.#autonomy.record({
+        action: "stop-all.resumed",
+        risk: null,
+        result: "resumed",
+        target: "all agents",
+        detail: "",
+      });
+      this.#emitRuntimeSnapshot();
+    });
+  }).bind(this);
+
+  /** Stops a turn at a budget limit. The queue then waits behind the budget hold, and the audit log has the row. */
+  #stopTurnAtBudget(turn: RunningTurn): void {
+    Effect.runFork(
+      this.interrupt(turn.agentId, turn.turnId, turn.taskId === null ? undefined : turn.threadId).pipe(
+        Effect.catch((error) => Effect.sync(() => this.#emitError("budget_stop_failed", error, turn.agentId))),
+      ),
+    );
+  }
+
+  /**
    * Pauses the task's queue. The running turn is not stopped: it ends, and the next queued message
    * waits until `resumeTask`. The thread, the workspace and the agent's identity do not change.
    */
@@ -3733,7 +3900,9 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
-    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    const task = yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    // Stored, so the pause outlives a restart; the drain also holds the lane now.
+    this.#tasks.setPaused(task, true);
     this.#drain.pauseLane(input.agentId, input.taskId);
     this.#tasks.changed(input.agentId);
   }).bind(this);
@@ -3743,7 +3912,8 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this: AgentService,
     input: AgentTaskInput,
   ): Effect.fn.Return<void, AgentLifecycleFailed> {
-    yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    const task = yield* lifecycleStep("find task", () => this.#tasks.require(input.agentId, input.taskId));
+    this.#tasks.setPaused(task, false);
     this.#drain.resumeLane(input.agentId, input.taskId);
     this.#tasks.changed(input.agentId);
   }).bind(this);
@@ -3768,9 +3938,40 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         throw new Error(sourceText("error.backend.taskStillRunning"));
       return found;
     });
+    this.#tasks.setPaused(task, false);
     this.#tasks.close(task);
     // A task lane that waited for a free task can start now.
     this.#drain.scheduleDrain(task.agentId);
+  }).bind(this);
+
+  /** Gives a task a new title. The task, its thread and its queue do not change. */
+  renameTask(input: RenameAgentTaskInput): AgentTask {
+    const task = this.#tasks.rename(this.#tasks.require(input.agentId, input.taskId), input.title);
+    return this.#tasks.publicTask(task);
+  }
+
+  /**
+   * Deletes a closed task: its provider sessions, thread, history and attachments. Its git worktree
+   * goes only when it has no change; a worktree with changes stays with its branch.
+   */
+  readonly deleteTask = Effect.fn("AgentService.deleteTask")(function* (
+    this: AgentService,
+    input: AgentTaskInput,
+  ): Effect.fn.Return<void, AgentLifecycleFailed> {
+    const task = yield* lifecycleStep("find task", () => {
+      const found = this.#tasks.require(input.agentId, input.taskId);
+      if (found.closedAt === null) throw new Error(sourceText("error.backend.taskDeleteOpen"));
+      if (this.#mailbox.taskBusy(found.agentId, found.taskId))
+        throw new Error(sourceText("error.backend.taskStillRunning"));
+      return found;
+    });
+    const workspace = this.#tasks.workspace(task.taskId, task.agentId);
+    yield* this.#forgetExecutionThread(task.threadId).pipe(
+      Effect.mapError((failure) => new AgentLifecycleFailed({ operation: "deleteTask", cause: failure.cause })),
+    );
+    yield* lifecycleStep("delete task", () => this.#tasks.delete(task));
+    const agent = this.listAgents().find((candidate) => candidate.id === task.agentId);
+    if (workspace.mode === "worktree" && agent) yield* this.#worktrees.remove(agent.workspacePath, workspace.path);
   }).bind(this);
 
   reopenTask(input: AgentTaskInput): void {
@@ -4316,6 +4517,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
 
   #emit(event: AgentEvent): void {
     recordAgentRestartActivity(event);
+    if (event.type === "turn-started" || event.type === "turn-completed") this.emit("turn", event);
     if (this.channels?.event(event) || this.messaging?.event(event, this.#scope) || this.#tasks?.event(event)) return;
     this.emit("event", event);
   }

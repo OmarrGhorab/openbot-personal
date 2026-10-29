@@ -1,4 +1,4 @@
-import type { MonitorAgentStatus, MonitorSnapshot, MonitorTask } from "@openbot/contracts/ipc";
+import type { MonitorAgentStatus, MonitorSnapshot, MonitorTask, RavenTeamJob } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import type { MonitorChannelTab } from "@openbot/ui/features/monitor/MonitorChannelHeader";
 import { createEffect, createMemo, createStore, onCleanup } from "solid-js";
@@ -13,14 +13,14 @@ import {
   type MonitorFilters,
 } from "./monitor-filters";
 import {
-  countLiveAgents,
   type MonitorChannelOverview,
   mergeMonitorAgents,
   newestMonitorUpdate,
   summarizeMonitorSnapshot,
 } from "./monitor-overview";
-import type { MonitorActions, MonitorSource, MonitorTaskTarget } from "./monitor-port";
+import type { MonitorActions, MonitorSource, MonitorTaskTarget, MonitorTeamSource } from "./monitor-port";
 import type { MonitorTaskFilter } from "./monitor-tasks";
+import { countLiveWork, summarizeMonitorTeams } from "./monitor-teams";
 
 /** What the main area of the Monitor shows: one channel, or every agent. */
 type MonitorView = "channel" | "all-agents";
@@ -61,6 +61,8 @@ interface MonitorState {
   toolCallsAgentId: string | null;
   /** The sidebar part of the newest snapshot of each listed channel, by channel id. */
   overview: Record<string, MonitorChannelOverview>;
+  /** The team jobs of this computer, as the last read gave them. Empty without a team source. */
+  teamJobs: RavenTeamJob[];
 }
 
 interface MonitorProviderProps {
@@ -71,6 +73,8 @@ interface MonitorProviderProps {
   active: () => boolean;
   /** The channels the Monitor lists, in the order of the sidebar. */
   channelIds: () => readonly string[];
+  /** The team jobs of this computer. Absent where no team runs, such as on a remote host. */
+  teams?: MonitorTeamSource | undefined;
 }
 
 const context = createSimpleContext({
@@ -95,6 +99,7 @@ const context = createSimpleContext({
       membersOpen: false,
       addAgentOpen: false,
       overview: {},
+      teamJobs: [],
     });
     /** Counts reads, so a slow read of an older channel or revision cannot replace a newer one. */
     let generation = 0;
@@ -203,13 +208,49 @@ const context = createSimpleContext({
     );
     onCleanup(() => overviewGenerations.clear());
 
+    /** Counts team reads, so a slow read cannot replace a newer one. */
+    let teamGeneration = 0;
+    async function loadTeams(source: MonitorTeamSource) {
+      teamGeneration += 1;
+      const read = teamGeneration;
+      try {
+        const jobs = await source.listJobs();
+        if (read !== teamGeneration) return;
+        setState((draft) => {
+          draft.teamJobs = jobs;
+        });
+      } catch {
+        // The sidebar keeps the jobs it has.
+      }
+    }
+    /** The work threads of the team roles, so a turn of another agent does not read the jobs again. */
+    const teamThreads = createMemo(
+      () =>
+        new Set(state.teamJobs.flatMap((job) => job.roles.flatMap((role) => (role.threadId ? [role.threadId] : [])))),
+    );
+
+    // The team jobs, while the page is on screen. The team change event and the turns of the role
+    // agents read them again.
+    createEffect(
+      () => (props.active() && props.teams ? props.teams : null),
+      (source) => {
+        if (source === null) return;
+        void loadTeams(source);
+        return source.onChange((change) => {
+          if (change.threadId === null || teamThreads().has(change.threadId)) void loadTeams(source);
+        });
+      },
+    );
+
     /** The snapshot with the filters applied. Null before the first read. */
     const filtered = createMemo(() => (state.snapshot ? filterMonitorSnapshot(state.snapshot, state.filters) : null));
     const listedOverviews = () => props.channelIds().map((id) => state.overview[id]);
     /** Each agent of the listed channels once, for the sidebar. */
     const agents = createMemo(() => mergeMonitorAgents(listedOverviews()));
-    /** The "Live now" counts. They follow every new snapshot. */
-    const liveCounts = createMemo(() => countLiveAgents(agents()));
+    /** The team jobs that "Live now" lists: the active ones, and the ones that ended a short time ago. */
+    const teams = createMemo(() => summarizeMonitorTeams(state.teamJobs, new Date()));
+    /** The "Live now" counts over the channel agents and the team role work threads. They follow every new read. */
+    const liveCounts = createMemo(() => countLiveWork(agents(), teams()));
     const updatedAt = createMemo(() => newestMonitorUpdate(listedOverviews()));
     /** The status that the "Live now" filter shows, when the filter is one status alone. */
     /** The events of the newest read that the paused view does not show yet. */
@@ -230,6 +271,7 @@ const context = createSimpleContext({
       state,
       filtered,
       agents,
+      teams,
       liveCounts,
       updatedAt,
       statusFilter,
@@ -369,6 +411,30 @@ const context = createSimpleContext({
           draft.threadAgentId = agentId;
         });
         props.actions.openThread(agentId);
+      },
+      /** Whether this host can open a team job and the work thread of a team role. */
+      canOpenTeams: () => props.actions.openTeamJob !== undefined && props.actions.openWorkThread !== undefined,
+      /** Opens the team page on a team job. */
+      openTeamJob(jobId: string) {
+        props.actions.openTeamJob?.(jobId);
+      },
+      /**
+       * Opens the work thread of a team role in place of the Monitor. Its thread shows "Back to monitor".
+       * A role without a work thread yet does nothing.
+       */
+      openTeamRole(jobId: string, roleKey: string) {
+        const role = teams()
+          .find((job) => job.id === jobId)
+          ?.roles.find((entry) => entry.key === roleKey);
+        const open = props.actions.openWorkThread;
+        if (!role?.agentId || !role.taskId || !open) return;
+        setState((draft) => {
+          draft.selectedAgentId = null;
+          draft.toolCallsAgentId = null;
+          draft.conversation = null;
+          draft.threadAgentId = role.agentId;
+        });
+        open(role.agentId, role.taskId);
       },
       /** Opens the routines view in place of the Monitor. */
       openRoutines() {

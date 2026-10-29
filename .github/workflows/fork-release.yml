@@ -1,9 +1,14 @@
-name: Fork release (Intel Mac, unsigned)
+name: Fork release (Intel Mac unsigned, Linux x64 server)
 
 # Builds the fork's Intel Mac app from main and publishes it as a GitHub release with the updater
 # metadata (latest-mac.yml and blockmaps). The desktop updater reads the newest non-prerelease
 # release of this repository (`publish` in electron-builder.yml). The build has no Developer ID, so
 # it is not signed or notarized; installed builds show the update and open this release to download it.
+#
+# The same release also gets the Linux x64 AppImage and latest-linux.yml. A self-hosted server
+# (`scripts/install-server.sh`, `sudo openbot update`) installs and updates from them. Without them a
+# VPS can only run an upstream release, which has none of this fork's host features, such as
+# `provider-account-relay-v2` (Gemini Add account through your own browser).
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +16,11 @@ on:
         description: "Release version (SemVer, without v). Empty uses package.json."
         required: false
         default: ""
+      linux_only:
+        description: "Only add the Linux x64 files to the existing release of this version."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -21,9 +31,11 @@ concurrency:
 
 jobs:
   mac-x64:
-    if: github.repository == 'OmarrGhorab/openbot-personal'
+    if: github.repository == 'OmarrGhorab/openbot-personal' && !inputs.linux_only
     runs-on: macos-15-intel
     timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     env:
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
@@ -106,3 +118,69 @@ jobs:
             --title "OpenBot $VERSION (Intel Mac, unsigned)" \
             --notes "Intel (x64) macOS build of $GITHUB_SHA. Not signed or notarized: on first open, right-click OpenBot.app and choose Open, or allow it in System Settings > Privacy & Security. Installed builds see this release as an update and open this page to download it. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
             dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml
+
+  linux-x64:
+    needs: mac-x64
+    # With linux_only the Mac job is skipped and this job adds its files to the existing release.
+    if: >-
+      always() && github.repository == 'OmarrGhorab/openbot-personal' &&
+      (needs.mac-x64.result == 'success' || (inputs.linux_only && needs.mac-x64.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.mac-x64.outputs.version || inputs.version }}
+      OPENBOT_ACCOUNT_URL: ${{ vars.OPENBOT_ACCOUNT_URL }}
+      OPENBOT_SIGNAL_URL: ${{ vars.OPENBOT_SIGNAL_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+        with:
+          install: none
+      # uiohook-napi is rebuilt from source for Electron and links X11, Xrandr, Xtst and Xt.
+      - name: Install X11 headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev libxrandr-dev libxtst-dev libxt-dev
+      - run: bun install --frozen-lockfile
+      - name: Set version
+        shell: bash
+        run: |
+          VERSION="${VERSION:-$(node -p "require('./package.json').version")}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$VERSION does not exist." >&2; exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "Invalid version: $VERSION" >&2; exit 1; fi
+          node -e "const f='package.json',p=require('./'+f);p.version='$VERSION';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+      - name: Install native runtimes
+        run: |
+          bun run install:codex-runtime
+          bun run install:claude-runtime
+          bun run install:grok-runtime
+      - name: Build x64 AppImage
+        run: bun run dist:linux
+      - name: Verify server release files
+        shell: bash
+        run: |
+          shopt -s nullglob
+          ls -la dist
+          images=(dist/OpenBot-"$VERSION"-x86_64.AppImage)
+          if (( ${#images[@]} != 1 )) || [[ ! -f dist/latest-linux.yml ]]; then
+            echo "Expected OpenBot-$VERSION-x86_64.AppImage and latest-linux.yml." >&2; exit 1
+          fi
+          cat dist/latest-linux.yml
+          grep -F "version: $VERSION" dist/latest-linux.yml
+          grep -F "OpenBot-$VERSION-x86_64.AppImage" dist/latest-linux.yml
+          # install-server.sh runs the setup of the release it unpacks.
+          test -x dist/linux-unpacked/resources/hosting/openbot-server-setup
+          test -x dist/linux-unpacked/resources/hosting/openbot-hosted-update
+          grep -F 'OmarrGhorab/openbot-personal/releases' dist/linux-unpacked/resources/hosting/openbot-hosted-update
+      - name: Add to the release
+        shell: bash
+        run: |
+          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" \
+            "dist/OpenBot-$VERSION-x86_64.AppImage" dist/latest-linux.yml

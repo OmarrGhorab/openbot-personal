@@ -174,6 +174,31 @@ function isTrailingPlaceholder(node: HTMLElement): boolean {
   return node.tagName === "BR" && !node.nextSibling;
 }
 
+/**
+ * Whether a collapsed caret sits on the draft's first or last line, where Arrow Up or Down would
+ * leave the text. A hard line break before (or after) the caret rules it out; a line that wraps is
+ * measured against the text's first (or last) line box. An empty draft has one line.
+ */
+export function caretOnEdgeLine(editor: HTMLElement, edge: "first" | "last"): boolean {
+  const text = editorText(editor);
+  if (!text) return true;
+  const selection = readEditorSelection(editor);
+  if (!selection || selection.anchor !== selection.focus) return false;
+  const caret = selection.focus;
+  const lineBreak = edge === "first" ? text.slice(0, caret).includes("\n") : text.slice(caret).includes("\n");
+  if (lineBreak) return false;
+  const caretRect = rangeFromTextOffsets(editor, caret, caret)?.getClientRects?.()[0];
+  // Without layout (jsdom), the line breaks are all there is to go by.
+  if (!caretRect?.height) return true;
+  const content = editor.ownerDocument.createRange();
+  content.selectNodeContents(editor);
+  const lineBoxes = Array.from(content.getClientRects?.() ?? []).filter((rect) => rect.height > 0);
+  if (lineBoxes.length === 0) return true;
+  const tolerance = caretRect.height / 2;
+  if (edge === "first") return caretRect.top - Math.min(...lineBoxes.map((rect) => rect.top)) < tolerance;
+  return Math.max(...lineBoxes.map((rect) => rect.bottom)) - caretRect.bottom < tolerance;
+}
+
 export function placeCaretAtEnd(editor: HTMLDivElement): void {
   const end = editorText(editor).length;
   const range = rangeFromTextOffsets(editor, end, end);

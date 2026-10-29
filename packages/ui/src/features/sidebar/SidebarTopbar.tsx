@@ -13,6 +13,8 @@ import {
   FolderPlus,
   Hash,
   IconButton,
+  OctagonX,
+  Play,
   Puzzle,
 } from "@openbot/ui";
 import { Show } from "solid-js";
@@ -48,6 +50,26 @@ export function SidebarTopbar() {
         {(serverMenu) => <ServerMenu {...serverMenu()} serverName={props.serverName} compact={props.compact} />}
       </Show>
       <div class="sidebar-topbar-actions">
+        <Show when={props.stopAll}>
+          {(stopAll) => (
+            <IconButton
+              variant="ghost"
+              type="button"
+              class="sidebar-icon-button sidebar-stop-all-button no-drag"
+              label={stopAll().stopped ? t("autonomy.stopAll.resume") : t("autonomy.stopAll.stop")}
+              tooltip={
+                stopAll().stopped ? t("autonomy.stopAll.resumeDescription") : t("autonomy.stopAll.stopDescription")
+              }
+              disabled={stopAll().disabled}
+              aria-pressed={stopAll().stopped ? "true" : "false"}
+              onClick={() => stopAll().onToggle()}
+            >
+              <Show when={stopAll().stopped} fallback={<OctagonX aria-hidden="true" />}>
+                <Play aria-hidden="true" />
+              </Show>
+            </IconButton>
+          )}
+        </Show>
         <Show when={!props.compact && props.chatHistory}>
           {(history) => {
             const backLabel = () => {

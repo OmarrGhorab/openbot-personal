@@ -694,7 +694,7 @@ export const messages = {
   "settings.transfer.copy.reauthenticate": "اضبطه من {section}",
   "settings.transfer.copy.openProviders": "المزوّدين",
   "settings.transfer.copy.openMcp": "MCP",
-  "settings.transfer.copy.openConnectors": "التوصيلات",
+  "settings.transfer.copy.openConnectors": "تطبيقات السوق",
   "settings.transfer.copy.secretsMigrationMissing":
     "النقل ده مالوش رقم هجرة، فتسجيلات الدخول ما اتبعتتش. المصدر زي ما هو.",
   "settings.transfer.copy.secretsFailed": "مقدرناش ننقل تسجيلات الدخول المحفوظة. المصدر زي ما هو.",

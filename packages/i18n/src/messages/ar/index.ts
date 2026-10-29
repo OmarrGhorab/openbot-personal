@@ -6,6 +6,7 @@ import { messages as agentSettings } from "./agentSettings";
 import { messages as agentTemplate } from "./agentTemplate";
 import { messages as app } from "./app";
 import { messages as attachment } from "./attachment";
+import { messages as autonomy } from "./autonomy";
 import { messages as billing } from "./billing";
 import { messages as browser } from "./browser";
 import { messages as channel } from "./channel";
@@ -46,6 +47,7 @@ import { messages as skill } from "./skill";
 import { source } from "./source";
 import { messages as startup } from "./startup";
 import { messages as team } from "./team";
+import { messages as tickets } from "./tickets";
 import { messages as uiBlock } from "./uiBlock";
 import { messages as update } from "./update";
 import { messages as usage } from "./usage";
@@ -97,6 +99,7 @@ export const ar = {
   ...mcp,
   ...messaging,
   ...monitor,
+  ...tickets,
   ...webClient,
   ...account,
   ...onboarding,
@@ -110,6 +113,7 @@ export const ar = {
   ...files,
   ...globalVoice,
   ...island,
+  ...autonomy,
   ...computerUse,
   ...connector,
   ...vault,

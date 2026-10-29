@@ -17,6 +17,7 @@ import { ATTACHMENT_LIMITS, INPUT_LIMITS } from "@openbot/contracts/input-limits
 import {
   AGENT_PROVIDERS,
   type AgentProviderId,
+  type AgentStatus,
   type AgentSummary,
   type AttachmentDataInput,
   type BitwardenConnectorStatus,
@@ -41,6 +42,7 @@ import {
   BITWARDEN_CONNECTOR_CAPABILITY,
   BITWARDEN_CONNECTOR_ROUTES,
 } from "@openbot/contracts/team-protocol/bitwarden-connector-v1";
+import { BOARD_TICKETS_CAPABILITY, BOARD_TICKETS_ROUTES } from "@openbot/contracts/team-protocol/board-tickets-v1";
 import {
   BROWSER_PROFILES_CAPABILITY,
   BROWSER_PROFILES_ROUTES,
@@ -49,6 +51,8 @@ import {
   PROVIDER_USAGE_RESET_CAPABILITY,
   PROVIDER_USAGE_RESET_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
+import { PROVIDERS_V5_CAPABILITY, PROVIDERS_V5_ROUTES } from "@openbot/contracts/team-protocol/providers-v5";
+import { PROVIDERS_V8_CAPABILITY, PROVIDERS_V8_ROUTES } from "@openbot/contracts/team-protocol/providers-v8";
 import { QueueEditRejectedError, TEAM_QUEUE_EDIT_CAPABILITY } from "@openbot/contracts/team-protocol/queue-edit-v1";
 import {
   ROUTINE_RESULTS_CAPABILITY,
@@ -66,6 +70,8 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { Effect } from "effect";
 import { SteerUnsupportedError } from "../src/backend/agent/queue-controls";
 import { AgentLifecycleFailed } from "../src/backend/agent-service";
+import { BoardTicketService } from "../src/backend/board-tickets/board-ticket-service";
+import { BoardTicketStore } from "../src/backend/board-tickets/board-ticket-store";
 import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
 import type { BrowserTabSession } from "../src/backend/browser-state";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -243,6 +249,19 @@ function queueSnapshot(agentId: string): QueueSnapshot {
     ],
   };
 }
+
+// The provider keys that the fake host keeps.
+const providerKeys = new Set<string>();
+/** Whether the fake host reports a Pi download that runs, so a key-only provider key is saved alone. */
+let piDownloading = false;
+const NO_STATUS: AgentStatus = {
+  phase: "ready",
+  cliVersion: null,
+  auth: { kind: "unknown" },
+  capabilities: { chat: "ready", browser: "unavailable", computerUse: "unavailable" },
+  message: null,
+  fullAccess: true,
+};
 
 let hidden: HiddenAgentsSnapshot = { agents: [{ agentId: "agent-pi", hiddenAt: new Date(0).toISOString() }] };
 
@@ -584,6 +603,15 @@ try {
     chat: new TeamChatStore(database),
     // The real host-settings service, over an agent writer that records each change.
     admin: {
+      // The real board over the real database. A start records the work thread that it asks for.
+      boardTickets: new BoardTicketService({
+        store: new BoardTicketStore(database),
+        changed: (ticketIds) => record("boardTicketsChanged", ticketIds),
+        startWorkThread: async (agentId, text) => {
+          record("startWorkThread", agentId, text);
+          return { id: "task-board-1", threadId: "thread-board-1", state: "queued" };
+        },
+      }),
       agentHost: createAgentHostSettings({
         agents: {
           listAgents: () => agents,
@@ -619,6 +647,49 @@ try {
               : null;
             return Effect.succeed(routineDestination);
           }),
+      },
+      // A credential store in memory. The service runs the change as the host's does.
+      providers: {
+        service: {
+          startProviderCodeLogin: unused("providers.startProviderCodeLogin"),
+          submitProviderCodeLogin: unused("providers.submitProviderCodeLogin"),
+          cancelProviderCodeLogin: unused("providers.cancelProviderCodeLogin"),
+          changeProviderCredential: (provider, change) => {
+            record("changeProviderCredential", provider);
+            return change().pipe(Effect.as(NO_STATUS));
+          },
+        },
+        credentials: {
+          status: (provider) => (providerKeys.has(provider) ? "saved" : "missing"),
+          set: (provider, key) =>
+            Effect.sync(() => {
+              record("setProviderKey", provider, key);
+              providerKeys.add(provider);
+            }),
+          clear: (provider) =>
+            Effect.sync(() => {
+              record("clearProviderKey", provider);
+              providerKeys.delete(provider);
+            }),
+        },
+        runtimes: {
+          getStatus: unused("providers.runtimes.getStatus"),
+          download: unused("providers.runtimes.download"),
+          cancel: unused("providers.runtimes.cancel"),
+          checkForUpdates: unused("providers.runtimes.checkForUpdates"),
+          // Pi is ready until the test says that its download runs.
+          startKeyProviderCli: (provider) =>
+            Effect.sync(() => {
+              record("startKeyProviderCli", provider);
+              return piDownloading;
+            }),
+        },
+        customProviders: {
+          list: unused("providers.customProviders.list"),
+          save: unused("providers.customProviders.save"),
+          remove: unused("providers.customProviders.remove"),
+        },
+        pasteSignIn: false,
       },
     },
     bitwardenConnector,
@@ -1160,8 +1231,7 @@ try {
         isDeepStrictEqual(ids(v8), ["agent-ada", "agent-oc", "agent-pi"]),
       { v3: ids(v3), v6: ids(v6), v7: ids(v7), v8: ids(v8) },
     );
-    // Each frozen list is the released vocabulary of its protocol. Protocol 8 and later hide only the
-    // local-only providers, which every protocol hides.
+    // Each frozen list is the released vocabulary of its protocol. Protocol 8 and later hide none.
     const hiddenBy = (protocol: number) =>
       AGENT_PROVIDERS.filter((provider) => isPeerHiddenProvider(provider, protocol));
     const expectedHidden: Record<number, readonly string[]> = {
@@ -1171,8 +1241,8 @@ try {
       5: ["cursor", "cline", "pi", "muse", "inception"],
       6: ["pi", "muse", "inception"],
       7: ["inception"],
-      8: ["inception"],
-      9: ["inception"],
+      8: [],
+      9: [],
     };
     const hiddenRows = Object.entries(expectedHidden).map(([protocol, expected]) => ({
       protocol: Number(protocol),
@@ -1180,7 +1250,7 @@ try {
       expected: AGENT_PROVIDERS.filter((provider) => expected.includes(provider)),
     }));
     check(
-      "the frozen provider lists hide each provider that a protocol below 8 does not know, and every protocol hides Inception",
+      "the frozen provider lists hide each provider that a protocol below 8 does not know, and protocol 8 hides none",
       hiddenRows.every((row) => isDeepStrictEqual(row.hidden, row.expected)),
       hiddenRows,
     );
@@ -1491,6 +1561,86 @@ try {
     );
   }
 
+  // ---- Tickets board (board-tickets-v1) ----
+  {
+    const boardCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, BOARD_TICKETS_CAPABILITY];
+    const board = (path: string, json: Json = {}, token = adaToken, protocol?: number) =>
+      call("POST", path, {
+        token,
+        json,
+        capabilities: boardCapabilities,
+        ...(protocol === undefined ? {} : { protocol }),
+      });
+    const unsupported = await call("POST", BOARD_TICKETS_ROUTES.list, { token: adaToken, json: {} });
+    check(
+      "the board routes without the capability get 400 boardTicketsUnsupported",
+      errorIs(unsupported, 400, sourceText("error.team.boardTicketsUnsupported")),
+      summary(unsupported),
+    );
+    const memberList = await board(BOARD_TICKETS_ROUTES.list, {}, bobToken);
+    const memberCreate = await board(BOARD_TICKETS_ROUTES.create, { title: "From a member" }, bobToken);
+    check(
+      "a member cannot read or change the board",
+      errorIs(memberList, 403, sourceText("error.team.adminRequired")) &&
+        errorIs(memberCreate, 403, sourceText("error.team.adminRequired")) &&
+        callsOf("boardTicketsChanged").length === 0,
+      [summary(memberList), summary(memberCreate)],
+    );
+    const created = await board(BOARD_TICKETS_ROUTES.create, { title: "Fix the server login", agentId: "agent-ada" });
+    const ticketId = String(field(created.body, "id"));
+    const listed = await board(BOARD_TICKETS_ROUTES.list);
+    check(
+      "an admin creates a ticket on the server, and the board lists it in Backlog",
+      created.status === 200 &&
+        field(created.body, "status") === "backlog" &&
+        list(field(listed.body, "tickets")).some((ticket) => field(ticket, "id") === ticketId),
+      [summary(created), summary(listed)],
+    );
+    const moved = await board(BOARD_TICKETS_ROUTES.move, { ticketId, status: "queued" });
+    const commented = await board(BOARD_TICKETS_ROUTES.comment, { ticketId, text: "Check the SSH key first." });
+    const activity = await board(BOARD_TICKETS_ROUTES.events, { ticketId });
+    check(
+      "an admin moves the ticket and comments on it, and reads its activity",
+      moved.status === 200 &&
+        field(moved.body, "status") === "queued" &&
+        commented.status === 200 &&
+        field(commented.body, "kind") === "comment" &&
+        list(field(activity.body, "events")).length >= 3,
+      [summary(moved), summary(commented), summary(activity)],
+    );
+    const started = await board(BOARD_TICKETS_ROUTES.start, { agentId: "agent-ada", title: "Start on the server" });
+    check(
+      "a start creates the ticket and starts one work thread of its agent on the host",
+      started.status === 200 &&
+        field(started.body, "taskId") === "task-board-1" &&
+        callsOf("startWorkThread").length === 1,
+      summary(started),
+    );
+    const again = await board(BOARD_TICKETS_ROUTES.start, {
+      agentId: "agent-ada",
+      ticketId: String(field(started.body, "id")),
+    });
+    check(
+      "a second start of the same ticket gets 409 with its catalog text",
+      errorIs(again, 409, sourceText("error.agent.boardTickets.alreadyStarted")) &&
+        callsOf("startWorkThread").length === 1,
+      summary(again),
+    );
+    const hiddenStart = await board(BOARD_TICKETS_ROUTES.start, { agentId: "agent-pi", title: "Hidden" }, adaToken, 6);
+    check(
+      "an admin cannot start a ticket for an agent that the client protocol does not show",
+      errorIs(hiddenStart, 404, sourceText("error.team.agentNotFound")) && callsOf("startWorkThread").length === 1,
+      summary(hiddenStart),
+    );
+    const deleted = await board(BOARD_TICKETS_ROUTES.delete, { ticketId });
+    const gone = await board(BOARD_TICKETS_ROUTES.events, { ticketId });
+    check(
+      "an admin deletes the ticket, and then it is not found",
+      deleted.status === 200 && errorIs(gone, 404, sourceText("error.agent.boardTickets.notFound")),
+      [summary(deleted), summary(gone)],
+    );
+  }
+
   // ---- Browser profiles (browser-profiles-v1) ----
   {
     const profileCapabilities = [AGENT_HIDDEN_CAPABILITY, TEAM_QUEUE_EDIT_CAPABILITY, BROWSER_PROFILES_CAPABILITY];
@@ -1694,6 +1844,62 @@ try {
       "the disk route ignores a path in the body and reads the disk of the OpenBot data",
       withBody.status === 200 && isDeepStrictEqual(withBody.body, expected) && callsOf("disk").length === 3,
       summary(withBody),
+    );
+  }
+
+  // ---- Keys of the key-only providers (providers-v8) ----
+  {
+    const v8 = { token: adaToken, protocol: 8, capabilities: [PROVIDERS_V8_CAPABILITY] };
+    const key = ["sk", "e2e", "inception", "fake0000"].join("-");
+    const before = await call("POST", PROVIDERS_V8_ROUTES.apiKeyState, { ...v8, json: { provider: "inception" } });
+    const set = await call("POST", PROVIDERS_V8_ROUTES.apiKeySet, { ...v8, json: { provider: "inception", key } });
+    const after = await call("POST", PROVIDERS_V8_ROUTES.apiKeyState, { ...v8, json: { provider: "inception" } });
+    check(
+      "an admin on providers-v8 saves an Inception key on the host, and the host starts the Pi CLI for it",
+      before.status === 200 &&
+        field(before.body, "status") === "missing" &&
+        set.status === 200 &&
+        isDeepStrictEqual(callsOf("setProviderKey"), [["inception", key]]) &&
+        isDeepStrictEqual(callsOf("startKeyProviderCli"), [["inception"]]) &&
+        isDeepStrictEqual(callsOf("changeProviderCredential"), [["inception"]]) &&
+        after.status === 200 &&
+        field(after.body, "status") === "saved",
+      [summary(before), summary(set), summary(after)],
+    );
+    const cleared = await call("POST", PROVIDERS_V8_ROUTES.apiKeyClear, { ...v8, json: { provider: "inception" } });
+    const afterClear = await call("POST", PROVIDERS_V8_ROUTES.apiKeyState, { ...v8, json: { provider: "inception" } });
+    check(
+      "an admin on providers-v8 clears the Inception key",
+      cleared.status === 200 &&
+        isDeepStrictEqual(callsOf("clearProviderKey"), [["inception"]]) &&
+        field(afterClear.body, "status") === "missing",
+      [summary(cleared), summary(afterClear)],
+    );
+    const v5 = await call("POST", PROVIDERS_V5_ROUTES.apiKeySet, {
+      token: adaToken,
+      capabilities: [PROVIDERS_V5_CAPABILITY],
+      json: { provider: "inception", key },
+    });
+    const member = await call("POST", PROVIDERS_V8_ROUTES.apiKeySet, {
+      ...v8,
+      token: bobToken,
+      json: { provider: "inception", key },
+    });
+    check(
+      "providers-v5 refuses a key-only provider's key, a member gets 403, and neither saves a key",
+      v5.status === 400 && member.status === 403 && callsOf("setProviderKey").length === 1,
+      [summary(v5), summary(member)],
+    );
+    // No Pi process runs while Pi downloads, so a restart of the provider would fail on the missing CLI.
+    piDownloading = true;
+    const restarts = callsOf("changeProviderCredential").length;
+    const pending = await call("POST", PROVIDERS_V8_ROUTES.apiKeySet, { ...v8, json: { provider: "inception", key } });
+    check(
+      "while the host downloads Pi, a key-only provider's key is saved without a provider restart",
+      pending.status === 200 &&
+        isDeepStrictEqual(callsOf("setProviderKey").at(-1), ["inception", key]) &&
+        callsOf("changeProviderCredential").length === restarts,
+      summary(pending),
     );
   }
 

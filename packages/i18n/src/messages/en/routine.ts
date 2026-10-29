@@ -355,4 +355,21 @@ export const messages = defineMessages("routine", {
   "routine.settings.discardDescription": "Your unsaved changes to this routine will be lost.",
   "routine.settings.discardConfirm": "Discard changes",
   "routine.settings.keepEditing": "Keep editing",
+
+  "routine.template.title": "Start from a template",
+  "routine.template.description":
+    "Scheduled coding jobs for this agent's repository. Needs a Git repository with a GitHub remote, and gh signed in on this computer.",
+  "routine.template.schedule": "Schedule",
+  "routine.template.scheduleNamed": "Schedule {name}",
+  "routine.template.scheduled": "Scheduled",
+  "routine.template.scheduledNotice": "{name} is scheduled.",
+  "routine.template.failed": "The routine could not be scheduled.",
+  "routine.template.updateDependencies.name": "Update dependencies",
+  "routine.template.updateDependencies.summary": "Weekly. Opens a draft pull request with patch and minor updates.",
+  "routine.template.triageFlakyTests.name": "Triage flaky tests",
+  "routine.template.triageFlakyTests.summary": "Weekly. Finds tests that fail and pass on one commit.",
+  "routine.template.cleanTodos.name": "Clean old TODOs",
+  "routine.template.cleanTodos.summary": "Monthly. Fixes small old TODOs and opens tickets for large ones.",
+  "routine.template.triageStaleIssues.name": "Triage stale issues",
+  "routine.template.triageStaleIssues.summary": "Weekly. Warns about issues with no activity, then closes them.",
 });

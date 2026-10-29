@@ -58,6 +58,12 @@ export interface AgentTaskQueuedMessage {
 }
 
 /**
+ * The folder that a work thread runs in: its own git worktree, or the agent's shared workspace. A
+ * work thread is an agent task, one of the parallel execution threads of its agent.
+ */
+export type AgentTaskWorkspace = { mode: "shared" } | { mode: "worktree"; path: string; branch: string };
+
+/**
  * A second conversation of one agent. The agent keeps its identity, workspace and memories; the task
  * has its own thread, provider session, progress and stop. A joined server sends its tasks through the
  * optional `agent-tasks-v1` capability, in the frozen bounds of `team-protocol/agent-tasks-v1.ts`.
@@ -84,6 +90,24 @@ export interface AgentTask {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  /**
+   * Set while the person pauses the task: its queue keeps its messages and starts no turn. Absent from
+   * a joined server, because `agent-tasks-v1` does not carry it.
+   */
+  pausedAt?: string | null;
+  /** The folder of the task. Absent from a joined server, because `agent-tasks-v1` does not carry it. */
+  workspace?: AgentTaskWorkspace;
+  /**
+   * Set while the turn of the task waits for an answer to a question. The task then holds no turn slot,
+   * so another task of the agent can run. Absent from a joined server, because `agent-tasks-v1` does not
+   * carry it: the state of the task stays `running` there.
+   */
+  question?: AgentTaskQuestion | null;
+}
+
+/** The question that a running task waits on: its first question, as the agent wrote it. */
+export interface AgentTaskQuestion {
+  text: string;
 }
 
 export interface AgentTasksSnapshot {
@@ -110,6 +134,27 @@ export interface RunQueuedMessageAsTaskInput {
 export interface AgentTaskInput {
   agentId: string;
   taskId: string;
+}
+
+/** Gives a task a new title. The title shows in the sidebar, the task list and the task's cards. */
+export interface RenameAgentTaskInput {
+  agentId: string;
+  taskId: string;
+  title: string;
+}
+
+function isAgentTaskWorkspace(value: unknown): value is AgentTaskWorkspace {
+  if (!isDynamicRecord(value)) return false;
+  if (value.mode === "shared") return true;
+  return (
+    value.mode === "worktree" &&
+    isBoundedString(value.path, INPUT_LIMITS.path) &&
+    isBoundedString(value.branch, INPUT_LIMITS.agentTaskTitle)
+  );
+}
+
+export function isAgentTaskQuestion(value: unknown): value is AgentTaskQuestion {
+  return isDynamicRecord(value) && isBoundedString(value.text, INPUT_LIMITS.promptQuestion);
 }
 
 function isAgentTaskQueuedMessage(value: unknown): value is AgentTaskQueuedMessage {
@@ -139,7 +184,10 @@ export function isAgentTask(value: unknown): value is AgentTask {
     value.queuedMessages.every(isAgentTaskQueuedMessage) &&
     isBoundedString(value.createdAt, 160) &&
     isBoundedString(value.updatedAt, 160) &&
-    (value.closedAt === null || isBoundedString(value.closedAt, 160))
+    (value.closedAt === null || isBoundedString(value.closedAt, 160)) &&
+    (value.pausedAt === undefined || value.pausedAt === null || isBoundedString(value.pausedAt, 160)) &&
+    (value.workspace === undefined || isAgentTaskWorkspace(value.workspace)) &&
+    (value.question === undefined || value.question === null || isAgentTaskQuestion(value.question))
   );
 }
 

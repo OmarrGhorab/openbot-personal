@@ -33,6 +33,7 @@ import {
   isAgentStatus,
   isClientAgentModelOption,
   isClientAgentSummary,
+  isProjectMemoryState,
   isProviderAccountId,
   isProviderAccountStatus,
   isRoutine,
@@ -42,6 +43,7 @@ import {
   isSharedTable,
   isSidebarLayoutSnapshot,
   MAX_PROVIDER_ACCOUNTS,
+  type ProjectMemoryState,
   type ProviderApiKeyState,
   type ProviderCodeLoginStart,
   type ProviderUsageResetOutcome,
@@ -191,6 +193,11 @@ export function decodeTables(value: unknown): SharedTable[] {
 
 export function decodeMemories(value: unknown): AgentMemory[] {
   if (!Array.isArray(value) || !value.every(isAgentMemory)) throw new Error("Invalid agent memories response.");
+  return value;
+}
+
+export function decodeProjectMemoryState(value: unknown): ProjectMemoryState {
+  if (!isProjectMemoryState(value)) throw new Error("Invalid project memory response.");
   return value;
 }
 

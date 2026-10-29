@@ -3,8 +3,9 @@ import {
   agentAutomationAllowed,
   DEFAULT_AGENT_DEFAULTS,
   type FilePreview,
+  PROJECT_MEMORY_LIMIT,
 } from "@openbot/contracts/ipc";
-import { BookMarked, CalendarClock, Folder, Gauge, Puzzle, Table2, Upload } from "@openbot/ui";
+import { BookMarked, CalendarClock, Folder, FolderOpen, Gauge, Puzzle, Table2, Upload } from "@openbot/ui";
 import { SettingsLinkGroup, SettingsLinkRow } from "@openbot/ui/components/SettingsPanel";
 import type { AgentProfile } from "@openbot/ui/data";
 import {
@@ -28,9 +29,11 @@ import { createStorageUsage } from "../files/storage-usage";
 import { AgentMemoriesModal } from "./AgentMemoriesModal";
 import { AgentRoutinesSettings, type RoutineSelectionRequest } from "./AgentRoutinesSettings";
 import { AgentSkillsModal, type AgentSkillsMode, assignedSkillCount, type SkillDetail } from "./AgentSkillsModal";
+import { AgentTicketWatchRow } from "./AgentTicketWatchRow";
 import { conversationPort, type SharedTableCalls } from "./conversation-port";
 import type { ConversationRuntime } from "./conversation-runtime";
 import { agentMemoriesPort } from "./memories-port";
+import { ProjectMemoriesModal } from "./ProjectMemoriesModal";
 import type { EventRoutinesApi } from "./routine-webhooks-api";
 import { agentRoutinesPort, eventRoutinesPort, type RoutinesPort } from "./routines-port";
 import { SharedTablesModal } from "./SharedTablesModal";
@@ -108,6 +111,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
   const [draft, setDraft] = createStore({
     tables: { count: 0, open: false },
     memories: { count: 0, open: false },
+    projectMemories: { count: 0, open: false },
     routines: { count: 0, open: false },
     files: { open: false },
     skills: { count: 0, open: false, reopenAfterMarketplace: false },
@@ -245,6 +249,15 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           state.memories.count = items.length;
         });
       });
+    void window.openbot.agent
+      .getProjectMemories({ agentId })
+      .catch(() => null)
+      .then((projectState) => {
+        if (!projectState) return;
+        setDraft((state) => {
+          state.projectMemories.count = projectState.memories.length;
+        });
+      });
   }
 
   function loadRoutinesCount(port: RoutinesPort): void {
@@ -359,6 +372,19 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     })
                   }
                 />
+                <SettingsLinkRow
+                  icon={<FolderOpen aria-hidden="true" />}
+                  label={t("memory.project.open")}
+                  value={t("memory.project.count", {
+                    count: draft.projectMemories.count,
+                    limit: PROJECT_MEMORY_LIMIT,
+                  })}
+                  onClick={() =>
+                    setDraft((state) => {
+                      state.projectMemories.open = true;
+                    })
+                  }
+                />
               </Show>
               <Show when={skillsMode() !== "hidden"}>
                 <SettingsLinkRow
@@ -412,6 +438,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                   }
                 />
               </Show>
+              <AgentTicketWatchRow agentId={props.agent.id} onClose={props.onClose} />
               <Show when={!props.remoteClient && props.onOpenUsage}>
                 <SettingsLinkRow
                   icon={<Gauge aria-hidden="true" />}
@@ -495,6 +522,20 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
         onCountChange={(count) =>
           setDraft((state) => {
             state.memories.count = count;
+          })
+        }
+      />
+      <ProjectMemoriesModal
+        agentId={props.agent.id}
+        open={draft.projectMemories.open}
+        onOpenChange={(open) =>
+          setDraft((state) => {
+            state.projectMemories.open = open;
+          })
+        }
+        onCountChange={(count) =>
+          setDraft((state) => {
+            state.projectMemories.count = count;
           })
         }
       />

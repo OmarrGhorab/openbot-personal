@@ -34,6 +34,11 @@ import {
   PROVIDER_ACCOUNT_RELAY_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-account-relay-v1";
 import {
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS,
+  PROVIDER_ACCOUNT_RELAY_V2_ROUTES,
+} from "@openbot/contracts/team-protocol/provider-account-relay-v2";
+import {
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_ACCOUNTS_ROUTES,
 } from "@openbot/contracts/team-protocol/provider-accounts-v1";
@@ -107,7 +112,10 @@ interface ProviderAdminIpcDependencies {
     "startProviderCodeLogin" | "submitProviderCodeLogin" | "cancelProviderCodeLogin" | "changeProviderCredential"
   >;
   credentials: Pick<ProviderCredentialStore, "status" | "set" | "clear">;
-  runtimes: Pick<ProviderRuntimeManager, "getStatus" | "download" | "cancel" | "checkForUpdates">;
+  runtimes: Pick<
+    ProviderRuntimeManager,
+    "getStatus" | "download" | "cancel" | "checkForUpdates" | "ensureKeyProviderCli"
+  >;
   customProviders: PeerCustomProviderChanges;
   remoteServers: ProviderAdminRemoteServers;
   /** Opens the page of a joined server's sign-in in this computer's browser, and relays the callback. */
@@ -353,6 +361,12 @@ export function providerAdminIpcHandlers({
         return startRelay(serverId, provider, SIGN_IN_RELAY_ROUTES.providerStart, { provider });
       }),
       startAccountRelaySignIn: relaySignIn(parseConnectProviderAccountInput, ({ provider, accountId }, serverId) => {
+        // A host with `provider-account-relay-v2` relays Gemini's accounts too; an older one only v1's.
+        if (
+          remoteServers.supportsCapability(serverId, PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY) &&
+          PROVIDER_ACCOUNT_RELAY_V2_PROVIDERS.some((candidate) => candidate === provider)
+        )
+          return startRelay(serverId, provider, PROVIDER_ACCOUNT_RELAY_V2_ROUTES.start, { provider, accountId });
         if (
           !remoteServers.supportsCapability(serverId, PROVIDER_ACCOUNT_RELAY_CAPABILITY) ||
           !PROVIDER_ACCOUNT_RELAY_PROVIDERS.some((candidate) => candidate === provider)
@@ -384,8 +398,9 @@ export function providerAdminIpcHandlers({
         }),
       }),
       setApiKey: scopedHandler(parseProviderApiKeyInput, {
-        local: ({ provider, key }) =>
-          runCauseEffect(
+        local: async ({ provider, key }) => {
+          await runCauseEffect(runtimes.ensureKeyProviderCli(provider));
+          return runCauseEffect(
             service.changeProviderCredential(provider, () =>
               credentials
                 .set(provider, key)
@@ -395,7 +410,8 @@ export function providerAdminIpcHandlers({
                   ),
                 ),
             ),
-          ),
+          );
+        },
         remote: (input, serverId) => remoteChange(serverId, keyRoutes(serverId).apiKeySet, input),
       }),
       clearApiKey: scopedHandler(parseProviderId, {

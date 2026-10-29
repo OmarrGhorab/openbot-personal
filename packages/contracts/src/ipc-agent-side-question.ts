@@ -16,6 +16,11 @@ export interface AskSideQuestionInput {
   agentId: string;
   question: string;
   earlier: SideQuestionTurn[];
+  /**
+   * The work thread (agent task) that the side chat reads. Without it, the side chat reads the
+   * agent's main thread. Only this computer reads it: `side-question-v1` does not carry it.
+   */
+  taskId?: string;
 }
 
 function isSideQuestionTurn(value: unknown): value is SideQuestionTurn {
@@ -34,7 +39,8 @@ export function parseAskSideQuestion(value: unknown): AskSideQuestionInput {
     !value.question.trim() ||
     !Array.isArray(value.earlier) ||
     value.earlier.length > INPUT_LIMITS.sideQuestionTurns ||
-    !value.earlier.every(isSideQuestionTurn)
+    !value.earlier.every(isSideQuestionTurn) ||
+    (value.taskId !== undefined && !isIdentifier(value.taskId))
   ) {
     throw new Error("Provide a valid side question.");
   }
@@ -42,5 +48,6 @@ export function parseAskSideQuestion(value: unknown): AskSideQuestionInput {
     agentId: value.agentId,
     question: value.question.trim(),
     earlier: value.earlier.map((turn) => ({ question: turn.question, answer: turn.answer })),
+    ...(typeof value.taskId === "string" ? { taskId: value.taskId } : {}),
   };
 }

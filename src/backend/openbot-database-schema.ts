@@ -6,7 +6,11 @@ import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "./agent-memory-selection";
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
+import { AGENT_WORK_THREAD_SCHEMA_SQL } from "./agent-tasks/agent-work-thread-schema";
+import { AGENT_TICKET_SCHEMA_SQL } from "./agent-tickets/agent-ticket-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
+import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
+import { BOARD_TICKET_SCHEMA_SQL } from "./board-tickets/board-ticket-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
 import { PROVIDER_HISTORY_SCHEMA_SQL } from "./database/provider-history-schema";
@@ -16,6 +20,8 @@ import {
   MESSAGING_MEMORY_SCHEMA_SQL,
   MESSAGING_SCHEMA_SQL,
 } from "./messaging/messaging-schema";
+import { PROJECT_MEMORY_SCHEMA_SQL } from "./project-memory/project-memory-schema";
+import { RAVEN_TEAM_SCHEMA_SQL } from "./raven-team/raven-team-schema";
 import { ROUTINE_FLOW_SCHEMA_SQL } from "./routine-flows/routine-flow-schema";
 import { ROUTINE_RESULT_SCHEMA_SQL } from "./routine-results/routine-result-schema";
 
@@ -600,7 +606,13 @@ const LATEST_SCHEMA_SQL =
   V42_ROUTINE_FLOW_SWEEP_INDEX_SQL +
   V43_THREAD_EVENT_TYPE_INDEX_SQL +
   MESSAGING_ALLOWED_ROLES_SCHEMA_SQL +
-  BROWSER_PROFILE_SCHEMA_SQL;
+  BROWSER_PROFILE_SCHEMA_SQL +
+  AGENT_WORK_THREAD_SCHEMA_SQL +
+  PROJECT_MEMORY_SCHEMA_SQL +
+  RAVEN_TEAM_SCHEMA_SQL +
+  AUTONOMY_SCHEMA_SQL +
+  AGENT_TICKET_SCHEMA_SQL +
+  BOARD_TICKET_SCHEMA_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -856,6 +868,42 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates a table, so no foreign-key pause and no vacuum. No agent names a profile yet, so
     // every tab keeps the session it had.
     up: (db) => db.exec(BROWSER_PROFILE_SCHEMA_SQL),
+  },
+  {
+    version: 46,
+    // Only creates a table, so no foreign-key pause and no vacuum. No task has a row yet, so every task
+    // keeps running in the agent's workspace and is not paused, which is what it did before.
+    up: (db) => db.exec(AGENT_WORK_THREAD_SCHEMA_SQL),
+  },
+  {
+    version: 47,
+    // Only creates tables, so no foreign-key pause and no vacuum. No project has a memory yet, so every
+    // agent starts with no project facts and every work thread keeps the prompt it had before.
+    up: (db) => db.exec(PROJECT_MEMORY_SCHEMA_SQL),
+  },
+  {
+    version: 48,
+    // Only creates tables, so no foreign-key pause and no vacuum. No Raven Stack team exists yet, so
+    // every agent and every work thread keeps what it had, and no role agent is created.
+    up: (db) => db.exec(RAVEN_TEAM_SCHEMA_SQL),
+  },
+  {
+    version: 49,
+    // Only creates tables, so no foreign-key pause and no vacuum. The audit log and the turn usage start
+    // empty: no budget counted anything before this version, and no action was recorded.
+    up: (db) => db.exec(AUTONOMY_SCHEMA_SQL),
+  },
+  {
+    version: 50,
+    // Only creates tables, so no foreign-key pause and no vacuum. No agent has a ticket watch yet, so no
+    // agent starts a work thread from a ticket, and every work thread keeps the behavior it had before.
+    up: (db) => db.exec(AGENT_TICKET_SCHEMA_SQL),
+  },
+  {
+    version: 51,
+    // Only creates tables, so no foreign-key pause and no vacuum. The Tickets board starts empty: the
+    // old Tasks page kept no rows of its own, so no work thread becomes a ticket, and no board syncs.
+    up: (db) => db.exec(BOARD_TICKET_SCHEMA_SQL),
   },
 ];
 

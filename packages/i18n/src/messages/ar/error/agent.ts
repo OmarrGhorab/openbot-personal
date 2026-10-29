@@ -5,6 +5,23 @@ export const messages = {
   "error.agent.historyUnavailable":
     "التاريخ مش متاح للطلب ده. اقرا التاريخ الأخير تاني، أو استخدم channel_history لشغل القناة.",
   "error.agent.toolRequestInvalid": "arguments اكتشاف الأداة مش صالحة. استخدم الـ schema المعلن واسم أداة مؤهّل أصلي.",
+  "error.agent.boardTickets.notFound": "التذكرة مش موجودة. ممكن تكون اتمسحت.",
+  "error.agent.boardTickets.emptyTitle": "اكتب عنوان للتذكرة.",
+  "error.agent.boardTickets.emptyComment": "اكتب تعليق قبل ما تبعته.",
+  "error.agent.boardTickets.alreadyStarted": "التذكرة دي ليها ثريد بالفعل.",
+  "error.agent.boardTickets.startUnavailable": "التذاكر مش قادرة تبدأ ثريد على الجهاز ده.",
+  "error.agent.boardTickets.threadFailed": "آخر دور في الثريد بتاعها فشل.",
+  "error.agent.boardTickets.threadStopped": "الثريد بتاعها اتوقف قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.teamJobStopped": "شغلانة الفريق بتاعتها اتوقفت قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.teamJobNotDone": "شغلانة الفريق بتاعتها خلصت من غير ما تتم بعد آخر جولة FAIL.",
+  "error.agent.boardTickets.toolInvalid":
+    "اكتب حالة (backlog أو running أو needs_review)، أو سطر تقدّم 500 حرف على الأكتر، أو تعليق.",
+  "error.agent.boardTickets.notTicketThread": "المهمة اللي شغّالة على تذكرة في لوحة التذاكر بس هي اللي تقدر تحدّثها.",
+  "error.agent.boardTickets.syncNotConnected": "اربط نظام التذاكر ده على الجهاز ده الأول قبل ما تزامن معاه.",
+  "error.agent.boardTickets.syncProjectInvalid": "اختار ريبو أو مشروع تزامن معاه.",
+  "error.agent.boardTickets.syncProjectsFailed": "معرفناش نقرا ريبوهات نظام التذاكر.",
+  "error.agent.boardTickets.syncFailed": "معرفناش نقرا الـ issues المفتوحة. المزامنة الجاية هتحاول تاني.",
+  "error.agent.boardTickets.pushFailed": "معرفناش نبعت آخر تغيير للـ issue المربوطة.",
   "error.agent.approvalWhileDeleting": "مينفعش تدي موافقة والإيجنت بيتمسح.",
   "error.agent.accessLocalOnly": "صلاحيات الإيجنت ممكن تتغيّر بس على الجهاز اللي شغّال عليه الإيجنت.",
   "error.agent.duplicateCleanupFailed": "تكرار الإيجنت فشل والنسخة الناقصة معرفتش تتمسح.",
@@ -126,4 +143,8 @@ export const messages = {
   "error.agent.screenCaptureEmptyWindows":
     "Windows رجّع صورة فاضية. اطلب من المستخدم يفتح قفل الكمبيوتر ويقفل المحتوى المحمي. وكمان سياسة المؤسسة ممكن توقّف التقاط الشاشة.",
   "error.agent.screenCaptureFailed": "التقاط الشاشة فشل. جرّب تاني.",
+  "error.agent.ravenTeam.workspaceAccess":
+    "{role} مينفعش يشتغل قراءة بس مع {provider} على {os}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
+  "error.agent.ravenTeam.workspaceAccessHere":
+    "على الجهاز ده، {role} مينفعش يشتغل قراءة بس مع {provider}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
 } as const satisfies PartialTranslation<typeof source>;

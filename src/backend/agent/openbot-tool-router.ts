@@ -19,6 +19,7 @@ import {
   agentQuickAcknowledgementEnabled,
   CONNECTOR_IDS,
   isMessageReaction,
+  MCP_CHANGE_ITEM_TYPE,
   marketplaceSuggestionItemType,
   mcpSignInItemType,
   skillConversationEventItemType,
@@ -59,6 +60,7 @@ import {
 import { type AppServerRequest, type DynamicToolCallParams, type DynamicToolResult, isRecord } from "../protocol";
 import { handleRoutineFlowTool, type RoutineFlowTools } from "../routine-flows/routine-flow-tools";
 import type { StoredStateFailure } from "../stored-state-effects";
+import { AgentDoneChecks } from "./agent-done-checks";
 import { AgentInterruptTool } from "./agent-interrupt-tool";
 import type { AgentMemories } from "./agent-memories";
 import { type ApprovalAutomationPolicy, NO_APPROVAL_AUTOMATION } from "./approval-automation";
@@ -196,6 +198,11 @@ export interface OpenBotToolRouterOptions {
   screenCapture?: ScreenCaptureHost | null | undefined;
   /** The MCP servers of this OpenBot server, for the MCP tools; null where nothing holds them. */
   mcpServers?: AgentMcpServers | null | undefined;
+  /**
+   * Whether the user lets agents with Full access change MCP servers without an approval card. Read
+   * at each MCP change. Omitted, every change asks.
+   */
+  mcpChangesWithoutApproval?: (() => boolean) | undefined;
   /** The API keys that users saved for agents; null where nothing can save them. */
   apiKeys?: AgentApiKeys | null | undefined;
   hooks: OpenBotToolRouterHooks;
@@ -234,9 +241,11 @@ export class OpenBotToolRouter {
   readonly #visualPreview: ChatVisualPreviewHost | null;
   readonly #screenCapture: ScreenCaptureHost | null;
   readonly #mcpServers: AgentMcpServers | null;
+  readonly #mcpChangesWithoutApproval: () => boolean;
   readonly #apiKeys: AgentApiKeys | null;
   readonly #hooks: OpenBotToolRouterHooks;
   readonly #interruptTool: AgentInterruptTool;
+  readonly #doneChecks: AgentDoneChecks;
 
   constructor(options: OpenBotToolRouterOptions) {
     this.#history = new HistoryTools({
@@ -268,8 +277,14 @@ export class OpenBotToolRouter {
     this.#visualPreview = options.visualPreview ?? null;
     this.#screenCapture = options.screenCapture ?? null;
     this.#mcpServers = options.mcpServers ?? null;
+    this.#mcpChangesWithoutApproval = options.mcpChangesWithoutApproval ?? (() => false);
     this.#apiKeys = options.apiKeys ?? null;
     this.#hooks = options.hooks;
+    this.#doneChecks = new AgentDoneChecks({
+      store: options.store,
+      tasks: options.tasks,
+      postCard: (agentId, threadId, turnId, card) => this.#postSystemCard(agentId, threadId, turnId, card),
+    });
     this.#interruptTool = new AgentInterruptTool({
       store: options.store,
       mailbox: options.mailbox,
@@ -960,6 +975,9 @@ export class OpenBotToolRouter {
     const taskResult = yield* this.#tasks.handleTool(params, caller);
     if (taskResult) return taskResult;
 
+    const doneResult = yield* this.#doneChecks.handleTool(params, senderAgentId, executionThreadId);
+    if (doneResult) return doneResult;
+
     const tableResult = yield* handleDataTool(params.tool, params.arguments, senderAgentId, this.#tables);
     if (tableResult) return tableResult;
 
@@ -1173,9 +1191,12 @@ export class OpenBotToolRouter {
   });
 
   /**
-   * The MCP tools. A change waits for the user's approval, given at once for an agent with Full
-   * access, and a server that needs a sign-in gets a card in the conversation. Every failure is a
-   * result the agent can correct, with the MCP secrets masked.
+   * The MCP tools. A change always waits for the user's approval, also for an agent with Full access,
+   * because a server applies to every agent on this OpenBot server. Only when the user turned on
+   * "Agents can manage MCP servers without asking" does an agent with Full access skip it. Both are
+   * read at each change, so turning the setting off or leaving Full access asks from the next one.
+   * A server that needs a sign-in gets a card in the conversation. Every failure is a result the
+   * agent can correct, with the MCP secrets masked.
    */
   readonly #mcpServerTool = Effect.fn("OpenBotToolRouter.mcpServerTool")(function* (
     this: OpenBotToolRouter,
@@ -1188,27 +1209,44 @@ export class OpenBotToolRouter {
     if (!agentId || !servers || !isMcpServerTool(params.tool))
       return openBotToolFailure(sourceText("error.agent.toolRequestInvalid"));
     const threadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const withoutApproval = this.#mcpChangesWithoutApproval() && this.#attention.hasFullAccess(agentId);
     return yield* handleMcpServerTool(servers, {
       tool: params.tool,
       arguments: params.arguments,
+      withoutApproval,
       approve: (reason, cwd) =>
         this.#attention
-          .awaitToolApproval(client, request, {
-            requestId: request.id,
-            agentId,
-            threadId,
-            turnId: params.turnId,
-            kind: "permissions",
-            command: null,
-            cwd: cwd ?? null,
-            reason,
-            grantRoot: null,
-            permissions: null,
-          })
+          .awaitToolApproval(
+            client,
+            request,
+            {
+              requestId: request.id,
+              agentId,
+              threadId,
+              turnId: params.turnId,
+              kind: "permissions",
+              command: null,
+              cwd: cwd ?? null,
+              reason,
+              grantRoot: null,
+              permissions: null,
+            },
+            // A Full access grant does not answer it: the setting above is the only way past the card.
+            { alwaysAsk: true },
+          )
           .pipe(
             Effect.map((decision) => decision === "accept"),
             toToolOperationFailed,
           ),
+      recordChange: (text) =>
+        toolStep(() =>
+          this.#postSystemCard(agentId, threadId, params.turnId, {
+            itemType: MCP_CHANGE_ITEM_TYPE,
+            text,
+            eventType: "mcp.changed_without_approval",
+            detail: {},
+          }),
+        ),
       requestSignIn: (config) =>
         toolStep(() =>
           this.#postSystemCard(agentId, threadId, params.turnId, {
@@ -1240,7 +1278,7 @@ export class OpenBotToolRouter {
       itemType: string;
       text: string;
       eventType: string;
-      detail: { appId: string } | { mcpServerId: string } | Record<string, never>;
+      detail: { appId: string } | { mcpServerId: string } | { passed: boolean; checks: number } | Record<string, never>;
     },
   ): void {
     const snapshot = structuredClone(this.#conversation.ensureSnapshot(agentId, threadId));

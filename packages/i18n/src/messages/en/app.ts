@@ -30,6 +30,8 @@ export const messages = defineMessages("app", {
   "app.provider.codeExpiredDescription": "Nobody entered it in time. That code no longer works.",
   "app.provider.connectFailed": "Could not connect {name}",
   "app.provider.connectFailedRetry": "OpenBot could not connect {name}. Try again.",
+  "app.provider.accountNeedsHostUpdate":
+    "{host} runs an OpenBot release that cannot add another {name} account from your browser. Update OpenBot on {host}, then add the account again.",
   "app.provider.restartFailed": "Could not restart {name}",
   "app.provider.included": "{name} is included with OpenBot.",
   "app.clipboard.copyFailed": "Could not copy the text.",
@@ -54,7 +56,7 @@ export const messages = defineMessages("app", {
   "app.rail.agents": "Agents",
   "app.rail.monitor": "Monitor",
   "app.rail.schedule": "Schedule",
-  "app.rail.tasks": "Tasks",
+  "app.rail.tickets": "Tickets",
   "app.rail.usage": "Usage",
   "app.rail.marketplace": "Marketplace",
   "app.rail.settings": "Settings",

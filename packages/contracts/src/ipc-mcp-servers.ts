@@ -29,6 +29,19 @@ export const MCP_SERVERS_CAPABILITY = "mcp-servers-v1";
 export const RESERVED_MCP_SERVER_NAMES = ["openbot", "openbot_browser"] as const;
 
 /**
+ * Whether an agent with Full access adds, changes, turns on or off and removes the MCP servers of
+ * this computer without an approval card. As it is stored and as it crosses IPC. Off, each such
+ * change asks the user, also for an agent with Full access, because a server applies to every agent
+ * on the OpenBot server. On, it applies only to agents with Full access; a Workspace only or Ask
+ * first agent still asks. Secrets and sign-in cards do not change.
+ */
+export interface AgentMcpChangesPreference {
+  withoutApproval: boolean;
+}
+
+export const DEFAULT_AGENT_MCP_CHANGES_PREFERENCE: AgentMcpChangesPreference = { withoutApproval: false };
+
+/**
  * The name and id OpenBot gives the Computer Use driver when it hands it to a provider.
  *
  * Deliberately not in `RESERVED_MCP_SERVER_NAMES`. That list means "OpenBot's own in-process

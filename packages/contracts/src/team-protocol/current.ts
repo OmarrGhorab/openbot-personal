@@ -18,6 +18,7 @@ import { AGENT_TASK_LIMIT_CAPABILITY } from "./agent-task-limit-v1";
 import { AGENT_TASKS_CAPABILITY } from "./agent-tasks-v1";
 import { AGENT_UPDATE_CAPABILITY } from "./agent-update-v1";
 import { BITWARDEN_CONNECTOR_CAPABILITY } from "./bitwarden-connector-v1";
+import { BOARD_TICKETS_CAPABILITY } from "./board-tickets-v1";
 import { TEAM_BROWSER_NAVIGATION_CAPABILITY } from "./browser-navigation-v1";
 import { BROWSER_PAGE_STATE_CAPABILITY } from "./browser-page-state-v1";
 import { BROWSER_PROFILES_CAPABILITY } from "./browser-profiles-v1";
@@ -56,6 +57,7 @@ import { ONEPASSWORD_CONNECTOR_CAPABILITY } from "./onepassword-connector-v1";
 import { PROMPT_CACHE_TTL_CAPABILITY } from "./prompt-cache-ttl-v1";
 import { TEAM_PROMPT_MULTI_SELECT_CAPABILITY } from "./prompt-multi-select-v1";
 import { PROVIDER_ACCOUNT_RELAY_CAPABILITY } from "./provider-account-relay-v1";
+import { PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY } from "./provider-account-relay-v2";
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "./provider-accounts-v1";
 import { PROVIDER_HOST_SIGN_IN_CAPABILITY } from "./provider-host-sign-in-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "./provider-usage-reset-v1";
@@ -134,6 +136,7 @@ export {
   AGENT_UPDATE_CAPABILITY,
   ANDROID_PUSH_NOTIFICATIONS_CAPABILITY,
   BITWARDEN_CONNECTOR_CAPABILITY,
+  BOARD_TICKETS_CAPABILITY,
   BROWSER_PAGE_STATE_CAPABILITY,
   BROWSER_PROFILES_CAPABILITY,
   BROWSER_SIGN_IN_CAPABILITY,
@@ -161,6 +164,7 @@ export {
   ONEPASSWORD_CONNECTOR_CAPABILITY,
   PROMPT_CACHE_TTL_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
   PROVIDER_ACCOUNTS_CAPABILITY,
   PROVIDER_HOST_SIGN_IN_CAPABILITY,
   PROVIDER_USAGE_RESET_CAPABILITY,
@@ -296,8 +300,10 @@ export const TEAM_CURRENT_CAPABILITIES = [
   AGENT_TASK_LIMIT_CAPABILITY,
   BROWSER_PROFILES_CAPABILITY,
   PROVIDER_ACCOUNT_RELAY_CAPABILITY,
+  PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY,
   STORAGE_DISK_CAPABILITY,
   PROMPT_CACHE_TTL_CAPABILITY,
+  BOARD_TICKETS_CAPABILITY,
 ] as const;
 
 export type TeamCurrentCapability = (typeof TEAM_CURRENT_CAPABILITIES)[number];
@@ -413,8 +419,10 @@ export const TEAM_BOOTSTRAP_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
     capability !== AGENT_TASK_LIMIT_CAPABILITY &&
     capability !== BROWSER_PROFILES_CAPABILITY &&
     capability !== PROVIDER_ACCOUNT_RELAY_CAPABILITY &&
+    capability !== PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY &&
     capability !== STORAGE_DISK_CAPABILITY &&
-    capability !== PROMPT_CACHE_TTL_CAPABILITY,
+    capability !== PROMPT_CACHE_TTL_CAPABILITY &&
+    capability !== BOARD_TICKETS_CAPABILITY,
 );
 // A v7 host does not know the v8 markers, so a client sends them only after it negotiates protocol 8.
 const TEAM_PROTOCOL_V7_CURRENT_CAPABILITIES = TEAM_CURRENT_CAPABILITIES.filter(
@@ -473,7 +481,9 @@ export function legacyTeamCapabilities(capabilities: readonly string[]): string[
       capability !== AGENT_TASK_LIMIT_CAPABILITY &&
       capability !== BROWSER_PROFILES_CAPABILITY &&
       capability !== PROVIDER_ACCOUNT_RELAY_CAPABILITY &&
+      capability !== PROVIDER_ACCOUNT_RELAY_V2_CAPABILITY &&
       capability !== STORAGE_DISK_CAPABILITY &&
-      capability !== PROMPT_CACHE_TTL_CAPABILITY,
+      capability !== PROMPT_CACHE_TTL_CAPABILITY &&
+      capability !== BOARD_TICKETS_CAPABILITY,
   );
 }

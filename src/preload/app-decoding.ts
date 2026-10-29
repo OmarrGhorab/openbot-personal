@@ -19,6 +19,7 @@ import {
   type AccountSession,
   AGENT_DEFAULT_KEYS,
   type AgentDefaults,
+  type AgentMcpChangesPreference,
   type AgentMemoryLimitPreference,
   type AnalyticsPreference,
   type AppAppearancePreference,
@@ -353,6 +354,12 @@ export function decodeAppBehaviorPreference(value: unknown): AppBehaviorPreferen
     keepRunningInBackground: nullableBoolean(preference, "keepRunningInBackground"),
     keepAwake: nullableBoolean(preference, "keepAwake"),
     keepAwakeOnBattery: nullableBoolean(preference, "keepAwakeOnBattery"),
+  };
+}
+
+export function decodeAgentMcpChangesPreference(value: unknown): AgentMcpChangesPreference {
+  return {
+    withoutApproval: requiredBoolean(decodeRecord(value, "MCP approval preference"), "withoutApproval"),
   };
 }
 

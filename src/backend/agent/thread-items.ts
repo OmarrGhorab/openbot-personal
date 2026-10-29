@@ -3,7 +3,12 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { agentProviderName, COMPUTER_USE_MCP_SERVER_NAME, DEFAULT_PROVIDER_ACCOUNT_ID } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
-import { type AgentProvider, MissingClaudeSessionError, RequestTimeoutError } from "../agent-client";
+import {
+  type AgentProvider,
+  MissingClaudeSessionError,
+  MissingPiSessionError,
+  RequestTimeoutError,
+} from "../agent-client";
 import { AppServerError } from "../app-server-client";
 import {
   bridgedToolName,
@@ -109,6 +114,8 @@ export function isMissingProviderSessionError(error: unknown, provider: AgentPro
   // Provider diagnostics can mention missing resources without proving that this session is gone.
   if (error instanceof RequestError) return false;
   if (provider === "claude") return error instanceof MissingClaudeSessionError;
+  // Pi and the key-only providers that run in the Pi CLI.
+  if (error instanceof MissingPiSessionError) return true;
   if (provider === "codex") return isCodexMissingThreadError(error);
   if (
     (provider !== "grok" &&
@@ -353,6 +360,12 @@ export function toolProgressText(item: ThreadItem, completed: boolean): string |
     return completed ? null : sourceText("status.agent.memoriesSearching");
   }
   if (openBot === "remember" || openBot === "forget_memory" || openBot === "set_memory_inclusion") {
+    return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.memoriesUpdating");
+  }
+  if (openBot === "search_project_memory") {
+    return completed ? null : sourceText("status.agent.memoriesSearching");
+  }
+  if (openBot === "save_lesson" || openBot === "learn_from_failure") {
     return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.memoriesUpdating");
   }
   if (openBot === "read_local_skill") return completed ? TOOL_RESULT_PROGRESS : sourceText("status.agent.skillReading");

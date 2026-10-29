@@ -69,7 +69,7 @@ function releasedDatabase(tag: string, marker: number): DatabaseSync {
 function contents(db: DatabaseSync): Record<string, unknown[]> {
   const tables = db
     .prepare(
-      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'
+      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'autonomy_%'
        AND name <> 'schema_migrations' AND name NOT LIKE 'agent_memory_search%' ORDER BY name`,
     )
     .all()
@@ -82,7 +82,7 @@ function profileTables(db: DatabaseSync) {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 45 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 51 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -101,7 +101,22 @@ describe("browser profile migration", () => {
       if (version < 25) seedConnection(db);
       const before = contents(db);
       migrateOpenBotDatabase(db);
-      expect(contents(db)).toEqual({ ...before, browser_profiles: [] });
+      expect(contents(db)).toEqual({
+        ...before,
+        projection_agent_ticket_links: [],
+        projection_agent_ticket_watches: [],
+        projection_agent_ticket_pulls: [],
+        board_settings: [],
+        board_ticket_events: [],
+        board_tickets: [],
+        browser_profiles: [],
+        projection_agent_work_threads: [],
+        project_memories: [],
+        project_memory_undo: [],
+        raven_team_jobs: [],
+        raven_team_roles: [],
+        raven_team_templates: [],
+      });
       expectHealthy(db);
     },
   );
@@ -116,7 +131,22 @@ describe("browser profile migration", () => {
     migrateUpTo(db, 44);
     const before = contents(db);
     migrateOpenBotDatabase(db);
-    expect(contents(db)).toEqual({ ...before, browser_profiles: [] });
+    expect(contents(db)).toEqual({
+      ...before,
+      projection_agent_ticket_links: [],
+      projection_agent_ticket_watches: [],
+      projection_agent_ticket_pulls: [],
+      board_settings: [],
+      board_ticket_events: [],
+      board_tickets: [],
+      browser_profiles: [],
+      projection_agent_work_threads: [],
+      project_memories: [],
+      project_memory_undo: [],
+      raven_team_jobs: [],
+      raven_team_roles: [],
+      raven_team_templates: [],
+    });
     expectHealthy(db);
   });
 
@@ -133,7 +163,22 @@ describe("browser profile migration", () => {
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
-    expect(contents(db)).toEqual({ ...before, browser_profiles: [] });
+    expect(contents(db)).toEqual({
+      ...before,
+      projection_agent_ticket_links: [],
+      projection_agent_ticket_watches: [],
+      projection_agent_ticket_pulls: [],
+      board_settings: [],
+      board_ticket_events: [],
+      board_tickets: [],
+      browser_profiles: [],
+      projection_agent_work_threads: [],
+      project_memories: [],
+      project_memory_undo: [],
+      raven_team_jobs: [],
+      raven_team_roles: [],
+      raven_team_templates: [],
+    });
     expectHealthy(db);
   });
 
@@ -141,9 +186,9 @@ describe("browser profile migration", () => {
     const db = databaseAt(44);
     seed(db, 44);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(46,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=46; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(profileTables(db)).toEqual([]);

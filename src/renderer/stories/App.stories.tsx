@@ -1,4 +1,11 @@
-import type { AgentEvent } from "@openbot/contracts/ipc";
+import {
+  type AgentEvent,
+  type AgentTask,
+  type BoardTicket,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+  type RavenTeamJob,
+  type RavenTeamRoleRun,
+} from "@openbot/contracts/ipc";
 import type { ServerView } from "@openbot/ui/features/servers/ServerMenu";
 import { onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -59,6 +66,16 @@ export const LinuxWindow: Story = {
   render: () => (
     <SidebarStatePlayground compact={false} options={{ appInfo: { ...STORY_APP_INFO, platform: "linux" } }} />
   ),
+};
+
+/** On a Mac where macOS refuses OpenBot access to Mail and Messages: installing Apple apps names them. */
+export const MacAutomationRefused: Story = {
+  render: () => <OpenBotPlayground options={{ macAutomationAnswers: { mail: "denied", messages: "denied" } }} />,
+};
+
+/** On a Mac where OpenBot cannot ask macOS about Safari: installing Apple apps says to try again. */
+export const MacAutomationFailed: Story = {
+  render: () => <OpenBotPlayground options={{ macAutomationAnswers: { safari: "failed" } }} />,
 };
 
 export const EmptyWorkspace: Story = {
@@ -299,4 +316,186 @@ export const AgentsWaitingForInput: Story = {
 
 export const CompactAgentsWaitingForInput: Story = {
   render: () => <WaitingForInputPlayground compact />,
+};
+
+const TICKETS_STORY_TIME = "2026-10-28T09:00:00.000Z";
+
+function storyTicket(
+  ticket: Pick<BoardTicket, "id" | "title" | "status" | "agentId" | "order"> & Partial<BoardTicket>,
+): BoardTicket {
+  const statusTimes: BoardTicket["statusTimes"] = {};
+  statusTimes[ticket.status] = TICKETS_STORY_TIME;
+  return {
+    body: "",
+    taskId: null,
+    threadId: null,
+    teamJobId: null,
+    teamRoleId: null,
+    external: null,
+    progress: null,
+    error: null,
+    statusTimes,
+    statusChangedAt: TICKETS_STORY_TIME,
+    createdAt: TICKETS_STORY_TIME,
+    updatedAt: TICKETS_STORY_TIME,
+    ...ticket,
+  };
+}
+
+/** A work thread of Chief that runs a turn now. It stays running until Stop: the mock schedules no reply. */
+const TICKETS_STORY_THREAD: AgentTask = {
+  id: "story-ticket-task",
+  agentId: "chief",
+  threadId: "story-ticket-thread",
+  origin: "user",
+  title: "Fix the login timeout",
+  state: "running",
+  outcome: null,
+  hold: null,
+  activeTurnId: "story-ticket-turn",
+  progress: "Reading the session code…",
+  error: null,
+  queuedMessages: [],
+  createdAt: TICKETS_STORY_TIME,
+  updatedAt: TICKETS_STORY_TIME,
+  closedAt: null,
+  pausedAt: null,
+  workspace: {
+    mode: "worktree",
+    path: "~/OpenBot/Agents/chief/.openbot/worktrees/story-ticket-task",
+    branch: "openbot/story-ticket-task",
+  },
+};
+
+/**
+ * An Autopilot lite team job of the Tickets story: a Builder on Chief and a Reviewer on Sales Outbound.
+ * A running job's Builder works; a queued job waits for a slot of its role agents.
+ */
+function storyTeamJob(id: string, brief: string, queued: boolean): RavenTeamJob {
+  const role = (roleId: string, label: string, agentId: string, working: boolean): RavenTeamRoleRun => ({
+    roleId,
+    label,
+    agentId,
+    taskId: null,
+    threadId: null,
+    provider: "codex",
+    model: "gpt-6-luna",
+    access: roleId === "builder" ? "write" : "read-only",
+    state: working ? "working" : "waiting",
+    verdict: null,
+    score: null,
+    commit: null,
+    fails: 0,
+    updatedAt: TICKETS_STORY_TIME,
+  });
+  return {
+    id,
+    templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+    brief,
+    state: "running",
+    queued,
+    headCommit: null,
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: null,
+    roles: [role("builder", "Builder", "chief", !queued), role("reviewer", "Reviewer", "sales", false)],
+    createdAt: TICKETS_STORY_TIME,
+    updatedAt: TICKETS_STORY_TIME,
+  };
+}
+
+const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
+  ravenTeamJobs: [
+    storyTeamJob("story-team-job-2", "Show the sync time on the board", true),
+    storyTeamJob("story-team-job-1", "Add a retry to the upload\n\nRetry a failed upload three times.", false),
+  ],
+  boardTickets: [
+    storyTicket({
+      id: "story-ticket-running",
+      title: "Fix the login timeout",
+      body: "Sessions end after 5 minutes. They should last 30.",
+      status: "running",
+      agentId: "chief",
+      order: 1,
+      taskId: TICKETS_STORY_THREAD.id,
+      threadId: TICKETS_STORY_THREAD.threadId,
+      external: {
+        provider: "github",
+        key: "OmarrGhorab/openbot-personal#155",
+        url: "https://github.com/OmarrGhorab/openbot-personal/issues/155",
+      },
+    }),
+    storyTicket({
+      id: "story-ticket-backlog",
+      title: "Write the release notes",
+      status: "backlog",
+      agentId: "research",
+      order: 1,
+    }),
+    storyTicket({
+      id: "story-ticket-unassigned",
+      title: "Clean up old logs",
+      status: "backlog",
+      agentId: null,
+      order: 2,
+    }),
+    storyTicket({
+      id: "story-ticket-review",
+      title: "Add a retry to the sync job",
+      status: "needs_review",
+      agentId: "sales",
+      order: 1,
+    }),
+    storyTicket({
+      id: "story-ticket-done",
+      title: "Rename the settings tab",
+      status: "done",
+      agentId: "chief",
+      order: 1,
+    }),
+  ],
+  boardTicketSync: {
+    providers: ["github"],
+    projects: { github: ["OmarrGhorab/openbot-personal"] },
+    issues: {
+      "OmarrGhorab/openbot-personal": [
+        {
+          key: "omarrghorab/openbot-personal#158",
+          title: "Show the issue link on each card",
+          body: "Each imported ticket keeps the link to its issue.",
+          url: "https://github.com/OmarrGhorab/openbot-personal/issues/158",
+        },
+      ],
+    },
+  },
+  tasks: { chief: [TICKETS_STORY_THREAD] },
+  taskConversations: {
+    [TICKETS_STORY_THREAD.id]: {
+      agentId: "chief",
+      threadId: TICKETS_STORY_THREAD.threadId,
+      activeTurnId: "story-ticket-turn",
+      revision: 1,
+      messages: [
+        {
+          id: "story-ticket-message",
+          turnId: "story-ticket-turn",
+          author: "user",
+          source: "user",
+          text: "Fix the login timeout",
+          createdAt: TICKETS_STORY_TIME,
+          status: "completed",
+        },
+      ],
+    },
+  },
+};
+
+/**
+ * The Tickets page from the rail: a running work thread with its ticket and issue link, a ticket in
+ * the other columns, and an unassigned one. GitHub is connected, so Sync imports one open issue. Two
+ * Autopilot lite team jobs have a ticket each and one ticket per role: one runs, one waits in Queued. `scripts/tickets-board-e2e.ts` drives this story.
+ */
+export const TicketsBoard: Story = {
+  render: () => <OpenBotPlayground options={TICKETS_STORY_OPTIONS} />,
 };
