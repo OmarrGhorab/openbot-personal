@@ -1,10 +1,10 @@
 {
-  "version": "0.49.0",
+  "version": "0.52.0",
   "highlights": [
-    "On macOS, sign in to Gemini again after you update. Then a Gemini agent with Workspace only access can use your Google sign-in.",
-    "Choose a light theme in Settings > General > Theme. On macOS, you can also turn on a transparent window.",
-    "Give agents named browser profiles, so different agents can use different accounts on the same site.",
-    "Open the steps of an agent's turn to see its thinking, its tool steps and its memory searches.",
-    "When a task needs an API key, the agent shows a secure form. The key does not go into the chat."
+    "Choose a mascot for the app icon in Settings > General > App icon. The Dock or taskbar icon shows it in your logo color.",
+    "Sync Jira issues into the Tickets board. Connect Atlassian in the Marketplace, then pick a Jira project in Sync tickets.",
+    "Skip the Architect, Reviewer or Quality role for an easy ticket. The Raven team page warns you first.",
+    "Pick Chrome, Brave, Firefox or Edge for external links in Settings > General. Chat links open in the OpenBot browser.",
+    "Ask an agent to create a channel or start its own threads. Threads now sit in the chat header."
   ]
 }
