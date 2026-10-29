@@ -1,6 +1,7 @@
 // The Tickets board group of the preview: tickets and their activity in memory. No agent runs, so a
 // ticket moves only when the preview moves it. The board starts empty, as it does after the upgrade;
-// a story or a smoke check passes seed tickets.
+// a story or a smoke check passes seed tickets. With `startThread`, a started ticket gets a mock work
+// thread of the agent mock.
 
 import type {
   BoardTicket,
@@ -14,7 +15,10 @@ import type {
 
 type BoardTicketsApi = OpenBotDesktopApi["boardTickets"];
 
-export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicketsApi {
+/** Starts a mock work thread of the agent with the text, and returns its task and thread IDs. */
+type StartMockThread = (agentId: string, text: string) => { taskId: string; threadId: string };
+
+export function mockBoardTickets(seed: readonly BoardTicket[] = [], startThread?: StartMockThread): BoardTicketsApi {
   let tickets: BoardTicket[] = seed.map((ticket) => ({ ...ticket, statusTimes: { ...ticket.statusTimes } }));
   const events: BoardTicketEvent[] = [];
   const listeners = new Set<(payload: BoardTicketsChanged) => void>();
@@ -141,7 +145,8 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicket
       emitChanged([input.ticketId]);
       return event;
     },
-    // No agent runs in the preview: a started ticket gets no work thread and waits in Queued.
+    // Without `startThread`, a started ticket gets no work thread and waits in Queued. With it, the
+    // ticket runs in a new mock thread, as a start on this computer does.
     start: async (input) => {
       const ticket =
         input.ticketId === undefined
@@ -152,7 +157,11 @@ export function mockBoardTickets(seed: readonly BoardTicket[] = []): BoardTicket
             })
           : find(input.ticketId);
       if (ticket.agentId !== input.agentId) await api.update({ ticketId: ticket.id, agentId: input.agentId });
-      return api.move({ ticketId: ticket.id, status: "queued" });
+      if (!startThread) return api.move({ ticketId: ticket.id, status: "queued" });
+      const moved = await api.move({ ticketId: ticket.id, status: "running" });
+      if (moved.taskId) return moved;
+      const thread = startThread(input.agentId, [moved.title, moved.body.trim()].filter(Boolean).join("\n\n"));
+      return replace({ ...moved, taskId: thread.taskId, threadId: thread.threadId, updatedAt: now() });
     },
     delete: async (ticketId) => {
       find(ticketId);
