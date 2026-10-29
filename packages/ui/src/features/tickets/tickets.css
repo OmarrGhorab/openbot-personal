@@ -368,3 +368,227 @@
   align-items: center;
   gap: var(--openbot-space-1-5);
 }
+
+/* The ticket drawer. */
+[data-status="backlog"].tickets-step {
+  --tickets-status: var(--openbot-text-dim);
+}
+
+[data-status="queued"].tickets-step {
+  --tickets-status: var(--openbot-warning);
+}
+
+[data-status="running"].tickets-step {
+  --tickets-status: var(--openbot-accent);
+}
+
+[data-status="needs_review"].tickets-step {
+  --tickets-status: var(--openbot-danger);
+}
+
+[data-status="done"].tickets-step {
+  --tickets-status: var(--openbot-success);
+}
+
+.tickets-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--openbot-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tickets-step {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-step::before {
+  height: 3px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  content: "";
+}
+
+.tickets-step[data-reached]::before {
+  background: var(--tickets-status);
+}
+
+.tickets-step[data-current] {
+  color: var(--openbot-text-primary);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-step-time {
+  color: var(--openbot-text-dim);
+  font-weight: var(--openbot-weight-regular);
+}
+
+.tickets-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--openbot-space-2);
+}
+
+.tickets-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-hover);
+}
+
+.tickets-stat-label {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-stat-value {
+  overflow: hidden;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-body {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  white-space: pre-wrap;
+}
+
+.tickets-live {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-live svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  animation: tickets-spin 1.2s linear infinite;
+}
+
+@keyframes tickets-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.tickets-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-event {
+  display: flex;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-event-actor {
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+}
+
+.tickets-event-text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.tickets-event-time {
+  flex: 0 0 auto;
+  color: var(--openbot-text-dim);
+}
+
+.tickets-plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-1-5);
+}
+
+.tickets-plan-step svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+  margin-top: var(--openbot-space-0-5);
+  color: var(--openbot-text-dim);
+}
+
+.tickets-plan-step[data-status="completed"] svg {
+  color: var(--openbot-success-text);
+}
+
+.tickets-plan-step[data-status="inProgress"] svg {
+  color: var(--openbot-accent-text);
+}
+
+.tickets-file {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  overflow-wrap: anywhere;
+}
+
+.tickets-file svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+  color: var(--openbot-text-dim);
+}
+
+.tickets-tokens {
+  display: flex;
+  height: 4rem;
+  align-items: flex-end;
+  gap: var(--openbot-space-0-5);
+}
+
+.tickets-tokens-bar {
+  min-width: var(--openbot-space-1);
+  flex: 1;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+}
+
+.tickets-steer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-steer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-drawer-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.tickets-drawer-avatar.agent-avatar {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
