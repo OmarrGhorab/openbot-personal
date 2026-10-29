@@ -722,6 +722,11 @@
   gap: var(--openbot-space-2);
 }
 
+/* The menu opens from a dialog, so it takes the layer above the dialog instead of the popover layer under it. */
+.tickets-new-menu.ui-action-menu {
+  z-index: var(--openbot-layer-dialog-host);
+}
+
 .tickets-new-actions {
   display: flex;
   justify-content: flex-end;

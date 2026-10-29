@@ -355,7 +355,7 @@ function TicketsNewDialog(props: {
                     </Show>
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Portal>
-                    <DropdownMenu.Content>
+                    <DropdownMenu.Content class="tickets-new-menu">
                       <DropdownMenu.RadioGroup
                         value={agentId() ?? UNASSIGNED}
                         onChange={(value: string) => setAgentId(value === UNASSIGNED ? null : value)}
