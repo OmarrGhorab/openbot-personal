@@ -16,6 +16,11 @@ on:
         description: "Release version (SemVer, without v). Empty uses package.json."
         required: false
         default: ""
+      linux_only:
+        description: "Only add the Linux x64 files to the existing release of this version."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -26,7 +31,7 @@ concurrency:
 
 jobs:
   mac-x64:
-    if: github.repository == 'OmarrGhorab/openbot-personal'
+    if: github.repository == 'OmarrGhorab/openbot-personal' && !inputs.linux_only
     runs-on: macos-15-intel
     timeout-minutes: 90
     outputs:
@@ -115,14 +120,17 @@ jobs:
             dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml
 
   linux-x64:
-    if: github.repository == 'OmarrGhorab/openbot-personal'
     needs: mac-x64
+    # With linux_only the Mac job is skipped and this job adds its files to the existing release.
+    if: >-
+      always() && github.repository == 'OmarrGhorab/openbot-personal' &&
+      (needs.mac-x64.result == 'success' || (inputs.linux_only && needs.mac-x64.result == 'skipped'))
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
-      VERSION: ${{ needs.mac-x64.outputs.version }}
+      VERSION: ${{ needs.mac-x64.outputs.version || inputs.version }}
       OPENBOT_ACCOUNT_URL: ${{ vars.OPENBOT_ACCOUNT_URL }}
       OPENBOT_SIGNAL_URL: ${{ vars.OPENBOT_SIGNAL_URL }}
     steps:
@@ -132,10 +140,20 @@ jobs:
       - uses: ./.github/actions/setup-bun
         with:
           install: none
+      # uiohook-napi is rebuilt from source for Electron and links X11, Xrandr, Xtst and Xt.
+      - name: Install X11 headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev libxrandr-dev libxtst-dev libxt-dev
       - run: bun install --frozen-lockfile
       - name: Set version
         shell: bash
         run: |
+          VERSION="${VERSION:-$(node -p "require('./package.json').version")}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$VERSION does not exist." >&2; exit 1
+          fi
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "Invalid version: $VERSION" >&2; exit 1; fi
           node -e "const f='package.json',p=require('./'+f);p.version='$VERSION';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
       - name: Install native runtimes
