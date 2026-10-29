@@ -66,6 +66,26 @@ function jobCard(scope: Locator | Page, title: string): Locator {
   return card(scope, title).filter({ hasNotText: "Builder: " }).filter({ hasNotText: "Reviewer: " });
 }
 
+/**
+ * Fails when another element is on top of the centre of `target` (#176). Playwright waits and retries a
+ * click on such an element; this check fails at once and names the element that took the click.
+ */
+async function assertTakesClicks(target: Locator, name: string): Promise<void> {
+  const hit = await target.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return {
+      takesClicks: top !== null && element.contains(top),
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      top: top ? `${top.tagName.toLowerCase()}.${[...top.classList].join(".")}` : "nothing",
+    };
+  });
+  assert.ok(
+    hit.takesClicks && hit.pointerEvents !== "none",
+    `${name} takes no clicks: pointer-events is ${hit.pointerEvents}, and ${hit.top} is on top of it.`,
+  );
+}
+
 async function screenshot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: resolve(OUT, `${name}.png`) });
 }
@@ -94,6 +114,13 @@ try {
   await card(column(page, "tickets.status.backlog"), BACKLOG).waitFor();
   await screenshot(page, "board");
   report.steps.push("The board shows five columns with the seeded tickets.");
+
+  // The page opens with the agent list hidden. Each part of it takes clicks (#176).
+  await assertTakesClicks(page.getByRole("button", { name: t("tickets.new"), exact: true }), "New ticket");
+  await assertTakesClicks(page.getByRole("tab", { name: t("tickets.view.agents"), exact: true }), "By agent");
+  await assertTakesClicks(page.getByRole("button", { name: t("tickets.sync.open"), exact: true }), "Sync");
+  await assertTakesClicks(card(column(page, "tickets.status.backlog"), BACKLOG), "A ticket card");
+  report.steps.push("With the agent list hidden, New ticket, the view switch, Sync and a card take clicks.");
 
   // Sync: GitHub is connected in this story. Save and sync imports the open issues of the repository into
   // Backlog, linked to their issues; Sync now imports them again and adds no copy.

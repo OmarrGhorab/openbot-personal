@@ -31,8 +31,8 @@
     display: none;
   }
 
-  /* The agent list stays beside the Tasks page here, so the page has no button to hide it. */
-  .app-frame .tasks-page-header > .side-panel-toggle {
+  /* The agent list stays beside the Tasks and Tickets pages here, so the page has no button to hide it. */
+  .app-frame :is(.tasks-page-header, .tickets-page-header) > .side-panel-toggle {
     display: none;
   }
 }
@@ -425,6 +425,49 @@
     border-bottom-right-radius: calc(var(--openbot-radius-card) - 1px);
   }
 
+  /* The Tickets page takes the place of the Tasks page, so it uses the same frame: its title row goes in
+   * the top row and moves the window, and the board goes in the card below it. The tools in the title
+   * row take clicks. */
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page {
+    position: relative;
+    box-sizing: border-box;
+    padding-top: var(--left-header-height);
+    background: transparent;
+  }
+
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: var(--left-header-height);
+    box-sizing: border-box;
+    padding: 0 var(--openbot-space-3);
+    -webkit-app-region: drag;
+  }
+
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-tools {
+    -webkit-app-region: no-drag;
+  }
+
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header h2 {
+    overflow: hidden;
+    font-size: var(--openbot-text-md);
+    font-weight: var(--openbot-weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The rail and the agent list are the way back, so the title has no Back button and no server name. */
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header > .ui-icon-button,
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header > h2 > span {
+    display: none;
+  }
+
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-main {
+    padding-top: var(--openbot-space-4);
+  }
+
   /* The Tasks page opens with the agent list hidden. Its header button shows the list. Until then the
    * page spans the sidebar, as the schedule page does. The server menu stays in the top row, and the
    * page lets clicks through to it. */
@@ -452,6 +495,19 @@
   }
 
   .app-window > .app-frame-edge.app-frame-sidebar-hidden > .app-frame-panes :is(.tasks-page-scroll, .tasks-page-side) {
+    pointer-events: auto;
+  }
+
+  /* The panes let clicks through to the server menu here, so each part of the Tickets page takes them
+   * again. The page box itself does not: its top row is over the server menu. */
+  .app-window > .app-frame-edge.app-frame-sidebar-hidden > .app-frame-panes .tickets-page-header {
+    left: var(--left-panel-width);
+  }
+
+  .app-window
+    > .app-frame-edge.app-frame-sidebar-hidden
+    > .app-frame-panes
+    :is(.tickets-page-header, .tickets-strip, .tickets-page-scroll, .tickets-notice, .tickets-side) {
     pointer-events: auto;
   }
 
