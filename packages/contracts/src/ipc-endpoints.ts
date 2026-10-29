@@ -146,6 +146,8 @@ import type {
   HostUpdateSettingsChange,
   HostUpdateStatus,
   IdleRestartTarget,
+  MacAutomationResult,
+  MacAutomationTarget,
   MacPermissionId,
   ProviderRuntimeSnapshot,
   SaveSetupInput,
@@ -917,6 +919,10 @@ export const IPC_ENDPOINTS = {
     startPermissionAppDrag: request<undefined, void>()("computer-use:start-permission-app-drag"),
     revealPermissionApp: request<undefined, void>()("computer-use:reveal-permission-app"),
     highlightPlacement: event<ComputerUseHighlightPlacement>()("computer-use:highlight-placement"),
+  },
+  macAutomation: {
+    /** Sends one harmless Apple Event to each app, so macOS shows its Automation prompts now. */
+    request: request<readonly MacAutomationTarget[], MacAutomationResult[]>()("mac-automation:request"),
   },
   skills: {
     localList: request<undefined, MarketplaceSkillDetail[]>()("skills:local-list"),
@@ -1848,6 +1854,7 @@ export const IPC_GROUP_PATHS = {
   globalVoice: "globalVoice",
   browserDock: "browserDock",
   computerUse: "computerUse",
+  macAutomation: "macAutomation",
   skills: "skills",
   customProviders: "customProviders",
   providerDetection: "providerDetection",

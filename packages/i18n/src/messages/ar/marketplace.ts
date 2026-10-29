@@ -131,6 +131,21 @@ export const messages = {
   "marketplace.app.setup.desktopConnected": "متصل بـ {address}.",
   "marketplace.app.setup.open": "مش محتاج تسجيل دخول ولا مفتاح.",
   "marketplace.app.connectAgain": "اربط تاني",
+  "marketplace.app.automation.askOnInstall": "اطلب الصلاحية من macOS وقت التثبيت",
+  "marketplace.app.automation.title": "الوصول لتطبيقات Apple",
+  "marketplace.app.automation.description": "macOS بيعرض طلب لكل تطبيق. التطبيق المقفول بيفتح لحظة وبعدين بيقفل.",
+  "marketplace.app.automation.request": "اطلب الصلاحية",
+  "marketplace.app.automation.allowed": "OpenBot يقدر دلوقتي يتحكم في كل تطبيقات Apple.",
+  "marketplace.app.automation.refused":
+    "macOS مدّاش صلاحية لـ {apps}. اسمح لـ OpenBot من System Settings › Privacy & Security › Automation.",
+  "marketplace.app.automation.failed": "OpenBot معرفش يسأل macOS عن {apps}. حاول تاني.",
+  "marketplace.app.automation.app.calendar": "Calendar",
+  "marketplace.app.automation.app.contacts": "Contacts",
+  "marketplace.app.automation.app.mail": "Mail",
+  "marketplace.app.automation.app.notes": "Notes",
+  "marketplace.app.automation.app.reminders": "Reminders",
+  "marketplace.app.automation.app.messages": "Messages",
+  "marketplace.app.automation.app.safari": "Safari",
   "marketplace.app.signInTitle": "سجّل دخول لـ {name} تاني",
   "marketplace.app.signInDescription":
     "{name} رفض تسجيل الدخول المحفوظ. الإيجنتات بتاعتك مش هتقدر تستخدمه لحد ما تسجّل دخول تاني.",
@@ -198,7 +213,7 @@ export const messages = {
   "marketplace.plugin.paper.prompt.tokens": "اعرض الـ design tokens في ملف Paper المفتوح وقارنها بالثيم بتاعنا.",
   "marketplace.plugin.appleApps.tagline": "Mail وCalendar وغيرهم على الـ Mac بتاعك",
   "marketplace.plugin.appleApps.description":
-    "Apple apps بتخلّي الإيجنتات تستخدم Mail وCalendar وContacts وReminders وNotes وMessages وSafari على الـ Mac ده. شغّالة على macOS بس. OpenBot بيشغّل mcp-icloud، وده سيرفر من المجتمع مش معمول من Apple ولا من OpenBot. السيرفر بيتحكم في التطبيقات عن طريق AppleScript على الكمبيوتر ده، ومش محتاج حساب ولا مفتاح. أول مرة إيجنت يستخدم تطبيق، macOS هيسألك لو OpenBot يقدر يتحكم فيه. علشان تغيّر ده بعدين، افتح System Settings › Privacy & Security › Automation. الإيجنتات تقدر تبعت إيميلات ورسايل iMessage، وتغيّر أو تمسح مواعيد وجهات اتصال وتذكيرات، فراجع كل تعديل قبل ما توافق عليه. اللي الأدوات بتقراه، زي نص الإيميلات، بيروح لمزوّد الموديل بتاع الإيجنت.",
+    "Apple apps بتخلّي الإيجنتات تستخدم Mail وCalendar وContacts وReminders وNotes وMessages وSafari على الـ Mac ده. شغّالة على macOS بس. OpenBot بيشغّل mcp-icloud، وده سيرفر من المجتمع مش معمول من Apple ولا من OpenBot. السيرفر بيتحكم في التطبيقات عن طريق AppleScript على الكمبيوتر ده، ومش محتاج حساب ولا مفتاح. وقت التثبيت، OpenBot يقدر يطلب من macOS صلاحية لكل التطبيقات دي مرة واحدة، بطلب لكل تطبيق. لو مطلبتش، macOS هيسألك أول مرة إيجنت يستخدم تطبيق. علشان تغيّر ده بعدين، افتح System Settings › Privacy & Security › Automation. الإيجنتات تقدر تبعت إيميلات ورسايل iMessage، وتغيّر أو تمسح مواعيد وجهات اتصال وتذكيرات، فراجع كل تعديل قبل ما توافق عليه. اللي الأدوات بتقراه، زي نص الإيميلات، بيروح لمزوّد الموديل بتاع الإيجنت.",
   "marketplace.plugin.appleApps.app":
     "Mail وCalendar وContacts وReminders وNotes وMessages وSafari، من خلال سيرفر mcp-icloud المحلي. محتاج macOS وصلاحية Automation.",
   "marketplace.plugin.appleApps.prompt.unread": "لخّص الإيميلات اللي لسه ماتقرتش في Apple Mail من النهارده.",

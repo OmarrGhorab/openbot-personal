@@ -235,6 +235,7 @@ import {
   decodeNullableGlobalVoicePickerSnapshot,
 } from "./global-voice-decoding";
 import { decodeHostReleaseStatusFromMain } from "./host-release-decoding";
+import { decodeMacAutomationResults } from "./mac-automation-decoding";
 import {
   decodeAddOrchestratorReply,
   decodeDiscordAccessReply,
@@ -715,6 +716,9 @@ const openbotApi: OpenBotDesktopApi = {
     startPermissionAppDrag: decodeVoid,
     revealPermissionApp: decodeVoid,
     highlightPlacement: decodeComputerUseHighlightPlacement,
+  }),
+  macAutomation: bridgeGroup(IPC_ENDPOINTS.macAutomation, {
+    request: decodeMacAutomationResults,
   }),
   providerRuntimes: bridgeGroup(IPC_ENDPOINTS.providerRuntimes, {
     getStatus: decodeProviderRuntimeSnapshot,
