@@ -75,6 +75,26 @@
   font-style: italic;
 }
 
+.raven-team-more-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-more-ticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-hint,
+.raven-team-job-queued {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-lg);
+}
+
 .raven-team-actions {
   display: flex;
   flex-wrap: wrap;
