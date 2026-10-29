@@ -84,4 +84,5 @@ export const messages = {
   "tickets.error.delete": "معرفناش نمسح التذكرة.",
   "tickets.error.steer": "معرفناش نحفظ الرسالة في النشاط.",
   "tickets.error.activity": "معرفناش نحمّل النشاط.",
+  "tickets.error.thread": "معرفناش نوقّف الثريد أو نكمّله.",
 } as const satisfies PartialTranslation<typeof source>;

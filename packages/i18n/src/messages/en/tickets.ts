@@ -84,4 +84,5 @@ export const messages = defineMessages("tickets", {
   "tickets.error.delete": "Could not delete the ticket.",
   "tickets.error.steer": "Could not save the message in the activity.",
   "tickets.error.activity": "Could not load the activity.",
+  "tickets.error.thread": "Could not stop, pause or resume the thread.",
 });

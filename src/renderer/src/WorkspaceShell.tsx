@@ -35,7 +35,7 @@ import { useServers } from "./features/servers/servers-context";
 import { WorkspaceServerRail } from "./features/servers/WorkspaceServerRail";
 import { useSettings } from "./features/settings/settings-context";
 import { WorkspaceSidebar } from "./features/sidebar/WorkspaceSidebar";
-import { TasksPanel } from "./features/tasks/TasksPanel";
+import { TicketsPanel } from "./features/tickets/TicketsPanel";
 import { createHostRestartToasts, type HostRestartView } from "./features/updates/host-restart-toast";
 import { useUsage } from "./features/usage/usage-context";
 import { WindowPageView } from "./features/window/WindowPageView";
@@ -325,7 +325,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           >
             <Show when={middlePane() === "tasks" ? usage.state.serverId : null}>
               {(serverId) => (
-                <TasksPanel
+                <TicketsPanel
                   serverId={serverId()}
                   hostName={servers().find((server) => server.id === serverId())?.name ?? t("app.page.serverFallback")}
                   onBack={usage.closeUsage}
