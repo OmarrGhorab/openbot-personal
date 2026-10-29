@@ -1,7 +1,9 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type AgentReasoningEffort,
   type GiveRavenTeamRoleFullAccessInput,
   isRavenTeamRoleDefinition,
+  isReasoningEffort,
   type PlanRavenTeamInput,
   RAVEN_TEAM_BRIEF_LIMIT,
   RAVEN_TEAM_TEMPLATE_NAME_LIMIT,
@@ -60,15 +62,31 @@ function parseFullAccess(value: unknown): string[] | undefined {
   return [...new Set(value.map((roleId) => requireString(roleId, "roleId", INPUT_LIMITS.identifier)))];
 }
 
+/** The `efforts` map of a plan: role id to a reasoning effort. */
+function parseEfforts(value: unknown): Record<string, AgentReasoningEffort> | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isObject(value)) throw new Error("Invalid team effort choices.");
+  const entries = Object.entries(value);
+  if (entries.length > MAX_MODEL_OVERRIDES) throw new Error("Too many team effort choices.");
+  return Object.fromEntries(
+    entries.map(([roleId, effort]) => {
+      if (!isReasoningEffort(effort)) throw new Error("Invalid team effort choice.");
+      return [requireString(roleId, "roleId", INPUT_LIMITS.identifier), effort];
+    }),
+  );
+}
+
 export function parsePlanRavenTeam(value: unknown): PlanRavenTeamInput {
   if (!isObject(value)) throw new Error("Invalid team plan request.");
   const models = parseModelOverrides(value.models);
   const fullAccess = parseFullAccess(value.fullAccess);
+  const efforts = parseEfforts(value.efforts);
   return {
     templateId: parseRavenTemplateId(value.templateId),
     brief: requireString(value.brief, "brief", RAVEN_TEAM_BRIEF_LIMIT),
     ...(models ? { models } : {}),
     ...(fullAccess ? { fullAccess } : {}),
+    ...(efforts ? { efforts } : {}),
   };
 }
 

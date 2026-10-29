@@ -40,8 +40,7 @@ export const messages = {
   "sitePage.connect.failure.tabClosed":
     "تبويب OpenBot اللي بدأ اتصال {name} ماردّش. افتح OpenBot في المتصفح واربط {name} تاني.",
   "sitePage.connect.failure.failed": "{name} ماكمّلش الاتصال. حاول تاني.",
-  "sitePage.connect.restartHint":
-    "في OpenBot، افتح {serverSettings}، وبعدين {connectors}، وبعدين {name}، واختار {connect}.",
+  "sitePage.connect.restartHint": "في OpenBot، افتح {marketplace}، وبعدين {apps}، وبعدين {name}، واختار {connect}.",
   "sitePage.connect.notOpened":
     "شغّل OpenBot وبعدين حاول تاني. لو OpenBot مش موجود على الكمبيوتر ده، نزّله واربط {name} من التطبيق.",
   "sitePage.openApp.title": "مفيش حاجة اتفتحت؟",

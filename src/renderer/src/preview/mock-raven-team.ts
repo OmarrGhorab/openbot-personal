@@ -1,9 +1,12 @@
 // The Raven Stack team group of the preview: templates and jobs in memory. No agent runs, so a started
-// job stays where it starts. The plan reads `Role: model` pairs the same way the runtime does, over a
+// job stays where it starts: its first role works and the others wait. The plan reads `Role: model` pairs the same way the runtime does, over a
 // short list of models, so the confirm card and the team view show real shapes.
 
 import {
+  type AgentReasoningEffort,
   type OpenBotDesktopApi,
+  RAVEN_STACK_LITE_ROLES,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_ROLES,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
   type RavenTeamChanged,
@@ -16,10 +19,16 @@ import {
 
 type RavenTeamApi = OpenBotDesktopApi["ravenTeam"];
 
-const PREVIEW_MODELS = [
-  { id: "gpt-6-luna", provider: "codex" },
-  { id: "claude-sonnet-5-5", provider: "claude" },
-] as const;
+/** The preview models. One has effort levels, one has none, so the page shows both kinds. */
+const PREVIEW_MODELS: readonly {
+  id: string;
+  provider: "codex" | "claude";
+  defaultEffort: AgentReasoningEffort | null;
+  efforts: readonly AgentReasoningEffort[];
+}[] = [
+  { id: "gpt-6-luna", provider: "codex", defaultEffort: "medium", efforts: ["low", "medium", "high", "xhigh"] },
+  { id: "claude-sonnet-5-5", provider: "claude", defaultEffort: null, efforts: [] },
+];
 
 const BUILT_IN: RavenTeamTemplate = {
   id: RAVEN_STACK_TEAM_TEMPLATE_ID,
@@ -30,14 +39,50 @@ const BUILT_IN: RavenTeamTemplate = {
   updatedAt: "2026-10-28T00:00:00.000Z",
 };
 
+function previewEffort(
+  option: (typeof PREVIEW_MODELS)[number],
+  wanted: AgentReasoningEffort | undefined,
+): AgentReasoningEffort | null {
+  if (option.efforts.length === 0) return null;
+  return wanted && option.efforts.includes(wanted) ? wanted : option.defaultEffort;
+}
+
+const LITE: RavenTeamTemplate = {
+  id: RAVEN_STACK_LITE_TEMPLATE_ID,
+  name: "Autopilot lite",
+  builtIn: true,
+  roles: RAVEN_STACK_LITE_ROLES.map((role) => ({ ...role, skills: [...role.skills] })),
+  createdAt: BUILT_IN.createdAt,
+  updatedAt: BUILT_IN.updatedAt,
+};
+
+/** The preview's work-thread limit of a role agent: two jobs run, a third waits as Queued. */
+const PREVIEW_JOB_LIMIT = 2;
+
 export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
-  let jobs: RavenTeamJob[] = [];
+  // One running job, so the team page and the Monitor's "Live now" show a team at work.
+  let jobs: RavenTeamJob[] = [previewRunningJob()];
   const listeners = new Set<(payload: RavenTeamChanged) => void>();
   const emitChanged = (jobId: string | null) => {
     for (const listener of listeners) listener({ jobId });
   };
-  const allTemplates = () => [BUILT_IN, ...templates];
+  const allTemplates = () => [BUILT_IN, LITE, ...templates];
+  /** Jobs that hold a slot: running or waiting for the user, and not queued. */
+  const holding = () =>
+    jobs.filter((job) => (job.state === "running" || job.state === "waiting-user") && !job.queued).length;
+  /** The first role of a job starts working, as the service sends it the first message. */
+  const begin = (job: RavenTeamJob) => {
+    job.queued = false;
+    job.roles = job.roles.map((role, index) => (index === 0 ? { ...role, state: "working", updatedAt: now() } : role));
+    emitChanged(job.id);
+  };
+  /** Starts queued jobs, oldest first, while a slot is free. */
+  const startQueued = () => {
+    for (const job of [...jobs].reverse()) {
+      if (job.queued && job.state === "running" && holding() < PREVIEW_JOB_LIMIT) begin(job);
+    }
+  };
   const now = () => new Date().toISOString();
 
   function plan(input: {
@@ -45,6 +90,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     brief: string;
     models?: Record<string, string>;
     fullAccess?: string[];
+    efforts?: Record<string, AgentReasoningEffort>;
   }): RavenTeamPlan {
     const template = allTemplates().find((candidate) => candidate.id === input.templateId) ?? BUILT_IN;
     const named = new Map<string, string>();
@@ -57,7 +103,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     const unknownModels: RavenTeamPlan["unknownModels"] = [];
     const roles: RavenTeamPlanRole[] = [];
     for (const role of template.roles) {
-      const chosen = named.get(role.id) ?? role.defaultModel ?? PREVIEW_MODELS[0].id;
+      const chosen = named.get(role.id) ?? role.defaultModel ?? PREVIEW_MODELS[0]?.id ?? "";
       if (role.optional && !named.has(role.id)) continue;
       const option = PREVIEW_MODELS.find((candidate) => candidate.id === chosen);
       if (!option) {
@@ -74,6 +120,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         optional: role.optional,
         named: named.has(role.id),
         fullAccess: role.access === "write" || (input.fullAccess ?? []).includes(role.id),
+        reasoningEffort: previewEffort(option, input.efforts?.[role.id]),
       });
     }
     const builder = roles.find((role) => role.roleId === "builder");
@@ -102,7 +149,9 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
   return {
     listTemplates: async () => allTemplates(),
     saveTemplate: async (input) => {
-      if (input.id === RAVEN_STACK_TEAM_TEMPLATE_ID) throw new Error("The built-in team template cannot be changed.");
+      if (input.id === RAVEN_STACK_TEAM_TEMPLATE_ID || input.id === RAVEN_STACK_LITE_TEMPLATE_ID) {
+        throw new Error("The built-in team template cannot be changed.");
+      }
       const existing = templates.find((template) => template.id === input.id);
       const id = existing?.id ?? input.id ?? `preview-team-${templates.length + 1}`;
       const saved: RavenTeamTemplate = {
@@ -126,7 +175,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     start: async (input) => {
       const planned = plan(input);
       const at = now();
-      const roles: RavenTeamRoleRun[] = planned.roles.map((role) => ({
+      const roles: RavenTeamRoleRun[] = planned.roles.map((role, index) => ({
         roleId: role.roleId,
         label: role.label,
         agentId: null,
@@ -135,7 +184,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         provider: role.provider,
         model: role.model,
         access: role.access,
-        state: "waiting",
+        state: index === 0 ? "working" : "waiting",
         verdict: null,
         score: null,
         commit: null,
@@ -147,6 +196,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         templateId: planned.templateId,
         brief: planned.brief,
         state: "running",
+        queued: true,
         headCommit: null,
         fixRounds: 0,
         roundCap: 3,
@@ -158,6 +208,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       };
       jobs = [job, ...jobs];
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     listJobs: async () => jobs,
@@ -192,6 +243,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       if (!job) throw new Error("The team job was not found.");
       job.state = "stopped";
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     resume: async (jobId) => {
@@ -199,6 +251,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       if (!job) throw new Error("The team job was not found.");
       if (job.state === "stopped") job.state = "running";
       emitChanged(job.id);
+      startQueued();
       return job;
     },
     onChanged: (listener) => {
@@ -208,5 +261,51 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       };
     },
     emitChanged,
+  };
+}
+
+/**
+ * The running job of the preview: the Architect passed, the Builder works, the Reviewer waits for the
+ * user, and Quality waits for its turn. No agent runs, so the roles have no work thread.
+ */
+function previewRunningJob(): RavenTeamJob {
+  const at = new Date().toISOString();
+  const role = (roleId: string, state: RavenTeamRoleRun["state"]): RavenTeamRoleRun => {
+    const definition = RAVEN_STACK_TEAM_ROLES.find((candidate) => candidate.id === roleId);
+    return {
+      roleId,
+      label: definition?.label ?? roleId,
+      agentId: null,
+      taskId: null,
+      threadId: null,
+      provider: PREVIEW_MODELS[0].provider,
+      model: PREVIEW_MODELS[0].id,
+      access: definition?.access ?? "read-only",
+      state,
+      verdict: state === "passed" ? "DONE" : null,
+      score: null,
+      commit: null,
+      fails: 0,
+      updatedAt: at,
+    };
+  };
+  return {
+    id: "preview-job-running",
+    templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+    brief: "PUU-145: Show running team jobs on the Monitor page\n\nList each job and its roles in Live now.",
+    state: "waiting-user",
+    headCommit: null,
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: { kind: "blocked", roleId: "reviewer" },
+    roles: [
+      role("architect", "passed"),
+      role("builder", "working"),
+      role("reviewer", "working"),
+      role("quality", "waiting"),
+    ],
+    createdAt: at,
+    updatedAt: at,
   };
 }

@@ -1,4 +1,4 @@
-import type { AgentProviderId } from "@openbot/contracts/ipc";
+import type { AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
   type AgentModelOption,
   defaultProviderModel,
@@ -83,6 +83,8 @@ export interface BuildRavenTeamPlanInput {
   preferredProvider: AgentProviderId;
   /** Ids of read-only roles that the user gave Full access. */
   fullAccess?: readonly string[];
+  /** Role id to the reasoning effort that the user chose. */
+  efforts?: Readonly<Record<string, AgentReasoningEffort>>;
   /** Whether a Workspace only agent of the provider can run on this computer. */
   workspaceOnlySupported: (provider: AgentProviderId) => boolean;
   /** `process.platform` of this computer, for the question. */
@@ -138,6 +140,7 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
       optional: role.optional,
       named: isNamed,
       fullAccess: roleFullAccess,
+      reasoningEffort: ravenTeamRoleEffort(option, input.efforts?.[role.id]),
     });
   }
 
@@ -158,6 +161,22 @@ export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPla
     accessProblems,
     fallbackModel,
   };
+}
+
+/**
+ * The effort of a role on a model: the wanted one when the model supports it, else the model's default.
+ * Null when the model has no effort levels, so the page hides the effort and the agent keeps its own.
+ */
+export function ravenTeamRoleEffort(
+  option: Pick<
+    AgentModelOption,
+    "defaultReasoningEffort" | "supportedReasoningEfforts" | "reasoningEffortConfigurable"
+  >,
+  wanted: AgentReasoningEffort | undefined,
+): AgentReasoningEffort | null {
+  if (option.reasoningEffortConfigurable === false || option.supportedReasoningEfforts.length === 0) return null;
+  if (wanted && option.supportedReasoningEfforts.includes(wanted)) return wanted;
+  return option.defaultReasoningEffort;
 }
 
 /** A verifier on the Builder's model is a warning, because the two checks then share one model's blind spots. */
