@@ -241,6 +241,12 @@ export interface RavenTeamJob {
   templateId: string;
   brief: string;
   state: RavenTeamJobState;
+  /**
+   * True while a `running` job waits for a free slot: a role agent of the job already runs as many
+   * jobs as its work-thread limit allows, so no role has a work thread yet. The service derives it from
+   * the stored job; it is not a column. The job starts on its own when a slot frees.
+   */
+  queued: boolean;
   /** The commit of the last Builder report. Null before the first one. */
   headCommit: string | null;
   /** The number of FAIL rounds so far. Each one sends the findings to the Builder. */
@@ -359,6 +365,7 @@ export function isRavenTeamJob(value: unknown): value is RavenTeamJob {
     isIdentifier(value.templateId) &&
     isBoundedString(value.brief, RAVEN_TEAM_BRIEF_LIMIT) &&
     isOneOf(RAVEN_TEAM_JOB_STATES, value.state) &&
+    typeof value.queued === "boolean" &&
     isNullableBoundedString(value.headCommit, 40) &&
     isNumber(value.fixRounds) &&
     isNumber(value.roundCap) &&

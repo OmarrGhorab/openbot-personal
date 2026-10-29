@@ -42,6 +42,9 @@ table, IPC channel or product string, or when a term in the code disagrees with 
   `auth:*`), or an MCP server (`createSdkMcpServer`).
 - **team job**: one run of a Raven Stack team on one ticket: its roles, its head commit, its fix
   rounds and its state (`RavenTeamJob`, `raven_team_jobs`, `ipc-raven-team.ts`, `raven-team:*`).
+  Several tickets start several jobs. A job whose role agents already run as many jobs as their
+  work-thread limit is **queued** (`RavenTeamJob.queued`, derived, not a column): it has no work
+  thread yet and starts when a slot frees.
 
 - **team role**: a part of a Raven Stack team job, such as Architect, Builder, Reviewer or Quality. A role
   is one agent on one model, with its own work thread (`RavenTeamRoleRun`, `raven_team_roles`,
