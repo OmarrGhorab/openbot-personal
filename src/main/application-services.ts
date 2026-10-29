@@ -9,12 +9,14 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
 import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
 import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
 import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-sync-source";
+import { JiraBoardSyncSource } from "../backend/board-tickets/jira-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
@@ -1877,13 +1879,16 @@ export async function createApplicationServices({
   });
   ticketWatcher.start();
   teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
-  // The sync of the Tickets board. It works only while GitHub is connected on this computer: Jira and
-  // Linear have no connection in OpenBot yet. It reads the GitHub token at each call, and it stops
-  // before the GitHub connection does (see TEARDOWN_ORDER).
+  // The sync of the Tickets board. It works for GitHub while GitHub is connected on this computer, and for
+  // Jira while the Marketplace holds a sign-in to the Atlassian MCP server. Linear has no connection in
+  // OpenBot yet. It reads each token at each call, and it stops before the GitHub connection does (see
+  // TEARDOWN_ORDER).
+  const atlassianTools = { servers: () => service.listMcpServers(), oauth: mcpOAuth };
   const boardTicketSync = new BoardTicketSync({
     store: boardTicketStore,
     board: boardTickets,
     sources: {
+      jira: new JiraBoardSyncSource(createAtlassianTools(atlassianTools)),
       github: new GitHubBoardSyncSource({
         issues: new GitHubTicketSource({
           accessToken: () => githubConnector.accessToken(),
@@ -1896,7 +1901,10 @@ export async function createApplicationServices({
           ),
       }),
     },
-    connected: () => (githubConnector.status().state === "connected" ? ["github"] : []),
+    connected: () => [
+      ...(githubConnector.status().state === "connected" ? (["github"] as const) : []),
+      ...(atlassianConnected(atlassianTools) ? (["jira"] as const) : []),
+    ],
     changed: (state) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state),
   });
   const stopBoardSyncConnection = githubConnector.onChanged(() => boardTicketSync.connectionChanged());
