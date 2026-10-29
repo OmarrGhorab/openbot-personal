@@ -5,6 +5,7 @@ import { ChatMessageRow } from "@openbot/ui/features/conversation/ChatMessageRow
 import { ComposerEditor } from "@openbot/ui/features/conversation/ComposerEditor";
 import { ComposerNotice } from "@openbot/ui/features/conversation/ComposerNotice";
 import { formatChatTimestamp } from "@openbot/ui/features/conversation/chat-timestamp";
+import { composerSentHistory } from "@openbot/ui/features/conversation/composer-history";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, onSettled, Show } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
@@ -73,6 +74,7 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
   const fades = createScrollFades();
   onSettled(() => fades.stop);
   const asking = () => props.exchanges.at(-1)?.answer === null;
+  const askedQuestions = () => composerSentHistory(props.exchanges.map((exchange) => exchange.question));
   const [sendingToMain, setSendingToMain] = createSignal(false);
   /** The text that the task took last, so its row says it went. */
   const [sentToMain, setSentToMain] = createSignal<string | null>(null);
@@ -231,6 +233,7 @@ export function SideQuestionPanel(props: SideQuestionPanelProps) {
               agentId={props.agent.id}
               agents={props.agents}
               value={props.draft}
+              sentHistory={askedQuestions()}
               placeholder={t("conversation.sideQuestion.placeholder")}
               ariaLabel={t("conversation.sideQuestion.placeholder")}
               disabled={false}

@@ -1,5 +1,5 @@
 // The Raven Stack team group of the preview: templates and jobs in memory. No agent runs, so a started
-// job stays where it starts. The plan reads `Role: model` pairs the same way the runtime does, over a
+// job stays where it starts: its first role works and the others wait. The plan reads `Role: model` pairs the same way the runtime does, over a
 // short list of models, so the confirm card and the team view show real shapes.
 
 import {
@@ -61,7 +61,8 @@ const PREVIEW_JOB_LIMIT = 2;
 
 export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | null) => void } {
   let templates: RavenTeamTemplate[] = [];
-  let jobs: RavenTeamJob[] = [];
+  // One running job, so the team page and the Monitor's "Live now" show a team at work.
+  let jobs: RavenTeamJob[] = [previewRunningJob()];
   const listeners = new Set<(payload: RavenTeamChanged) => void>();
   const emitChanged = (jobId: string | null) => {
     for (const listener of listeners) listener({ jobId });
@@ -174,7 +175,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
     start: async (input) => {
       const planned = plan(input);
       const at = now();
-      const roles: RavenTeamRoleRun[] = planned.roles.map((role) => ({
+      const roles: RavenTeamRoleRun[] = planned.roles.map((role, index) => ({
         roleId: role.roleId,
         label: role.label,
         agentId: null,
@@ -183,7 +184,7 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
         provider: role.provider,
         model: role.model,
         access: role.access,
-        state: "waiting",
+        state: index === 0 ? "working" : "waiting",
         verdict: null,
         score: null,
         commit: null,
@@ -260,5 +261,51 @@ export function mockRavenTeam(): RavenTeamApi & { emitChanged: (jobId: string | 
       };
     },
     emitChanged,
+  };
+}
+
+/**
+ * The running job of the preview: the Architect passed, the Builder works, the Reviewer waits for the
+ * user, and Quality waits for its turn. No agent runs, so the roles have no work thread.
+ */
+function previewRunningJob(): RavenTeamJob {
+  const at = new Date().toISOString();
+  const role = (roleId: string, state: RavenTeamRoleRun["state"]): RavenTeamRoleRun => {
+    const definition = RAVEN_STACK_TEAM_ROLES.find((candidate) => candidate.id === roleId);
+    return {
+      roleId,
+      label: definition?.label ?? roleId,
+      agentId: null,
+      taskId: null,
+      threadId: null,
+      provider: PREVIEW_MODELS[0].provider,
+      model: PREVIEW_MODELS[0].id,
+      access: definition?.access ?? "read-only",
+      state,
+      verdict: state === "passed" ? "DONE" : null,
+      score: null,
+      commit: null,
+      fails: 0,
+      updatedAt: at,
+    };
+  };
+  return {
+    id: "preview-job-running",
+    templateId: RAVEN_STACK_TEAM_TEMPLATE_ID,
+    brief: "PUU-145: Show running team jobs on the Monitor page\n\nList each job and its roles in Live now.",
+    state: "waiting-user",
+    headCommit: null,
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: { kind: "blocked", roleId: "reviewer" },
+    roles: [
+      role("architect", "passed"),
+      role("builder", "working"),
+      role("reviewer", "working"),
+      role("quality", "waiting"),
+    ],
+    createdAt: at,
+    updatedAt: at,
   };
 }

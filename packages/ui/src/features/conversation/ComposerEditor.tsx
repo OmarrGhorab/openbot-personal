@@ -25,6 +25,7 @@ import { AnchoredTooltip } from "./AnchoredTooltip";
 import { AttachmentReferenceVisual } from "./AttachmentReference";
 import {
   automaticMentionSpaceAtCaretBoundary,
+  caretOnEdgeLine,
   editorText,
   editorTextOffset,
   insertLineBreak,
@@ -38,6 +39,7 @@ import {
   serializeEditor,
 } from "./composer-dom";
 import { shouldRestoreComposerFocus } from "./composer-focus";
+import { type ComposerHistoryState, idleComposerHistory, stepComposerHistory } from "./composer-history";
 import {
   measurePickerFrame,
   type PickerFrame,
@@ -104,6 +106,11 @@ interface ComposerEditorProps {
    * the final text. See `dictationWords` for how they show.
    */
   dictation?: { text: string; final: boolean };
+  /**
+   * The texts the user sent in this conversation, oldest first (see `composerSentHistory`). Arrow Up
+   * on the first line and Arrow Down on the last step through them.
+   */
+  sentHistory?: readonly string[] | undefined;
 }
 
 export interface QuoteRequest {
@@ -248,6 +255,8 @@ export function ComposerEditor(props: ComposerEditorProps) {
   /* Where the caret was when the editor last had it. A selection in a message takes the caret away. */
   let savedCaret: number | null = null;
   let isComposing = false;
+  /* Which sent message Arrow Up shows. Any edit, or a value from outside, makes the text a draft again. */
+  let historyState: ComposerHistoryState = idleComposerHistory();
   const [compositionRevision, setCompositionRevision] = createSignal(0);
   const attachmentTokenActions: AttachmentTokenActions = {
     tooltipId: attachmentTooltipId,
@@ -328,6 +337,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
       const focusRequested = focusRequest > lastFocusRequest;
       if (draftChanged) savedCaret = null;
       if (contentChanged) {
+        historyState = idleComposerHistory();
         lastAgentId = agentId;
         lastEmittedValue = value;
         setAttachmentTooltip(null);
@@ -481,9 +491,45 @@ export function ComposerEditor(props: ComposerEditorProps) {
       );
       placeCaretAtEnd(editor);
     }
+    historyState = idleComposerHistory();
     lastEmittedValue = value;
     props.onValueChange(value);
     scheduleCaretScroll();
+  }
+
+  /*
+   * Arrow Up on the first line (or in an empty draft) shows the previous sent message, and Arrow
+   * Down on the last line the next one, then the draft. A modifier, or an open picker, keeps the key
+   * for the browser or the picker.
+   */
+  function stepSentHistory(event: KeyboardEvent): boolean {
+    if (!editor || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey || pickerOpen()) return false;
+    const sent = props.sentHistory ?? [];
+    if (sent.length === 0) return false;
+    const direction = event.key === "ArrowUp" ? "older" : "newer";
+    if (!caretOnEdgeLine(editor, direction === "older" ? "first" : "last")) return false;
+    const current = serializeEditor(editor);
+    const step = stepComposerHistory(sent, historyState, direction, current);
+    if (!step) return false;
+    historyState = step.state;
+    if (step.value !== current) {
+      setAttachmentTooltip(null);
+      renderEditorValue(
+        editor,
+        step.value,
+        props.agents,
+        props.skills ?? [],
+        props.mcpServers ?? [],
+        props.attachments ?? [],
+        attachmentTokenActions,
+      );
+      setMention(null);
+      lastEmittedValue = step.value;
+      props.onValueChange(step.value);
+    }
+    placeCaretAtEnd(editor);
+    scheduleCaretScroll();
+    return true;
   }
 
   /*
@@ -710,6 +756,10 @@ export function ComposerEditor(props: ComposerEditorProps) {
      */
     if (isComposing || event.isComposing || event.keyCode === 229 || event.key === "Process") return;
     if (handleMentionPickerKeyDown(event)) return;
+    if ((event.key === "ArrowUp" || event.key === "ArrowDown") && stepSentHistory(event)) {
+      event.preventDefault();
+      return;
+    }
     if (event.key === "Backspace" && removeAutomaticMentionSpace()) {
       event.preventDefault();
       return;

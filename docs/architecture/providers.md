@@ -457,8 +457,11 @@ The account sign-in is the same ACP `authenticate` call as the first account's; 
 `logout` first. So a Reconnect refuses while an agent on the account runs a turn, and it stops the
 account's idle agent processes, which keep the old token. A saved Gemini API key belongs to the
 first account: an account process never gets `GEMINI_API_KEY`. The server reports no email and the token file holds none, so OpenBot cannot see
-that two accounts are the same Google account. A joined server signs the account in through the
-live view, because `provider-account-relay-v1` names Codex and Claude only.
+that two accounts are the same Google account. A joined server that advertises
+`provider-account-relay-v2` signs the account in through the user's own browser, with the same
+dialog as Claude: the client opens the Google page and the user pastes the callback address. A
+host with only `provider-account-relay-v1`, which names Codex and Claude only, still signs it in
+through the live view.
 
 From 1.4.1 the server answers a prompt that starts with `/usage` itself, without a model turn: it
 reads the Google account's quota summary and sends one Markdown answer. The driver's
@@ -607,9 +610,12 @@ provider added after v8 needs no new protocol version. The `providers-v8` routes
 
 The host hides a provider from a peer below v8 when that protocol's frozen list does not have it
 (`FROZEN_PROVIDERS` in `src/main/team-api/provider-visibility.ts`). So a new provider is hidden
-from old peers with no change there. Do not edit those lists. A local-only provider
-(`LOCAL_ONLY_PROVIDERS`, now only Inception) is hidden from peers on every protocol, v8 too, and the
-peer key routes refuse its key.
+from old peers with no change there. Do not edit those lists. A key-only provider
+(`KEY_ONLY_PROVIDERS`, now only Inception; upstream also has DeepSeek and OpenRouter) is not in any
+frozen list, so a v8 peer is the first to see it. The `providers-v8` key routes read, set and clear
+its key. A key set there starts the host's Pi download when Pi cannot start, and does not wait for
+it. Until Pi is ready no process uses the key, so the route saves only the key; the provider is
+checked again when Pi is ready. The `providers-v5` and `providers-v1` key routes refuse its key.
 
 A v8 client keeps the agents of a provider that its build does not know (`ForeignProviderId`,
 `AgentProviderRef`). The agent stays in the list and chat works, because the host runs it. The
@@ -777,12 +783,12 @@ Inception is a provider of its own that runs on Pi's managed CLI. Its driver set
 so it resolves Pi's downloaded binary and has no runtime or download of its own. After a Pi update, a
 running Inception process restarts on the new binary when its turns end. Connect and Reconnect on the
 row open the key dialog, and the composer's sign-in opens the Providers settings, because a key is the
-only sign-in. The key is stored as the `inception` API key. `pi-inception.ts` writes a key-free extension that
+only sign-in. The key is stored as the `inception` API key. `pi-key-providers.ts` writes a key-free extension that
 calls `pi.registerProvider("inception", …)` with the Mercury models; the key is in the process
 environment and a `globalThis` slot, because Pi runs extensions again on `switch_session`. The
 Inception client lists only the `inception` models, with bare ids such as `mercury-3`. The Pi client
-does not load this extension, so it keeps only the user's own `inception` models. Without a key the provider has no models and asks for a key. Inception is local-only:
-no Team API protocol carries it, v8 included (`LOCAL_ONLY_PROVIDERS`).
+does not load this extension, so it keeps only the user's own `inception` models. Without a key the provider has no models and asks for a key. A 401 or a 402 from Inception shows a text about the saved key or the account balance (`#failureText` in `pi-client.ts`). Saving the key downloads Pi when Pi cannot start (`ensureKeyProviderCli`). Team API v8 carries Inception; peers
+below v8 do not see it.
 
 ## Muse
 

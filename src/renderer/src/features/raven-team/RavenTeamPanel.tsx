@@ -6,13 +6,29 @@ import { createSignal, onSettled, Show } from "solid-js";
  * The Raven Stack team page on desktop. A team runs on this computer, so every call goes to the local
  * team bridge. The page reads a job again when the bridge says it changed; it never polls.
  */
-export function RavenTeamPanel(props: { serverId: string; onBack?: (() => void) | undefined }) {
+export function RavenTeamPanel(props: {
+  serverId: string;
+  /** The team job to show first, when the Monitor opened the page on it. */
+  jobId?: string | undefined;
+  onBack?: (() => void) | undefined;
+}) {
   const [templates, setTemplates] = createSignal<RavenTeamTemplate[]>([]);
   const [jobs, setJobs] = createSignal<RavenTeamJob[]>([]);
   const [models, setModels] = createSignal<RavenTeamModelChoice[]>([]);
   const [loaded, setLoaded] = createSignal(false);
 
   const refreshJobs = () => window.openbot.ravenTeam.listJobs().then(setJobs);
+  /**
+   * Scrolls the page to a job, when the Monitor opened the page on it. The page names each job by the
+   * first line of its ticket. A page that has no such job stays where it is.
+   */
+  const showJob = (job: RavenTeamJob) => {
+    const name = job.brief.split("\n")[0] ?? "";
+    const article = [...document.querySelectorAll<HTMLElement>(".raven-team-job[aria-label]")].find(
+      (candidate) => candidate.getAttribute("aria-label") === name,
+    );
+    article?.scrollIntoView({ block: "nearest" });
+  };
 
   onSettled(() => {
     void Promise.all([
@@ -36,6 +52,8 @@ export function RavenTeamPanel(props: { serverId: string; onBack?: (() => void) 
         }),
       );
       setLoaded(true);
+      const focus = nextJobs.find((job) => job.id === props.jobId);
+      if (focus) requestAnimationFrame(() => showJob(focus));
     });
     // Solid runs the function that onSettled returns as its cleanup; onCleanup is not allowed here.
     return window.openbot.ravenTeam.onChanged(() => void refreshJobs());
