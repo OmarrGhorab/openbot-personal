@@ -190,8 +190,8 @@ export interface PageRailProps {
   onSettings: (button: HTMLElement) => void;
   /** A notice for the Settings button, such as an update, when no other place shows it. A dot marks it. */
   settingsNotice?: string | undefined;
-  /** The Help menu, between Marketplace and Settings. */
-  help: JSX.Element;
+  /** The Help menu, between Marketplace and Settings. Absent when a window does not show it. */
+  help?: JSX.Element | undefined;
   /**
    * The OpenBot logo in the top row, for a window that has no macOS window buttons there. With
    * `href`, the logo is a link to the OpenBot site.

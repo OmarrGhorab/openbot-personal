@@ -213,11 +213,18 @@ export function navItem(tab: SettingsTab): SettingsNavItem {
 }
 
 /**
+ * The tabs that the panel does not list for now. Their panels, state and logic stay in place, so a tab
+ * comes back by removing it from this list.
+ */
+const HIDDEN_SETTINGS_TABS: ReadonlyArray<SettingsTab> = ["billing", "mobile-connect"];
+
+/**
  * Whether the settings panel and its search show the tab. Hosted servers opens from its own entry, not
  * from this panel.
  */
 export function settingsTabShown(tab: SettingsTab, dynamicIslandShown: boolean): boolean {
   if (tab === "hosted-servers") return false;
+  if (HIDDEN_SETTINGS_TABS.includes(tab)) return false;
   return tab !== "dynamic-island" || dynamicIslandShown;
 }
 
