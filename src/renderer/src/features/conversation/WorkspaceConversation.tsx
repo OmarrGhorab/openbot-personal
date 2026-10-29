@@ -468,6 +468,22 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     },
   );
 
+  // The same rule for the props below: each is a conditional, so it is a memo of the component.
+  const conversationAgentStatus = createMemo(() =>
+    activeServer()?.kind === "remote" && (!serverScope.loaded() || !conversations[activeAgent()?.id ?? ""]?.loaded)
+      ? { ...agentStatus(), phase: "starting" as const }
+      : agentStatus(),
+  );
+  const conversationLoaded = createMemo(() =>
+    activeAgent() ? conversations[activeAgent()?.id ?? ""]?.loaded === true : false,
+  );
+  const conversationDiscontinuous = createMemo(() =>
+    activeAgent() ? conversations[activeAgent()?.id ?? ""]?.windowMode === "around" : false,
+  );
+  const conversationLoadingOlder = createMemo(() =>
+    activeAgent() ? conversations[activeAgent()?.id ?? ""]?.olderLoading === true : false,
+  );
+
   return (
     <>
       <Conversation
@@ -491,12 +507,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           serverSettingsTargetId() === activeServer()?.id && serverSettingsMcpSignIns()[mcpServerId]?.signedIn === true
         }
         onOpenUsage={(trigger) => usage.openUsage(activeServer()?.id ?? "local", trigger, activeAgent()?.id)}
-        agentStatus={
-          activeServer()?.kind === "remote" &&
-          (!serverScope.loaded() || !conversations[activeAgent()?.id ?? ""]?.loaded)
-            ? { ...agentStatus(), phase: "starting" }
-            : agentStatus()
-        }
+        agentStatus={conversationAgentStatus()}
         agentsConnecting={agentListConnecting()}
         accountUsage={withHostAccountUsage(auth.accountUsage(), hostAccountLimits())}
         providerRuntimeStatuses={providerDownloads() ? providerRuntimeStatuses() : undefined}
@@ -524,15 +535,15 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         firstUnreadMessageId={
           activeAgent() ? (conversations[activeAgent()?.id ?? ""]?.read?.firstUnreadMessageId ?? null) : null
         }
-        loaded={activeAgent() ? conversations[activeAgent()?.id ?? ""]?.loaded === true : false}
+        loaded={conversationLoaded()}
         hasOlder={
           activeServerSupportsCapability("conversation-pagination") && activeAgent()
             ? (conversations[activeAgent()?.id ?? ""]?.page?.hasOlder ?? false)
             : false
         }
         unloadedHistory={activeAgent() ? unloadedHistory(conversations[activeAgent()?.id ?? ""]?.page) : undefined}
-        discontinuous={activeAgent() ? conversations[activeAgent()?.id ?? ""]?.windowMode === "around" : false}
-        loadingOlder={activeAgent() ? conversations[activeAgent()?.id ?? ""]?.olderLoading === true : false}
+        discontinuous={conversationDiscontinuous()}
+        loadingOlder={conversationLoadingOlder()}
         olderError={activeAgent() ? (conversations[activeAgent()?.id ?? ""]?.olderError ?? null) : null}
         queue={activeQueue()}
         browserTabs={browserTabs()}
@@ -612,6 +623,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         remoteBackupModelsLoaded={remoteAgentAdmin.backupModels() !== undefined}
         remoteTaskLimitLoaded={remoteAgentAdmin.taskLimit() !== undefined}
         onUpdateAgentPermissions={permissionsEditable() ? writeAgentPermissions : undefined}
+        externalLinkTarget={generalSettings().externalLinkTarget}
         defaultBusyMessageMode={generalSettings().busyMessageMode}
         agentDefaults={generalSettings().agentDefaults}
         agentMemoryLimit={generalSettings().agentMemoryLimit}

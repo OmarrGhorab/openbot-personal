@@ -5,6 +5,7 @@ import {
   type PlanRavenTeamInput,
   RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_TEMPLATE_ID,
+  RAVEN_TEAM_BUILDER_ROLE_ID,
   type RavenTeamJob,
   type RavenTeamPlan,
   type RavenTeamPlanRole,
@@ -20,17 +21,12 @@ import {
   Badge,
   Button,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SwitchField,
+  Switch,
   Textarea,
 } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, Show } from "solid-js";
-import { RAVEN_TEAM_EFFORT_LABEL, type RavenTeamModelChoice, RavenTeamRolePicker } from "./RavenTeamRolePicker";
+import { createEffect, createSignal, For, Show, untrack } from "solid-js";
+import { type RavenTeamModelChoice, RavenTeamRolePicker } from "./RavenTeamRolePicker";
 
 export type { RavenTeamModelChoice } from "./RavenTeamRolePicker";
 
@@ -38,6 +34,8 @@ export interface RavenTeamPageProps {
   templates: RavenTeamTemplate[];
   jobs: RavenTeamJob[];
   models: RavenTeamModelChoice[];
+  /** The text that the ticket box starts with, such as a ticket of the board. Read once. */
+  initialBrief?: string | undefined;
   onPlan: (input: PlanRavenTeamInput) => Promise<RavenTeamPlan>;
   onStart: (input: PlanRavenTeamInput) => Promise<unknown>;
   onStop: (jobId: string) => Promise<unknown>;
@@ -126,7 +124,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       : candidate.id === RAVEN_STACK_LITE_TEMPLATE_ID
         ? t("agent.team.template.lite")
         : candidate.name;
-  const [brief, setBrief] = createSignal("");
+  const [brief, setBrief] = createSignal(untrack(() => props.initialBrief ?? ""));
   // The ticket boxes after the first one, and the text of each. Each ticket starts its own job.
   const [moreBoxes, setMoreBoxes] = createSignal<TicketBox[]>([]);
   const [moreText, setMoreText] = createSignal<Record<number, string>>({});
@@ -148,11 +146,14 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const [plan, setPlan] = createSignal<RavenTeamPlan | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
+  /** Ids of the roles that this ticket leaves out. The Builder is never in the list. */
+  const [skipped, setSkipped] = createSignal<string[]>([]);
 
   const request = (
     models: Record<string, string> = overrides(),
     access: string[] = fullAccess(),
     chosenEfforts: Record<string, AgentReasoningEffort> = efforts(),
+    leftOut: string[] = skipped(),
   ): PlanRavenTeamInput => ({
     templateId: templateId(),
     // The roles are checked with the first ticket; each ticket is checked again when its job starts.
@@ -160,6 +161,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     models,
     fullAccess: access,
     efforts: chosenEfforts,
+    skippedRoles: leftOut,
   });
   const canStart = () => {
     const current = plan();
@@ -183,8 +185,6 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     plan()?.roles.find((role) => role.roleId === roleId)?.label ??
     template()?.roles.find((role) => role.id === roleId)?.label ??
     roleId;
-  /** Optional roles of the template, such as the Editor. Each one is a row with a switch. */
-  const optionalRoles = () => template()?.roles.filter((role) => role.optional) ?? [];
 
   async function run(action: () => Promise<unknown>): Promise<void> {
     setBusy(true);
@@ -203,12 +203,42 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     models?: Record<string, string>,
     access?: string[],
     chosenEfforts?: Record<string, AgentReasoningEffort>,
+    leftOut?: string[],
   ) => {
     if (tickets().length === 0) {
       setError(t("agent.team.briefRequired"));
       return Promise.resolve();
     }
-    return run(async () => setPlan(await props.onPlan(request(models, access, chosenEfforts))));
+    return run(async () => setPlan(await props.onPlan(request(models, access, chosenEfforts, leftOut))));
+  };
+
+  /**
+   * The team is checked as the ticket is written, so the roles show their models without a button. A
+   * pause in typing, a new first ticket and another template check it again; an empty ticket clears it.
+   */
+  createEffect(
+    () => ({ ticket: tickets()[0] ?? "", template: templateId() }),
+    ({ ticket }) => {
+      if (!ticket) {
+        setPlan(null);
+        return;
+      }
+      const timer = setTimeout(() => void check(), 450);
+      return () => clearTimeout(timer);
+    },
+  );
+
+  /**
+   * Leaves a role out of this ticket, or puts it back. The Builder cannot be left out. The plan is checked
+   * again with the new list: a signal write shows at the next flush, so the check gets the list itself.
+   */
+  const toggleSkip = (roleId: string, skip: boolean) => {
+    const next = skip ? [...new Set([...skipped(), roleId])] : skipped().filter((id) => id !== roleId);
+    setSkipped(next);
+    const models = { ...overrides() };
+    if (skip) delete models[roleId];
+    setOverrides(models);
+    void check(models, fullAccess(), efforts(), next);
   };
 
   /**
@@ -258,9 +288,9 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     setOverrides({});
     setEfforts({});
     setFullAccess([]);
+    setSkipped([]);
     setPlan(null);
     setError(null);
-    if (tickets().length > 0) void check({}, [], {});
   };
 
   /** The one-click answer to the access question on the confirm card. The plan is checked again. */
@@ -268,18 +298,6 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     const next = [...new Set([...fullAccess(), roleId])];
     setFullAccess(next);
     void check(overrides(), next);
-  };
-
-  /** The provider, model and effort of a planned role, as the confirm card names them. */
-  const choiceText = (role: RavenTeamPlanRole) => {
-    const model = props.models.find((candidate) => candidate.id === role.model);
-    return [
-      model?.providerName ?? role.provider,
-      model?.name ?? role.model,
-      role.reasoningEffort ? t(RAVEN_TEAM_EFFORT_LABEL[role.reasoningEffort]) : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
   };
 
   const accessBadge = (role: RavenTeamPlanRole) =>
@@ -325,7 +343,45 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       setOverrides({});
       setEfforts({});
       setFullAccess([]);
+      setSkipped([]);
     });
+
+  /** What the role does, in one line. A role of a copied template has no line. */
+  const roleHint = (role: { id: string; optional: boolean }): string | null => {
+    if (role.optional) return t("agent.team.optionalRole");
+    switch (role.id) {
+      case "architect":
+        return t("agent.team.role.hint.architect");
+      case "builder":
+        return t("agent.team.role.hint.builder");
+      case "reviewer":
+        return t("agent.team.role.hint.reviewer");
+      case "quality":
+        return t("agent.team.role.hint.quality");
+      default:
+        return null;
+    }
+  };
+  /** What a left-out role costs the job: a planning role hands its work to the Builder, a checking role leaves a gap. */
+  const skipNote = (role: { skills: string[] }): string =>
+    role.skills.includes("verify") || role.skills.includes("quality")
+      ? t("agent.team.role.skip.checks")
+      : t("agent.team.role.skip.plans");
+  const templateHint = (candidate: RavenTeamTemplate): string =>
+    candidate.id === RAVEN_STACK_TEAM_TEMPLATE_ID
+      ? t("agent.team.template.fullHint")
+      : candidate.id === RAVEN_STACK_LITE_TEMPLATE_ID
+        ? t("agent.team.template.liteHint")
+        : candidate.roles.map((role) => role.label).join(" · ");
+  /** True when the plan has no role that checks the Builder: the job then ends at the Builder's commit. */
+  const nobodyChecks = () => {
+    const current = plan();
+    return (
+      current !== null &&
+      current.roles.length > 0 &&
+      !current.roles.some((role) => role.skills.includes("verify") || role.skills.includes("quality"))
+    );
+  };
 
   function JobRoleRow(rowProps: { job: RavenTeamJob; role: RavenTeamRoleRun }) {
     return (
@@ -438,6 +494,15 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
             );
           }}
         </Show>
+        <ol class="raven-team-pipeline" aria-hidden="true">
+          <For each={job().roles}>
+            {(role) => (
+              <li class="raven-team-pipeline-step" data-state={role.state}>
+                {role.label}
+              </li>
+            )}
+          </For>
+        </ol>
         <ul class="raven-team-job-roles">
           <For each={job().roles}>{(role) => <JobRoleRow job={job()} role={role} />}</For>
         </ul>
@@ -477,33 +542,24 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
       </header>
 
       <div class="raven-team-columns">
-        <div class="raven-team-column raven-team-column-ticket">
-          <section class="raven-team-form" aria-labelledby="raven-team-ticket-label">
-            <Label class="raven-team-label" id="raven-team-template-label">
-              {t("agent.team.template")}
-            </Label>
-            <Select<RavenTeamTemplate>
-              class="raven-team-template"
-              options={props.templates}
-              optionValue="id"
-              optionTextValue={templateName}
-              value={template()}
-              disabled={busy()}
-              onChange={pickTemplate}
-              itemComponent={(item) => <SelectItem item={item.item}>{templateName(item.item.rawValue)}</SelectItem>}
-            >
-              <SelectTrigger aria-labelledby="raven-team-template-label">
-                <SelectValue<RavenTeamTemplate>>{(state) => templateName(state.selectedOption())}</SelectValue>
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
-            <Label class="raven-team-label" id="raven-team-ticket-label" for="raven-team-ticket">
-              {t("agent.team.ticket")}
-            </Label>
+        <div class="raven-team-column raven-team-column-main">
+          <section class="raven-team-panel" aria-labelledby="raven-team-ticket-title">
+            <header class="raven-team-panel-head">
+              <span class="raven-team-step" aria-hidden="true">
+                1
+              </span>
+              <div>
+                <h3 id="raven-team-ticket-title" class="raven-team-subtitle">
+                  {t("agent.team.ticket")}
+                </h3>
+                <p class="raven-team-hint">{t("agent.team.step.ticketHint")}</p>
+              </div>
+            </header>
             <Textarea
               id="raven-team-ticket"
               class="raven-team-ticket"
               rows={6}
+              aria-label={t("agent.team.ticket")}
               value={brief()}
               placeholder={t("agent.team.ticketPlaceholder")}
               onInput={(event) => setBrief(event.currentTarget.value)}
@@ -534,123 +590,118 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                 );
               }}
             </For>
-            <p class="raven-team-hint">{t("agent.team.ticketsHint")}</p>
-            <div class="raven-team-actions">
-              <Button variant="ghost" disabled={busy()} onClick={addBox}>
+            <div class="raven-team-panel-foot">
+              <p class="raven-team-hint">{t("agent.team.ticketsHint")}</p>
+              <Button variant="ghost" size="sm" disabled={busy()} onClick={addBox}>
                 {t("agent.team.addTicket")}
               </Button>
-              <Button variant="secondary" disabled={busy()} onClick={() => void check()}>
-                {t("agent.team.check")}
-              </Button>
             </div>
-            <Show when={error()}>
-              {(message) => (
-                <Alert tone="danger" role="alert">
-                  <AlertContent>
-                    <AlertDescription>{message()}</AlertDescription>
-                  </AlertContent>
-                </Alert>
-              )}
-            </Show>
           </section>
 
-          <section class="raven-team-jobs" aria-labelledby="raven-team-jobs-title">
-            <h3 id="raven-team-jobs-title" class="raven-team-subtitle">
-              {t("agent.team.jobs")}
-            </h3>
-            <Show when={props.jobs.length > 0} fallback={<p class="raven-team-empty">{t("agent.team.noJobs")}</p>}>
-              <For each={props.jobs}>{(job) => <JobCard job={job} />}</For>
-            </Show>
-          </section>
-        </div>
-
-        <section class="raven-team-column raven-team-column-roles" aria-labelledby="raven-team-roles-title">
-          <h3 id="raven-team-roles-title" class="raven-team-subtitle">
-            {t("agent.team.roles")}
-          </h3>
-          <Show
-            when={plan()}
-            fallback={
-              <>
-                <ul class="raven-team-plan">
-                  <For each={template()?.roles.filter((role) => !role.optional) ?? []}>
-                    {(role) => (
-                      <li class="raven-team-card raven-team-role">
-                        <div class="raven-team-role-head">
-                          <span class="raven-team-role-label">{role.label}</span>
-                          <Badge variant="outline">
-                            {role.access === "write" ? t("agent.team.access.write") : t("agent.team.access.readOnly")}
-                          </Badge>
+          <section class="raven-team-panel" aria-labelledby="raven-team-roles-title">
+            <header class="raven-team-panel-head">
+              <span class="raven-team-step" aria-hidden="true">
+                2
+              </span>
+              <div>
+                <h3 id="raven-team-roles-title" class="raven-team-subtitle">
+                  {t("agent.team.step.team")}
+                </h3>
+                <p class="raven-team-hint">{t("agent.team.step.teamHint")}</p>
+              </div>
+            </header>
+            <div class="raven-team-presets">
+              <For each={props.templates}>
+                {(candidate) => (
+                  <Button
+                    variant="outline"
+                    class="raven-team-preset"
+                    aria-pressed={candidate.id === templateId() ? "true" : "false"}
+                    disabled={busy()}
+                    onClick={() => pickTemplate(candidate)}
+                  >
+                    <span class="raven-team-preset-name">{templateName(candidate)}</span>
+                    <span class="raven-team-preset-hint">{templateHint(candidate)}</span>
+                  </Button>
+                )}
+              </For>
+            </div>
+            <ul class="raven-team-roles">
+              <For each={template()?.roles ?? []}>
+                {(definition) => {
+                  const planned = () => plan()?.roles.find((role) => role.roleId === definition.id);
+                  const isBuilder = () => definition.id === RAVEN_TEAM_BUILDER_ROLE_ID;
+                  const accessLabel = () => {
+                    const role = planned();
+                    if (role) return accessBadge(role);
+                    return definition.access === "write"
+                      ? t("agent.team.access.write")
+                      : t("agent.team.access.readOnly");
+                  };
+                  const off = () => (definition.optional ? planned() === undefined : skipped().includes(definition.id));
+                  return (
+                    <li class="raven-team-role-card" data-off={off() ? "" : undefined}>
+                      <div class="raven-team-role-top">
+                        <div class="raven-team-role-title">
+                          <span class="raven-team-role-label">{definition.label}</span>
+                          <Badge variant="outline">{accessLabel()}</Badge>
                         </div>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-                <p class="raven-team-empty">{t("agent.team.rolesHint")}</p>
-              </>
-            }
-          >
-            {(current) => (
-              <>
-                <ul class="raven-team-plan">
-                  <For each={current().roles.filter((role) => !role.optional)}>
-                    {(role) => (
-                      <li class="raven-team-card raven-team-role">
-                        <div class="raven-team-role-head">
-                          <span class="raven-team-role-label">{role.label}</span>
-                          <Badge variant="outline">{accessBadge(role)}</Badge>
-                          <span class="raven-team-role-choice">{choiceText(role)}</span>
-                        </div>
-                        <RavenTeamRolePicker
-                          role={role.label}
-                          models={props.models}
-                          model={role.model}
-                          effort={role.reasoningEffort}
-                          disabled={busy()}
-                          onModel={(model) => pickModel(role.roleId, model)}
-                          onEffort={(effort) => pickEffort(role.roleId, effort)}
-                        />
-                      </li>
-                    )}
-                  </For>
-                  <For each={optionalRoles()}>
-                    {(definition) => {
-                      const planned = () => current().roles.find((role) => role.roleId === definition.id);
-                      return (
-                        <li class="raven-team-card raven-team-role raven-team-role-optional">
-                          <SwitchField
-                            class="raven-team-optional-switch"
-                            checked={planned() !== undefined}
+                        <Show
+                          when={!isBuilder()}
+                          fallback={<span class="raven-team-role-locked">{t("agent.team.role.alwaysOn")}</span>}
+                        >
+                          <Switch
+                            class="raven-team-role-switch"
+                            checked={!off()}
                             disabled={busy()}
-                            onChange={(on: boolean) => toggleOptional(definition.id, on)}
-                            label={definition.label}
-                            description={t("agent.team.optionalRole")}
+                            aria-label={definition.label}
+                            onChange={(on: boolean) =>
+                              definition.optional ? toggleOptional(definition.id, on) : toggleSkip(definition.id, !on)
+                            }
                           />
-                          <Show when={planned()}>
-                            {(role) => (
-                              <>
-                                <div class="raven-team-role-head">
-                                  <Badge variant="outline">{accessBadge(role())}</Badge>
-                                  <span class="raven-team-role-choice">{choiceText(role())}</span>
-                                </div>
-                                <RavenTeamRolePicker
-                                  role={role().label}
-                                  models={props.models}
-                                  model={role().model}
-                                  effort={role().reasoningEffort}
-                                  disabled={busy()}
-                                  onModel={(model) => pickModel(role().roleId, model)}
-                                  onEffort={(effort) => pickEffort(role().roleId, effort)}
-                                />
-                              </>
-                            )}
+                        </Show>
+                      </div>
+                      <Show when={roleHint(definition)}>{(hint) => <p class="raven-team-role-hint">{hint()}</p>}</Show>
+                      <Show
+                        when={!off()}
+                        fallback={
+                          <Show when={!definition.optional}>
+                            <p class="raven-team-role-skipnote">{skipNote(definition)}</p>
                           </Show>
-                        </li>
-                      );
-                    }}
-                  </For>
-                </ul>
+                        }
+                      >
+                        <Show
+                          when={planned()}
+                          fallback={<p class="raven-team-role-hint">{t("agent.team.writeFirst")}</p>}
+                        >
+                          {(role) => (
+                            <RavenTeamRolePicker
+                              role={role().label}
+                              models={props.models}
+                              model={role().model}
+                              effort={role().reasoningEffort}
+                              disabled={busy()}
+                              onModel={(model) => pickModel(role().roleId, model)}
+                              onEffort={(effort) => pickEffort(role().roleId, effort)}
+                            />
+                          )}
+                        </Show>
+                      </Show>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+            <Show when={plan()}>
+              {(current) => (
                 <div class="raven-team-warnings">
+                  <Show when={nobodyChecks()}>
+                    <Alert tone="warning">
+                      <AlertContent>
+                        <AlertDescription>{t("agent.team.warning.noCheck")}</AlertDescription>
+                      </AlertContent>
+                    </Alert>
+                  </Show>
                   <For each={current().unknownModels}>
                     {(unknown) => (
                       <Alert tone="warning" role="alert">
@@ -709,14 +760,47 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                     )}
                   </For>
                 </div>
-              </>
-            )}
-          </Show>
-          <div class="raven-team-actions raven-team-start">
+              )}
+            </Show>
+            <Show when={error()}>
+              {(message) => (
+                <Alert tone="danger" role="alert">
+                  <AlertContent>
+                    <AlertDescription>{message()}</AlertDescription>
+                  </AlertContent>
+                </Alert>
+              )}
+            </Show>
+          </section>
+
+          <div class="raven-team-startbar">
+            <p class="raven-team-summary" aria-live="polite">
+              <Show when={plan()} fallback={busy() ? t("agent.team.checking") : t("agent.team.writeFirst")}>
+                {(current) => (
+                  <>
+                    {t("agent.team.summary", {
+                      count: current().roles.length,
+                      roles: current()
+                        .roles.map((role) => role.label)
+                        .join(" · "),
+                    })}
+                  </>
+                )}
+              </Show>
+            </p>
             <Button disabled={busy() || !canStart()} onClick={() => void start()}>
               {tickets().length > 1 ? t("agent.team.startJobs", { count: tickets().length }) : t("agent.team.start")}
             </Button>
           </div>
+        </div>
+
+        <section class="raven-team-column raven-team-column-jobs" aria-labelledby="raven-team-jobs-title">
+          <h3 id="raven-team-jobs-title" class="raven-team-subtitle">
+            {t("agent.team.jobs")}
+          </h3>
+          <Show when={props.jobs.length > 0} fallback={<p class="raven-team-empty">{t("agent.team.noJobs")}</p>}>
+            <For each={props.jobs}>{(job) => <JobCard job={job} />}</For>
+          </Show>
         </section>
       </div>
     </div>

@@ -278,6 +278,12 @@ export interface PlanRavenTeamInput {
   fullAccess?: string[];
   /** Role id to reasoning effort. An effort the role's model does not support gives the model's default. */
   efforts?: Record<string, AgentReasoningEffort>;
+  /**
+   * Ids of roles that this job leaves out, such as the Architect for a small ticket. The Builder cannot be
+   * left out. A skipped role that plans, such as the Architect, hands its skills to the Builder, so the
+   * Builder plans in its own turn. A job with no Reviewer and no Quality is done when the Builder commits.
+   */
+  skippedRoles?: string[];
 }
 
 export interface SetRavenTeamRoleModelInput {

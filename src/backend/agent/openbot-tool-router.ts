@@ -68,6 +68,7 @@ import type { AttachmentGateway } from "./attachment-gateway";
 import type { AttentionRegistry } from "./attention-registry";
 import { loadAvatarFile } from "./avatar-file";
 import type { BrowserUploads } from "./browser-uploads";
+import { handleCreateChannelTool } from "./channel-create-tool";
 import type { ChatVisualPreviewHost } from "./chat-visual-preview";
 import type { ConversationRuntime } from "./conversation-runtime";
 import { handleDataTool } from "./data-tools";
@@ -947,6 +948,15 @@ export class OpenBotToolRouter {
       new Set(this.#hooks.listAgents().map((agent) => agent.id)),
     );
     if (sidebarResult) return sidebarResult;
+
+    const channelCreateResult = yield* handleCreateChannelTool(
+      params.tool,
+      params.arguments,
+      this.#channels,
+      this.#hooks.listAgents(),
+      this.#requireAgent(senderAgentId),
+    );
+    if (channelCreateResult) return channelCreateResult;
 
     const routineResult = yield* this.#routines.handleTool(params, senderAgentId);
     if (routineResult) return routineResult;

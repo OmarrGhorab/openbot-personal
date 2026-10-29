@@ -1,4 +1,6 @@
-export type ExternalLinkTarget = "Default browser" | "OpenBot";
+import type { AppLinkBrowser } from "@openbot/contracts/ipc";
+
+export type ExternalLinkTarget = AppLinkBrowser;
 
 import {
   type AgentDefaults,

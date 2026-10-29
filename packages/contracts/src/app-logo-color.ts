@@ -59,13 +59,58 @@ export const APP_LOGO_EYE_HEX = {
   white: DEFAULT_APP_LOGO_EYE_HEX,
 } as const satisfies Record<AppLogoColor, `#${string}`>;
 
+/**
+ * The mascot on the Dock or taskbar icon of a release build. The logos in the app keep the released
+ * shape. Like the colors, the identifiers are saved as written: add a shape, never rename one.
+ */
+export const APP_LOGO_SHAPES = [
+  "blob",
+  "star",
+  "penguin",
+  "cloud",
+  "cat",
+  "octopus",
+  "whale",
+  "chick",
+  "mountain",
+  "moon",
+] as const;
+
+export type AppLogoShape = (typeof APP_LOGO_SHAPES)[number];
+
+export const DEFAULT_APP_LOGO_SHAPE: AppLogoShape = "blob";
+
+/** The tile behind the mascot on the Dock or taskbar icon. `tint` is a light shade of the logo color. */
+export const APP_LOGO_TILES = ["dark", "light", "tint"] as const;
+
+export type AppLogoTile = (typeof APP_LOGO_TILES)[number];
+
+export const DEFAULT_APP_LOGO_TILE: AppLogoTile = "dark";
+
+/** The fixed tile colors. `tint` has none: it comes from the logo color. */
+export const APP_LOGO_TILE_HEX = {
+  dark: "#1d1b22",
+  light: "#f4f2f7",
+} as const satisfies Record<Exclude<AppLogoTile, "tint">, `#${string}`>;
+
 /** The preference as it is stored and as it crosses IPC. */
 export interface AppLogoColorPreference {
   color: AppLogoColor;
+  shape: AppLogoShape;
+  tile: AppLogoTile;
 }
 
-export type SetAppLogoColorPreferenceInput = AppLogoColorPreference;
+/** A change to one or more fields. A field that is not given keeps its saved value. */
+export type SetAppLogoColorPreferenceInput = Partial<AppLogoColorPreference>;
 
 export function isAppLogoColor(value: unknown): value is AppLogoColor {
   return APP_LOGO_COLORS.some((color) => color === value);
+}
+
+export function isAppLogoShape(value: unknown): value is AppLogoShape {
+  return APP_LOGO_SHAPES.some((shape) => shape === value);
+}
+
+export function isAppLogoTile(value: unknown): value is AppLogoTile {
+  return APP_LOGO_TILES.some((tile) => tile === value);
 }

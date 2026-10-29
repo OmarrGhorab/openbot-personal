@@ -4,7 +4,9 @@ import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { agentAccessLockLabel } from "@openbot/ui/features/agents/agent-access";
 import { RemoteDesktopIcon } from "@openbot/ui/features/conversation/ConversationIcons";
+import { ConversationThreadsStrip } from "@openbot/ui/features/conversation/ConversationThreadsStrip";
 import { SidePanelToggle, type SidePanelToggleProps } from "@openbot/ui/features/conversation/SidePanel";
+import type { SidebarWorkThreads } from "@openbot/ui/features/sidebar/sidebar-types";
 import { useText } from "@openbot/ui/text";
 import type { ComponentProps, JSX } from "@solidjs/web";
 import { Show } from "solid-js";
@@ -21,6 +23,8 @@ export interface ConversationHeaderProps {
   remoteControl?: ConversationHeaderRemoteControl | undefined;
   /** Missing when the chat has no side panel, such as a deleted channel. */
   sidePanel?: SidePanelToggleProps | undefined;
+  /** The threads of the agent, which show beside its name. Missing where the agent has no task list. */
+  threads?: SidebarWorkThreads | undefined;
 }
 
 export interface ConversationHeaderPendingModel {
@@ -52,11 +56,22 @@ export function ConversationHeader(props: ConversationHeaderProps) {
               aria-label={t("conversation.header.settings")}
               onPointerEnter={props.onSettingsIntent}
               onFocus={props.onSettingsIntent}
-              onClick={props.onOpenSettings}
+              onClick={() => {
+                const threads = props.threads;
+                if (threads?.onShowChat && threads.activeTaskId) threads.onShowChat();
+                else props.onOpenSettings();
+              }}
             >
               <AgentAvatar agent={agent()} />
               <h1>{agent().name}</h1>
             </Button>
+          )}
+        </Show>
+        <Show when={props.agent}>
+          {(agent) => (
+            <Show when={props.threads}>
+              {(threads) => <ConversationThreadsStrip agentName={agent().name} threads={threads()} />}
+            </Show>
           )}
         </Show>
         <Show when={props.agent && agentAccessLockLabel(props.agent, t)}>

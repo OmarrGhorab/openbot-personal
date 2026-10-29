@@ -2,10 +2,27 @@ import {
   APP_LOGO_COLOR_HEX,
   APP_LOGO_EYE_HEX,
   type AppLogoColor,
+  type AppLogoColorPreference,
+  type AppLogoShape,
+  type AppLogoTile,
   DEFAULT_APP_LOGO_COLOR,
+  DEFAULT_APP_LOGO_SHAPE,
+  DEFAULT_APP_LOGO_TILE,
+  type SetAppLogoColorPreferenceInput,
 } from "@openbot/contracts/ipc";
 import { createSignal, onSettled } from "solid-js";
 import { appPort } from "./app-port";
+
+const MASCOT_THUMBNAILS: Record<string, string> = import.meta.glob("./assets/mascots/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+
+/** The Settings picture of a mascot in a logo color. */
+export function mascotThumbnailUrl(shape: AppLogoShape, color: AppLogoColor): string {
+  return MASCOT_THUMBNAILS[`./assets/mascots/${shape}-${color}.png`] ?? "";
+}
 
 /** Sets the release logo color and its eye color in this window. */
 function applyLogoColor(color: AppLogoColor): void {
@@ -46,29 +63,33 @@ export function syncLogoColor(): () => void {
 
 /** The Settings control state. Set optimistically, and reverted if main refuses the write. */
 export function useLogoColorChoice() {
-  const [color, setColor] = createSignal<AppLogoColor>(DEFAULT_APP_LOGO_COLOR);
-  let confirmed: AppLogoColor = DEFAULT_APP_LOGO_COLOR;
+  const [preference, setPreference] = createSignal<AppLogoColorPreference>({
+    color: DEFAULT_APP_LOGO_COLOR,
+    shape: DEFAULT_APP_LOGO_SHAPE,
+    tile: DEFAULT_APP_LOGO_TILE,
+  });
+  let confirmed = preference();
   let latestRequest = 0;
   let pending = 0;
 
   /** A saved value from main. A choice that is still in flight is newer, so it stays on screen. */
-  function confirm(next: AppLogoColor): void {
+  function confirm(next: AppLogoColorPreference): void {
     confirmed = next;
-    if (pending === 0) setColor(next);
+    if (pending === 0) setPreference(next);
   }
 
-  function changeColor(next: AppLogoColor): void {
+  function change(next: SetAppLogoColorPreferenceInput): void {
     const request = ++latestRequest;
     pending += 1;
-    setColor(next);
+    setPreference((current) => ({ ...current, ...next }));
     void appPort()
-      .setAppLogoColorPreference({ color: next })
-      .then((preference) => {
-        confirmed = preference.color;
-        if (request === latestRequest) setColor(preference.color);
+      .setAppLogoColorPreference(next)
+      .then((saved) => {
+        confirmed = saved;
+        if (request === latestRequest) setPreference(saved);
       })
       .catch(() => {
-        if (request === latestRequest) setColor(confirmed);
+        if (request === latestRequest) setPreference(confirmed);
       })
       .finally(() => {
         pending -= 1;
@@ -78,10 +99,17 @@ export function useLogoColorChoice() {
   onSettled(() => {
     void appPort()
       .getAppLogoColorPreference()
-      .then((preference) => confirm(preference.color))
+      .then(confirm)
       .catch(() => undefined);
-    return appPort().onAppLogoColorPreference((preference) => confirm(preference.color));
+    return appPort().onAppLogoColorPreference(confirm);
   });
 
-  return { color, changeColor };
+  return {
+    color: () => preference().color,
+    shape: () => preference().shape,
+    tile: () => preference().tile,
+    changeColor: (color: AppLogoColor) => change({ color }),
+    changeShape: (shape: AppLogoShape) => change({ shape }),
+    changeTile: (tile: AppLogoTile) => change({ tile }),
+  };
 }

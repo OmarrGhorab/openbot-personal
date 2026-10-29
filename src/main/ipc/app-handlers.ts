@@ -28,9 +28,11 @@ import type { ApprovalAutomation } from "../approval-automation-store";
 import type { BusyMessageModePreferenceStore } from "../busy-message-mode-preference-store";
 import type { InterfaceSizeService } from "../interface-size-service";
 import type { LanguageService } from "../language-service";
+import type { LinkBrowserPreferenceStore } from "../link-browser-preference-store";
 import type { LogoColorService } from "../logo-color-service";
 import { MAC_PERMISSION_URLS } from "../mac-permission-urls";
 import { exportDiagnostics, exportOpenBotData } from "../maintenance-service";
+import { openLink } from "../open-in-browser";
 import { isTailscaleConnected } from "../private-network-detection";
 import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-preference-store";
 import type { RemoteSessionCache } from "../remote-session-cache";
@@ -45,6 +47,7 @@ import {
   parseAppBehaviorPreferenceChange,
   parseAppInterfaceSizePreference,
   parseAppLanguagePreference,
+  parseAppLinkBrowserPreference,
   parseAppLogoColorPreference,
   parseBusyMessageModePreference,
   parseChatWindowTarget,
@@ -98,6 +101,7 @@ export interface AppIpcDependencies {
   analyticsPreferenceFile: string;
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
+  linkBrowser: LinkBrowserPreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
@@ -132,6 +136,7 @@ export function appIpcHandlers({
   analyticsPreferenceFile,
   approvalAutomation,
   busyMessageMode,
+  linkBrowser,
   agentDefaults,
   agentMemoryLimit,
   remoteSessionReuse,
@@ -189,6 +194,10 @@ export function appIpcHandlers({
       getBusyMessageModePreference: handler(() => busyMessageMode.get()),
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
         runCauseEffect(busyMessageMode.set(parsed)),
+      ),
+      getAppLinkBrowserPreference: handler(() => linkBrowser.get()),
+      setAppLinkBrowserPreference: payloadHandler(parseAppLinkBrowserPreference, (parsed) =>
+        runCauseEffect(linkBrowser.set(parsed)),
       ),
       getAgentDefaults: handler(() => agentDefaults.get()),
       // The agents that follow a changed default get it at once: see `AgentService.agentDefaultsChanged`.
@@ -256,7 +265,7 @@ export function appIpcHandlers({
         return shell.openExternal(EXTERNAL_DESTINATIONS[parsed]);
       }),
       openUrl: payloadHandler(stringPayload("URL", INPUT_LIMITS.browserUrl), (url) =>
-        openHttpLink(url, (address) => shell.openExternal(address)),
+        openHttpLink(url, (address) => openLink(linkBrowser.get().browser, address, (u) => shell.openExternal(u))),
       ),
       openChatWindow: payloadHandler(parseChatWindowTarget, openChatWindow),
       getChatWindows: handler(chatWindowTargets),

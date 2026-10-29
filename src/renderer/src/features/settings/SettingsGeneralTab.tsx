@@ -1,4 +1,4 @@
-import { APP_INTERFACE_SIZES, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
+import { APP_INTERFACE_SIZES, APP_LINK_BROWSERS, type AppInterfaceSize, type AppVariant } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
   Item,
@@ -18,17 +18,17 @@ import {
 import { AppearanceSelect } from "@openbot/ui/features/settings/AppearanceSelect";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
-import { LogoColorPicker } from "@openbot/ui/features/settings/LogoColorPicker";
+import { LogoColorPicker, LogoShapePicker, LogoTilePicker } from "@openbot/ui/features/settings/LogoColorPicker";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
 import { useText } from "@openbot/ui/text";
 import { Show } from "solid-js";
 import { useAppearanceChoice } from "../../appearance-choice";
 import { useI18n } from "../../i18n-context";
 import { useInterfaceSizeChoice } from "../../interface-size";
-import { useLogoColorChoice } from "../../logo-color";
+import { mascotThumbnailUrl, useLogoColorChoice } from "../../logo-color";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
-const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = ["Default browser", "OpenBot"];
+const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = [...APP_LINK_BROWSERS];
 
 /**
  * The saved value is the English name, because it is what `app-settings.ts` persists and what the
@@ -37,6 +37,10 @@ const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = ["Defaul
 const LINK_TARGET_KEYS = {
   "Default browser": "settings.externalLinks.defaultBrowser",
   OpenBot: "settings.externalLinks.openbot",
+  "Google Chrome": "settings.externalLinks.chrome",
+  Brave: "settings.externalLinks.brave",
+  Firefox: "settings.externalLinks.firefox",
+  "Microsoft Edge": "settings.externalLinks.edge",
 } as const satisfies Record<GeneralSettingsValue["externalLinkTarget"], AppTextKey>;
 
 interface SettingsGeneralTabProps {
@@ -128,6 +132,27 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
               </Show>
             </ItemContent>
             <LogoColorPicker value={logoColor.color()} onChange={logoColor.changeColor} />
+          </Item>
+          <Item data-settings-row="settings.appIcon.title" class="settings-modal-row settings-logo-color-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("settings.appIcon.title")}</ItemTitle>
+              <ItemDescription>{i18n.t("settings.appIcon.description")}</ItemDescription>
+              <Show when={props.variant !== "production"}>
+                <ItemDescription>{i18n.t("settings.logoColor.buildNote")}</ItemDescription>
+              </Show>
+            </ItemContent>
+            <LogoShapePicker
+              value={logoColor.shape()}
+              imageUrl={(shape) => mascotThumbnailUrl(shape, logoColor.color())}
+              onChange={logoColor.changeShape}
+            />
+          </Item>
+          <Item data-settings-row="settings.appIcon.tile.title" class="settings-modal-row settings-logo-color-row">
+            <ItemContent>
+              <ItemTitle>{i18n.t("settings.appIcon.tile.title")}</ItemTitle>
+              <ItemDescription>{i18n.t("settings.appIcon.tile.description")}</ItemDescription>
+            </ItemContent>
+            <LogoTilePicker value={logoColor.tile()} color={logoColor.color()} onChange={logoColor.changeTile} />
           </Item>
         </ItemGroup>
       </SettingsSection>

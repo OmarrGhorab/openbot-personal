@@ -5,6 +5,7 @@ import type {
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
+  AppLinkBrowserPreference,
   BrowserDockAction,
   BrowserDockFrame,
   BrowserDockPresentation,
@@ -52,7 +53,10 @@ import {
   isAppAppearance,
   isAppInterfaceSize,
   isAppLanguage,
+  isAppLinkBrowser,
   isAppLogoColor,
+  isAppLogoShape,
+  isAppLogoTile,
   isBrowserDockAction,
   isBrowserDockFrame,
   isBrowserDockPresentation,
@@ -104,6 +108,11 @@ export function parseBusyMessageModePreference(input: unknown): BusyMessageModeP
   return { mode: input.mode };
 }
 
+export function parseAppLinkBrowserPreference(input: unknown): AppLinkBrowserPreference {
+  if (!isDynamicRecord(input) || !isAppLinkBrowser(input.browser)) throw new Error("A link browser is required.");
+  return { browser: input.browser };
+}
+
 export function parseAgentDefaults(input: unknown): AgentDefaults {
   if (!isAgentDefaults(input)) throw new Error("Agent defaults are required.");
   return {
@@ -146,8 +155,17 @@ export function parseAppLanguagePreference(input: unknown): SetAppLanguagePrefer
 }
 
 export function parseAppLogoColorPreference(input: unknown): SetAppLogoColorPreferenceInput {
-  if (!isDynamicRecord(input) || !isAppLogoColor(input.color)) throw new Error("Logo color is required.");
-  return { color: input.color };
+  if (!isDynamicRecord(input)) throw new Error("Logo color is required.");
+  const { color, shape, tile } = input;
+  if (color !== undefined && !isAppLogoColor(color)) throw new Error("Logo color is invalid.");
+  if (shape !== undefined && !isAppLogoShape(shape)) throw new Error("Logo shape is invalid.");
+  if (tile !== undefined && !isAppLogoTile(tile)) throw new Error("Logo tile is invalid.");
+  if (color === undefined && shape === undefined && tile === undefined) throw new Error("Logo color is required.");
+  return {
+    ...(color === undefined ? {} : { color }),
+    ...(shape === undefined ? {} : { shape }),
+    ...(tile === undefined ? {} : { tile }),
+  };
 }
 
 export function parseAppAppearancePreference(input: unknown): SetAppAppearancePreferenceInput {

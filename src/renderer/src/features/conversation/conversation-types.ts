@@ -10,6 +10,7 @@ import type {
   AgentTask,
   AgentTasksSnapshot,
   AgentWait,
+  AppLinkBrowser,
   AttachmentSummary,
   AvatarImageInput,
   BrowserControlState,
@@ -312,6 +313,8 @@ export interface ConversationProps {
   remoteBackupModelsLoaded?: boolean | undefined;
   /** Whether a joined server's host answered with the agent's task limit: owners and admins only. */
   remoteTaskLimitLoaded?: boolean | undefined;
+  /** Where a link from a conversation opens. `OpenBot` shows it in the browser pane; main opens any other choice. */
+  externalLinkTarget?: AppLinkBrowser | undefined;
   /** The app default an agent without its own busy-message setting follows. Local agents only. */
   defaultBusyMessageMode?: BusyMessageMode | undefined;
   /** The account defaults an agent without its own value follows. Local agents only. */

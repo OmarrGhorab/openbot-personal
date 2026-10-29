@@ -3,6 +3,7 @@ import type { AgentModelId, AgentReasoningEffort } from "@openbot/contracts/ipc"
 import { isAgentTaskActive } from "@openbot/team-client/agent-tasks";
 import { reasoningLabel } from "@openbot/ui/components/ProviderModelPicker";
 import { ConversationHeader as SharedConversationHeader } from "@openbot/ui/features/conversation/ConversationHeader";
+import type { SidebarWorkThreads } from "@openbot/ui/features/sidebar/sidebar-types";
 import { useConversationViewScope } from "./conversation-scope";
 
 const loadAgentSettingsPanel = () => import("./AgentSettingsPanel");
@@ -29,7 +30,46 @@ export function ConversationHeader() {
     settingsReasoning,
     sidePanelOpen,
     toggleSidePanel,
+    openTaskPanel,
+    taskPanelOpen,
+    taskPanelTaskId,
+    threadCenter,
+    setThreadCenter,
+    closeSidePanelPane,
   } = useConversationViewScope();
+  /** The threads of this agent, from the task controls of the chat: a chip opens the thread in the side panel. */
+  const threads = (): SidebarWorkThreads | undefined => {
+    const tasks = props.tasks;
+    if (!tasks || !props.agent) return undefined;
+    return {
+      tasks: tasks.snapshot?.tasks ?? [],
+      activeTaskId: taskPanelOpen() && threadCenter() ? taskPanelTaskId() : null,
+      waitsForApproval: (task) => tasks.approval(task) !== undefined,
+      onOpen: (taskId) => {
+        tasks.onOpen(taskId);
+        setThreadCenter(true);
+        openTaskPanel(taskId);
+      },
+      onNew: () => {
+        setThreadCenter(true);
+        openTaskPanel(null);
+      },
+      onShowChat: () => {
+        setThreadCenter(false);
+        closeSidePanelPane("tasks");
+      },
+      onRename: tasks.onRename,
+      onPause: tasks.onPause,
+      onResume: tasks.onResume,
+      onClose: (taskId) => {
+        tasks.onClose(taskId);
+        if (threadCenter() && taskPanelTaskId() === taskId) {
+          setThreadCenter(false);
+          closeSidePanelPane("tasks");
+        }
+      },
+    };
+  };
   const runningTasks = () => props.tasks?.snapshot?.tasks.filter(isAgentTaskActive).length ?? 0;
   const working = () => agentActivity() === "Working";
   /** The effort shows only where it differs, so a model change alone names only the models. */
@@ -56,6 +96,7 @@ export function ConversationHeader() {
       onSettingsIntent={() => void loadAgentSettingsPanel()}
       onOpenSettings={() => setActiveRightPanel("settings")}
       pendingModel={pendingModel()}
+      threads={threads()}
       modelPicker={{
         provider: settingsProvider(),
         foreignProvider: props.agent ? foreignProvider(props.agent.provider) : undefined,

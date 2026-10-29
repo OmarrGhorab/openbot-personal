@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { type AppLogoColor, type AppVariant, DEFAULT_APP_LOGO_COLOR } from "@openbot/contracts/ipc";
+import type { AppLogoColor, AppLogoShape, AppVariant } from "@openbot/contracts/ipc";
 
 const APP_VARIANTS = ["production", "dev", "preview"] as const satisfies readonly AppVariant[];
 
@@ -24,23 +24,18 @@ export function resolveAppIconPath(options: {
     : join(options.sourceRoot, "build", appIconFileName(options.variant, options.platform));
 }
 
-/**
- * The icon for a logo color. The default color is the release icon itself, so it has no file in
- * `build/logo-colors/`.
- */
-export function resolveLogoColorIconPath(options: {
+/** The mascot picture for a shape and color. `build/mascots/` holds one transparent PNG for each pair. */
+export function resolveMascotPath(options: {
+  shape: AppLogoShape;
   color: AppLogoColor;
-  platform: NodeJS.Platform;
   isPackaged: boolean;
   resourcesPath: string;
   sourceRoot: string;
 }): string {
-  const { color, ...location } = options;
-  if (color === DEFAULT_APP_LOGO_COLOR) return resolveAppIconPath({ ...location, variant: "production" });
-  const fileName = options.platform === "darwin" ? `icon-${color}-macos-safe-area.png` : `icon-${color}.png`;
+  const fileName = `${options.shape}-${options.color}.png`;
   return options.isPackaged
-    ? join(options.resourcesPath, "icons", "logo-colors", fileName)
-    : join(options.sourceRoot, "build", "logo-colors", fileName);
+    ? join(options.resourcesPath, "icons", "mascots", fileName)
+    : join(options.sourceRoot, "build", "mascots", fileName);
 }
 
 function isAppVariant(value: string | undefined): value is AppVariant {

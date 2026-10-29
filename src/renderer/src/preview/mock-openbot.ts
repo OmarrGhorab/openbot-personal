@@ -36,6 +36,7 @@ import {
   type AppInfo,
   type AppInterfaceSizePreference,
   type AppLanguagePreference,
+  type AppLinkBrowserPreference,
   type AppLogoColorPreference,
   type ApprovalAutomationPreference,
   type AppSetupState,
@@ -68,7 +69,10 @@ import {
   DEFAULT_AGENT_MEMORY_LIMIT,
   DEFAULT_APP_APPEARANCE,
   DEFAULT_APP_INTERFACE_SIZE,
+  DEFAULT_APP_LINK_BROWSER,
   DEFAULT_APP_LOGO_COLOR,
+  DEFAULT_APP_LOGO_SHAPE,
+  DEFAULT_APP_LOGO_TILE,
   DEFAULT_APPROVAL_AUTOMATION_PREFERENCE,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
@@ -414,6 +418,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
+  let linkBrowser: AppLinkBrowserPreference = { browser: DEFAULT_APP_LINK_BROWSER };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
   let promptCacheTtl: PromptCacheTtlSetting = { ...DEFAULT_PROMPT_CACHE_TTL };
@@ -431,7 +436,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   };
   let languagePreference = clone<AppLanguagePreference>(options.languagePreference ?? { language: "system" });
   const languageListeners = new Set<(preference: AppLanguagePreference) => void>();
-  let logoColorPreference: AppLogoColorPreference = { color: DEFAULT_APP_LOGO_COLOR };
+  let logoColorPreference: AppLogoColorPreference = {
+    color: DEFAULT_APP_LOGO_COLOR,
+    shape: DEFAULT_APP_LOGO_SHAPE,
+    tile: DEFAULT_APP_LOGO_TILE,
+  };
   const logoColorListeners = new Set<(preference: AppLogoColorPreference) => void>();
   let appearancePreference: AppAppearancePreference = {
     appearance: DEFAULT_APP_APPEARANCE,
@@ -1046,6 +1055,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       approvalAutomationListeners.add(listener);
       return () => approvalAutomationListeners.delete(listener);
     },
+    getAppLinkBrowserPreference: async () => clone(linkBrowser),
+    setAppLinkBrowserPreference: async ({ browser }) => {
+      linkBrowser = { browser };
+      return clone(linkBrowser);
+    },
     getBusyMessageModePreference: async () => clone(busyMessageMode),
     getAppBehaviorPreference: async () => clone(appBehavior),
     setAppBehaviorPreference: async (change) => {
@@ -1095,8 +1109,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       return () => languageListeners.delete(listener);
     },
     getAppLogoColorPreference: async () => clone(logoColorPreference),
-    setAppLogoColorPreference: async ({ color }) => {
-      logoColorPreference = { color };
+    setAppLogoColorPreference: async (change) => {
+      logoColorPreference = { ...logoColorPreference, ...change };
       for (const listener of logoColorListeners) listener(clone(logoColorPreference));
       return clone(logoColorPreference);
     },

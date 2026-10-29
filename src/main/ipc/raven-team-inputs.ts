@@ -62,6 +62,15 @@ function parseFullAccess(value: unknown): string[] | undefined {
   return [...new Set(value.map((roleId) => requireString(roleId, "roleId", INPUT_LIMITS.identifier)))];
 }
 
+/** The `skippedRoles` list of a plan: ids of the roles that the job leaves out. */
+function parseSkippedRoles(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length > RAVEN_TEAM_TEMPLATE_ROLE_LIMIT) {
+    throw new Error("Invalid team skipped roles.");
+  }
+  return [...new Set(value.map((roleId) => requireString(roleId, "roleId", INPUT_LIMITS.identifier)))];
+}
+
 /** The `efforts` map of a plan: role id to a reasoning effort. */
 function parseEfforts(value: unknown): Record<string, AgentReasoningEffort> | undefined {
   if (value === undefined || value === null) return undefined;
@@ -81,12 +90,14 @@ export function parsePlanRavenTeam(value: unknown): PlanRavenTeamInput {
   const models = parseModelOverrides(value.models);
   const fullAccess = parseFullAccess(value.fullAccess);
   const efforts = parseEfforts(value.efforts);
+  const skippedRoles = parseSkippedRoles(value.skippedRoles);
   return {
     templateId: parseRavenTemplateId(value.templateId),
     brief: requireString(value.brief, "brief", RAVEN_TEAM_BRIEF_LIMIT),
     ...(models ? { models } : {}),
     ...(fullAccess ? { fullAccess } : {}),
     ...(efforts ? { efforts } : {}),
+    ...(skippedRoles ? { skippedRoles } : {}),
   };
 }
 

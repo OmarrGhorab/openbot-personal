@@ -37,7 +37,8 @@ export const ELEVENLABS_VOICE_MODEL_ID = "elevenlabs-scribe-v2-realtime";
 /** Every dictation model, local ones first. */
 export const VOICE_MODEL_IDS = [...LOCAL_VOICE_MODEL_IDS, ELEVENLABS_VOICE_MODEL_ID] as const;
 export type VoiceModelId = (typeof VOICE_MODEL_IDS)[number];
-export const DEFAULT_VOICE_MODEL_ID: VoiceModelId = "whisper-turbo";
+/** The model of a new install. Parakeet finds the spoken language itself, so it suits Arabic and English. */
+export const DEFAULT_VOICE_MODEL_ID: VoiceModelId = "parakeet-tdt-0.6b-v3";
 
 interface VoiceModelCapabilities {
   /** The product name. It is not translated. */

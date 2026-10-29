@@ -27,6 +27,7 @@ import {
   type AppInfo,
   type AppInterfaceSizePreference,
   type AppLanguagePreference,
+  type AppLinkBrowserPreference,
   type AppLogoColorPreference,
   type ApprovalAutomationPreference,
   type AppSetupState,
@@ -61,7 +62,10 @@ import {
   isAppAppearance,
   isAppInterfaceSize,
   isAppLanguage,
+  isAppLinkBrowser,
   isAppLogoColor,
+  isAppLogoShape,
+  isAppLogoTile,
   isApprovalAutomationPreference,
   isBusyMessageMode,
   isCustomAgentCheckResult,
@@ -162,6 +166,12 @@ export function decodeBusyMessageModePreference(value: unknown): BusyMessageMode
   return { mode: preference.mode };
 }
 
+export function decodeAppLinkBrowserPreference(value: unknown): AppLinkBrowserPreference {
+  const preference = decodeRecord(value, "link browser preference");
+  if (!isAppLinkBrowser(preference.browser)) throw new Error("Invalid link browser.");
+  return { browser: preference.browser };
+}
+
 export function decodeAgentDefaults(value: unknown): AgentDefaults {
   const defaults = decodeRecord(value, "agent defaults");
   const decoded = { ...DEFAULT_AGENT_DEFAULTS };
@@ -184,7 +194,9 @@ export function decodeAppLanguagePreference(value: unknown): AppLanguagePreferen
 export function decodeAppLogoColorPreference(value: unknown): AppLogoColorPreference {
   const preference = decodeRecord(value, "logo color preference");
   if (!isAppLogoColor(preference.color)) throw new Error("Invalid logo color.");
-  return { color: preference.color };
+  if (!isAppLogoShape(preference.shape)) throw new Error("Invalid logo shape.");
+  if (!isAppLogoTile(preference.tile)) throw new Error("Invalid logo tile.");
+  return { color: preference.color, shape: preference.shape, tile: preference.tile };
 }
 
 export function decodeAppAppearancePreference(value: unknown): AppAppearancePreference {

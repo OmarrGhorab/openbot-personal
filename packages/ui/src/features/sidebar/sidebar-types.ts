@@ -123,7 +123,6 @@ export interface SidebarProps {
    * The work threads (tasks) of an agent, shown under its row. Undefined for an agent whose tasks
    * did not load, and for a host without tasks.
    */
-  workThreads?: ((agentId: string) => SidebarWorkThreads | undefined) | undefined;
   compact: boolean;
   /** A card under the chat list, such as an announcement. The compact sidebar has no room for it. */
   footer?: JSX.Element;
@@ -194,6 +193,8 @@ export interface SidebarWorkThreads {
   waitsForApproval?: ((task: AgentTask) => boolean) | undefined;
   onOpen: (taskId: string) => void;
   onNew: () => void;
+  /** Shows the agent's own chat again, when a thread has replaced it. Absent where no thread replaces the chat. */
+  onShowChat?: (() => void) | undefined;
   /** Resolves false when the title did not change. */
   onRename?: ((taskId: string, title: string) => Promise<boolean>) | undefined;
   onPause?: ((taskId: string) => void) | undefined;

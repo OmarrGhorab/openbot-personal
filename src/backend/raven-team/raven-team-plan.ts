@@ -85,10 +85,36 @@ export interface BuildRavenTeamPlanInput {
   fullAccess?: readonly string[];
   /** Role id to the reasoning effort that the user chose. */
   efforts?: Readonly<Record<string, AgentReasoningEffort>>;
+  /** Ids of roles that the job leaves out. The Builder is never left out. */
+  skippedRoles?: readonly string[];
   /** Whether a Workspace only agent of the provider can run on this computer. */
   workspaceOnlySupported: (provider: AgentProviderId) => boolean;
   /** `process.platform` of this computer, for the question. */
   platform: string;
+}
+
+/** Whether a role definition checks the Builder's work. */
+function isVerifierRole(role: RavenTeamRoleDefinition): boolean {
+  return role.skills.some((skill) => VERIFIER_SKILLS.some((verifier) => verifier === skill));
+}
+
+/**
+ * The template without the roles that a job leaves out. The Builder stays. A role that only plans, such as
+ * the Architect, hands its skills to the Builder, as Autopilot lite does, so the Builder plans in its own
+ * turn. A role that checks the work, such as the Reviewer, leaves with its skills: nobody checks in its place.
+ */
+function withoutSkippedRoles(template: RavenTeamTemplate, skipped: readonly string[]): RavenTeamTemplate {
+  const left = new Set(skipped.filter((roleId) => roleId !== RAVEN_TEAM_BUILDER_ROLE_ID));
+  if (left.size === 0) return template;
+  const handed = template.roles
+    .filter((role) => left.has(role.id) && !isVerifierRole(role))
+    .flatMap((role) => role.skills);
+  const roles = template.roles
+    .filter((role) => !left.has(role.id))
+    .map((role) =>
+      role.id === RAVEN_TEAM_BUILDER_ROLE_ID ? { ...role, skills: [...new Set([...handed, ...role.skills])] } : role,
+    );
+  return { ...template, roles };
 }
 
 /**
@@ -99,12 +125,14 @@ export interface BuildRavenTeamPlanInput {
  * lists are empty.
  */
 export function buildRavenTeamPlan(input: BuildRavenTeamPlanInput): RavenTeamPlan {
-  const { template, named, overrides, models } = input;
+  const { named, overrides, models } = input;
+  const template = withoutSkippedRoles(input.template, input.skippedRoles ?? []);
   const requested = new Map(named.models);
   for (const [roleId, model] of Object.entries(overrides)) {
     if (roleId !== FALLBACK_MODEL_KEY && model.trim()) requested.set(roleId, model.trim());
   }
-  const roleIds = new Set(template.roles.map((role) => role.id));
+  // A role that the job leaves out is still a role of the template: naming its model is not a mistake.
+  const roleIds = new Set(input.template.roles.map((role) => role.id));
   const unknownRoles = [...requested.keys()].filter((roleId) => !roleIds.has(roleId));
   const unknownModels: RavenTeamUnknownModel[] = [];
   const roles: RavenTeamPlanRole[] = [];

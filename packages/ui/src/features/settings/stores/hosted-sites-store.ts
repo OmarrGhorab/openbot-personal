@@ -41,8 +41,8 @@ export function createSettingsHostedSitesStore(props: HostedSitesStoreProps, isA
   let reloadRequested = false;
   let loadPromise: Promise<void> | null = null;
 
-  function load(): Promise<void> {
-    if (!props.hostedSitesApi) return Promise.resolve();
+  function load(hasApi: boolean): Promise<void> {
+    if (!hasApi) return Promise.resolve();
     reloadRequested = true;
     if (loadPromise) return loadPromise;
     loadPromise = Promise.resolve().then(async () => {
@@ -84,9 +84,11 @@ export function createSettingsHostedSitesStore(props: HostedSitesStoreProps, isA
 
   let shownServerId: string | null = null;
   createEffect(
-    () => (props.open && isActive() ? props.serverId : null),
-    (serverId) => {
-      if (serverId === null) return;
+    // The owner computes `hostedSitesApi`, so its first read must happen here, where the compute has an owner.
+    () => (props.open && isActive() ? { serverId: props.serverId, hasApi: Boolean(props.hostedSitesApi) } : null),
+    (target) => {
+      if (target === null) return;
+      const { serverId, hasApi } = target;
       if (serverId !== shownServerId) {
         shownServerId = serverId;
         setHosting((state) => {
@@ -98,7 +100,7 @@ export function createSettingsHostedSitesStore(props: HostedSitesStoreProps, isA
           state.deleteError = null;
         });
       }
-      void load();
+      void load(hasApi);
     },
   );
 
@@ -144,7 +146,7 @@ export function createSettingsHostedSitesStore(props: HostedSitesStoreProps, isA
       setHosting((state) => {
         state.pendingDelete = null;
       });
-      await load();
+      await load(true);
     } catch (error) {
       setHosting((state) => {
         const text = currentText();

@@ -26,6 +26,8 @@ export function ConversationView(props: ConversationProps) {
     filePreviewOpen,
     filesOpen,
     taskPanelOpen,
+    threadCenter,
+    setThreadCenter,
     activeRightPanel,
     settingsOpen,
     sidePanel,
@@ -41,6 +43,11 @@ export function ConversationView(props: ConversationProps) {
   const { t } = useText();
   // One agent's chat wears that agent's face colour; a channel keeps the neutral look.
   const accent = () => (props.channel ? undefined : agentAccent(props.agent));
+  /** A thread shows in the main area only while its pane is open. */
+  const threadInCenter = () => threadCenter() && taskPanelOpen();
+  createEffect(taskPanelOpen, (open) => {
+    if (!open) setThreadCenter(false);
+  });
   createEffect(
     () => props.globalOverlayOpen,
     (open) => {
@@ -61,13 +68,14 @@ export function ConversationView(props: ConversationProps) {
               browserSidebarOpen() ||
               filePreviewOpen() ||
               filesOpen() ||
-              taskPanelOpen() ||
+              (taskPanelOpen() && !threadInCenter()) ||
               activeRightPanel() === "question" ||
               activeRightPanel() === "voice" ||
               activeRightPanel() === "subagent" ||
               activeRightPanel() === "side-panel",
-            "side-panel-docked": sidePanelOpen(),
+            "side-panel-docked": sidePanelOpen() && !threadInCenter(),
             "side-panel-maximized": sidePanelOpen() && sidePanel().maximized,
+            "thread-center": threadInCenter(),
           },
         ]}
         data-agent-accent={accent()?.tone}

@@ -58,6 +58,17 @@ const FIXED_LANGUAGE: Partial<Record<VoiceModelInfo["id"], { language: VoiceLang
   "fastconformer-ar": { language: "ar", description: "settings.voice.language.arabicOnly" },
 };
 
+/**
+ * The models that the list does not show for now: Whisper, Bark and ElevenLabs. Their files, backend and
+ * saved ids stay, so a model returns by removing it from this list.
+ */
+const HIDDEN_VOICE_MODEL_IDS: ReadonlyArray<VoiceModelInfo["id"]> = [
+  "whisper-turbo",
+  "whisper-small",
+  "bark-3.0-plus",
+  ELEVENLABS_VOICE_MODEL_ID,
+];
+
 const LANGUAGE_NAME = {
   ar: "language.name.ar",
   en: "language.name.en",
@@ -165,7 +176,7 @@ export function SettingsVoiceTab(props: SettingsVoiceTabProps) {
     <>
       <SettingsSection data-settings-row="settings.voice.models.title" title={t("settings.voice.models.title")}>
         <ItemGroup class="settings-modal-card">
-          <For each={VOICE_MODELS}>
+          <For each={VOICE_MODELS.filter((model) => !HIDDEN_VOICE_MODEL_IDS.includes(model.id))}>
             {(model) => {
               const status = () => props.store.state.statuses[model.id];
               const phase = () => status()?.phase;

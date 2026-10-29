@@ -10,6 +10,7 @@ import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
 import { MARK_DONE_TOOL, markDoneToolSchema } from "./agent/agent-done-checks";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
+import { createChannelToolSchema } from "./agent/channel-create-tool";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
 import { MCP_SERVER_TOOL_DEFINITIONS } from "./agent/mcp-tools";
@@ -388,6 +389,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     shape: assignAgentSectionToolSchema.shape,
   },
   {
+    name: "create_channel",
+    description:
+      "Create a new channel (a shared chat room for several agents) when the user asks for one, for example 'make me a channel with you and two more agents'. List the agents first and pass their ids in memberAgentIds. You are always a member and the lead unless you name another lead. Give it a short name, and put the shared goal in instructions. It does not start any work; to change a channel later, use the channel tools inside it.",
+    shape: createChannelToolSchema.shape,
+  },
+  {
     name: "list_agents",
     description:
       "List local OpenBot agents with their name, title, description, and progress: status (working, queued, or ready), queuedMessages, turnStartedAt while working, lastActivityAt, and openWaits when it has open waits. Call it to find the teammate for work outside your remit: match the work to titles and descriptions. OpenBot does not track which files an agent changed.",
@@ -560,7 +567,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: START_TASK_TOOL,
     description:
-      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
+      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. In OpenBot a task is also called a thread or a work thread: when the user asks you to start, open or kick off threads or tasks and names no other agent, call this tool once for each, as your own threads. Otherwise use it for long, independent work that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task. To message another agent, use send_message, never for a thread.",
     shape: startTaskToolSchema.shape,
   },
   {
@@ -706,7 +713,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "send_message",
     description:
-      "Queue an asynchronous message and optional local files for one or more OpenBot agents. When replying, pass the original message id as replyToMessageId. Set expectsReply false to pass information on without asking the recipient for an answer.",
+      "Queue an asynchronous message and optional local files for one or more OpenBot agents. It is for other agents only: it never starts a thread of your own, so use start_task when the user asks for threads or tasks. When replying, pass the original message id as replyToMessageId. Set expectsReply false to pass information on without asking the recipient for an answer.",
     shape: {
       recipientAgentIds: z.array(z.string()).min(1).max(32),
       text: z.string().min(1).max(100_000),

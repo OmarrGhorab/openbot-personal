@@ -61,6 +61,8 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
       { titleKey: "settings.language.title", descriptionKey: "settings.language.description" },
       { titleKey: "settings.interfaceSize.title", descriptionKey: "settings.interfaceSize.description" },
       { titleKey: "settings.logoColor.title", descriptionKey: "settings.logoColor.description" },
+      { titleKey: "settings.appIcon.title", descriptionKey: "settings.appIcon.description" },
+      { titleKey: "settings.appIcon.tile.title", descriptionKey: "settings.appIcon.tile.description" },
       { titleKey: "settings.sendShortcut.title", descriptionKey: "settings.sendShortcut.description" },
       { titleKey: "settings.showAgentSteps.title", descriptionKey: "settings.showAgentSteps.description" },
       { titleKey: "settings.externalLinks.title", descriptionKey: "settings.externalLinks.description" },
@@ -211,11 +213,18 @@ export function navItem(tab: SettingsTab): SettingsNavItem {
 }
 
 /**
+ * The tabs that the panel does not list for now. Their panels, state and logic stay in place, so a tab
+ * comes back by removing it from this list.
+ */
+const HIDDEN_SETTINGS_TABS: ReadonlyArray<SettingsTab> = ["billing", "mobile-connect"];
+
+/**
  * Whether the settings panel and its search show the tab. Hosted servers opens from its own entry, not
  * from this panel.
  */
 export function settingsTabShown(tab: SettingsTab, dynamicIslandShown: boolean): boolean {
   if (tab === "hosted-servers") return false;
+  if (HIDDEN_SETTINGS_TABS.includes(tab)) return false;
   return tab !== "dynamic-island" || dynamicIslandShown;
 }
 

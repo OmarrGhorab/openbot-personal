@@ -9,12 +9,14 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
 import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
 import { BoardTicketWorkFollower } from "../backend/board-tickets/board-ticket-work-follower";
 import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-sync-source";
+import { JiraBoardSyncSource } from "../backend/board-tickets/jira-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
@@ -239,6 +241,7 @@ import { InstanceTransferService } from "./instance-transfer-service";
 import { InterfaceSizeService } from "./interface-size-service";
 import { prepareToolRuntimeForTest } from "./ipc/mcp-server-handlers";
 import { LanguageService } from "./language-service";
+import { LinkBrowserPreferenceStore } from "./link-browser-preference-store";
 import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { createLoginItem } from "./login-item";
 import { LogoColorService } from "./logo-color-service";
@@ -385,6 +388,7 @@ const INTERFACE_SIZE_PREFERENCE_FILE = "openbot-interface-size-preference-v1.jso
 const UPDATE_PREFERENCE_FILE = "openbot-update-preference-v1.json";
 const NOTIFICATION_PREFERENCE_FILE = "openbot-notification-preference-v1.json";
 const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
+const LINK_BROWSER_PREFERENCE_FILE = "openbot-link-browser-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
@@ -609,6 +613,7 @@ export interface ApplicationServices {
   interfaceSize: InterfaceSizeService;
   notificationPreference: NotificationPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
+  linkBrowser: LinkBrowserPreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   agentAccess: AgentAccessStore;
@@ -1258,6 +1263,8 @@ export async function createApplicationServices({
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
   await runCauseEffect(busyMessageMode.load());
+  const linkBrowser = new LinkBrowserPreferenceStore(join(app.getPath("userData"), LINK_BROWSER_PREFERENCE_FILE));
+  await runCauseEffect(linkBrowser.load());
   const agentMemoryLimit = new AgentMemoryLimitPreferenceStore(
     join(app.getPath("userData"), AGENT_MEMORY_LIMIT_PREFERENCE_FILE),
   );
@@ -1877,13 +1884,16 @@ export async function createApplicationServices({
   });
   ticketWatcher.start();
   teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
-  // The sync of the Tickets board. It works only while GitHub is connected on this computer: Jira and
-  // Linear have no connection in OpenBot yet. It reads the GitHub token at each call, and it stops
-  // before the GitHub connection does (see TEARDOWN_ORDER).
+  // The sync of the Tickets board. It works for GitHub while GitHub is connected on this computer, and for
+  // Jira while the Marketplace holds a sign-in to the Atlassian MCP server. Linear has no connection in
+  // OpenBot yet. It reads each token at each call, and it stops before the GitHub connection does (see
+  // TEARDOWN_ORDER).
+  const atlassianTools = { servers: () => service.listMcpServers(), oauth: mcpOAuth };
   const boardTicketSync = new BoardTicketSync({
     store: boardTicketStore,
     board: boardTickets,
     sources: {
+      jira: new JiraBoardSyncSource(createAtlassianTools(atlassianTools)),
       github: new GitHubBoardSyncSource({
         issues: new GitHubTicketSource({
           accessToken: () => githubConnector.accessToken(),
@@ -1896,7 +1906,10 @@ export async function createApplicationServices({
           ),
       }),
     },
-    connected: () => (githubConnector.status().state === "connected" ? ["github"] : []),
+    connected: () => [
+      ...(githubConnector.status().state === "connected" ? (["github"] as const) : []),
+      ...(atlassianConnected(atlassianTools) ? (["jira"] as const) : []),
+    ],
     changed: (state) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state),
   });
   const stopBoardSyncConnection = githubConnector.onChanged(() => boardTicketSync.connectionChanged());
@@ -3220,6 +3233,7 @@ export async function createApplicationServices({
     interfaceSize,
     notificationPreference,
     busyMessageMode,
+    linkBrowser,
     agentDefaults,
     agentMemoryLimit: agentMemoryLimitSetting,
     agentAccess,

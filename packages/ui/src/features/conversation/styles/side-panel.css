@@ -283,3 +283,16 @@
   height: var(--openbot-icon-sm);
   color: var(--openbot-text-muted);
 }
+
+/* A thread of the agent replaces the chat: its panel fills the main area under the chat header, and the
+ * chat's own scroll and composer step aside. The side panel's tab row is not shown. */
+.thread-center > :is(.conversation-scroll, .composer-wrap, .side-panel-header) {
+  visibility: hidden;
+}
+
+.thread-center > .agent-tasks-panel {
+  inset-inline-start: 0;
+  top: var(--left-header-height, 38px);
+  width: auto;
+  border-inline-start: 0;
+}
