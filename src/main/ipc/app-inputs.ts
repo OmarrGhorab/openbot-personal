@@ -51,6 +51,8 @@ import {
   isAppInterfaceSize,
   isAppLanguage,
   isAppLogoColor,
+  isAppLogoShape,
+  isAppLogoTile,
   isBrowserDockAction,
   isBrowserDockFrame,
   isBrowserDockPresentation,
@@ -137,8 +139,17 @@ export function parseAppLanguagePreference(input: unknown): SetAppLanguagePrefer
 }
 
 export function parseAppLogoColorPreference(input: unknown): SetAppLogoColorPreferenceInput {
-  if (!isDynamicRecord(input) || !isAppLogoColor(input.color)) throw new Error("Logo color is required.");
-  return { color: input.color };
+  if (!isDynamicRecord(input)) throw new Error("Logo color is required.");
+  const { color, shape, tile } = input;
+  if (color !== undefined && !isAppLogoColor(color)) throw new Error("Logo color is invalid.");
+  if (shape !== undefined && !isAppLogoShape(shape)) throw new Error("Logo shape is invalid.");
+  if (tile !== undefined && !isAppLogoTile(tile)) throw new Error("Logo tile is invalid.");
+  if (color === undefined && shape === undefined && tile === undefined) throw new Error("Logo color is required.");
+  return {
+    ...(color === undefined ? {} : { color }),
+    ...(shape === undefined ? {} : { shape }),
+    ...(tile === undefined ? {} : { tile }),
+  };
 }
 
 export function parseAppAppearancePreference(input: unknown): SetAppAppearancePreferenceInput {

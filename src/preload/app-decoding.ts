@@ -61,6 +61,8 @@ import {
   isAppInterfaceSize,
   isAppLanguage,
   isAppLogoColor,
+  isAppLogoShape,
+  isAppLogoTile,
   isApprovalAutomationPreference,
   isBusyMessageMode,
   isCustomAgentCheckResult,
@@ -183,7 +185,9 @@ export function decodeAppLanguagePreference(value: unknown): AppLanguagePreferen
 export function decodeAppLogoColorPreference(value: unknown): AppLogoColorPreference {
   const preference = decodeRecord(value, "logo color preference");
   if (!isAppLogoColor(preference.color)) throw new Error("Invalid logo color.");
-  return { color: preference.color };
+  if (!isAppLogoShape(preference.shape)) throw new Error("Invalid logo shape.");
+  if (!isAppLogoTile(preference.tile)) throw new Error("Invalid logo tile.");
+  return { color: preference.color, shape: preference.shape, tile: preference.tile };
 }
 
 export function decodeAppAppearancePreference(value: unknown): AppAppearancePreference {
