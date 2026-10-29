@@ -15,6 +15,9 @@ const TICKET_TABLES = {
   projection_agent_ticket_links: [],
   projection_agent_ticket_watches: [],
   projection_agent_ticket_pulls: [],
+  board_settings: [],
+  board_ticket_events: [],
+  board_tickets: [],
 };
 
 function databaseAt(version: number): DatabaseSync {

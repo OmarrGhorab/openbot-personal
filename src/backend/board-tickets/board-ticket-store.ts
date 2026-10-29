@@ -273,7 +273,9 @@ export class BoardTicketStore {
 
   #endOrder(status: BoardTicketStatus): number {
     const row = databaseRow(
-      this.#database.connection.prepare("SELECT MAX(sort_order) AS high FROM board_tickets WHERE status = ?").get(status),
+      this.#database.connection
+        .prepare("SELECT MAX(sort_order) AS high FROM board_tickets WHERE status = ?")
+        .get(status),
     );
     const high = row?.high;
     return typeof high === "number" ? high + 1 : 1;

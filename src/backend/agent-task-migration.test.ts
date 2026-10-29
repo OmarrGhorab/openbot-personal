@@ -25,6 +25,9 @@ const TASK_TABLES = {
   projection_agent_ticket_links: [],
   projection_agent_ticket_watches: [],
   projection_agent_ticket_pulls: [],
+  board_settings: [],
+  board_ticket_events: [],
+  board_tickets: [],
 };
 
 function databaseAt(version: number): DatabaseSync {
@@ -120,9 +123,9 @@ describe("agent task migration", () => {
   it("rejects newer and incomplete migration histories before it creates the tables", () => {
     const db = databaseAtWithSeed(37);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(51,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=51; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(taskTables(db)).toEqual([]);

@@ -1,9 +1,9 @@
 import { AGENT_MEMORY_CONTEXT_BUDGET_BYTES, essentialMemoryBytes } from "@openbot/contracts/agent-memory-context";
 import type {
-  BoardTicket,
   AcpRegistryEntry,
   AgentSessionSettings,
   AgentTicketWatch,
+  BoardTicket,
   HiddenAgentsSnapshot,
   McpSignInApp,
   McpSignInAppState,
@@ -182,6 +182,7 @@ import { createMockAuth, type MockAuthOptions } from "./mock-auth";
 import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
+import { mockBoardTickets } from "./mock-board-tickets";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
@@ -194,7 +195,6 @@ import { createMockMessaging } from "./mock-messaging";
 import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
-import { mockBoardTickets } from "./mock-board-tickets";
 import { mockRavenTeam } from "./mock-raven-team";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
 import { createMockRoutineFeed } from "./mock-routine-feed";

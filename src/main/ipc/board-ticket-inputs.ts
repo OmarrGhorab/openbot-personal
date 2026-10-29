@@ -72,7 +72,9 @@ export function parseUpdateBoardTicket(value: unknown): UpdateBoardTicketInput {
 export function parseMoveBoardTicket(value: unknown): MoveBoardTicketInput {
   if (!isObject(value)) throw new Error("Invalid ticket request.");
   const beforeTicketId =
-    value.beforeTicketId === undefined || value.beforeTicketId === null ? null : parseBoardTicketId(value.beforeTicketId);
+    value.beforeTicketId === undefined || value.beforeTicketId === null
+      ? null
+      : parseBoardTicketId(value.beforeTicketId);
   return { ticketId: parseBoardTicketId(value.ticketId), status: parseStatus(value.status), beforeTicketId };
 }
 

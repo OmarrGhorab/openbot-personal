@@ -138,9 +138,9 @@ describe("routine flow sweep index migration", () => {
     const db = databaseAt(41);
     seedRoutineFlow(db, 41);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(51, 'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52, 'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=51; DELETE FROM schema_migrations WHERE version = 20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version = 20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(indexColumns(db)).toEqual(NO_INDEXES);

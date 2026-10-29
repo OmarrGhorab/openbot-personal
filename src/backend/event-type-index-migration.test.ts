@@ -110,9 +110,9 @@ describe("event type index migration", () => {
     const db = databaseAt(42);
     seedEvents(db);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(51, 'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52, 'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=51; DELETE FROM schema_migrations WHERE version = 20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version = 20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(typeIndexColumns(db)).toEqual([]);

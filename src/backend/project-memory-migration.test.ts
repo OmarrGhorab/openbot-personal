@@ -22,11 +22,14 @@ const PROJECT_MEMORY_TABLES = {
   projection_agent_ticket_links: [],
   projection_agent_ticket_watches: [],
   projection_agent_ticket_pulls: [],
+  board_settings: [],
+  board_ticket_events: [],
+  board_tickets: [],
 };
 const LATEST = 47;
 const MIGRATION_VERSION = LATEST;
-// The newest version of the application. The Raven Stack team (48), autonomy (49) and agent ticket (50) migrations come after this one.
-const LATEST_SCHEMA = 50;
+// The newest version of the application. The Raven Stack team (48), autonomy (49) and agent ticket (50) and Tickets board (51) migrations come after this one.
+const LATEST_SCHEMA = 51;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");

@@ -98,6 +98,9 @@ function withoutRepeats(rows: Rows): Rows {
     projection_agent_ticket_links: [],
     projection_agent_ticket_watches: [],
     projection_agent_ticket_pulls: [],
+    board_settings: [],
+    board_ticket_events: [],
+    board_tickets: [],
     orchestration_events: deleted("orchestration_events", "event_id", "event"),
     orchestration_command_receipts: deleted("orchestration_command_receipts", "command_id", "command"),
     projection_thread_activities: deleted("projection_thread_activities", "activity_id", "activity"),
@@ -151,9 +154,9 @@ describe("mailbox reconcile cleanup migration", () => {
     const db = databaseAt(38);
     seed(db);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(51,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=51; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
   });
@@ -191,7 +194,7 @@ describe("mailbox reconcile cleanup migration", () => {
     database.close();
 
     const legacy = new DatabaseSync(path);
-    legacy.exec("DELETE FROM schema_migrations WHERE version IN (39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50)");
+    legacy.exec("DELETE FROM schema_migrations WHERE version IN (39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51)");
     legacy.close();
     const migrated = new OpenBotDatabase(root);
     await runCauseEffect(migrated.initialize());

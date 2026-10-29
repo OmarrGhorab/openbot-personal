@@ -100,7 +100,12 @@ export class BoardTicketService {
   }
 
   /** Moves the ticket only when its column differs. Answers whether it moved. */
-  moveIfNeeded(ticketId: string, status: BoardTicketStatus, actor: BoardTicketActor, note: string | null = null): boolean {
+  moveIfNeeded(
+    ticketId: string,
+    status: BoardTicketStatus,
+    actor: BoardTicketActor,
+    note: string | null = null,
+  ): boolean {
     const current = this.#store.get(ticketId);
     if (!current || current.status === status) return false;
     this.move({ ticketId, status }, actor, note);

@@ -12,6 +12,13 @@ import type {
 } from "./ipc-agent-session-settings";
 import type { AgentTicketWatch, AgentTicketWatchInput } from "./ipc-agent-ticket-watch";
 import type {
+  AutonomyAuditFilter,
+  AutonomyAuditPage,
+  AutonomySnapshot,
+  SetAgentApprovalRulesInput,
+  SetAgentBudgetsInput,
+} from "./ipc-autonomy";
+import type {
   BoardTicket,
   BoardTicketEvent,
   BoardTicketsChanged,
@@ -20,13 +27,6 @@ import type {
   MoveBoardTicketInput,
   UpdateBoardTicketInput,
 } from "./ipc-board-tickets";
-import type {
-  AutonomyAuditFilter,
-  AutonomyAuditPage,
-  AutonomySnapshot,
-  SetAgentApprovalRulesInput,
-  SetAgentBudgetsInput,
-} from "./ipc-autonomy";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
 // is a request the renderer invokes or an event the main process sends. That is what lets a
 // registrar bind its handlers as an object keyed by endpoint, so a channel with no handler, and a

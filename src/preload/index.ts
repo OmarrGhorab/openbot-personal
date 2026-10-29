@@ -180,6 +180,13 @@ import {
   decodeVoid,
 } from "./app-decoding";
 import {
+  decodeBoardTicket,
+  decodeBoardTicketEvent,
+  decodeBoardTicketEvents,
+  decodeBoardTickets,
+  decodeBoardTicketsChanged,
+} from "./board-ticket-decoding";
+import {
   decodeBrowserBounds,
   decodeBrowserControlState,
   decodeBrowserDisplayState,
@@ -244,13 +251,6 @@ import {
 } from "./messaging-decoding";
 import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
-import {
-  decodeBoardTicket,
-  decodeBoardTicketEvent,
-  decodeBoardTicketEvents,
-  decodeBoardTickets,
-  decodeBoardTicketsChanged,
-} from "./board-ticket-decoding";
 import {
   decodeRavenChanged,
   decodeRavenJob,

@@ -39,7 +39,9 @@ function seed(db: DatabaseSync, version: number): void {
   insert.run("openbot-thread-chief", 'Chief 界"\\', "2026-10-01T10:00:00.000Z", "2026-10-01T10:00:00.000Z");
   insert.run("openbot-thread-task", "Ticket 42", "2026-10-01T11:00:00.000Z", "2026-10-01T11:00:00.000Z");
   if (version >= 50) {
-    db.prepare("INSERT INTO projection_agent_ticket_watches VALUES ('chief', 'github', 'o/r', 'openbot', 1, 'a', 'b')").run();
+    db.prepare(
+      "INSERT INTO projection_agent_ticket_watches VALUES ('chief', 'github', 'o/r', 'openbot', 1, 'a', 'b')",
+    ).run();
     db.prepare("INSERT INTO projection_agent_ticket_links VALUES ('chief', 'github', 'o/r#42', 'task-1', 'a')").run();
   }
   if (version >= 38) {
@@ -121,7 +123,9 @@ describe("board ticket migration", () => {
     migrateOpenBotDatabase(db);
     db.prepare(`INSERT INTO board_tickets (ticket_id, title, status, sort_order, task_id, status_changed_at,
       created_at, updated_at) VALUES ('t1', 'Ticket 界', 'running', 1, 'task-1', 'a', 'a', 'a')`).run();
-    db.prepare("INSERT INTO board_ticket_events VALUES ('e1', 't1', 'created', 'user', NULL, 'backlog', NULL, 'a')").run();
+    db.prepare(
+      "INSERT INTO board_ticket_events VALUES ('e1', 't1', 'created', 'user', NULL, 'backlog', NULL, 'a')",
+    ).run();
     db.prepare("DELETE FROM board_tickets WHERE ticket_id = 't1'").run();
     expect(db.prepare("SELECT * FROM board_ticket_events").all()).toEqual([]);
     expect(db.prepare("SELECT task_id FROM projection_agent_tasks").all()).toEqual([{ task_id: "task-1" }]);

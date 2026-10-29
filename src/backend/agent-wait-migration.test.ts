@@ -67,6 +67,9 @@ describe("agent wait migration", () => {
         projection_agent_ticket_links: [],
         projection_agent_ticket_watches: [],
         projection_agent_ticket_pulls: [],
+        board_settings: [],
+        board_ticket_events: [],
+        board_tickets: [],
         agent_waits: [],
         projection_messaging_memories: [],
         routine_result_deliveries: [],
@@ -106,6 +109,9 @@ describe("agent wait migration", () => {
       projection_agent_ticket_links: [],
       projection_agent_ticket_watches: [],
       projection_agent_ticket_pulls: [],
+      board_settings: [],
+      board_ticket_events: [],
+      board_tickets: [],
       agent_waits: [],
       projection_messaging_memories: [],
       routine_result_deliveries: [],
@@ -126,9 +132,9 @@ describe("agent wait migration", () => {
   it("rejects newer and incomplete migration histories before it creates the table", () => {
     const db = databaseAtWithSeed(33);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(51,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(52,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=51; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=52; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(waitTables(db)).toEqual([]);

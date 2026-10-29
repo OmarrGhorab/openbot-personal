@@ -1603,7 +1603,7 @@ describe("OpenBotDatabase", () => {
     removeProviderHistorySchema(legacy);
     legacy
       .prepare(
-        "DELETE FROM schema_migrations WHERE version IN (29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50)",
+        "DELETE FROM schema_migrations WHERE version IN (29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51)",
       )
       .run();
     if (failFirst) legacy.exec("CREATE TABLE provider_history_imports_thread (conflict TEXT)");
@@ -1707,7 +1707,7 @@ describe("OpenBotDatabase", () => {
       ALTER TABLE projection_provider_sessions_v18 RENAME TO projection_provider_sessions;
       CREATE INDEX provider_sessions_thread
         ON projection_provider_sessions(thread_id, provider, state);
-      DELETE FROM schema_migrations WHERE version IN (19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50);
+      DELETE FROM schema_migrations WHERE version IN (19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51);
       PRAGMA foreign_keys = ON;
     `);
     legacy.close();
@@ -1754,7 +1754,7 @@ describe("OpenBotDatabase", () => {
     removeProviderHistorySchema(legacy);
     legacy.exec(`
       DROP TABLE projection_mcp_servers;
-      DELETE FROM schema_migrations WHERE version IN (20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50);
+      DELETE FROM schema_migrations WHERE version IN (20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51);
     `);
     legacy.close();
 
@@ -1820,7 +1820,7 @@ describe("OpenBotDatabase", () => {
         DROP TABLE projection_messaging_memories;
         DROP TABLE projection_messaging_threads;
         DROP TABLE projection_messaging_connections;
-        DELETE FROM schema_migrations WHERE version IN (25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50);
+        DELETE FROM schema_migrations WHERE version IN (25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51);
       `);
       // The squatted name is the index's: the tables use IF NOT EXISTS, so only the index can collide.
       if (failFirst) legacy.exec("CREATE TABLE messaging_threads_agent (conflict TEXT)");
@@ -1901,7 +1901,7 @@ describe("OpenBotDatabase", () => {
          '2026-09-14T10:00:00.000Z', '2026-09-14T10:00:00.000Z'),
         ('mcp-2', 'computer_use_saved', 'stdio', 1, 'other', '[]', '[]', '[]', '', '', '[]', 1,
          '2026-09-14T10:00:00.000Z', '2026-09-14T10:00:00.000Z');
-      DELETE FROM schema_migrations WHERE version IN (21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50);
+      DELETE FROM schema_migrations WHERE version IN (21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51);
     `);
     legacy.close();
 
@@ -4020,7 +4020,7 @@ describe("OpenBotDatabase", () => {
     const database = await createDatabase();
     const userDataPath = database.userDataPath;
     database.connection.exec(
-      "DROP TABLE projection_agent_tasks; DELETE FROM schema_migrations WHERE version IN (38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50)",
+      "DROP TABLE projection_agent_tasks; DELETE FROM schema_migrations WHERE version IN (38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51)",
     );
     damageProbeTable(database);
 
