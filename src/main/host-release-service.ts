@@ -126,9 +126,13 @@ export class HostReleaseService {
   }).bind(this);
 }
 
-/** The version of the latest published release for `target`. Rejects on any fault of the feed. */
+/**
+ * The version of the latest published release for `target`. Rejects on any fault of the feed. It reads
+ * this fork's releases, the ones `openbot-hosted-update` installs, so a server is not offered an
+ * upstream release that would drop the fork's host features.
+ */
 async function fetchLatestRelease(target: ReleaseTarget, request: typeof fetch, signal: AbortSignal): Promise<string> {
-  const response = await request(`https://github.com/nightly-labs/openbot/releases/latest/download/${target.feed}`, {
+  const response = await request(`https://github.com/OmarrGhorab/openbot-personal/releases/latest/download/${target.feed}`, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
   });
   if (!response.ok || !response.body) {

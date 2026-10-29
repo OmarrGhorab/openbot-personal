@@ -16,7 +16,7 @@ shows no hosted server plan, checkout or upgrade prompt. The steps:
 2. Install and sign in (the details are in [Install](#install)):
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
+   curl -fsSL https://raw.githubusercontent.com/OmarrGhorab/openbot-personal/main/scripts/install-server.sh | sudo bash
    sudo openbot login
    ```
 
@@ -39,7 +39,7 @@ A self-hosted Signal gets its certificates from ACME (see
 On Ubuntu 24.04 or 26.04 (x86_64 or arm64) with systemd:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nightly-labs/openbot/main/scripts/install-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/OmarrGhorab/openbot-personal/main/scripts/install-server.sh | sudo bash
 sudo openbot login
 ```
 
@@ -91,6 +91,16 @@ Run the install again to reinstall or upgrade. The data stays in the home folder
 user. A reinstall keeps the user and the account server, because the sign-in belongs to them, and
 refuses another `--user`. A reinstall without `--display-size` keeps the display size. The install refuses an older release than the installed one, because an older OpenBot cannot
 open a database that a newer one migrated. It also refuses a computer that is a hosted server.
+
+This fork's server features, such as adding a second Gemini account from your own browser
+(`provider-account-relay-v2`), come only with this fork's releases. The install script, `sudo openbot
+update` and the update check read `latest-linux.yml` of
+[this repository's releases](https://github.com/OmarrGhorab/openbot-personal/releases), which the
+`Fork release` workflow publishes. A server installed with the upstream script
+(`nightly-labs/openbot`) runs the upstream release: it signs in the first Gemini account through your
+browser, but Add account for Gemini says that the server needs an update. Check the installed
+release with `openbot version`. An upstream release with a higher version than this fork's latest
+release blocks the switch, because the install refuses an older release.
 
 ## Commands
 
