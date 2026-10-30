@@ -7,6 +7,7 @@ import {
   RAVEN_AUTOPILOT_ROUND_CAP,
   RAVEN_AUTOPILOT_TICKETS_AT_ONCE,
   RAVEN_TEAM_BRIEF_LIMIT,
+  type RavenAutopilotChat,
   type RavenAutopilotMerge,
   type RavenAutopilotMergeBlock,
   type RavenAutopilotReasonCode,
@@ -301,6 +302,51 @@ export class AutopilotEngine {
   /** Decides and starts one ticket. Answers whether a job started. */
   #take(ticket: BoardTicket, settings: RavenAutopilotSettings): Effect.Effect<boolean> {
     return Effect.gen({ self: this }, function* () {
+      const started = yield* this.#startTicket(ticket, settings, null);
+      if (typeof started === "string") {
+        this.#hold(ticket.id, started);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Takes one ticket now, for a chat message (#200). The person asked for this ticket, so it starts even when
+   * Autopilot is off or every slot is in use: the team queues it until a role agent is free. The decision
+   * names the agent and the thread that asked. A ticket whose job works already gives that job.
+   */
+  takeNow(
+    ticketId: string,
+    chat: RavenAutopilotChat,
+  ): Effect.Effect<{ job: RavenTeamJob; already: boolean } | { reason: string }> {
+    return this.#lock.withPermit(
+      Effect.gen({ self: this }, function* () {
+        const ticket = this.#board.get(ticketId);
+        if (!ticket) return { reason: sourceText("error.agent.ticketTake.notFound") };
+        const current = ticket.teamJobId ? this.#team.job(ticket.teamJobId) : null;
+        if (current && (current.state === "running" || current.state === "waiting-user")) {
+          return { job: current, already: true };
+        }
+        // A job that ended leaves its link. The new job adopts the ticket, so the board keeps one card.
+        if (ticket.teamJobId !== null) this.#board.patch(ticket.id, { teamJobId: null }, "agent");
+        const started = yield* this.#startTicket(ticket, this.#settings(), chat);
+        if (typeof started === "string") {
+          this.#note(ticket.id, started);
+          return { reason: started };
+        }
+        return { job: started, already: false };
+      }),
+    );
+  }
+
+  /** Decides and starts one ticket. Answers the job, or why none started as a sentence without secrets. */
+  #startTicket(
+    ticket: BoardTicket,
+    settings: RavenAutopilotSettings,
+    chat: RavenAutopilotChat | null,
+  ): Effect.Effect<RavenTeamJob | string> {
+    return Effect.gen({ self: this }, function* () {
       const ready = yield* this.#installedPlaybooks();
       const choice = decideAutopilot({
         ticket: { id: ticket.id, title: ticket.title, body: ticket.body, type: ticket.type, repo: this.#repo() },
@@ -314,35 +360,32 @@ export class AutopilotEngine {
             : sourceText(REASON_KEYS[code], { type }),
         now: this.#now(),
       });
-      if (!choice) {
-        this.#hold(ticket.id, sourceText("error.agent.autopilot.noType"));
-        return false;
-      }
+      if (!choice) return sourceText("error.agent.autopilot.noType");
       const roundCap = clampCount(settings.roundCap, RAVEN_AUTOPILOT_ROUND_CAP);
+      const decision = chat ? { ...choice.decision, chat } : choice.decision;
       const started = yield* this.#team
         .start(
           {
-            templateId: choice.decision.templateId ?? ticket.id,
-            brief: ticketBrief(ticket, choice.decision.repo ?? null),
+            templateId: decision.templateId ?? ticket.id,
+            brief: ticketBrief(ticket, decision.repo ?? null),
             models: choice.models,
           },
-          { decision: choice.decision, roundCap },
+          { decision, roundCap },
         )
         .pipe(
           Effect.catch((error: RavenTeamFailed) => {
             const cause = error.cause instanceof Error ? error.cause.message : String(error.cause);
-            this.#hold(ticket.id, sourceText("error.agent.autopilot.startFailed", { reason: redactText(cause) }));
-            return Effect.succeed(null);
+            return Effect.succeed(sourceText("error.agent.autopilot.startFailed", { reason: redactText(cause) }));
           }),
         );
-      if (!started) return false;
+      if (typeof started === "string") return started;
       // A pstack playbook that is not installed is never silent: the ticket says what ran instead and how to fix it.
       if (choice.missingSkill !== null) {
         this.#note(ticket.id, sourceText("error.agent.autopilot.pstackMissing", { skill: choice.missingSkill }));
       }
       this.#told.set(started.id, started.state);
       this.#changed();
-      return true;
+      return started;
     });
   }
 

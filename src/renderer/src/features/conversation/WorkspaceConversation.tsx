@@ -51,6 +51,7 @@ import { usePresence } from "../team/team-context";
 import { useUsage } from "../usage/usage-context";
 import { useWindowPage } from "../window/window-page-context";
 import { Conversation } from "./Conversation";
+import { ConversationTicketTake, createChatTicketTake } from "./ConversationTicketTake";
 import { useConversation } from "./conversation-context";
 import { messagePromptRequestKey, promptRequestKey } from "./conversation-keys";
 import type { ConversationTasks } from "./conversation-types";
@@ -178,6 +179,20 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
   const { activeRemoteDesktopSession, remoteDesktopWorkspaceVisible, openRemoteDesktopWorkspace } = useRemoteDesktop();
   const usage = useUsage();
   const windowPage = useWindowPage();
+  // Chat (#200): a message to a local agent that names a ticket and asks to take it starts its job.
+  const ticketTake = createChatTicketTake();
+  const sendMessageAndTake: typeof sendMessage = async (
+    body,
+    attachmentDraftIds,
+    replyToMessageId,
+    target,
+    ...rest
+  ) => {
+    const result = await sendMessage(body, attachmentDraftIds, replyToMessageId, target, ...rest);
+    const agentId = target?.agentId ?? activeAgent()?.id;
+    if ("messageId" in result && agentId && activeServer()?.kind === "local") void ticketTake.afterSend(agentId, body);
+    return result;
+  };
   // The composer never asks for usage itself. It reads the dock's reading, which is scoped to the
   // active agent's provider and model and cleared on a switch, because a second request would hit
   // the provider's rate-limit endpoint for a card the user may never see.
@@ -602,7 +617,24 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         agentWaits={agentWaits()}
         onUpdateAgent={updateConversationAgent}
         onSetAgentAvatar={setAgentAvatar}
-        onSendMessage={sendMessage}
+        onSendMessage={sendMessageAndTake}
+        afterTimeline={
+          activeServer()?.kind === "local" && activeAgent() ? (
+            <ConversationTicketTake
+              take={ticketTake}
+              agentId={activeAgent()?.id ?? ""}
+              onOpenBoard={(trigger) => {
+                const server = activeServer();
+                if (server) usage.openTasks(server.id, trigger);
+              }}
+              onConnect={(provider) => {
+                setPendingPluginConnect(true);
+                setPendingPluginSlug(provider === "jira" ? "atlassian" : provider);
+                setSkillsMarketplaceOpen(true);
+              }}
+            />
+          ) : undefined
+        }
         onMarkRead={() => markAgentMessagesRead()}
         onLoadOlder={() => void loadOlderAgentMessages()}
         onLoadLatest={() => (activeAgent() ? loadLatestAgentMessages(activeAgent()?.id ?? "") : Promise.resolve())}

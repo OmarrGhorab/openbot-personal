@@ -4,11 +4,13 @@ import {
   isRavenTeamJob,
   isRavenTeamPlan,
   isRavenTeamTemplate,
+  isRavenTicketTakeResult,
   type RavenAutopilotSettings,
   type RavenTeamChanged,
   type RavenTeamJob,
   type RavenTeamPlan,
   type RavenTeamTemplate,
+  type RavenTicketTakeResult,
 } from "@openbot/contracts/ipc";
 
 export function decodeRavenTemplates(value: unknown): RavenTeamTemplate[] {
@@ -38,5 +40,10 @@ export function decodeRavenChanged(value: unknown): RavenTeamChanged {
 
 export function decodeRavenAutopilotSettings(value: unknown): RavenAutopilotSettings {
   if (!isRavenAutopilotSettings(value)) throw new Error("Invalid Autopilot settings response.");
+  return value;
+}
+
+export function decodeRavenTicketTake(value: unknown): RavenTicketTakeResult {
+  if (!isRavenTicketTakeResult(value)) throw new Error("Invalid ticket take response.");
   return value;
 }

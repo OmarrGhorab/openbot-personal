@@ -25,7 +25,8 @@ class BoardTicketSyncFailed extends Schema.TaggedError<BoardTicketSyncFailed>()(
 type BoardTicketSyncErrorKey =
   | "error.agent.boardTickets.syncNotConnected"
   | "error.agent.boardTickets.syncProjectInvalid"
-  | "error.agent.boardTickets.syncProjectsFailed";
+  | "error.agent.boardTickets.syncProjectsFailed"
+  | "error.agent.boardTickets.syncFailed";
 
 export interface BoardTicketSyncOptions {
   store: BoardTicketStore;
@@ -114,6 +115,30 @@ export class BoardTicketSync {
   ): Effect.fn.Return<BoardTicketSyncState, BoardTicketSyncFailed> {
     yield* Effect.promise(() => this.#runPass());
     return this.state();
+  }).bind(this);
+
+  /**
+   * Finds one issue by its key in the open issues of its repository or project (#200: a chat message names
+   * it), and adds it to Backlog as an import does. Answers the issue's key as the system gives it, or null
+   * when the issue is not open there. Fails when the system is not connected or the read fails. It works
+   * also when the board syncs with another target, or with none.
+   */
+  readonly importIssueByKey = Effect.fn("BoardTicketSync.importIssueByKey")(function* (
+    this: BoardTicketSync,
+    provider: BoardTicketProvider,
+    key: string,
+  ): Effect.fn.Return<string | null, BoardTicketSyncFailed> {
+    const source = yield* this.#connectedSource(provider);
+    const project = issueProject(provider, key);
+    if (project === null || !source.isProject(project)) return null;
+    const issues = yield* source
+      .openIssues(project)
+      .pipe(Effect.mapError(() => failure("error.agent.boardTickets.syncFailed")));
+    const wanted = key.toLowerCase();
+    const issue = issues.find((candidate) => candidate.key.toLowerCase() === wanted);
+    if (!issue) return null;
+    this.#importIssue(provider, issue);
+    return issue.key;
   }).bind(this);
 
   /** Starts the timer and the push of moves and comments. The timer does not keep the app running. */
@@ -251,6 +276,16 @@ export class BoardTicketSync {
   #now(): string {
     return this.#options.now?.() ?? new Date().toISOString();
   }
+}
+
+/** The repository (`owner/repo`) of a GitHub key, or the project (`PROJ`) of a Jira or Linear key. */
+function issueProject(provider: BoardTicketProvider, key: string): string | null {
+  if (provider === "github") {
+    const hash = key.lastIndexOf("#");
+    return hash > 0 ? key.slice(0, hash) : null;
+  }
+  const dash = key.lastIndexOf("-");
+  return dash > 0 ? key.slice(0, dash) : null;
 }
 
 function failure(key: BoardTicketSyncErrorKey): BoardTicketSyncFailed {

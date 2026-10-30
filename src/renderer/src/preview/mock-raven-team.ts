@@ -4,6 +4,7 @@
 
 import {
   type AgentReasoningEffort,
+  detectTicketTakeRequest,
   type OpenBotDesktopApi,
   RAVEN_STACK_LITE_ROLES,
   RAVEN_STACK_LITE_TEMPLATE_ID,
@@ -261,6 +262,32 @@ export function mockRavenTeam(
       startQueued();
       return job;
     },
+    // Chat (#200): the preview has GitHub and Jira connected and no Linear, so a Linear ticket asks to connect.
+    takeTicket: async (input) => {
+      const reference = detectTicketTakeRequest(input.text);
+      if (!reference) return { outcome: "none" };
+      const provider = reference.provider ?? "jira";
+      if (provider === "linear") return { outcome: "connect", key: reference.key, provider };
+      const open = jobs.find(
+        (job) =>
+          job.decision?.chat &&
+          job.decision.ticketTitle.startsWith(reference.key) &&
+          (job.state === "running" || job.state === "waiting-user"),
+      );
+      const job = open ?? previewTakenJob(reference.key, input.agentId, jobs.length + 1);
+      if (!open) {
+        jobs = [job, ...jobs];
+        emitChanged(job.id);
+      }
+      return {
+        outcome: "taken",
+        jobId: job.id,
+        ticketId: `preview-ticket-${job.id}`,
+        key: reference.key,
+        provider,
+        already: open !== undefined,
+      };
+    },
     onChanged: (listener) => {
       listeners.add(listener);
       return () => {
@@ -411,6 +438,71 @@ function previewRunningJob(): RavenTeamJob {
       role("reviewer", "working"),
       role("quality", "waiting"),
     ],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/**
+ * A job that an agent took from a chat message (#200): pstack · tdd for a Bug, the Builder at work and the
+ * Reviewer waiting. Its decision names the agent of the chat, so the chat shows the "Ticket taken" card.
+ */
+function previewTakenJob(key: string, agentId: string, index = 1): RavenTeamJob {
+  const at = new Date().toISOString();
+  const model = PREVIEW_MODELS[1]?.id ?? "";
+  const reviewModel = PREVIEW_MODELS[0]?.id ?? model;
+  const title = `${key}: Checkout fails when the cart has a coupon`;
+  const role = (roleId: "builder" | "reviewer"): RavenTeamRoleRun => ({
+    roleId,
+    label: roleId === "builder" ? "Builder" : "Reviewer",
+    agentId: null,
+    taskId: null,
+    threadId: null,
+    provider:
+      roleId === "builder" ? (PREVIEW_MODELS[1]?.provider ?? "claude") : (PREVIEW_MODELS[0]?.provider ?? "codex"),
+    model: roleId === "builder" ? model : reviewModel,
+    access: roleId === "builder" ? "write" : "read-only",
+    state: roleId === "builder" ? "working" : "waiting",
+    verdict: null,
+    score: null,
+    commit: null,
+    fails: 0,
+    updatedAt: at,
+  });
+  return {
+    id: `preview-job-taken-${index}`,
+    templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+    brief: `${title}\n\nSteps to reproduce: add a coupon. Expected: total. Actual: error.`,
+    state: "running",
+    queued: false,
+    headCommit: null,
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: null,
+    roles: [role("builder"), role("reviewer")],
+    decision: {
+      ticketId: null,
+      ticketTitle: title,
+      ticketType: "bug",
+      stack: "pstack",
+      templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+      playbook: "tdd",
+      roles: [
+        { roleId: "builder", label: "Builder", model },
+        { roleId: "reviewer", label: "Reviewer", model: reviewModel },
+      ],
+      reason: "The ticket has a failing case, so pstack · tdd writes the failing test first and fixes the root cause.",
+      source: "auto",
+      decidedAt: at,
+      reasonCode: "bug-failing-case",
+      changeSize: "small",
+      files: null,
+      repo: null,
+      modelTier: "standard",
+      switches: [],
+      chat: { agentId, threadId: null, ticketKey: key },
+    },
     createdAt: at,
     updatedAt: at,
   };

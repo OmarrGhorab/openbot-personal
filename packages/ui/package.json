@@ -344,6 +344,7 @@
     "./features/tickets/TicketMergeToast": "./src/features/tickets/TicketMergeToast.tsx",
     "./features/tickets/TicketsBoard": "./src/features/tickets/TicketsBoard.tsx",
     "./features/tickets/TicketsPage": "./src/features/tickets/TicketsPage.tsx",
+    "./features/tickets/TicketTakenCard": "./src/features/tickets/TicketTakenCard.tsx",
     "./features/tickets/tickets-model": "./src/features/tickets/tickets-model.ts",
     "./features/updates/HelpMenu": "./src/features/updates/HelpMenu.tsx",
     "./features/updates/restart-reasons": "./src/features/updates/restart-reasons.ts",

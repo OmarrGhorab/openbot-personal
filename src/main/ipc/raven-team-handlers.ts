@@ -3,6 +3,7 @@
 
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { RavenTeamService } from "../../backend/raven-team/raven-team-service";
+import type { TicketTakeService } from "../../backend/raven-team/ticket-take";
 import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import {
   parseGiveRavenRoleFullAccess,
@@ -11,13 +12,18 @@ import {
   parseRavenTemplateId,
   parseSaveRavenTemplate,
   parseSetRavenRoleModel,
+  parseTakeRavenTicket,
 } from "./raven-team-inputs";
 
 interface RavenTeamIpcDependencies {
   ravenTeam: RavenTeamService;
+  ticketTake: TicketTakeService;
 }
 
-export function ravenTeamIpcHandlers({ ravenTeam }: RavenTeamIpcDependencies): Pick<IpcGroupHandlers, "ravenTeam"> {
+export function ravenTeamIpcHandlers({
+  ravenTeam,
+  ticketTake,
+}: RavenTeamIpcDependencies): Pick<IpcGroupHandlers, "ravenTeam"> {
   return {
     ravenTeam: {
       listTemplates: handler(() => ravenTeam.templates()),
@@ -32,6 +38,8 @@ export function ravenTeamIpcHandlers({ ravenTeam }: RavenTeamIpcDependencies): P
       ),
       stop: payloadHandler(parseRavenJobId, (jobId) => runCauseEffect(ravenTeam.stop(jobId))),
       resume: payloadHandler(parseRavenJobId, (jobId) => runCauseEffect(ravenTeam.resume(jobId))),
+      // Chat (#200): main reads the message again; the renderer only asks.
+      takeTicket: payloadHandler(parseTakeRavenTicket, (input) => runCauseEffect(ticketTake.take(input))),
     },
   };
 }

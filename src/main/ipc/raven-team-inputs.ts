@@ -11,6 +11,8 @@ import {
   type RavenTeamRoleDefinition,
   type SaveRavenTeamTemplateInput,
   type SetRavenTeamRoleModelInput,
+  type TakeRavenTicketInput,
+  TICKET_TAKE_TEXT_LIMIT,
 } from "@openbot/contracts/ipc";
 import { isObject, requireString } from "./validation";
 
@@ -115,5 +117,15 @@ export function parseSetRavenRoleModel(value: unknown): SetRavenTeamRoleModelInp
     jobId: parseRavenJobId(value.jobId),
     roleId: requireString(value.roleId, "roleId", INPUT_LIMITS.identifier),
     model: requireString(value.model, "model", MODEL_MAX_LENGTH),
+  };
+}
+
+/** A chat take request (#200): the agent of the chat and the message. A longer message is cut, not refused. */
+export function parseTakeRavenTicket(value: unknown): TakeRavenTicketInput {
+  if (!isObject(value)) throw new Error("Invalid ticket take request.");
+  if (typeof value.text !== "string" || value.text.trim() === "") throw new Error("Invalid ticket take message.");
+  return {
+    agentId: requireString(value.agentId, "agentId", INPUT_LIMITS.identifier),
+    text: value.text.slice(0, TICKET_TAKE_TEXT_LIMIT),
   };
 }
