@@ -135,7 +135,7 @@ export class GitHubPullRequestMerger implements PullRequestMerger {
     );
   }
 
-  #getJson<A>(url: string, token: string, schema: Schema.Codec<A>): Effect.Effect<A, PullRequestMergeFailed> {
+  #getJson<A, I>(url: string, token: string, schema: Schema.Codec<A, I>): Effect.Effect<A, PullRequestMergeFailed> {
     return Effect.gen({ self: this }, function* () {
       const response = yield* this.#send(url, token, { method: "GET" });
       if (!response.ok) return yield* new PullRequestMergeFailed({ code: "refused", status: response.status });
@@ -174,8 +174,8 @@ export class GitHubPullRequestMerger implements PullRequestMerger {
 
 /** The CI of a head from its check runs and its commit status. One failure wins; one running check waits. */
 function combinedChecks(
-  runs: Schema.Schema.Type<typeof checkRunsSchema>,
-  status: Schema.Schema.Type<typeof statusSchema>,
+  runs: typeof checkRunsSchema.Type,
+  status: typeof statusSchema.Type,
 ): PullRequestMergeState["checks"] {
   const hasStatuses = status.total_count > 0;
   // A head with more check runs than one page is not read as green: a check on page two could fail.
