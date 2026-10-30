@@ -235,12 +235,13 @@ export interface BoardTicketTeamStep {
  * An Autopilot job (one with a decision) works on a ticket that the person reviews: a pass leaves the pull
  * request in Needs review, and a stop also leaves the ticket in Needs review with its failure line, so
  * Autopilot does not take it again. Only a job that runs again takes the ticket out of Needs review.
+ * When the Reviewer merged the pull request (#198), the ticket moves to Done ("Merged by Reviewer").
  */
 export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued" | "decision">): BoardTicketTeamStep {
   const autopilot = job.decision !== undefined && job.decision !== null;
   switch (job.state) {
     case "done":
-      return { status: autopilot ? "needs_review" : "done", failure: null };
+      return { status: autopilot && job.decision?.merge?.state !== "merged" ? "needs_review" : "done", failure: null };
     case "not-done":
       return { status: "backlog", failure: "not-done" };
     case "stopped":

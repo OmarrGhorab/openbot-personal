@@ -4,7 +4,7 @@ import type {
   BoardTicketStatus,
   RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
-import { Button, IconButton, Plus, SlidingTabs, Sparkles, Zap } from "@openbot/ui";
+import { Button, GitMerge, IconButton, Plus, SlidingTabs, Sparkles, Zap } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
@@ -304,6 +304,12 @@ export function TicketCard(props: TicketCardProps) {
           )}
         </Show>
         <Show when={steps() ? null : progress()}>{(text) => <span class="tickets-card-live">{text()}</span>}</Show>
+        <Show when={decision()?.merge?.state === "merged"}>
+          <span class="tickets-card-merged">
+            <GitMerge aria-hidden="true" />
+            {t("tickets.card.mergedByReviewer")}
+          </span>
+        </Show>
         <Show when={error() !== null}>
           <span class="tickets-card-error">{error() || t("tickets.card.turnFailed")}</span>
         </Show>

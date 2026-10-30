@@ -293,6 +293,92 @@ export interface RavenAutopilotDecision {
   modelTier?: RavenAutopilotModelTier;
   /** Every change of model or stack after a failed round, oldest first. */
   switches?: RavenAutopilotDecisionSwitch[];
+  /** The pull request that the Builder opened (#198), as its GitHub page. Absent or null until it names one. */
+  pullRequest?: string | null;
+  /**
+   * What the Reviewer's merge (#198) did with the job's head commit: merged, or why it did not. Absent while
+   * nothing was tried: the setting is off, the type's switch is off, or the review has not passed.
+   */
+  merge?: RavenAutopilotMerge | null;
+}
+
+/**
+ * Why the Reviewer did not merge a job that passed (#198). The ticket stays in Needs review with a note.
+ * - `new-commit`: the pull request head is not the commit that the Reviewer passed.
+ * - `ci-failing`: a CI check failed. `ci-missing`: the head has no CI check. `ci-timeout`: CI did not end in time.
+ * - `no-pull-request`: the Builder named no pull request. `pull-request-closed`: it is closed or merged already.
+ * - `not-connected`: GitHub is not connected on this computer. `refused`: GitHub did not merge it.
+ */
+export const RAVEN_AUTOPILOT_MERGE_BLOCKS = [
+  "new-commit",
+  "ci-failing",
+  "ci-missing",
+  "ci-timeout",
+  "no-pull-request",
+  "pull-request-closed",
+  "not-connected",
+  "refused",
+] as const;
+export type RavenAutopilotMergeBlock = (typeof RAVEN_AUTOPILOT_MERGE_BLOCKS)[number];
+
+/** The merge of a job's head commit by the Reviewer, or why it did not happen. */
+export interface RavenAutopilotMerge {
+  state: "merged" | "blocked";
+  /** Null when merged. */
+  reason: RavenAutopilotMergeBlock | null;
+  method: RavenAutopilotMergeMethod;
+  /** The head commit that the Reviewer passed. */
+  commit: string;
+  prUrl: string | null;
+  prNumber: number | null;
+  /** ISO time of the merge, or of the check that blocked it. */
+  at: string;
+}
+
+/**
+ * The event of a ticket that the Reviewer merged (#198). `RavenTeamService.onTicketMerged` emits it once
+ * per merge, after the ticket moved to Done. Its fields include every field of `TicketMergedEvent` (#199),
+ * so main can pass it on as it is. It has structured facts only: no diff, no log, no agent text, no token.
+ */
+export interface RavenTicketMerged {
+  jobId: string;
+  ticketId: string | null;
+  ticketTitle: string;
+  /** The external key, such as "PROJ-482" or "owner/repo#12". */
+  ticketKey: string | null;
+  /** "owner/repo". */
+  repo: string | null;
+  prNumber: number | null;
+  prUrl: string | null;
+  /** The head commit that the Reviewer passed and GitHub merged. */
+  commit: string;
+  method: RavenAutopilotMergeMethod;
+  reviewer: "PASS" | "PASS+NOTES";
+  /** 10 when Quality is on the team, else null. */
+  qualityScore: number | null;
+  ci: "green";
+  mergedAt: string;
+}
+
+const COMMIT_PATTERN = /^[0-9a-f]{7,40}$/u;
+
+function isMerge(value: unknown): value is RavenAutopilotMerge {
+  return (
+    isDynamicRecord(value) &&
+    (value.state === "merged" || value.state === "blocked") &&
+    (value.reason === null || isOneOf(RAVEN_AUTOPILOT_MERGE_BLOCKS, value.reason)) &&
+    isOneOf(RAVEN_AUTOPILOT_MERGE_METHODS, value.method) &&
+    typeof value.commit === "string" &&
+    COMMIT_PATTERN.test(value.commit) &&
+    isNullableBoundedString(value.prUrl, 2_048) &&
+    (value.prNumber === null || integerInRange(value.prNumber, 1, 1_000_000_000)) &&
+    isBoundedString(value.at, 160)
+  );
+}
+
+/** True when the Reviewer merged the job of this decision (#198). The ticket then shows "Merged by Reviewer". */
+export function ravenAutopilotMerged(decision: Pick<RavenAutopilotDecision, "merge"> | null | undefined): boolean {
+  return decision?.merge?.state === "merged";
 }
 
 export const RAVEN_AUTOPILOT_CHANGE_SIZES = ["small", "medium", "large"] as const;
@@ -352,7 +438,9 @@ function hasValidEngineFields(value: DynamicRecord): boolean {
     (value.switches === undefined ||
       (Array.isArray(value.switches) &&
         value.switches.length <= RAVEN_AUTOPILOT_SWITCH_LIMIT &&
-        value.switches.every(isDecisionSwitch)))
+        value.switches.every(isDecisionSwitch))) &&
+    (value.pullRequest === undefined || isNullableBoundedString(value.pullRequest, 2_048)) &&
+    (value.merge === undefined || value.merge === null || isMerge(value.merge))
   );
 }
 

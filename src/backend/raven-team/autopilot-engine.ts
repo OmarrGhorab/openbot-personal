@@ -3,19 +3,26 @@ import {
   type AgentProviderId,
   type AgentTasksSnapshot,
   type BoardTicket,
+  parseRavenPullRequestUrl,
   RAVEN_AUTOPILOT_ROUND_CAP,
   RAVEN_AUTOPILOT_TICKETS_AT_ONCE,
   RAVEN_TEAM_BRIEF_LIMIT,
+  type RavenAutopilotMerge,
+  type RavenAutopilotMergeBlock,
   type RavenAutopilotReasonCode,
   type RavenAutopilotSettings,
   type RavenTeamJob,
+  type RavenTicketMerged,
+  ravenAutopilotMayMerge,
   ravenAutopilotPlaybooks,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
-import { Effect, Semaphore } from "effect";
+import { Effect, Result, Semaphore } from "effect";
 import type { BoardTicketService } from "../board-tickets/board-ticket-service";
 import { decideAutopilot } from "./autopilot-decision";
+import { autopilotMergeVerdicts } from "./autopilot-merge";
+import type { PullRequestMerger } from "./github-pull-request-merger";
 import type { RavenTeamFailed, RavenTeamService } from "./raven-team-service";
 
 const logger = createOpenBotLogger("autopilot");
@@ -36,12 +43,32 @@ export interface AutopilotSkills {
 }
 
 /** The team operations the engine uses. */
-export type AutopilotTeam = Pick<RavenTeamService, "start" | "listJobs" | "startQueuedJobs">;
+export type AutopilotTeam = Pick<RavenTeamService, "start" | "listJobs" | "startQueuedJobs" | "job" | "recordMerge">;
+
+/** How often a merge that waits for CI checks again, and for how long in all (#198). */
+const MERGE_RETRY_MS = 60_000;
+const MERGE_RETRY_LIMIT = 30;
+
+const MERGE_BLOCK_KEYS = {
+  "new-commit": "error.agent.autopilot.mergeBlocked.newCommit",
+  "ci-failing": "error.agent.autopilot.mergeBlocked.ciFailing",
+  "ci-missing": "error.agent.autopilot.mergeBlocked.ciMissing",
+  "ci-timeout": "error.agent.autopilot.mergeBlocked.ciTimeout",
+  "no-pull-request": "error.agent.autopilot.mergeBlocked.noPullRequest",
+  "pull-request-closed": "error.agent.autopilot.mergeBlocked.pullRequestClosed",
+  "not-connected": "error.agent.autopilot.mergeBlocked.notConnected",
+  refused: "error.agent.autopilot.mergeBlocked.refused",
+} as const satisfies Record<RavenAutopilotMergeBlock, string>;
 
 export interface AutopilotEngineOptions {
   board: BoardTicketService;
   team: AutopilotTeam;
   agents: AutopilotAgents;
+  /**
+   * The GitHub side of the Reviewer's merge (#198). Absent: GitHub cannot be reached from here, and a job
+   * that may merge gets the `not-connected` note instead.
+   */
+  merger?: PullRequestMerger;
   /** Absent: no pstack playbook counts as installed, so a pstack choice runs Autopilot lite and says why. */
   skills?: AutopilotSkills;
   /** Read at each pick-up, so a change of the settings applies to the next ticket at once. */
@@ -108,6 +135,12 @@ export class AutopilotEngine {
   readonly #team: AutopilotTeam;
   readonly #agents: AutopilotAgents;
   readonly #skills: AutopilotSkills | null;
+  readonly #merger: PullRequestMerger | null;
+  /** Jobs whose merge runs now, so two job changes never merge one job twice. */
+  readonly #merging = new Set<string>();
+  /** How many times each job's merge waited for CI, and the timers of those waits. */
+  readonly #mergeWaits = new Map<string, number>();
+  readonly #mergeTimers = new Set<ReturnType<typeof setTimeout>>();
   readonly #settings: () => RavenAutopilotSettings;
   readonly #repo: () => string | null;
   readonly #changed: () => void;
@@ -127,6 +160,7 @@ export class AutopilotEngine {
     this.#team = options.team;
     this.#agents = options.agents;
     this.#skills = options.skills ?? null;
+    this.#merger = options.merger ?? null;
     this.#settings = options.settings;
     this.#repo = options.repo;
     this.#changed = options.changed ?? (() => {});
@@ -140,6 +174,8 @@ export class AutopilotEngine {
   start(): Effect.Effect<void> {
     return Effect.gen({ self: this }, function* () {
       for (const job of this.#team.listJobs()) if (isAutopilotJob(job)) this.#told.set(job.id, job.state);
+      // A job that passed while the app was closed, or before a merge ended, is read again for the merge.
+      for (const job of this.#team.listJobs()) this.#considerMerge(job);
       yield* this.#team.startQueuedJobs();
       yield* this.tick();
     });
@@ -148,6 +184,8 @@ export class AutopilotEngine {
   /** Stops new pick-ups. A job that runs goes on; it is the team's, not the engine's. */
   stop(): void {
     this.#stopped = true;
+    for (const timer of this.#mergeTimers) clearTimeout(timer);
+    this.#mergeTimers.clear();
   }
 
   /** Asks for a pick-up soon. Several calls in one turn of the event loop run one pick-up. */
@@ -180,6 +218,7 @@ export class AutopilotEngine {
     const before = this.#told.get(job.id);
     this.#told.set(job.id, job.state);
     if (before !== undefined && before !== job.state) this.#tell(job);
+    this.#considerMerge(job);
     this.wake();
   }
 
@@ -305,6 +344,136 @@ export class AutopilotEngine {
       this.#changed();
       return true;
     });
+  }
+
+  /**
+   * Starts the Reviewer's merge of a job that passed (#198), when the settings allow it for the ticket type
+   * and the team rules hold. Nothing happens, and the ticket waits in Needs review, while the setting or
+   * the type's switch is off.
+   */
+  #considerMerge(job: RavenTeamJob): void {
+    const decision = job.decision;
+    if (this.#stopped || !decision || decision.merge || this.#merging.has(job.id)) return;
+    if (!ravenAutopilotMayMerge(this.#settings(), decision.ticketType) || !autopilotMergeVerdicts(job)) return;
+    this.#merging.add(job.id);
+    Effect.runFork(
+      this.#merge(job.id).pipe(
+        Effect.catchCause((cause) =>
+          Effect.sync(() => logger.warn("An Autopilot merge failed.", { cause: redactText(String(cause)) })),
+        ),
+        Effect.ensuring(Effect.sync(() => this.#merging.delete(job.id))),
+      ),
+    );
+  }
+
+  /**
+   * One merge attempt. It merges only when every rule holds: the Reviewer's PASS and Quality's 10 on the head
+   * commit, the pull request still at that commit, and every CI check green. The settings and the job are
+   * read again just before the merge, so turning the setting off, or a new commit, stops it at once; GitHub
+   * also refuses a merge whose head is not the commit that passed.
+   */
+  #merge(jobId: string): Effect.Effect<void> {
+    return Effect.gen({ self: this }, function* () {
+      const job = this.#team.job(jobId);
+      const decision = job?.decision;
+      if (!job || !decision || decision.merge) return;
+      const settings = this.#settings();
+      const verdicts = autopilotMergeVerdicts(job);
+      if (!ravenAutopilotMayMerge(settings, decision.ticketType) || !verdicts) return;
+      const prUrl = decision.pullRequest ?? null;
+      const pr = prUrl ? parseRavenPullRequestUrl(prUrl) : null;
+      const base = {
+        method: settings.reviewerMerge.method,
+        commit: verdicts.commit,
+        prUrl: pr ? prUrl : null,
+        prNumber: pr?.number ?? null,
+      };
+      const block = (reason: RavenAutopilotMergeBlock) => this.#blockMerge(job, reason, base);
+      if (!pr) return yield* block("no-pull-request");
+      if (!this.#merger) return yield* block("not-connected");
+      const read = yield* Effect.result(this.#merger.read(pr));
+      if (Result.isFailure(read))
+        return yield* block(read.failure.code === "not-connected" ? "not-connected" : "refused");
+      const state = read.success;
+      if (state.state !== "open") return yield* block("pull-request-closed");
+      if (state.headSha !== verdicts.commit) return yield* block("new-commit");
+      if (state.checks === "failing") return yield* block("ci-failing");
+      if (state.checks === "none") return yield* block("ci-missing");
+      if (state.checks === "pending") {
+        const waits = (this.#mergeWaits.get(jobId) ?? 0) + 1;
+        if (waits > MERGE_RETRY_LIMIT) return yield* block("ci-timeout");
+        this.#mergeWaits.set(jobId, waits);
+        this.#retryMerge(jobId);
+        return;
+      }
+      // The last check before the write: the setting can be off now, and the job can have a new head.
+      const now = this.#team.job(jobId);
+      if (
+        !now?.decision ||
+        now.decision.merge ||
+        now.headCommit !== verdicts.commit ||
+        !autopilotMergeVerdicts(now) ||
+        !ravenAutopilotMayMerge(this.#settings(), now.decision.ticketType)
+      ) {
+        return;
+      }
+      const merged = yield* Effect.result(this.#merger.merge(pr, { sha: verdicts.commit, method: base.method }));
+      if (Result.isFailure(merged)) {
+        const code = merged.failure.code;
+        return yield* block(
+          code === "head-moved" ? "new-commit" : code === "not-connected" ? "not-connected" : "refused",
+        );
+      }
+      this.#mergeWaits.delete(jobId);
+      const mergedAt = this.#now();
+      const ticket = decision.ticketId ? this.#board.get(decision.ticketId) : null;
+      const event: RavenTicketMerged = {
+        jobId,
+        ticketId: decision.ticketId,
+        ticketTitle: redactText(ticket?.title ?? decision.ticketTitle),
+        ticketKey: ticket?.external?.key ?? null,
+        repo: `${pr.owner}/${pr.repo}`,
+        prNumber: pr.number,
+        prUrl,
+        commit: verdicts.commit,
+        method: base.method,
+        reviewer: verdicts.reviewer,
+        qualityScore: verdicts.qualityScore,
+        ci: "green",
+        mergedAt,
+      };
+      yield* this.#team.recordMerge(jobId, { state: "merged", reason: null, ...base, at: mergedAt }, event);
+      this.#note(
+        decision.ticketId,
+        sourceText("error.agent.autopilot.merged", { method: base.method, number: pr.number }),
+      );
+      this.#changed();
+    });
+  }
+
+  /** Records why the Reviewer did not merge, and says so on the ticket. The ticket stays in Needs review. */
+  #blockMerge(
+    job: RavenTeamJob,
+    reason: RavenAutopilotMergeBlock,
+    base: Pick<RavenAutopilotMerge, "method" | "commit" | "prUrl" | "prNumber">,
+  ): Effect.Effect<void> {
+    return Effect.gen({ self: this }, function* () {
+      this.#mergeWaits.delete(job.id);
+      yield* this.#team.recordMerge(job.id, { state: "blocked", reason, ...base, at: this.#now() }, null);
+      this.#note(job.decision?.ticketId ?? null, sourceText(MERGE_BLOCK_KEYS[reason]));
+      this.#changed();
+    });
+  }
+
+  /** Reads the job again for its merge after a wait, while CI runs. */
+  #retryMerge(jobId: string): void {
+    if (this.#stopped) return;
+    const timer = setTimeout(() => {
+      this.#mergeTimers.delete(timer);
+      const job = this.#team.job(jobId);
+      if (job) this.#considerMerge(job);
+    }, MERGE_RETRY_MS);
+    this.#mergeTimers.add(timer);
   }
 
   /** The pstack playbooks whose skill is installed now. Read at each pick-up, so an install counts at once. */

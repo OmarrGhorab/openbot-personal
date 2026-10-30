@@ -273,7 +273,8 @@ export function mockRavenTeam(
 
 /**
  * A pstack job of the preview (#197): Autopilot chose pstack · tdd for a Bug with a failing case. It has a
- * Builder and a Reviewer, not the four Raven roles, and the review passed, so it holds no slot.
+ * Builder and a Reviewer, not the four Raven roles. The review passed and the Reviewer merged it, so it
+ * holds no slot.
  */
 function previewPstackJob(): RavenTeamJob {
   const at = new Date().toISOString();
@@ -327,6 +328,17 @@ function previewPstackJob(): RavenTeamJob {
       repo: null,
       modelTier: "standard",
       switches: [],
+      // The Reviewer merged it (#198), so its ticket is in Done with "Merged by Reviewer".
+      pullRequest: "https://github.com/openbot/preview/pull/482",
+      merge: {
+        state: "merged",
+        reason: null,
+        method: "squash",
+        commit: "3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f",
+        prUrl: "https://github.com/openbot/preview/pull/482",
+        prNumber: 482,
+        at,
+      },
     },
     roles: [role("builder"), role("reviewer")],
     createdAt: at,

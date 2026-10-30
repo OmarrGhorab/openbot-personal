@@ -221,6 +221,8 @@ export const messages = {
   "tickets.autopilot.stackFull": "Raven Stack · Autopilot (كامل)",
   "tickets.autopilot.stackLite": "Raven Stack · Autopilot lite",
   "tickets.autopilot.stackPlaybook": "pstack · {playbook}",
+  "tickets.autopilot.merged": "اتعمل Merge بواسطة الـ Reviewer · {method}",
+  "tickets.card.mergedByReviewer": "اتعمل Merge بواسطة الـ Reviewer",
   "tickets.autopilot.override": "اختيارك الثابت",
   "tickets.autopilot.models": "موديل كل دور",
   "tickets.autopilot.switchModel": "بعد الجولة {round}، الـ {role} اتنقل من {from} لـ {to}.",

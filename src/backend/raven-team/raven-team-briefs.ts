@@ -6,7 +6,7 @@ const HANDOFF_CHARACTERS = 12_000;
 /** The report line of each built-in role. A role that is not listed reports `DONE`. */
 const REPORT_LINES: Record<string, string> = {
   architect: '{"verdict":"DONE"}',
-  builder: '{"verdict":"DONE","commit":"<full head commit>"}',
+  builder: '{"verdict":"DONE","commit":"<full head commit>","pr":"<pull request URL>"}',
   reviewer: '{"verdict":"PASS","commit":"<reviewed commit>"}',
   quality: '{"verdict":"PASS","score":10,"commit":"<reviewed commit>"}',
   editor: '{"verdict":"DONE"}',
