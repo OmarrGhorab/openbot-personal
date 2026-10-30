@@ -1002,7 +1002,7 @@
   font-weight: var(--openbot-weight-medium);
 }
 
-/* The live pill of an Autopilot job's card (#197): its stack, such as "pstack · tdd". */
+/* The live pill of an Autopilot job's card: its stack, such as "pstack · tdd". */
 .tickets-card-stack {
   display: inline-flex;
   min-width: 0;
