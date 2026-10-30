@@ -138,7 +138,7 @@ export function TicketsFilterChips(
   const unassigned: TicketsFilter = { kind: "unassigned" };
   return (
     <div class="tickets-filters">
-      <div class="tickets-chips" role="group" aria-label={t("tickets.filter.label")}>
+      <fieldset class="tickets-chips" aria-label={t("tickets.filter.label")}>
         <TicketsChip
           label={t("tickets.filter.all")}
           count={props.tickets.length}
@@ -170,7 +170,7 @@ export function TicketsFilterChips(
           pressed={sameTicketsFilter(props.filter, unassigned)}
           onPress={() => toggle(unassigned)}
         />
-      </div>
+      </fieldset>
       <span class="tickets-threads" data-busy={threads().running > 0 ? "" : undefined}>
         <span class="tickets-threads-dot" aria-hidden="true" />
         {t("tickets.agent.threads", threads())}
