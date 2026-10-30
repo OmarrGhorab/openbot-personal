@@ -51,18 +51,17 @@ interface BoardTicketIpcDependencies {
 }
 
 /**
- * The frozen board-tickets-v1 wire carries no ticket type, so a ticket from a joined server has the type
- * "not set yet". A field that the server did send stays as it is. Returns null for a value that is not a
- * ticket.
+ * A ticket from a joined server, or null when it is not one. The frozen board-tickets-v1 wire carries no
+ * ticket type, so such a ticket has the type "not set yet". A field that the server did send stays as it is.
  */
-function parseWireTicket(value: unknown): BoardTicket | null {
-  const candidate = isDynamicRecord(value) && !("type" in value) ? { ...value, type: null, typeSource: null } : value;
-  return isBoardTicket(candidate) ? candidate : null;
+function wireTicket(value: unknown): BoardTicket | null {
+  const typed = isDynamicRecord(value) && !("type" in value) ? { ...value, type: null, typeSource: null } : value;
+  return isBoardTicket(typed) ? typed : null;
 }
 
 const decodeTicket: ResponseDecoder<BoardTicket> = (input) => {
-  const ticket = parseWireTicket(input);
-  if (ticket === null) throw new Error("The server sent an invalid ticket.");
+  const ticket = wireTicket(input);
+  if (!ticket) throw new Error("The server sent an invalid ticket.");
   return ticket;
 };
 
@@ -72,14 +71,9 @@ const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
 };
 
 const decodeTickets: ResponseDecoder<BoardTicket[]> = (value) => {
-  if (!isDynamicRecord(value) || !Array.isArray(value.tickets)) throw new Error("The server sent an invalid board.");
-  const tickets: BoardTicket[] = [];
-  for (const item of value.tickets) {
-    const ticket = parseWireTicket(item);
-    if (ticket === null) throw new Error("The server sent an invalid board.");
-    tickets.push(ticket);
-  }
-  return tickets;
+  const tickets = isDynamicRecord(value) && Array.isArray(value.tickets) ? value.tickets.map(wireTicket) : null;
+  if (!tickets?.every((ticket) => ticket !== null)) throw new Error("The server sent an invalid board.");
+  return tickets.filter((ticket) => ticket !== null);
 };
 
 const decodeEvents: ResponseDecoder<BoardTicketEvent[]> = (value) => {
