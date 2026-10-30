@@ -1088,3 +1088,236 @@
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-xs);
 }
+
+/* Chat: the "Ticket taken" card of Figma 167-2054, under the chat timeline. Tints mix existing tokens. */
+.ticket-taken {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  width: 100%;
+  max-width: var(--conversation-column-width);
+  margin: 0 auto;
+  padding: var(--openbot-space-2) var(--openbot-space-4);
+}
+
+.ticket-taken-say {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.ticket-taken-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.ticket-taken-head,
+.ticket-taken-decision-row,
+.ticket-taken-footer {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-taken-head {
+  padding-bottom: var(--openbot-space-3);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
+
+.ticket-taken-key {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-taken-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The live pill: the accent while the job works, the warning tint when it needs the person. */
+.ticket-taken-live {
+  --ticket-taken-live: var(--openbot-text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin-inline-start: auto;
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--ticket-taken-live) 12%, transparent);
+  color: var(--ticket-taken-live);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+  white-space: nowrap;
+}
+
+.ticket-taken-live:is([data-phase="working"], [data-phase="queued"]) {
+  --ticket-taken-live: var(--openbot-accent);
+}
+
+.ticket-taken-live:is([data-phase="needs-you"], [data-phase="passed"], [data-phase="stopped"]) {
+  --ticket-taken-live: var(--openbot-warning);
+}
+
+.ticket-taken-live[data-phase="merged"] {
+  --ticket-taken-live: var(--openbot-success);
+}
+
+.ticket-taken-live[data-phase="not-done"] {
+  --ticket-taken-live: var(--openbot-danger);
+}
+
+.ticket-taken-live-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: currentColor;
+}
+
+.ticket-taken-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding-bottom: var(--openbot-space-3);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
+
+.ticket-taken-label {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.ticket-taken-decision .tickets-decision-stack svg {
+  width: var(--openbot-space-3);
+  height: var(--openbot-space-3);
+}
+
+.ticket-taken-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1-5);
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-taken-model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2) var(--openbot-space-0-5) var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-taken-role {
+  color: var(--openbot-text-muted);
+}
+
+.ticket-taken-reason {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.ticket-taken-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0 0 var(--openbot-space-3);
+  border-bottom: 1px solid var(--openbot-glass-border);
+  list-style: none;
+}
+
+.ticket-taken-step {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.ticket-taken-step[data-state="pending"] {
+  color: var(--openbot-text-dim);
+}
+
+.ticket-taken-mark {
+  display: inline-flex;
+  width: var(--openbot-space-4);
+  height: var(--openbot-space-4);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-pill);
+}
+
+.ticket-taken-step[data-state="done"] .ticket-taken-mark {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--openbot-success) 16%, transparent);
+  color: var(--openbot-success-text);
+}
+
+.ticket-taken-step[data-state="active"] .ticket-taken-mark {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--openbot-accent) 16%, transparent);
+  color: var(--openbot-accent-text);
+}
+
+.ticket-taken-step[data-state="failed"] .ticket-taken-mark {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--openbot-danger) 16%, transparent);
+  color: var(--openbot-danger-text);
+}
+
+.ticket-taken-mark svg {
+  width: var(--openbot-space-3);
+  height: var(--openbot-space-3);
+}
+
+.ticket-taken-step[data-state="active"] .ticket-taken-mark svg {
+  animation: ticket-taken-spin 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket-taken-step[data-state="active"] .ticket-taken-mark svg {
+    animation: none;
+  }
+}
+
+@keyframes ticket-taken-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ticket-taken-note {
+  margin-inline-start: auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.ticket-taken-error {
+  margin: 0;
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-xs);
+}

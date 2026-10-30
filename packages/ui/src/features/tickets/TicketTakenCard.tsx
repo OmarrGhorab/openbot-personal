@@ -153,7 +153,7 @@ export function TicketTakenCard(props: TicketTakenCardProps) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={(event: MouseEvent & { currentTarget: HTMLButtonElement }) => props.onOpenBoard(event.currentTarget)}
+            onClick={(event) => props.onOpenBoard(event.currentTarget)}
           >
             {t("tickets.taken.openBoard")}
           </Button>
