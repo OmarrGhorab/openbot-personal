@@ -169,7 +169,7 @@ describe("TicketTakeService", () => {
       provider: "jira",
       already: false,
     });
-    expect(takes).toEqual([{ ticketId: onBoard.id, chat: { agentId: "agent-1", threadId: "thread-1" } }]);
+    expect(takes).toEqual([{ ticketId: onBoard.id, chat: { agentId: "agent-1", threadId: "thread-1", ticketKey: "PROJ-482" } }]);
   });
 
   it("imports the issue when its system is connected", async () => {

@@ -500,7 +500,7 @@ export function previewTakenJob(key: string, agentId: string, index = 1): RavenT
       repo: null,
       modelTier: "standard",
       switches: [],
-      chat: { agentId, threadId: null },
+      chat: { agentId, threadId: null, ticketKey: key },
     },
     createdAt: at,
     updatedAt: at,

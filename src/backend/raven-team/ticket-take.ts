@@ -72,7 +72,8 @@ export class TicketTakeService {
       const threadId = thread && thread.length <= INPUT_LIMITS.identifier ? thread : null;
       const found = yield* this.#ticketFor(reference, input.text);
       if ("outcome" in found) return found;
-      const started = yield* this.#options.take(found.ticket.id, { agentId: input.agentId, threadId });
+      const key = found.ticket.external?.key ?? reference.key;
+      const started = yield* this.#options.take(found.ticket.id, { agentId: input.agentId, threadId, ticketKey: key });
       if ("reason" in started) {
         return { outcome: "failed", key: reference.key, reason: redactText(started.reason) } as const;
       }
@@ -80,7 +81,7 @@ export class TicketTakeService {
         outcome: "taken",
         jobId: started.job.id,
         ticketId: found.ticket.id,
-        key: found.ticket.external?.key ?? reference.key,
+        key,
         provider: found.ticket.external?.provider ?? reference.provider,
         already: started.already,
       } as const;

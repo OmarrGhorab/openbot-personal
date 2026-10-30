@@ -29,6 +29,8 @@ export interface TicketTakeReference {
 export interface RavenAutopilotChat {
   agentId: string;
   threadId: string | null;
+  /** The issue key that the message named, such as `PROJ-482`, so the card shows it after a restart. */
+  ticketKey?: string | null;
 }
 
 export interface TakeRavenTicketInput {
@@ -205,7 +207,8 @@ export function isRavenAutopilotChat(value: unknown): value is RavenAutopilotCha
   return (
     isDynamicRecord(value) &&
     isIdentifier(value.agentId) &&
-    (value.threadId === null || isIdentifier(value.threadId))
+    (value.threadId === null || isIdentifier(value.threadId)) &&
+    (value.ticketKey === undefined || value.ticketKey === null || isBoundedString(value.ticketKey, KEY_LIMIT))
   );
 }
 
