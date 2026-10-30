@@ -11,6 +11,7 @@ export const messages = {
   "island.label.approval": "طلب موافقة في OpenBot",
   "island.label.takeover": "استلام المتصفح في OpenBot",
   "island.label.failed": "مهمة OpenBot فشلت",
+  "island.label.merged": "تيكت OpenBot اتدمج",
   "island.label.externalDisplay": "{label} على الشاشة الخارجية",
   "island.badge.working": "شغّال",
   "island.badge.message": "رسالة",
@@ -69,4 +70,8 @@ export const messages = {
   "island.task.working": "شغّال على طلبك",
   "island.error.openRemoteTitle": "معرفناش نفتح العنصر البعيد ده",
   "island.error.openRemote": "معرفناش نفتح العنصر ده. حاول تاني.",
+  "island.merged.title": "الـ Reviewer دمجها",
+  "island.merged.detail": "{ticket} · PR #{number}",
+  "island.merged.viewTicket": "افتح التيكت",
+  "island.merged.viewPullRequest": "افتح الـ PR",
 } as const satisfies PartialTranslation<typeof source>;

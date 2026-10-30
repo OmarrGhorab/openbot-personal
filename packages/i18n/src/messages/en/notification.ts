@@ -28,4 +28,16 @@ export const messages = defineMessages("notification", {
   // The toast region in each window.
   "notification.toast.region": "Notifications",
   "notification.toast.close": "Close notification",
+  // A ticket the Reviewer merged: the system notification and the in-app toast. Facts only, never
+  // a diff or agent text.
+  "notification.ticketMerged.title": "{ticket} was merged",
+  "notification.ticketMerged.body": "The Reviewer merged PR #{number}.",
+  "notification.ticketMerged.bodyNoPullRequest": "The Reviewer merged it.",
+  "notification.ticketMerged.pass": "PASS",
+  "notification.ticketMerged.passWithNotes": "PASS with notes",
+  "notification.ticketMerged.quality": "Quality {score}/10",
+  "notification.ticketMerged.ciGreen": "CI green",
+  "notification.ticketMerged.viewTicket": "View ticket",
+  "notification.ticketMerged.viewPullRequest": "View PR",
+  "notification.ticketMerged.dismiss": "Dismiss",
 });
