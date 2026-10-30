@@ -1,3 +1,4 @@
+import type { AvatarMood } from "@openbot/brand/bloub-avatar-motion";
 import { agentProviderName } from "@openbot/contracts/agent-providers";
 import {
   type AgentProviderId,
@@ -24,6 +25,7 @@ import {
   Switch,
   Textarea,
 } from "@openbot/ui";
+import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 import { type RavenTeamModelChoice, RavenTeamRolePicker } from "./RavenTeamRolePicker";
@@ -76,6 +78,22 @@ const ROLE_STATE_KEY = {
 const shortCommit = (commit: string | null) => (commit ? commit.slice(0, 7) : "");
 
 /** The first line of a ticket, which names the job in the list. */
+/**
+ * A role wears an agent shape with two eyes, never a letter. The seed comes from the role id, so a role
+ * keeps the same shape on every job and every launch.
+ */
+const roleAvatarSeed = (roleId: string) => `raven-role:${roleId.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+
+const ROLE_MOOD: Record<RavenTeamRoleRun["state"], AvatarMood> = {
+  waiting: "idle",
+  working: "working",
+  reported: "responded",
+  passed: "responded",
+  failed: "failed",
+  blocked: "waiting",
+  stopped: "asleep",
+};
+
 const firstLine = (text: string) => text.split("\n")[0] ?? "";
 
 const isTerminal = (job: RavenTeamJob) => job.state === "done" || job.state === "not-done";
@@ -387,6 +405,12 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
     return (
       <li class="raven-team-job-role">
         <div class="raven-team-role-head">
+          <AgentAvatar
+            seed={roleAvatarSeed(rowProps.role.roleId)}
+            hue={null}
+            mood={ROLE_MOOD[rowProps.role.state]}
+            class="raven-team-role-avatar"
+          />
           <span class="raven-team-role-label">{rowProps.role.label}</span>
           <span class="raven-team-role-state">{t(ROLE_STATE_KEY[rowProps.role.state])}</span>
           <Show when={rowProps.role.verdict}>
@@ -643,6 +667,7 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                     <li class="raven-team-role-card" data-off={off() ? "" : undefined}>
                       <div class="raven-team-role-top">
                         <div class="raven-team-role-title">
+                          <AgentAvatar seed={roleAvatarSeed(definition.id)} hue={null} class="raven-team-role-avatar" />
                           <span class="raven-team-role-label">{definition.label}</span>
                           <Badge variant="outline">{accessLabel()}</Badge>
                         </div>

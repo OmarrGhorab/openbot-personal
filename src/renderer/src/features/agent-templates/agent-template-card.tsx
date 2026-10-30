@@ -1,6 +1,7 @@
 import { AppLogo } from "@openbot/brand";
 import { AGENT_TEMPLATE_CARD, type AgentTemplatePreview } from "@openbot/contracts/ipc";
 import { avatarHeadColor, createStaticAvatarSvg } from "@openbot/ui/bloub-avatar";
+import { mascotAvatarImageUrl } from "@openbot/ui/mascot-avatar";
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
 import { loadImage, loadSvg, withAlpha } from "../../avatar-canvas";
@@ -111,6 +112,13 @@ async function drawAvatar(context: CanvasRenderingContext2D, preview: AgentTempl
   }
   // The Bloub is drawn larger than its box, the way `.agent-avatar > svg` draws it in the app.
   const size = AVATAR_SIZE * 1.28;
+  // A mascot avatar is a bundled picture. An SVG image cannot load it, so the card draws the file.
+  const mascot = mascotAvatarImageUrl(preview.avatarSeed);
+  if (mascot) {
+    const image = await loadImage(await fetch(mascot).then((response) => response.blob()));
+    context.drawImage(image, cx - size / 2, cy - size / 2, size, size);
+    return;
+  }
   const svg = createStaticAvatarSvg(preview.avatarSeed, preview.avatarHue);
   const image = await loadSvg(svg, size);
   context.drawImage(image, cx - size / 2, cy - size / 2 - AVATAR_SIZE * 0.08, size, size);

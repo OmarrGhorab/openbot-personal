@@ -2399,6 +2399,32 @@ textarea {
   object-fit: cover;
 }
 
+/* A mascot avatar: an App icon mascot on a transparent ground, so it keeps its own outline and is
+   not clipped to a circle. It sits a little larger than the box, like the generated shape does. */
+.agent-avatar-mascot {
+  position: relative;
+}
+
+.agent-avatar-mascot > img {
+  display: block;
+  width: 118%;
+  height: 118%;
+  object-fit: contain;
+}
+
+/* A small lift on hover. Reduced motion keeps the mascot still. */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-avatar-mascot > img {
+    transition: translate 160ms var(--openbot-ease-out);
+  }
+
+  .agent-avatar-motion-hover.agent-avatar-mascot:hover > img,
+  [data-avatar-hover]:hover .agent-avatar-mascot > img,
+  button:hover > .agent-avatar-mascot > img {
+    translate: 0 -6%;
+  }
+}
+
 /* A mood that flies rings. They sit outside the circle, so the parent stops
    clipping and the image rounds itself instead. */
 .agent-avatar[data-avatar="image"]:is([data-mood="working"], [data-mood="connecting"]) {
@@ -2490,6 +2516,26 @@ textarea {
   backdrop-filter: blur(18px);
   transform-origin: var(--kb-popover-content-transform-origin);
   animation: avatar-editor-in var(--openbot-duration-normal) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* The avatar popover keeps its own headings and grids in the Shapes tab. */
+.avatar-editor-kind {
+  padding-top: var(--openbot-space-2);
+}
+
+.avatar-editor-kind .agent-avatar-kind-panel {
+  justify-items: stretch;
+  gap: 0;
+}
+
+.avatar-editor-kind .agent-avatar-kind-mascots {
+  justify-items: center;
+  gap: var(--openbot-space-2);
+  padding-bottom: var(--openbot-space-3);
+}
+
+.avatar-editor-shapes {
+  display: block;
 }
 
 @keyframes avatar-editor-in {

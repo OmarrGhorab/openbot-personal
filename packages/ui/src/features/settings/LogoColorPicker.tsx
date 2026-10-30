@@ -49,13 +49,21 @@ const TILE_LABEL_KEYS = {
 export interface LogoColorPickerProps {
   value: AppLogoColor;
   onChange: (value: AppLogoColor) => void;
+  /** The group name. Default: the logo color title. */
+  label?: string | undefined;
+  disabled?: boolean | undefined;
+  class?: string | undefined;
 }
 
 /** One swatch for each logo color, in the same shape as the agent avatar color grid. */
 export function LogoColorPicker(props: LogoColorPickerProps): JSX.Element {
   const { t } = useText();
   return (
-    <fieldset class="logo-color-grid" aria-label={t("settings.logoColor.title")}>
+    <fieldset
+      class={["logo-color-grid", props.class]}
+      aria-label={props.label ?? t("settings.logoColor.title")}
+      disabled={props.disabled}
+    >
       <For each={APP_LOGO_COLORS}>
         {(color) => (
           <Button
@@ -76,17 +84,26 @@ export function LogoColorPicker(props: LogoColorPickerProps): JSX.Element {
 }
 
 export interface LogoShapePickerProps {
-  value: AppLogoShape;
+  /** The chosen mascot. Null when none is chosen, as for an agent with a shape avatar. */
+  value: AppLogoShape | null;
   /** The picture of each mascot. The app passes the pictures in the current logo color. */
   imageUrl: (shape: AppLogoShape) => string;
   onChange: (value: AppLogoShape) => void;
+  /** The group name. Default: the App icon mascot title. */
+  label?: string | undefined;
+  disabled?: boolean | undefined;
+  class?: string | undefined;
 }
 
 /** One picture for each mascot that the app icon can show. */
 export function LogoShapePicker(props: LogoShapePickerProps): JSX.Element {
   const { t } = useText();
   return (
-    <fieldset class="logo-shape-grid" aria-label={t("settings.appIcon.shape.title")}>
+    <fieldset
+      class={["logo-shape-grid", props.class]}
+      aria-label={props.label ?? t("settings.appIcon.shape.title")}
+      disabled={props.disabled}
+    >
       <For each={APP_LOGO_SHAPES}>
         {(shape) => (
           <Button

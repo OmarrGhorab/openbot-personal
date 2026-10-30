@@ -381,3 +381,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* A role wears an agent shape with two eyes, the same as an agent chip. */
+.raven-team-role-avatar.agent-avatar {
+  width: 20px;
+  height: 20px;
+}
