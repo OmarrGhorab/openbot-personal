@@ -40,7 +40,10 @@ export class PullRequestMergeFailed extends Schema.TaggedError<PullRequestMergeF
 export interface PullRequestMerger {
   read(pr: MergePullRequest): Effect.Effect<PullRequestMergeState, PullRequestMergeFailed>;
   /** Merges the pull request only when its head is still `sha`: GitHub refuses it when a new commit came. */
-  merge(pr: MergePullRequest, input: { sha: string; method: RavenAutopilotMergeMethod }): Effect.Effect<void, PullRequestMergeFailed>;
+  merge(
+    pr: MergePullRequest,
+    input: { sha: string; method: RavenAutopilotMergeMethod },
+  ): Effect.Effect<void, PullRequestMergeFailed>;
 }
 
 const pullSchema = Schema.Struct({
@@ -130,7 +133,9 @@ export class GitHubPullRequestMerger implements PullRequestMerger {
     return this.#options.accessToken().pipe(
       Effect.orElseSucceed(() => null),
       Effect.flatMap((token) =>
-        token ? Effect.succeed(token) : Effect.fail(new PullRequestMergeFailed({ code: "not-connected", status: null })),
+        token
+          ? Effect.succeed(token)
+          : Effect.fail(new PullRequestMergeFailed({ code: "not-connected", status: null })),
       ),
     );
   }
@@ -140,7 +145,7 @@ export class GitHubPullRequestMerger implements PullRequestMerger {
       const response = yield* this.#send(url, token, { method: "GET" });
       if (!response.ok) return yield* new PullRequestMergeFailed({ code: "refused", status: response.status });
       const body = yield* Effect.tryPromise({
-        try: () => response.json() as Promise<unknown>,
+        try: (): Promise<unknown> => response.json(),
         catch: () => new PullRequestMergeFailed({ code: "refused", status: response.status }),
       });
       return yield* Schema.decodeUnknownEffect(schema)(body).pipe(
@@ -187,6 +192,7 @@ function combinedChecks(
     ) ||
     (hasStatuses && (status.state === "failure" || status.state === "error"));
   if (failed) return "failing";
-  const running = runs.check_runs.some((run) => run.status !== "completed") || (hasStatuses && status.state === "pending");
+  const running =
+    runs.check_runs.some((run) => run.status !== "completed") || (hasStatuses && status.state === "pending");
   return running ? "pending" : "green";
 }

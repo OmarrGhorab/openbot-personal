@@ -3,16 +3,16 @@ import {
   type AgentProviderId,
   type AgentTasksSnapshot,
   type BoardTicket,
+  parseRavenPullRequestUrl,
   RAVEN_AUTOPILOT_ROUND_CAP,
   RAVEN_AUTOPILOT_TICKETS_AT_ONCE,
   RAVEN_TEAM_BRIEF_LIMIT,
-  type RavenAutopilotReasonCode,
-  type RavenAutopilotSettings,
   type RavenAutopilotMerge,
   type RavenAutopilotMergeBlock,
+  type RavenAutopilotReasonCode,
+  type RavenAutopilotSettings,
   type RavenTeamJob,
   type RavenTicketMerged,
-  parseRavenPullRequestUrl,
   ravenAutopilotMayMerge,
   ravenAutopilotPlaybooks,
 } from "@openbot/contracts/ipc";
@@ -392,7 +392,8 @@ export class AutopilotEngine {
       if (!pr) return yield* block("no-pull-request");
       if (!this.#merger) return yield* block("not-connected");
       const read = yield* Effect.result(this.#merger.read(pr));
-      if (Result.isFailure(read)) return yield* block(read.failure.code === "not-connected" ? "not-connected" : "refused");
+      if (Result.isFailure(read))
+        return yield* block(read.failure.code === "not-connected" ? "not-connected" : "refused");
       const state = read.success;
       if (state.state !== "open") return yield* block("pull-request-closed");
       if (state.headSha !== verdicts.commit) return yield* block("new-commit");
@@ -419,7 +420,9 @@ export class AutopilotEngine {
       const merged = yield* Effect.result(this.#merger.merge(pr, { sha: verdicts.commit, method: base.method }));
       if (Result.isFailure(merged)) {
         const code = merged.failure.code;
-        return yield* block(code === "head-moved" ? "new-commit" : code === "not-connected" ? "not-connected" : "refused");
+        return yield* block(
+          code === "head-moved" ? "new-commit" : code === "not-connected" ? "not-connected" : "refused",
+        );
       }
       this.#mergeWaits.delete(jobId);
       const mergedAt = this.#now();
