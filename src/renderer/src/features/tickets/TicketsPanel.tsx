@@ -308,6 +308,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
         }
         return true;
       }}
+      // `autopilot` stays out until the Autopilot settings of #195 (`window.openbot.ravenAutopilot`) are on
+      // main: the New ticket dialog then shows "Let autopilot work on it" while its switch is on.
       // Approve moves the ticket to Done. The Reviewer merge (auto-merge on for the type) hooks in here.
       onApprove={(ticket) => {
         boardTickets()

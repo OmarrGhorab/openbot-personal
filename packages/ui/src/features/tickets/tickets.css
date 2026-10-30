@@ -1064,6 +1064,143 @@
   padding-top: var(--openbot-space-2);
 }
 
+/* The New ticket dialog (#192): a header, a body with the fields and the Autopilot option, and a footer. */
+.tickets-new.tickets-new-ticket.ui-dialog-content {
+  width: min(32.5rem, 100%);
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-surface-raised);
+}
+
+.tickets-new-ticket .tickets-new-header {
+  padding: calc(var(--openbot-space-4) + var(--openbot-space-1)) var(--openbot-space-6) var(--openbot-space-1);
+}
+
+.tickets-new-ticket .tickets-new-title {
+  font-size: var(--openbot-text-xl);
+}
+
+.tickets-new-description {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+}
+
+.tickets-new-ticket .tickets-new-form {
+  gap: 0;
+}
+
+.tickets-new-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  padding: var(--openbot-space-4) var(--openbot-space-6) calc(var(--openbot-space-4) + var(--openbot-space-1));
+}
+
+.tickets-new-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--openbot-space-1-5);
+}
+
+.tickets-new-label {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-new-hint {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+/* In the Type tabs, a type is its dot and its name; the tab draws the pill. */
+.tickets-new-types .tickets-type {
+  border: 0;
+  background: var(--openbot-transparent);
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* The Autopilot option: the accent tint, mixed from the token. */
+.tickets-new-autopilot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3) calc(var(--openbot-space-3) + var(--openbot-space-0-5));
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.tickets-new-autopilot[data-on] {
+  border-color: color-mix(in srgb, var(--openbot-accent) 35%, var(--openbot-transparent));
+  background: color-mix(in srgb, var(--openbot-accent) 8%, var(--openbot-transparent));
+}
+
+.tickets-new-autopilot-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  cursor: pointer;
+}
+
+.tickets-new-autopilot-title {
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.tickets-new-autopilot-body {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-autopilot-rule {
+  display: flex;
+  min-width: 0;
+  gap: var(--openbot-space-1-5);
+  padding-top: var(--openbot-space-1);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-autopilot-rule-label {
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+}
+
+.tickets-new-autopilot-rule-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-weight: var(--openbot-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-new-agent-name {
+  flex: 1 1 auto;
+}
+
+.tickets-new-agent-free {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-ticket .tickets-new-actions {
+  align-items: center;
+  padding: calc(var(--openbot-space-3) + var(--openbot-space-0-5)) var(--openbot-space-6);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+.tickets-new-spacer {
+  flex: 1;
+}
+
 /* The Sync tickets dialog: the ticket systems as marks, then the repository or project as a list. */
 .tickets-new.tickets-sync.ui-dialog-content {
   width: min(30rem, 100%);
