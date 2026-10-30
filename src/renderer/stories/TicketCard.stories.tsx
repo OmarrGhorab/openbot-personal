@@ -5,6 +5,7 @@ import {
   TicketsAutopilotPill,
   TicketsColumns,
   TicketsFilterChips,
+  TicketsLanes,
   TicketsSummaryLine,
 } from "@openbot/ui/features/tickets/TicketsBoard";
 import { filterTickets, type TicketsAutopilot, type TicketsFilter } from "@openbot/ui/features/tickets/tickets-model";
@@ -190,4 +191,22 @@ export const Board: Story = { render: () => <BoardStory autopilot={{ enabled: fa
 /** The board with Autopilot on: "Autopilot on · 0 of 2 slots", "Raven picks this next" and "Auto-merge on" in Done. */
 export const BoardAutopilot: Story = {
   render: () => <BoardStory autopilot={{ enabled: true, slots: 2, autoMerge: true }} />,
+};
+
+/** By agent (#190, Figma 153-635): the status names once on top, one lane for each agent and the unassigned lane, dashed empty slots, compact cards. */
+export const Lanes: Story = {
+  render: () => (
+    <div style={{ padding: "16px", overflow: "auto" }}>
+      <TicketsLanes
+        agents={STORY_AGENTS}
+        tickets={TICKETS}
+        snapshots={{}}
+        now={NOW}
+        selectedTicketId={null}
+        onSelectTicket={fn()}
+        onSelectAgent={fn()}
+        review={REVIEW}
+      />
+    </div>
+  ),
 };
