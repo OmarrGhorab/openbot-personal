@@ -218,27 +218,27 @@ export function TicketsPage(props: TicketsPageProps) {
                 />
               }
             >
-            <Show
-              when={view() === "agents"}
-              fallback={
-                <TicketsColumns
+              <Show
+                when={view() === "agents"}
+                fallback={
+                  <TicketsColumns
+                    agents={props.agents}
+                    tickets={shown()}
+                    snapshots={props.snapshots}
+                    selectedTicketId={props.selectedTicketId}
+                    onSelectTicket={props.onSelectTicket}
+                  />
+                }
+              >
+                <TicketsLanes
                   agents={props.agents}
                   tickets={shown()}
                   snapshots={props.snapshots}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
+                  onSelectAgent={selectAgent}
                 />
-              }
-            >
-              <TicketsLanes
-                agents={props.agents}
-                tickets={shown()}
-                snapshots={props.snapshots}
-                selectedTicketId={props.selectedTicketId}
-                onSelectTicket={props.onSelectTicket}
-                onSelectAgent={selectAgent}
-              />
-            </Show>
+              </Show>
             </Show>
           </div>
         </Show>
