@@ -5,7 +5,9 @@
 // and back to Backlog with the failure line when it fails or is stopped. With `sync`, ticket systems are
 // connected: the board imports the open issues of the chosen project into Backlog, as the desktop does.
 // With `followTeam`, each Raven team job gets its own ticket and one ticket for each role, assigned to the
-// role's agent, and they move with the job by the rule of the desktop.
+// role's agent, and they move with the job by the rule of the desktop. Each new ticket gets a type with the
+// rule of the desktop (`detectBoardTicketType`): the labels of a synced issue first, then the title and
+// the text. A type that the person chose wins over detection.
 
 import {
   type AgentTasksSnapshot,
@@ -21,10 +23,12 @@ import {
   type BoardTicketsChanged,
   type BoardTicketTeamFailure,
   type BoardTicketTeamStep,
+  type BoardTicketType,
   boardTicketTeamJobStep,
   boardTicketTeamRoleStep,
   boardTicketWorkStep,
   type CreateBoardTicketInput,
+  detectBoardTicketType,
   type MoveBoardTicketInput,
   type OpenBotDesktopApi,
   type RavenTeamJob,
@@ -46,7 +50,7 @@ type FollowMockTeam = (listener: (job: RavenTeamJob) => void) => void;
 export interface PreviewBoardTicketSync {
   providers: BoardTicketProvider[];
   projects: Partial<Record<BoardTicketProvider, string[]>>;
-  issues: Record<string, { key: string; title: string; body: string; url: string }[]>;
+  issues: Record<string, { key: string; title: string; body: string; url: string; labels?: string[] }[]>;
 }
 
 const NO_SYNC: PreviewBoardTicketSync = { providers: [], projects: {}, issues: {} };
@@ -59,6 +63,9 @@ export function mockBoardTickets(
   followTeam?: FollowMockTeam,
 ): BoardTicketsApi {
   let tickets: BoardTicket[] = seed.map((ticket) => ({ ...ticket, statusTimes: { ...ticket.statusTimes } }));
+  const typeEvent = (ticket: BoardTicket, type: BoardTicketType | null, actor: BoardTicketActor) => {
+    if (type !== ticket.type) addEvent(ticket.id, "type_changed", actor, { text: type });
+  };
   const events: BoardTicketEvent[] = [];
   const listeners = new Set<(payload: BoardTicketsChanged) => void>();
   let sequence = 0;
@@ -131,16 +138,22 @@ export function mockBoardTickets(
     input: CreateBoardTicketInput,
     actor: BoardTicketActor,
     external: BoardTicketExternal | null,
+    labels: readonly string[] = [],
   ): BoardTicket => {
     const title = input.title.replace(/\s+/gu, " ").trim();
     if (!title) throw new Error("Write a title for the ticket.");
     const status = input.status ?? "backlog";
     const time = now();
+    const body = input.body ?? "";
+    const chosen = input.type !== undefined;
+    const type = chosen ? (input.type ?? null) : detectBoardTicketType({ labels, title, body });
     const ticket: BoardTicket = {
       id: nextId("ticket"),
       title,
-      body: input.body ?? "",
+      body,
       status,
+      type,
+      typeSource: chosen ? (actor === "agent" ? "agent" : "user") : type ? "detected" : null,
       agentId: input.agentId ?? null,
       order: endOrder(status),
       taskId: null,
@@ -187,13 +200,29 @@ export function mockBoardTickets(
         (ticket) => ticket.external?.provider === target.provider && ticket.external.key === issue.key,
       );
       if (!linked) {
-        createTicket({ title: issue.title, body: issue.body }, "sync", {
-          provider: target.provider,
-          key: issue.key,
-          url: issue.url,
-        });
-      } else if (linked.title !== issue.title || linked.body !== issue.body) {
-        replace({ ...linked, title: issue.title, body: issue.body, updatedAt: now() });
+        createTicket(
+          { title: issue.title, body: issue.body },
+          "sync",
+          { provider: target.provider, key: issue.key, url: issue.url },
+          issue.labels,
+        );
+      } else {
+        // A type that the person chose stays; detection fills or changes only its own.
+        const detected =
+          linked.typeSource === "user" || linked.typeSource === "agent"
+            ? null
+            : detectBoardTicketType({ labels: issue.labels ?? [], title: issue.title, body: issue.body });
+        const retype = detected !== null && detected !== linked.type;
+        if (retype) typeEvent(linked, detected, "sync");
+        if (retype || linked.title !== issue.title || linked.body !== issue.body) {
+          replace({
+            ...linked,
+            title: issue.title,
+            body: issue.body,
+            ...(retype ? { type: detected, typeSource: "detected" as const } : {}),
+            updatedAt: now(),
+          });
+        }
       }
     }
     lastSyncedAt = now();
@@ -211,11 +240,13 @@ export function mockBoardTickets(
       if (input.agentId !== undefined && input.agentId !== current.agentId) {
         addEvent(current.id, "assigned", "user", { text: input.agentId });
       }
+      if (input.type !== undefined) typeEvent(current, input.type, "user");
       return replace({
         ...current,
         ...(input.title === undefined ? {} : { title: input.title.trim() || current.title }),
         ...(input.body === undefined ? {} : { body: input.body }),
         ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
+        ...(input.type === undefined ? {} : { type: input.type, typeSource: "user" as const }),
         ...(input.progress === undefined ? {} : { progress: input.progress }),
         ...(input.error === undefined ? {} : { error: input.error }),
         updatedAt: now(),
@@ -367,4 +398,23 @@ export function mockBoardTickets(
     }
   });
   return api;
+}
+
+/**
+ * Holds the first `list` of the board for `delayMs`, as a slow disk or a joined server does, so a story
+ * shows the page while the board loads. The empty board must not show its empty state in that time.
+ */
+export function withFirstListDelay(api: BoardTicketsApi, delayMs = 0): BoardTicketsApi {
+  if (delayMs <= 0) return api;
+  let first = true;
+  return {
+    ...api,
+    list: async (...args: Parameters<BoardTicketsApi["list"]>) => {
+      if (first) {
+        first = false;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return api.list(...args);
+    },
+  };
 }

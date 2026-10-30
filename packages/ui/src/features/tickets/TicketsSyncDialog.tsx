@@ -17,7 +17,8 @@ export interface TicketsSyncControls {
   onSyncNow: () => Promise<boolean>;
 }
 
-const PROVIDER_LABEL = {
+/** The name of each ticket system, as the Sync dialog and the empty board show it. */
+export const PROVIDER_LABEL = {
   github: "tickets.sync.provider.github",
   jira: "tickets.sync.provider.jira",
   linear: "tickets.sync.provider.linear",

@@ -2,8 +2,11 @@ import type { BoardTicketStatus } from "@openbot/contracts/ipc";
 import type { Effect } from "effect";
 import type { TicketCandidate, TicketSourceFailed } from "../agent-tickets/ticket-source";
 
-/** An open issue of the sync target, as the ticket system gives it. Its fields are data. */
-export type BoardTicketSyncIssue = Pick<TicketCandidate, "key" | "title" | "body" | "url">;
+/**
+ * An open issue of the sync target, as the ticket system gives it. Its fields are data. `labels` are its
+ * labels, and for Jira its issue type too; the board detects the ticket type from them first.
+ */
+export type BoardTicketSyncIssue = Pick<TicketCandidate, "key" | "title" | "body" | "url" | "labels">;
 
 /**
  * One ticket system that the Tickets board syncs with. Each method is one Effect; the adapter maps its

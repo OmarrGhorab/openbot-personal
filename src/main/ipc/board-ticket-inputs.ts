@@ -9,10 +9,12 @@ import {
   type BoardTicketProvider,
   type BoardTicketStatus,
   type BoardTicketSyncTarget,
+  type BoardTicketType,
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
   isBoardTicketProvider,
   isBoardTicketStatus,
+  isBoardTicketType,
   type MoveBoardTicketInput,
   type StartBoardTicketInput,
   type UpdateBoardTicketInput,
@@ -26,6 +28,13 @@ export function parseBoardTicketId(value: unknown): string {
 
 function parseStatus(value: unknown): BoardTicketStatus {
   if (!isBoardTicketStatus(value)) throw new Error("Invalid ticket status.");
+  return value;
+}
+
+/** A ticket type, or null to clear it. Absent: no change. */
+function parseType(value: unknown): BoardTicketType | null | undefined {
+  if (value === undefined || value === null) return value;
+  if (!isBoardTicketType(value)) throw new Error("Invalid ticket type.");
   return value;
 }
 
@@ -49,11 +58,13 @@ export function parseCreateBoardTicket(value: unknown): CreateBoardTicketInput {
   if (!isObject(value)) throw new Error("Invalid ticket request.");
   const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
   const agentId = parseAgentId(value.agentId);
+  const type = parseType(value.type);
   return {
     title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
     ...(body === undefined ? {} : { body }),
     ...(value.status === undefined ? {} : { status: parseStatus(value.status) }),
     ...(agentId === undefined ? {} : { agentId }),
+    ...(type === undefined ? {} : { type }),
   };
 }
 
@@ -64,11 +75,13 @@ export function parseUpdateBoardTicket(value: unknown): UpdateBoardTicketInput {
   const agentId = parseAgentId(value.agentId);
   const progress = parseNullableText(value.progress, "progress", BOARD_TICKET_PROGRESS_LIMIT);
   const error = parseNullableText(value.error, "error", BOARD_TICKET_ERROR_LIMIT);
+  const type = parseType(value.type);
   return {
     ticketId: parseBoardTicketId(value.ticketId),
     ...(title === undefined ? {} : { title }),
     ...(body === undefined ? {} : { body }),
     ...(agentId === undefined ? {} : { agentId }),
+    ...(type === undefined ? {} : { type }),
     ...(progress === undefined ? {} : { progress }),
     ...(error === undefined ? {} : { error }),
   };
