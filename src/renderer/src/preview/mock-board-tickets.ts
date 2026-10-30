@@ -369,8 +369,14 @@ export function mockBoardTickets(
         .find((line) => line.length > 0) ?? job.id;
     const own = tickets.filter((ticket) => ticket.teamJobId === job.id);
     const jobStep = boardTicketTeamJobStep(job);
+    // An Autopilot job works on a ticket that is on the board already, as the desktop's follower adopts it.
+    const decided = job.decision?.ticketId
+      ? tickets.find((ticket) => ticket.id === job.decision?.ticketId && ticket.teamJobId === null)
+      : undefined;
+    const adopted = decided ? replace({ ...decided, teamJobId: job.id, updatedAt: now() }) : undefined;
     const jobTicket =
       own.find((ticket) => ticket.teamRoleId === null) ??
+      adopted ??
       createTeamTicket(
         { title, body: job.brief, status: jobStep.status },
         { teamJobId: job.id, teamRoleId: null, taskId: null, threadId: null },

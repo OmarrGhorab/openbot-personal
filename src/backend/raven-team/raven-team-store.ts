@@ -2,12 +2,14 @@ import {
   type AgentModelId,
   type AgentProviderId,
   isAgentProvider,
+  isRavenAutopilotDecision,
   isRavenTeamQuestion,
   isRavenTeamRoleAccess,
   isRavenTeamRoleDefinition,
   RAVEN_TEAM_ROLE_STATES,
   RAVEN_TEAM_ROUND_CAP,
   RAVEN_TEAM_VERDICTS,
+  type RavenAutopilotDecision,
   type RavenTeamJob,
   type RavenTeamJobState,
   type RavenTeamQuestion,
@@ -38,8 +40,10 @@ export interface RavenTeamRoleRecord extends RavenTeamRoleRun {
   reminders: number;
 }
 
-export interface RavenTeamJobRecord extends Omit<RavenTeamJob, "roles" | "queued"> {
+export interface RavenTeamJobRecord extends Omit<RavenTeamJob, "roles" | "queued" | "decision"> {
   roles: RavenTeamRoleRecord[];
+  /** What Autopilot chose for the job (migration 53). Null for a job that the person started. */
+  decision: RavenAutopilotDecision | null;
 }
 
 /**
@@ -65,6 +69,7 @@ export interface RavenTeamJobPatch {
   fixRounds?: number;
   fallbackModel?: AgentModelId | null;
   question?: RavenTeamQuestion | null;
+  decision?: RavenAutopilotDecision | null;
 }
 
 export interface RavenTeamRolePatch {
@@ -82,10 +87,11 @@ export interface RavenTeamRolePatch {
   fails?: number;
   reminders?: number;
   pendingMessage?: string | null;
+  skills?: string[];
 }
 
 /**
- * Owns the `raven_team_*` tables (migration 48). The built-in template is code and has no row. A job
+ * Owns the `raven_team_*` tables (migrations 48 and 53). The built-in template is code and has no row. A job
  * keeps its own copy of each role's skills, provider and model, so a later template change does not
  * alter a running job. Every write stamps `updated_at`, which the view reads as the last activity.
  */
@@ -134,8 +140,9 @@ export class RavenTeamStore {
     try {
       db.prepare(
         `INSERT INTO raven_team_jobs
-           (job_id, template_id, brief, state, head_commit, fix_rounds, question_json, fallback_model, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (job_id, template_id, brief, state, head_commit, fix_rounds, question_json, fallback_model, decision_json,
+            round_cap, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         job.id,
         job.templateId,
@@ -145,6 +152,8 @@ export class RavenTeamStore {
         job.fixRounds,
         job.question ? JSON.stringify(job.question) : null,
         job.fallbackModel,
+        job.decision ? JSON.stringify(job.decision) : null,
+        job.roundCap === RAVEN_TEAM_ROUND_CAP ? null : job.roundCap,
         job.createdAt,
         job.updatedAt,
       );
@@ -221,6 +230,10 @@ export class RavenTeamStore {
       assignments.push("question_json = ?");
       values.push(patch.question ? JSON.stringify(patch.question) : null);
     }
+    if (patch.decision !== undefined) {
+      assignments.push("decision_json = ?");
+      values.push(patch.decision ? JSON.stringify(patch.decision) : null);
+    }
     this.#database.connection
       .prepare(`UPDATE raven_team_jobs SET ${assignments.join(", ")} WHERE job_id = ?`)
       .run(...values, jobId);
@@ -251,6 +264,10 @@ export class RavenTeamStore {
       assignments.push(`${column} = ?`);
       values.push(typeof value === "string" || typeof value === "number" ? value : null);
     }
+    if (patch.skills !== undefined) {
+      assignments.push("skills_json = ?");
+      values.push(JSON.stringify(patch.skills));
+    }
     this.#database.connection
       .prepare(`UPDATE raven_team_roles SET ${assignments.join(", ")} WHERE job_id = ? AND role_id = ?`)
       .run(...values, jobId, roleId);
@@ -272,6 +289,7 @@ export class RavenTeamStore {
       this.#database.connection.prepare("SELECT * FROM raven_team_roles WHERE job_id = ? ORDER BY rowid").all(jobId),
     ).map(decodeRole);
     const questionJson = optionalStringColumn(row, "question_json");
+    const decisionJson = optionalStringColumn(row, "decision_json");
     return {
       id: jobId,
       templateId: requiredStringColumn(row, "template_id"),
@@ -279,10 +297,11 @@ export class RavenTeamStore {
       state: decodeJobState(requiredStringColumn(row, "state")),
       headCommit: optionalStringColumn(row, "head_commit"),
       fixRounds: requiredNumberColumn(row, "fix_rounds"),
-      roundCap: RAVEN_TEAM_ROUND_CAP,
+      roundCap: optionalNumberColumn(row, "round_cap") ?? RAVEN_TEAM_ROUND_CAP,
       fallbackModel: optionalStringColumn(row, "fallback_model"),
       question: questionJson ? decodeQuestion(JSON.parse(questionJson)) : null,
       roles,
+      decision: decisionJson ? decodeDecision(JSON.parse(decisionJson)) : null,
       createdAt: requiredStringColumn(row, "created_at"),
       updatedAt: requiredStringColumn(row, "updated_at"),
     };
@@ -351,6 +370,11 @@ function decodeJobState(value: string): RavenTeamJobState {
     return value;
   }
   throw new Error(`Unknown Raven Stack job state: ${value}`);
+}
+
+/** A decision that no longer decodes, for example from a newer build, reads as none: the job still runs. */
+function decodeDecision(value: unknown): RavenAutopilotDecision | null {
+  return isRavenAutopilotDecision(value) ? value : null;
 }
 
 function decodeQuestion(value: unknown): RavenTeamQuestion {

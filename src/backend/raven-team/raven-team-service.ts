@@ -3,6 +3,7 @@ import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/ag
 import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
   agentTaskLimit,
+  RAVEN_AUTOPILOT_SWITCH_LIMIT,
   type PlanRavenTeamInput,
   parseRavenTeamReport,
   RAVEN_STACK_LITE_ROLES,
@@ -13,6 +14,8 @@ import {
   RAVEN_TEAM_BUILT_IN_TEMPLATE_IDS,
   RAVEN_TEAM_ESCALATE_AFTER_FAILS,
   RAVEN_TEAM_ROUND_CAP,
+  type RavenAutopilotDecision,
+  type RavenAutopilotDecisionSwitch,
   type RavenTeamJob,
   type RavenTeamPlan,
   type RavenTeamQuestion,
@@ -138,6 +141,12 @@ function isVerifier(role: RavenTeamRoleRecord): boolean {
   return role.skills.includes("verify") || role.skills.includes("quality");
 }
 
+/** What Autopilot adds to a start: its decision and the round limit of its settings. */
+export interface RavenTeamAutopilotStart {
+  decision: RavenAutopilotDecision;
+  roundCap: number;
+}
+
 function isTerminal(job: RavenTeamJobRecord): boolean {
   return job.state === "done" || job.state === "not-done";
 }
@@ -225,8 +234,12 @@ export class RavenTeamService {
     return record ? publicRavenTeamJob(record) : null;
   }
 
-  /** Starts a job from a confirmed plan. The plan is checked again here, so a stale card cannot start a bad model. */
-  start(input: PlanRavenTeamInput): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
+  /**
+   * Starts a job from a confirmed plan. The plan is checked again here, so a stale card cannot start a bad model.
+   * Autopilot passes its decision and round limit. They are stored with the job, so a later change of the
+   * settings does not change a running job.
+   */
+  start(input: PlanRavenTeamInput, autopilot?: RavenTeamAutopilotStart): Effect.Effect<RavenTeamJob, RavenTeamFailed> {
     return this.#lock.withPermit(
       Effect.gen({ self: this }, function* () {
         const plan = this.#planFor(input);
@@ -297,10 +310,11 @@ export class RavenTeamService {
           state: "running",
           headCommit: null,
           fixRounds: 0,
-          roundCap: RAVEN_TEAM_ROUND_CAP,
+          roundCap: autopilot?.roundCap ?? RAVEN_TEAM_ROUND_CAP,
           fallbackModel: plan.fallbackModel,
           question: null,
           roles,
+          decision: autopilot ? decisionWithModels(autopilot.decision, roles) : null,
           createdAt: now,
           updatedAt: now,
         };
@@ -414,6 +428,14 @@ export class RavenTeamService {
         return publicRavenTeamJob(this.#job(job.id));
       }),
     );
+  }
+
+  /**
+   * Starts each queued job that has a free slot now. The queue also moves on each turn end; the app calls
+   * this once at its start, so a job that waited when the app quit starts with no event.
+   */
+  startQueuedJobs(): Effect.Effect<void> {
+    return this.#guarded(this.#startQueued());
   }
 
   /** Reacts to an agent event. Only turn events of a team role matter; every other event is ignored. */
@@ -794,6 +816,19 @@ export class RavenTeamService {
     this.#changed(jobId);
   }
 
+  /**
+   * Adds a switch to the job's Autopilot decision, so the ticket shows why the model or stack changed. The
+   * role agent stays the same agent with its thread: only its model changes. A job with no decision keeps none.
+   */
+  #recordSwitch(jobId: string, change: RavenAutopilotDecisionSwitch): void {
+    const job = this.#job(jobId);
+    const decision = job.decision;
+    if (!decision) return;
+    const switches = [...(decision.switches ?? []), change].slice(-RAVEN_AUTOPILOT_SWITCH_LIMIT);
+    const roles = decision.roles.map((role) => (role.roleId === change.roleId ? { ...role, model: change.to } : role));
+    this.#store.updateJob(jobId, { decision: { ...decision, roles, switches } }, this.#now());
+  }
+
   #turnCompleted(jobId: string, roleId: string, status: string) {
     return Effect.gen({ self: this }, function* () {
       const job = this.#job(jobId);
@@ -982,7 +1017,7 @@ export class RavenTeamService {
       const rounds = job.fixRounds + 1;
       this.#store.updateJob(jobId, { fixRounds: rounds }, now);
       const builder = job.roles.find((candidate) => candidate.roleId === RAVEN_TEAM_BUILDER_ROLE_ID);
-      if (rounds >= RAVEN_TEAM_ROUND_CAP || !builder || !failed) {
+      if (rounds >= job.roundCap || !builder || !failed) {
         this.#store.updateJob(jobId, { state: "not-done" }, now);
         this.#changed(jobId);
         return;
@@ -991,6 +1026,14 @@ export class RavenTeamService {
       if (rounds === RAVEN_TEAM_ESCALATE_AFTER_FAILS) {
         if (job.fallbackModel) {
           yield* this.#switchRoleModel(jobId, builder.roleId, job.fallbackModel);
+          this.#recordSwitch(jobId, {
+            round: rounds,
+            roleId: builder.roleId,
+            kind: "model",
+            from: builder.model,
+            to: job.fallbackModel,
+            at: now,
+          });
           yield* this.#deliver(jobId, builder.roleId, findings);
           this.#changed(jobId);
           return;
@@ -1008,4 +1051,16 @@ export class RavenTeamService {
       yield* this.#deliver(jobId, builder.roleId, findings);
     });
   }
+}
+
+/** The decision with the roles and models that the job really starts with, after the plan checked them. */
+function decisionWithModels(
+  decision: RavenAutopilotDecision,
+  roles: readonly RavenTeamRoleRecord[],
+): RavenAutopilotDecision {
+  return {
+    ...decision,
+    roles: roles.map((role) => ({ roleId: role.roleId, label: role.label, model: role.model })),
+    switches: [...(decision.switches ?? [])],
+  };
 }

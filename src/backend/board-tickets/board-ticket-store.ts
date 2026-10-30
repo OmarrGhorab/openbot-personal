@@ -53,6 +53,8 @@ export interface BoardTicketPatch {
   typeSource?: BoardTicketTypeSource | null;
   taskId?: string | null;
   threadId?: string | null;
+  /** Set when an Autopilot job takes a ticket that is already on the board. */
+  teamJobId?: string | null;
   external?: BoardTicketExternal | null;
   progress?: string | null;
   error?: string | null;
@@ -173,6 +175,7 @@ export class BoardTicketStore {
       ["type_source", patch.typeSource, "typeSource" in patch],
       ["task_id", patch.taskId, "taskId" in patch],
       ["thread_id", patch.threadId, "threadId" in patch],
+      ["team_job_id", patch.teamJobId, "teamJobId" in patch],
       ["progress", patch.progress, "progress" in patch],
       ["error", patch.error, "error" in patch],
     ];

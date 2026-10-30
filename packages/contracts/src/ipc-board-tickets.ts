@@ -231,15 +231,20 @@ export interface BoardTicketTeamStep {
  * The column of a team job's own ticket: Queued while the job waits for a slot of its role agents,
  * Running while it runs, Needs review while it waits for the person, Done when it passes, and back to
  * Backlog with a failure line when it is stopped or ends not done.
+ *
+ * An Autopilot job (one with a decision) works on a ticket that the person reviews: a pass leaves the pull
+ * request in Needs review, and a stop also leaves the ticket in Needs review with its failure line, so
+ * Autopilot does not take it again. Only a job that runs again takes the ticket out of Needs review.
  */
-export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued">): BoardTicketTeamStep {
+export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued" | "decision">): BoardTicketTeamStep {
+  const autopilot = job.decision !== undefined && job.decision !== null;
   switch (job.state) {
     case "done":
-      return { status: "done", failure: null };
+      return { status: autopilot ? "needs_review" : "done", failure: null };
     case "not-done":
       return { status: "backlog", failure: "not-done" };
     case "stopped":
-      return { status: "backlog", failure: "stopped" };
+      return { status: autopilot ? "needs_review" : "backlog", failure: "stopped" };
     case "waiting-user":
       return { status: "needs_review", failure: null };
     default:

@@ -56,9 +56,22 @@ export class BoardTicketTeamFollower {
     const step = boardTicketTeamJobStep(job);
     const jobTicket =
       tickets.find((ticket) => ticket.teamRoleId === null) ??
+      this.#adoptDecisionTicket(job) ??
       this.#board.create({ title, body: job.brief, status: step.status }, "agent", { teamJobId: job.id });
     this.#apply(jobTicket.id, job.id, step);
     for (const role of job.roles) this.#followRole(job, role, title, tickets);
+  }
+
+  /**
+   * An Autopilot job works on a ticket that is already on the board. That ticket becomes the job's own
+   * ticket, so the board shows one card with the decision, not a second card for the same work.
+   */
+  #adoptDecisionTicket(job: RavenTeamJob): BoardTicket | null {
+    const ticketId = job.decision?.ticketId;
+    if (!ticketId) return null;
+    const ticket = this.#board.get(ticketId);
+    if (!ticket || (ticket.teamJobId !== null && ticket.teamJobId !== job.id)) return null;
+    return this.#board.patch(ticket.id, { teamJobId: job.id }, "agent");
   }
 
   #followRole(job: RavenTeamJob, role: RavenTeamRoleRun, title: string, tickets: readonly BoardTicket[]): void {
