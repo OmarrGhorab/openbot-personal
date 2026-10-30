@@ -57,6 +57,13 @@ export const INPUT_LIMITS = {
   routineCron: 255,
   messageText: 100_000,
   directMessageText: 20_000,
+  /** The text of one live turn step, as the text of a progress line. */
+  turnStepText: 2_000,
+  /** The shell command of one live turn step. Local only, like the trace command. */
+  turnStepCommand: 8_000,
+  /** The live steps of one turn that the host keeps, and the files of one step. */
+  turnSteps: 200,
+  turnStepFiles: 32,
   // A side question carries its earlier questions and answers, because nothing on the host keeps them.
   sideQuestionTurns: 20,
   sideQuestionAnswer: 32_000,
