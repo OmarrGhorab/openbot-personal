@@ -3,12 +3,15 @@ import {
   CONVERSATION_MEMORY_CHANGES_ITEM_TYPE,
   CONVERSATION_PLAN_ITEM_TYPE,
   CONVERSATION_SUBAGENTS_ITEM_TYPE,
+  CONVERSATION_TRACE_FILE_LIMIT,
   CONVERSATION_TRACE_STEP_LIMIT,
   CONVERSATION_TRACE_TEXT_LIMIT,
   type ConversationMessage,
   type ConversationTraceStep,
+  type ConversationTraceStepFile,
   type ConversationTraceStepKind,
   type ConversationTurnTrace,
+  type TurnStepFile,
 } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
 
@@ -46,6 +49,7 @@ export class TurnTraces {
       text?: string | null;
       command?: string | null;
       recipientAgentIds?: string[] | null;
+      files?: TurnStepFile[] | undefined;
     },
   ): void {
     const trace = this.#turns.get(turnId);
@@ -67,6 +71,19 @@ export class TurnTraces {
       step.command = redactText(command).slice(0, CONVERSATION_TRACE_TEXT_LIMIT);
     if (kind === "tool" && step.recipientAgentIds === undefined && event.recipientAgentIds?.length)
       step.recipientAgentIds = [...event.recipientAgentIds];
+    if (kind === "tool" && step.files === undefined && event.files?.length) {
+      const kept: ConversationTraceStepFile[] = [];
+      for (const file of event.files) {
+        if (kept.length >= CONVERSATION_TRACE_FILE_LIMIT) break;
+        kept.push({
+          path: file.path,
+          status: file.status,
+          ...(file.additions === undefined ? {} : { additions: file.additions }),
+          ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
+        });
+      }
+      if (kept.length > 0) step.files = kept;
+    }
     if (event.completed && step.endedAt === null) step.endedAt = now;
     if (event.completed && event.failed) step.failed = true;
   }
