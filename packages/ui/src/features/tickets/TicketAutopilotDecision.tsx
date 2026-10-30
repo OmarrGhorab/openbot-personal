@@ -1,5 +1,5 @@
 import type { RavenAutopilotDecision, RavenAutopilotMergeBlock } from "@openbot/contracts/ipc";
-import type { AppTextKey } from "@openbot/i18n";
+import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 import { Sparkles } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { For, Show } from "solid-js";
@@ -42,6 +42,35 @@ export function TicketStackPill(props: { decision: RavenAutopilotDecision; class
   );
 }
 
+/** The sentence of a decision's reason in the person's language; a decision from an older build keeps its own. */
+export function autopilotReasonText(
+  decision: RavenAutopilotDecision,
+  t: AppTranslate,
+): string {
+  switch (decision.reasonCode) {
+    case "feature-large":
+      return typeof decision.files === "number" && decision.files > 0
+        ? t("error.agent.autopilot.reason.featureFiles", { count: decision.files })
+        : t("error.agent.autopilot.reason.featureLarge");
+    case "feature-small":
+      return t("error.agent.autopilot.reason.featureSmall");
+    case "bug-failing-case":
+      return t("error.agent.autopilot.reason.bugFailingCase");
+    case "bug-investigate":
+      return t("error.agent.autopilot.reason.bugInvestigate");
+    case "chore-small":
+      return t("error.agent.autopilot.reason.choreSmall");
+    case "override":
+      return t("error.agent.autopilot.reason.override");
+    case "manual-stack":
+      return t("error.agent.autopilot.reason.manualStack");
+    case "pstack-missing":
+      return t("error.agent.autopilot.reason.pstackMissing");
+    default:
+      return decision.reason;
+  }
+}
+
 /**
  * Why Autopilot (#196) started this ticket the way it did: the type, the stack and its team, the model of
  * each role, and the reason in one or two sentences. Each language shows the sentence of the reason code;
@@ -50,31 +79,7 @@ export function TicketStackPill(props: { decision: RavenAutopilotDecision; class
  */
 export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecision }) {
   const { t } = useText();
-  const reason = () => {
-    const decision = props.decision;
-    switch (decision.reasonCode) {
-      case "feature-large":
-        return typeof decision.files === "number" && decision.files > 0
-          ? t("error.agent.autopilot.reason.featureFiles", { count: decision.files })
-          : t("error.agent.autopilot.reason.featureLarge");
-      case "feature-small":
-        return t("error.agent.autopilot.reason.featureSmall");
-      case "bug-failing-case":
-        return t("error.agent.autopilot.reason.bugFailingCase");
-      case "bug-investigate":
-        return t("error.agent.autopilot.reason.bugInvestigate");
-      case "chore-small":
-        return t("error.agent.autopilot.reason.choreSmall");
-      case "override":
-        return t("error.agent.autopilot.reason.override");
-      case "manual-stack":
-        return t("error.agent.autopilot.reason.manualStack");
-      case "pstack-missing":
-        return t("error.agent.autopilot.reason.pstackMissing");
-      default:
-        return decision.reason;
-    }
-  };
+  const reason = () => autopilotReasonText(props.decision, t);
   const roleLabel = (roleId: string) => props.decision.roles.find((role) => role.roleId === roleId)?.label ?? roleId;
   return (
     <section class="tickets-section">

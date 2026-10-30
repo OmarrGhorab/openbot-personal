@@ -339,6 +339,7 @@
     "./features/tasks/TasksPage": "./src/features/tasks/TasksPage.tsx",
     "./features/team/TeamPersonAvatar": "./src/features/team/TeamPersonAvatar.tsx",
     "./features/tickets/TicketsPage": "./src/features/tickets/TicketsPage.tsx",
+    "./features/tickets/TicketTakenCard": "./src/features/tickets/TicketTakenCard.tsx",
     "./features/updates/HelpMenu": "./src/features/updates/HelpMenu.tsx",
     "./features/updates/restart-reasons": "./src/features/updates/restart-reasons.ts",
     "./features/updates/update-status": "./src/features/updates/update-status.ts",
