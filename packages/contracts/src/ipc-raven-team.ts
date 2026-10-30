@@ -455,6 +455,21 @@ export interface RavenTeamReport {
   verdict: RavenTeamVerdict;
   score: number | null;
   commit: string | null;
+  /**
+   * The pull request that the Builder opened (#198), as its GitHub page. Null when the report names none
+   * or names something that is not a GitHub pull request page.
+   */
+  pr: string | null;
+}
+
+/** A GitHub pull request page: `https://github.com/<owner>/<repo>/pull/<number>`. */
+const PULL_REQUEST_URL = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d{1,9})$/u;
+
+/** The repository and number of a GitHub pull request page, or null when the text is not one. */
+export function parseRavenPullRequestUrl(url: string): { owner: string; repo: string; number: number } | null {
+  const match = PULL_REQUEST_URL.exec(url.trim());
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  return { owner: match[1], repo: match[2], number: Number(match[3]) };
 }
 
 /** The report of a role from the last `RAVEN-REPORT:` line of its text, or null. */
@@ -476,12 +491,14 @@ export function parseRavenTeamReport(text: string): RavenTeamReport | null {
     verdict: parsed.verdict,
     score: typeof parsed.score === "number" ? parsed.score : null,
     commit: typeof parsed.commit === "string" ? parsed.commit : null,
+    // A wrong pull request link does not lose the verdict: the link is dropped, and no merge can use it.
+    pr: typeof parsed.pr === "string" && parseRavenPullRequestUrl(parsed.pr) ? parsed.pr.trim() : null,
   };
 }
 
 function isRavenTeamReportRecord(
   value: unknown,
-): value is DynamicRecord & { verdict: RavenTeamVerdict; score?: unknown; commit?: unknown } {
+): value is DynamicRecord & { verdict: RavenTeamVerdict; score?: unknown; commit?: unknown; pr?: unknown } {
   return (
     isDynamicRecord(value) &&
     isOneOf(RAVEN_TEAM_VERDICTS, value.verdict) &&
