@@ -77,17 +77,17 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
             <For each={props.decision.switches ?? []}>
               {(change) => (
                 <li>
-                  {change().kind === "stack"
+                  {change.kind === "stack"
                     ? t("tickets.autopilot.switchStack", {
-                        round: change().round,
-                        from: change().from,
-                        to: change().to,
+                        round: change.round,
+                        from: change.from,
+                        to: change.to,
                       })
                     : t("tickets.autopilot.switchModel", {
-                        round: change().round,
-                        role: roleLabel(change().roleId),
-                        from: change().from,
-                        to: change().to,
+                        round: change.round,
+                        role: roleLabel(change.roleId),
+                        from: change.from,
+                        to: change.to,
                       })}
                 </li>
               )}

@@ -4,6 +4,7 @@ import type {
   BoardTicketStatus,
   BoardTicketType,
   ConversationMessage,
+  RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
 import {
   ArrowLeft,
@@ -78,6 +79,8 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   sync?: TicketsSyncControls | undefined;
   /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
   onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
+  /** The Autopilot decision of each team job, by job id. The drawer of the job's own ticket shows it. */
+  decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
 }
 
 /**
@@ -278,6 +281,11 @@ export function TicketsPage(props: TicketsPageProps) {
                 onSteer={(text) => props.onSteer(ticket(), text)}
                 tickets={props.tickets}
                 onOpenTicket={(ticketId) => props.onSelectTicket(ticketId)}
+                decision={
+                  ticket().teamJobId && ticket().teamRoleId === null
+                    ? props.decisions?.[ticket().teamJobId ?? ""]
+                    : undefined
+                }
               />
             )}
           </Show>

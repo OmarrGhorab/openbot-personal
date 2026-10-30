@@ -970,3 +970,84 @@
   gap: 0;
   padding-inline: var(--openbot-space-1);
 }
+
+/* Autopilot's decision on the drawer (#196): the decision row of Figma 160-1506 on the ticket board style of 159-1003. */
+.tickets-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3) var(--openbot-space-3-5, var(--openbot-space-3));
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.tickets-decision-top {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-decision-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: calc(var(--openbot-space-0-5) + 1px) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 12%, transparent);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-decision-stack svg {
+  width: calc(var(--openbot-space-3) - 1px);
+  height: calc(var(--openbot-space-3) - 1px);
+}
+
+.tickets-decision-source {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.tickets-decision-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tickets-decision-model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: calc(var(--openbot-space-0-5) + 1px) var(--openbot-space-2) calc(var(--openbot-space-0-5) + 1px)
+    var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-decision-role {
+  color: var(--openbot-text-muted);
+}
+
+.tickets-decision-reason {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-decision-switches {
+  margin: 0;
+  padding-inline-start: var(--openbot-space-4);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
