@@ -971,7 +971,7 @@
   padding-inline: var(--openbot-space-1);
 }
 
-/* Autopilot's decision on the drawer (#196): the decision row of Figma 160-1506 on the ticket board style of 159-1003. */
+/* Autopilot's decision on the drawer (issue 196): the decision row of Figma 160-1506 on the ticket board style of 159-1003. */
 .tickets-decision {
   display: flex;
   flex-direction: column;
