@@ -394,6 +394,7 @@ import type {
   MonitorSnapshotInput,
 } from "./ipc-monitor";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
+import type { TicketMergeNotice, TicketMergeOpenedEvent, TicketMergeOpenRequest } from "./ipc-ticket-merge";
 import type {
   OnePasswordConnectInput,
   OnePasswordConnectorStatus,
@@ -1341,6 +1342,12 @@ export const IPC_ENDPOINTS = {
     // system that has no such page.
     openSettings: request<undefined, void>()("notifications:open-settings"),
     opened: event<NotificationOpenedEvent>()("notifications:opened-event"),
+    /** A ticket the Reviewer merged. The window shows the in-app toast. */
+    ticketMerged: event<TicketMergeNotice>()("notifications:ticket-merged-event"),
+    /** The user chose "View ticket" or "View PR" on the toast. Main opens the pull request itself. */
+    openTicketMerge: request<TicketMergeOpenRequest, void>()("notifications:open-ticket-merge"),
+    /** "View ticket" from the island or the system notification. The window opens the ticket. */
+    ticketMergeOpened: event<TicketMergeOpenedEvent>()("notifications:ticket-merge-opened-event"),
   },
   agent: {
     getStatus: scopedQuery<AgentStatus>()("agent:get-status"),

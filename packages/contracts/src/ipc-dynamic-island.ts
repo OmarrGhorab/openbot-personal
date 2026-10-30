@@ -1,3 +1,11 @@
+import {
+  type AppLogoColor,
+  type AppLogoShape,
+  type AppLogoTile,
+  isAppLogoColor,
+  isAppLogoShape,
+  isAppLogoTile,
+} from "./app-logo-color";
 import { INPUT_LIMITS } from "./input-limits";
 import { type AvatarHue, isAvatarHue } from "./ipc-agent-identity";
 import type { AgentApprovalKind, AgentApprovalPermissions } from "./ipc-approvals";
@@ -151,6 +159,23 @@ export interface DynamicIslandFailureItem {
   detail: string | null;
 }
 
+/**
+ * A ticket the Reviewer merged. Main shows it on the island for a few seconds over whatever the
+ * window published, and the island draws the App icon the user chose in Settings › Appearance.
+ */
+export interface DynamicIslandMergedItem {
+  noticeId: string;
+  /** The redacted, shortened ticket title. */
+  ticketTitle: string;
+  ticketKey: string | null;
+  prNumber: number | null;
+  /** Whether "View ticket" and "View PR" have something to open. */
+  canOpenTicket: boolean;
+  canOpenPullRequest: boolean;
+  /** The App icon setting: mascot, logo color and tile. */
+  appIcon: { shape: AppLogoShape; color: AppLogoColor; tile: AppLogoTile };
+}
+
 interface DynamicIslandPresentationBase {
   serverId: string;
 }
@@ -170,10 +195,14 @@ export type DynamicIslandPresentation =
       remainingCount: number;
     })
   | (DynamicIslandPresentationBase & { mode: "takeover"; item: DynamicIslandTakeoverItem })
-  | (DynamicIslandPresentationBase & { mode: "failed"; item: DynamicIslandFailureItem });
+  | (DynamicIslandPresentationBase & { mode: "failed"; item: DynamicIslandFailureItem })
+  | (DynamicIslandPresentationBase & { mode: "merged"; item: DynamicIslandMergedItem });
 
 export type DynamicIslandAction =
   | { type: "open-app" }
+  /** "View ticket" and "View PR" on a merged ticket. Main looks the merge up by its notice id. */
+  | { type: "open-merged-ticket"; noticeId: string }
+  | { type: "open-merged-pull-request"; noticeId: string }
   | { type: "open-agent"; serverId: string; agentId: string }
   | { type: "open-message"; serverId: string; agentId: string; messageId: string }
   /**
@@ -296,12 +325,16 @@ export function isDynamicIslandPresentation(value: unknown): value is DynamicIsl
   if (value.mode === "approval") return isApprovalItem(value.item) && isSafeCount(value.remainingCount);
   if (value.mode === "takeover") return isTakeoverItem(value.item);
   if (value.mode === "failed") return isFailureItem(value.item);
+  if (value.mode === "merged") return isMergedItem(value.item);
   return false;
 }
 
 export function isDynamicIslandAction(value: unknown): value is DynamicIslandAction {
   if (!isDynamicRecord(value) || !isString(value.type)) return false;
   if (value.type === "open-app") return true;
+  if (value.type === "open-merged-ticket" || value.type === "open-merged-pull-request") {
+    return isShortString(value.noticeId, 160);
+  }
   if (!isShortString(value.serverId, 160) || !isShortString(value.agentId, 160)) return false;
   if (value.type === "open-agent") return true;
   if (value.type === "open-message") return isShortString(value.messageId, 160);
@@ -414,6 +447,23 @@ function isFailureItem(value: unknown): value is DynamicIslandFailureItem {
     isAgentIdentity(value.agent) &&
     isShortString(value.title, 180) &&
     isNullableShortString(value.detail, 600)
+  );
+}
+
+function isMergedItem(value: unknown): value is DynamicIslandMergedItem {
+  return (
+    isDynamicRecord(value) &&
+    isShortString(value.noticeId, 160) &&
+    isShortString(value.ticketTitle, 180) &&
+    isNullableShortString(value.ticketKey, 160) &&
+    (value.prNumber === null ||
+      (isNumber(value.prNumber) && Number.isSafeInteger(value.prNumber) && value.prNumber > 0)) &&
+    isBoolean(value.canOpenTicket) &&
+    isBoolean(value.canOpenPullRequest) &&
+    isDynamicRecord(value.appIcon) &&
+    isAppLogoShape(value.appIcon.shape) &&
+    isAppLogoColor(value.appIcon.color) &&
+    isAppLogoTile(value.appIcon.tile)
   );
 }
 
