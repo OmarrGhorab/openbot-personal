@@ -117,25 +117,3 @@ export function threadFiles(messages: readonly ConversationMessage[]): Attachmen
   }
   return [...files.values()];
 }
-
-interface TurnTokens {
-  id: string;
-  /** The place of the turn among the counted turns, from 1. */
-  turn: number;
-  tokens: number;
-}
-
-/** The tokens that the provider reported for each finished turn. A turn with no count is left out. */
-export function turnTokens(messages: readonly ConversationMessage[]): TurnTokens[] {
-  const turns: TurnTokens[] = [];
-  for (const message of messages) {
-    const tokens = message.trace?.tokens;
-    if (tokens !== undefined) turns.push({ id: message.id, turn: turns.length + 1, tokens });
-  }
-  return turns;
-}
-
-/** How many turns of the thread finished: each finished turn carries one trace. */
-export function finishedTurns(messages: readonly ConversationMessage[]): number {
-  return messages.filter((message) => message.trace !== undefined).length;
-}
