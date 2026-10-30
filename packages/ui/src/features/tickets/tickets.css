@@ -1023,6 +1023,23 @@
   height: var(--openbot-space-3);
 }
 
+/* A ticket that the Reviewer merged: "Merged by Reviewer" on the Done card and in the drawer. */
+.tickets-card-merged,
+.tickets-decision-merged {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  color: var(--openbot-success-text);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-card .tickets-card-merged svg {
+  width: var(--openbot-space-3);
+  height: var(--openbot-space-3);
+}
+
 .tickets-decision .tickets-decision-stack svg {
   width: var(--openbot-space-3);
   height: var(--openbot-space-3);

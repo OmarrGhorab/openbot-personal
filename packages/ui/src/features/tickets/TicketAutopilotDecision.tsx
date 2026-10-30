@@ -1,10 +1,23 @@
-import type { RavenAutopilotDecision } from "@openbot/contracts/ipc";
+import type { RavenAutopilotDecision, RavenAutopilotMergeBlock } from "@openbot/contracts/ipc";
+import type { AppTextKey } from "@openbot/i18n";
 import { Sparkles } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { For, Show } from "solid-js";
 import { TicketTypeChip } from "./TicketTypeChip";
 
 const LITE_TEMPLATE_ID = "raven-stack-lite";
+
+/** Why the Reviewer did not merge (#198): the same sentence as the note on the ticket. */
+const MERGE_BLOCK_TEXT = {
+  "new-commit": "error.agent.autopilot.mergeBlocked.newCommit",
+  "ci-failing": "error.agent.autopilot.mergeBlocked.ciFailing",
+  "ci-missing": "error.agent.autopilot.mergeBlocked.ciMissing",
+  "ci-timeout": "error.agent.autopilot.mergeBlocked.ciTimeout",
+  "no-pull-request": "error.agent.autopilot.mergeBlocked.noPullRequest",
+  "pull-request-closed": "error.agent.autopilot.mergeBlocked.pullRequestClosed",
+  "not-connected": "error.agent.autopilot.mergeBlocked.notConnected",
+  refused: "error.agent.autopilot.mergeBlocked.refused",
+} as const satisfies Record<RavenAutopilotMergeBlock, AppTextKey>;
 
 /**
  * The stack of a decision as one short label: "pstack · tdd" (#197), "Raven Stack · Autopilot lite" or
@@ -87,6 +100,15 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
           </ul>
         </Show>
         <p class="tickets-decision-reason">{reason()}</p>
+        <Show when={props.decision.merge}>
+          {(merge) => (
+            <p class={merge().state === "merged" ? "tickets-decision-merged" : "tickets-decision-reason"}>
+              {merge().state === "merged"
+                ? t("tickets.autopilot.merged", { method: merge().method })
+                : t(MERGE_BLOCK_TEXT[merge().reason ?? "refused"])}
+            </p>
+          )}
+        </Show>
         <Show when={(props.decision.switches ?? []).length > 0}>
           <ul class="tickets-decision-switches">
             <For each={props.decision.switches ?? []}>

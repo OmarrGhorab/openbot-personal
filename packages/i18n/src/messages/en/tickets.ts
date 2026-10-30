@@ -123,6 +123,8 @@ export const messages = defineMessages("tickets", {
   "tickets.autopilot.stackFull": "Raven Stack · Autopilot (full)",
   "tickets.autopilot.stackLite": "Raven Stack · Autopilot lite",
   "tickets.autopilot.stackPlaybook": "pstack · {playbook}",
+  "tickets.autopilot.merged": "Merged by Reviewer · {method}",
+  "tickets.card.mergedByReviewer": "Merged by Reviewer",
   "tickets.autopilot.override": "Your override",
   "tickets.autopilot.models": "Model of each role",
   "tickets.autopilot.switchModel": "After round {round}, the {role} moved from {from} to {to}.",

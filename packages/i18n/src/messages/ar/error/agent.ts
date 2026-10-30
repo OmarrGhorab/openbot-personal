@@ -169,6 +169,24 @@ export const messages = {
   "error.agent.autopilot.reason.override": "إعدادات الأوتوبايلوت بتاعتك محدّدة الستاك لنوع التذكرة ده.",
   "error.agent.autopilot.reason.manualStack":
     "الستاك التلقائي مقفول في إعدادات الأوتوبايلوت بتاعتك، علشان كده فريق Raven Stack الكامل هو اللي بيشتغل.",
+  "error.agent.autopilot.merged":
+    "اتعمل Merge بواسطة الـ Reviewer: {method} merge لطلب الدمج {number}، بعد PASS على آخر commit وCI أخضر. التذكرة خلصت.",
+  "error.agent.autopilot.mergeBlocked.newCommit":
+    "الـ Reviewer معملش Merge: جه commit جديد بعد الـ PASS. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.ciFailing":
+    "الـ Reviewer معملش Merge: فحص CI فشل. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.ciMissing":
+    "الـ Reviewer معملش Merge: آخر commit مفيهوش أي فحص CI. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.ciTimeout":
+    "الـ Reviewer معملش Merge: الـ CI مخلصش في 30 دقيقة. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.noPullRequest":
+    "الـ Reviewer معملش Merge: الـ Builder مذكرش أي pull request على GitHub. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.pullRequestClosed":
+    "الـ Reviewer معملش Merge: الـ pull request مقفول أو اتعمله Merge قبل كده. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.notConnected":
+    "الـ Reviewer معملش Merge: GitHub مش متوصّل على الكمبيوتر ده. وصّله من الإعدادات. التذكرة مستنياك في Needs review.",
+  "error.agent.autopilot.mergeBlocked.refused":
+    "الـ Reviewer معملش Merge: GitHub رفض الـ Merge. التذكرة مستنياك في Needs review.",
   "error.agent.autopilot.reason.pstackMissing":
     "التذكرة تناسب pstack، بس مهارات pstack مش متثبّتة، علشان كده Autopilot lite هو اللي بيشتغل عليها. ثبّت pstack من Skills علشان تستخدمه المرة الجاية.",
   "error.agent.autopilot.pstackMissing":

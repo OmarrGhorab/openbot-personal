@@ -192,6 +192,25 @@ export const messages = defineMessages("error.agent", {
   "error.agent.autopilot.reason.override": "Your Autopilot settings fix the stack for this ticket type.",
   "error.agent.autopilot.reason.manualStack":
     "Auto stack is off in your Autopilot settings, so the full Raven Stack team runs.",
+  // Reviewer merge (#198): the note when the Reviewer merged, and why it did not.
+  "error.agent.autopilot.merged":
+    "Merged by Reviewer: a {method} merge of pull request {number}, after PASS on the head commit and green CI. The ticket is done.",
+  "error.agent.autopilot.mergeBlocked.newCommit":
+    "The Reviewer did not merge: a new commit came after the PASS. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.ciFailing":
+    "The Reviewer did not merge: a CI check failed. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.ciMissing":
+    "The Reviewer did not merge: the head commit has no CI check. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.ciTimeout":
+    "The Reviewer did not merge: CI did not finish in 30 minutes. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.noPullRequest":
+    "The Reviewer did not merge: the Builder named no GitHub pull request. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.pullRequestClosed":
+    "The Reviewer did not merge: the pull request is closed or merged already. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.notConnected":
+    "The Reviewer did not merge: GitHub is not connected on this computer. Connect it in Settings. The ticket waits in Needs review for you.",
+  "error.agent.autopilot.mergeBlocked.refused":
+    "The Reviewer did not merge: GitHub refused the merge. The ticket waits in Needs review for you.",
   // pstack (#197): a pstack choice whose playbook skill is not installed runs Autopilot lite instead.
   "error.agent.autopilot.reason.pstackMissing":
     "The ticket fits pstack, but the pstack skills are not installed, so Autopilot lite runs it. Install pstack from Skills to use pstack next time.",
