@@ -71,6 +71,7 @@ export const messages = defineMessages("island", {
   "island.error.openRemoteTitle": "Could not open this remote item",
   "island.error.openRemote": "Could not open this item. Try again.",
   // A ticket the Reviewer merged, shown on the island for a few seconds.
+  "island.badge.merged": "Merged",
   "island.merged.title": "Merged by Reviewer",
   "island.merged.detail": "{ticket} · PR #{number}",
   "island.merged.viewTicket": "View ticket",

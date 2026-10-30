@@ -944,3 +944,74 @@ div.dynamic-island-surface-context-line span {
     transform: translateY(0) scale(1);
   }
 }
+
+/* A merged ticket (#199): the App icon the user set, the notice and a check. */
+.dynamic-island-surface-app-icon {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--openbot-radius-sm);
+}
+
+.dynamic-island-surface-app-icon img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.dynamic-island-surface-app-icon-large {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--openbot-radius-md);
+}
+
+.dynamic-island-surface-merged {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
+}
+
+.dynamic-island-surface-merged-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.dynamic-island-surface-merged-title {
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dynamic-island-surface-merged-detail {
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  line-height: var(--openbot-leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dynamic-island-surface-merged-check {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-success);
+  color: var(--openbot-text-on-status);
+}
+
+.dynamic-island-surface-merged-check svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  stroke-width: var(--openbot-icon-stroke);
+}

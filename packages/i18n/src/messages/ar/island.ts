@@ -70,6 +70,7 @@ export const messages = {
   "island.task.working": "شغّال على طلبك",
   "island.error.openRemoteTitle": "معرفناش نفتح العنصر البعيد ده",
   "island.error.openRemote": "معرفناش نفتح العنصر ده. حاول تاني.",
+  "island.badge.merged": "اتدمجت",
   "island.merged.title": "الـ Reviewer دمجها",
   "island.merged.detail": "{ticket} · PR #{number}",
   "island.merged.viewTicket": "افتح التيكت",
