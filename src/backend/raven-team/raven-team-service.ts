@@ -782,6 +782,11 @@ export class RavenTeamService {
                 skills: role.skills,
                 access: role.access,
                 ticket: job.brief,
+                // A pstack job (#197): its Builder follows the one playbook of the decision.
+                playbook:
+                  job.decision?.stack === "pstack" && roleId === RAVEN_TEAM_BUILDER_ROLE_ID
+                    ? job.decision.playbook
+                    : null,
               }),
               extra,
             ]
