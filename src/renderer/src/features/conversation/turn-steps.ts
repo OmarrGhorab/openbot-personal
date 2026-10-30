@@ -32,8 +32,7 @@ function stepText(step: AgentStep): string {
 
 /** What a list compares: the text, and for a live step its state and payload, so an ended step redraws. */
 function stepFingerprint(step: AgentStep): string {
-  if (step.kind === "command")
-    return `${step.text}\n${step.command ?? ""}\n${step.exitCode ?? ""}\n${step.status}`;
+  if (step.kind === "command") return `${step.text}\n${step.command ?? ""}\n${step.exitCode ?? ""}\n${step.status}`;
   if (step.kind === "file-change")
     return `${step.text}\n${step.files.map((file) => `${file.status}\n${file.path}`).join("\n")}\n${step.status}`;
   if (step.kind === "subagent") return `${step.text}\n${step.status}`;
@@ -59,6 +58,8 @@ export interface TraceLabels {
   message: (names: string) => string;
   /** The row of the call that starts a subagent, from the subagent's title. */
   subagent: (title: string) => string;
+  /** The row of a file change, from the names of its files. */
+  edited: (names: string) => string;
   /** The detail of the row of another agent's reply. */
   reply: string;
   /** The names of agents, from their ids. */
@@ -127,6 +128,13 @@ function storedSpans(
       } else if (command) {
         span.icon = "command";
         span.name = command;
+      } else if (step.files?.length) {
+        const names = step.files.map((file) => file.path.split(/[\\/]/u).pop() || file.path);
+        const shown = names.slice(0, 3).join(", ");
+        span.name = labels.edited(names.length > 3 ? `${shown}, …` : shown);
+        const additions = step.files.reduce((total, file) => total + (file.additions ?? 0), 0);
+        const deletions = step.files.reduce((total, file) => total + (file.deletions ?? 0), 0);
+        if (additions > 0 || deletions > 0) span.detail = `+${additions} −${deletions}`;
       }
       spans.push(span);
     } else {
@@ -198,7 +206,13 @@ function storedLiveStep(turnId: string, step: ConversationTurnTrace["steps"][num
       status: step.failed === true ? "failed" : "done",
     };
   if (step.command)
-    return { id, kind: "command", text: step.text, command: step.command, status: step.failed === true ? "failed" : "done" };
+    return {
+      id,
+      kind: "command",
+      text: step.text,
+      command: step.command,
+      status: step.failed === true ? "failed" : "done",
+    };
   if (step.recipientAgentIds?.length) return { id, kind: "subagent", text: step.text, status: "done" };
   return { id, kind: "progress", text: step.text };
 }

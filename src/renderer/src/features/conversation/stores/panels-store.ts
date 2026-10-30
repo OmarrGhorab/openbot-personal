@@ -47,8 +47,6 @@ export interface SidePanelsState {
   /** A task of null is a new task, until its first message starts it; an agent with no entry shows the task list. */
   tasks: Record<string, string | null>;
   subagents: Record<string, string>;
-  /** Whether the Changes pane of each chat is minimized to its count row. */
-  changesMinimized: Record<string, boolean>;
 }
 
 const SIDE_PANEL_EMPTY: SidePanelState = { panes: [], selected: null, maximized: false };
@@ -161,22 +159,11 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     return agentId ? (panels.subagents[agentId] ?? null) : null;
   };
   const changesOpen = () => activeRightPanel() === "changes";
-  const changesMinimized = (): boolean => {
-    const agentId = conversationOwnerId(deps.props);
-    return agentId ? (panels.changesMinimized[agentId] ?? false) : false;
-  };
   /** Opens the files of the newest turn with changes in the side panel. */
   function openChangesPanel(): void {
     const agentId = conversationOwnerId(deps.props);
     if (!agentId) return;
     setActiveRightPanel("changes", agentId);
-  }
-  function setChangesMinimized(minimized: boolean): void {
-    const agentId = conversationOwnerId(deps.props);
-    if (!agentId) return;
-    setPanels((draft) => {
-      draft.changesMinimized[agentId] = minimized;
-    });
   }
   const filePreviewOpen = () =>
     activeRightPanel() === "file-preview" &&
@@ -514,9 +501,7 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     panelSubagentId,
     openSubagentPanel,
     changesOpen,
-    changesMinimized,
     openChangesPanel,
-    setChangesMinimized,
     sidePanel,
     sidePanelOpen,
     setSidePanelMaximized,

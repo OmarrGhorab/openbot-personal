@@ -7,34 +7,10 @@
   min-width: 0;
 }
 
-.changes-panel-header {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-2) var(--openbot-space-3);
-}
-
-.changes-panel-title {
-  font-weight: 600;
-  color: var(--openbot-text-primary);
-}
-
 .changes-panel-count {
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-xs);
   margin-inline-end: auto;
-}
-
-.changes-minimized {
-  justify-content: space-between;
-}
-
-.changes-minimized-count {
-  color: var(--openbot-text-primary);
-}
-
-.changes-minimized-expand {
-  color: var(--openbot-text-muted);
 }
 
 .changes-empty,

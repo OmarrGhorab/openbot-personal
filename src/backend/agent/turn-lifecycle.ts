@@ -15,13 +15,13 @@ import {
   type ConversationSnapshot,
   type ConversationSubagent,
   type ConversationTurnTrace,
-  type TurnStepFile,
   clampConversationSubagents,
   conversationPlanText,
   conversationSubagentsText,
   countConversationMemoryChanges,
   isAgentContextCategories,
   latestTurnAnswer,
+  type TurnStepFile,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
@@ -78,8 +78,8 @@ import {
   toolUsage,
   toThreadItem,
 } from "./thread-items";
-import { TurnTraces, traceMessage } from "./turn-traces";
 import { buildTurnStepEvent, classifyTurnStepKind, TurnStepFileBudget, turnStepFiles } from "./turn-step-event";
+import { TurnTraces, traceMessage } from "./turn-traces";
 import { collectProviderUsage } from "./usage-collection";
 import { USAGE_LIMIT_METHOD, type UsageLimitGate } from "./usage-limit-gate";
 
@@ -578,7 +578,14 @@ export class TurnLifecycle {
         if (item.type === "collabAgentToolCall") this.#applyCodexSubagents(agentId, threadId, turnId, item);
         const threadItem = toThreadItem(item);
         if (!threadItem) return;
-        yield* this.#applyItem(agentId, threadId, turnId, threadItem, notification.method === "item/completed");
+        yield* this.#applyItem(
+          agentId,
+          threadId,
+          turnId,
+          threadItem,
+          notification.method === "item/completed",
+          getArray(params, "filePaths"),
+        );
         return;
       }
       case "item/reasoning/summaryTextDelta":
@@ -1375,12 +1382,17 @@ export class TurnLifecycle {
     turnId: string,
     item: ThreadItem,
     completed: boolean,
+    locations: readonly unknown[] = [],
   ) {
     const usage = completed ? toolUsage(item) : null;
     if (usage) this.#hooks.emitToolUsage({ ...usage, agentId, turnId });
     if (yield* this.#images.handleItem(agentId, threadId, turnId, item, completed)) return;
     const toolProgress = toolProgressText(item, completed);
-    const files = this.#turnStepFiles.take(turnId, turnStepFiles(item));
+    // Only a file-change step names changed files: a read or a search reports locations too.
+    const files =
+      classifyTurnStepKind(item) === "file-change"
+        ? this.#turnStepFiles.take(turnId, turnStepFiles(item, locations))
+        : [];
     this.#observeTraceStep(turnId, item, completed, toolProgress, files);
     this.#emitTurnStep(agentId, threadId, turnId, item, completed, toolProgress, files);
     if (toolProgress) {

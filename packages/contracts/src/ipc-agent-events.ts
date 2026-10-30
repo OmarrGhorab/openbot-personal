@@ -53,6 +53,8 @@ export interface TurnStepFile {
   status: TurnStepFileStatus;
   additions?: number | undefined;
   deletions?: number | undefined;
+  /** The unified diff of this step's change, built from the tool input. Local only, and redacted. */
+  diff?: string | undefined;
 }
 
 export type AgentEvent =
@@ -199,7 +201,8 @@ function isTurnStepFile(value: unknown): value is TurnStepFile {
     value.path.length > 0 &&
     isOneOf(TURN_STEP_FILE_STATUSES, value.status) &&
     (value.additions === undefined || integerInRange(value.additions, 0, Number.MAX_SAFE_INTEGER)) &&
-    (value.deletions === undefined || integerInRange(value.deletions, 0, Number.MAX_SAFE_INTEGER))
+    (value.deletions === undefined || integerInRange(value.deletions, 0, Number.MAX_SAFE_INTEGER)) &&
+    (value.diff === undefined || isBoundedString(value.diff, INPUT_LIMITS.turnStepDiff))
   );
 }
 

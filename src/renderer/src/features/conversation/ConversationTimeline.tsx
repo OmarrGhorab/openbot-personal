@@ -494,6 +494,7 @@ export function ConversationTimeline() {
         progress: sourceText,
         message: (agents) => t("chat.trace.step.message", { agents }),
         subagent: (title) => t("chat.trace.step.subagent", { title }),
+        edited: (names) => t("chat.trace.step.edited", { names }),
         reply: t("chat.trace.step.reply"),
         agentNames: (ids) =>
           format.list(

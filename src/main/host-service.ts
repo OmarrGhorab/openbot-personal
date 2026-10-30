@@ -64,7 +64,7 @@ import { TeamApiServer } from "./team-api-server";
 import type { RemoteDirectoryMember, TeamIdentity, TeamStore } from "./team-store";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcHostGateway } from "./team-webrtc-host-gateway";
-import { collectTurnFiles, readWorkspaceFileDiff } from "./turn-file-diff";
+import { collectTurnFiles, findStoredFileDiff, readWorkspaceFileDiff } from "./turn-file-diff";
 
 export const DEVELOPMENT_REMOTE_CLIENT_USERNAME = "openbot-dev-client";
 
@@ -1120,7 +1120,16 @@ export class HostService extends EventEmitter<HostEvents> {
     return this.#options.agents.resolveWorkspaceFile(agentId, inputPath).pipe(
       Effect.flatMap((resolved) =>
         resolved.insideWorkspace
-          ? Effect.promise(() => readWorkspaceFileDiff(resolved.path))
+          ? Effect.gen({ self: this }, function* () {
+              const current = yield* Effect.promise(() => readWorkspaceFileDiff(resolved.path));
+              // The diff of the turn comes first: the tool wrote it, so it needs no git checkout.
+              const stored = yield* remoteDecode(() => this.#currentAgentReaderId()).pipe(
+                Effect.flatMap((readerId) => this.#options.agents.readConversationFor(agentId, readerId)),
+                Effect.map((conversation) => findStoredFileDiff(conversation, inputPath)),
+                Effect.orElseSucceed(() => null),
+              );
+              return stored ? { ...current, diff: stored } : current;
+            })
           : Effect.fail(new RemoteWorkflowError({ cause: "outside the agent workspace" })),
       ),
       Effect.mapError((failure) =>

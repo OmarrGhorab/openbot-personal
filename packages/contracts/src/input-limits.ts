@@ -64,6 +64,9 @@ export const INPUT_LIMITS = {
   /** The live steps of one turn that the host keeps, and the files of one step. */
   turnSteps: 200,
   turnStepFiles: 32,
+  /** The unified diff that one file of a step keeps, and what all the files of one turn keep together. */
+  turnStepDiff: 20_000,
+  turnDiffBudget: 120_000,
   // A side question carries its earlier questions and answers, because nothing on the host keeps them.
   sideQuestionTurns: 20,
   sideQuestionAnswer: 32_000,

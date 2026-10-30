@@ -25,6 +25,49 @@ interface RunningTrace {
  * no times, so each time is when the host got the event. A turn ends with `take`, which removes it;
  * only a turn that `begin` started records steps, so a compaction turn keeps nothing here.
  */
+/**
+ * The files of a step after an event. The first event names the files; a later one, such as the
+ * completed item that carries the whole tool input, adds the counts and the diff that the first one
+ * did not have. A file keeps the first value it got.
+ */
+function mergeTraceFiles(
+  current: ConversationTraceStepFile[] | undefined,
+  incoming: readonly ConversationTraceStepFile[],
+): ConversationTraceStepFile[] {
+  const files = current ? [...current] : [];
+  for (const file of incoming) {
+    const index = files.findIndex((candidate) => candidate.path === file.path);
+    const existing = files[index];
+    if (existing) {
+      files[index] = {
+        path: existing.path,
+        status: existing.status,
+        ...optionalCounts({
+          additions: existing.additions ?? file.additions,
+          deletions: existing.deletions ?? file.deletions,
+        }),
+        ...((existing.diff ?? file.diff) ? { diff: existing.diff ?? file.diff } : {}),
+      };
+      continue;
+    }
+    if (files.length >= CONVERSATION_TRACE_FILE_LIMIT) continue;
+    files.push({
+      path: file.path,
+      status: file.status,
+      ...optionalCounts(file),
+      ...(file.diff === undefined ? {} : { diff: file.diff }),
+    });
+  }
+  return files;
+}
+
+function optionalCounts(counts: { additions?: number | undefined; deletions?: number | undefined }) {
+  return {
+    ...(counts.additions === undefined ? {} : { additions: counts.additions }),
+    ...(counts.deletions === undefined ? {} : { deletions: counts.deletions }),
+  };
+}
+
 export class TurnTraces {
   readonly #turns = new Map<string, RunningTrace>();
 
@@ -71,19 +114,7 @@ export class TurnTraces {
       step.command = redactText(command).slice(0, CONVERSATION_TRACE_TEXT_LIMIT);
     if (kind === "tool" && step.recipientAgentIds === undefined && event.recipientAgentIds?.length)
       step.recipientAgentIds = [...event.recipientAgentIds];
-    if (kind === "tool" && step.files === undefined && event.files?.length) {
-      const kept: ConversationTraceStepFile[] = [];
-      for (const file of event.files) {
-        if (kept.length >= CONVERSATION_TRACE_FILE_LIMIT) break;
-        kept.push({
-          path: file.path,
-          status: file.status,
-          ...(file.additions === undefined ? {} : { additions: file.additions }),
-          ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
-        });
-      }
-      if (kept.length > 0) step.files = kept;
-    }
+    if (kind === "tool" && event.files?.length) step.files = mergeTraceFiles(step.files, event.files);
     if (event.completed && step.endedAt === null) step.endedAt = now;
     if (event.completed && event.failed) step.failed = true;
   }

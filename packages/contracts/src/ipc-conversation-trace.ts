@@ -17,6 +17,8 @@ export interface ConversationTraceStepFile {
   status: "added" | "modified" | "deleted";
   additions?: number | undefined;
   deletions?: number | undefined;
+  /** The unified diff of the change, so a finished turn shows it without git. Redacted. */
+  diff?: string | undefined;
 }
 
 export interface ConversationTraceStep {
@@ -76,7 +78,8 @@ function isConversationTraceStepFile(value: unknown): value is ConversationTrace
     isBoundedString(value.path, INPUT_LIMITS.path) &&
     isOneOf(TRACE_FILE_STATUSES, value.status) &&
     (value.additions === undefined || isCount(value.additions)) &&
-    (value.deletions === undefined || isCount(value.deletions))
+    (value.deletions === undefined || isCount(value.deletions)) &&
+    (value.diff === undefined || isBoundedString(value.diff, INPUT_LIMITS.turnStepDiff))
   );
 }
 

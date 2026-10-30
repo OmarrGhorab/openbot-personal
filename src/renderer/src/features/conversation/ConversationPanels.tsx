@@ -147,8 +147,6 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     voiceConversationAvailable,
     panelSubagentId,
     changesOpen,
-    changesMinimized,
-    setChangesMinimized,
     channel,
   } = useConversationViewScope();
   const { activeTurns, turnLiveSteps } = useTurns();
@@ -246,6 +244,15 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     return files;
   });
   const [changesDiff, setChangesDiff] = createSignal<TurnFileDiffResult | null>(null);
+  /** The diff that the running turn's step carries for a path, before the trace stores it. */
+  const changesLiveDiff = (path: string): string | undefined => {
+    const turnId = changesActiveTurnId();
+    for (const step of [...(turnId ? (turnLiveSteps()[turnId] ?? []) : [])].reverse()) {
+      const diff = step.files?.find((file) => file.path === path)?.diff;
+      if (diff) return diff;
+    }
+    return undefined;
+  };
   createEffect(
     () => {
       if (!changesOpen()) return undefined;
@@ -262,10 +269,11 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       void conversationPort()
         .agent.readTurnFileDiff(input)
         .then((result) => {
-          if (!cancelled) setChangesDiff(result);
+          if (!cancelled) setChangesDiff({ ...result, diff: result.diff || (changesLiveDiff(input.path) ?? "") });
         })
         .catch(() => {
-          if (!cancelled) setChangesDiff(null);
+          const live = changesLiveDiff(input.path);
+          if (!cancelled) setChangesDiff(live ? { path: input.path, diff: live } : null);
         });
       return () => {
         cancelled = true;
@@ -616,11 +624,10 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
           selectedPath={changesPath()}
           diff={changesDiff() ?? null}
           view={changesView()}
-          minimized={changesMinimized()}
           onOpenFile={setChangesPath}
           onBack={() => setChangesPath(null)}
           onViewChange={setChangesView}
-          onToggleMinimized={() => setChangesMinimized(!changesMinimized())}
+          onClosePanel={() => closeSidePanelPane("changes")}
         />
       </Show>
 

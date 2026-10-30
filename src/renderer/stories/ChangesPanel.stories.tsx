@@ -30,13 +30,11 @@ const DIFF: ChangesFileDiff = {
 function Panel(props: {
   files: readonly ChangesFile[];
   diff: ChangesFileDiff | null;
-  startMinimized?: boolean;
   startPath?: string | null;
   startView?: ChangesView;
 }) {
   const [path, setPath] = createSignal<string | null>(props.startPath ?? null);
   const [view, setView] = createSignal<ChangesView>(props.startView ?? "diff");
-  const [minimized, setMinimized] = createSignal(props.startMinimized ?? false);
   return (
     <div class="conversation-panel" style={{ width: "420px", height: "560px" }}>
       <ChangesPanel
@@ -44,11 +42,10 @@ function Panel(props: {
         selectedPath={path()}
         diff={props.diff}
         view={view()}
-        minimized={minimized()}
         onOpenFile={setPath}
         onBack={() => setPath(null)}
         onViewChange={setView}
-        onToggleMinimized={() => setMinimized(!minimized())}
+        onClosePanel={() => undefined}
       />
     </div>
   );
@@ -70,11 +67,6 @@ export const Empty: Story = {
 /** The files of a turn, newest first. Opening a row shows its diff. */
 export const List: Story = {
   render: () => <Panel files={FILES} diff={null} />,
-};
-
-/** The minimized pane: one row with the file count. */
-export const Minimized: Story = {
-  render: () => <Panel files={FILES} diff={null} startMinimized />,
 };
 
 /** The diff of the opened file, with Diff/File views and a Back button. */

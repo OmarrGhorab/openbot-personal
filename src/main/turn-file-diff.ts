@@ -38,6 +38,21 @@ export function collectTurnFiles(agentId: string, snapshot: ConversationSnapshot
   return { agentId, threadId: snapshot.threadId, turnId: turnId ?? null, files };
 }
 
+/**
+ * The diff that the newest step stored for a path, or null. The trace keeps it as the tool wrote it,
+ * so a finished turn shows its own change, also in a workspace that is not a git checkout.
+ */
+export function findStoredFileDiff(snapshot: ConversationSnapshot, path: string): string | null {
+  for (const message of [...snapshot.messages].reverse()) {
+    for (const step of [...(message.trace?.steps ?? [])].reverse()) {
+      if (step.kind !== "tool") continue;
+      const file = step.files?.find((candidate) => candidate.path === path);
+      if (file?.diff) return file.diff;
+    }
+  }
+  return null;
+}
+
 /** The git checkout that holds a file, walking up from its folder, or null outside one. */
 async function gitRootOf(path: string, run: typeof execFile = execFile): Promise<string | null> {
   const root = await new Promise<string | null>((done) => {
