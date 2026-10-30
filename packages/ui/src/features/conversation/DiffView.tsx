@@ -1,4 +1,4 @@
-import { Button, ChevronRight } from "@openbot/ui";
+import { Button, ChevronLeft } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { For, Show } from "solid-js";
 import type { ChangesFile } from "./FileRow";
@@ -36,7 +36,7 @@ export function DiffView(props: {
           title={t("chat.changes.back")}
           onClick={() => props.onBack()}
         >
-          <ChevronRight class="changes-diff-back-icon" aria-hidden="true" />
+          <ChevronLeft aria-hidden="true" />
         </Button>
         <span class="changes-diff-path" title={props.file.path}>
           {props.file.path}

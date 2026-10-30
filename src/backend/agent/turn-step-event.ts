@@ -6,6 +6,8 @@ import {
   type TurnStepKind,
   type TurnStepStatus,
 } from "@openbot/contracts/ipc";
+/** The live step the chat draws, as the decoder holds it. */
+export type TurnStepEvent = Extract<AgentEvent, { type: "turn-step" }>;
 import { isString } from "@openbot/contracts/runtime-values";
 import { redactText } from "@openbot/logging";
 import { getArray, getRecord, getString, type ThreadItem } from "../protocol";
@@ -126,7 +128,7 @@ export function buildTurnStepEvent(input: TurnStepInput): AgentEvent | null {
   const rowText =
     kind === "thought" ? thoughtTitle(isString(item.text) ? item.text : "") : (text ?? "").trim();
   if (!rowText) return null;
-  const event: AgentEvent = {
+  const event: TurnStepEvent = {
     type: "turn-step",
     agentId,
     threadId,

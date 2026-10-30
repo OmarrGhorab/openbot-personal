@@ -50,7 +50,6 @@ export function ChangesPanel(props: {
             type="button"
             aria-label={t("chat.changes.minimize")}
             title={t("chat.changes.minimize")}
-            aria-pressed="false"
             onClick={() => props.onToggleMinimized()}
           >
             <span aria-hidden="true">–</span>

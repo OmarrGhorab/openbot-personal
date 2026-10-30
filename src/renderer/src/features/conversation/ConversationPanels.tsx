@@ -559,19 +559,17 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
       </Show>
 
       <Show when={changesOpen() && props.agent}>
-        {(agent) => (
-          <ChangesPanel
-            files={changesFiles()}
-            selectedPath={changesPath()}
-            diff={changesDiff() ?? null}
-            view={changesView()}
-            minimized={changesMinimized()}
-            onOpenFile={setChangesPath}
-            onBack={() => setChangesPath(null)}
-            onViewChange={setChangesView}
-            onToggleMinimized={() => setChangesMinimized(!changesMinimized())}
-          />
-        )}
+        <ChangesPanel
+          files={changesFiles()}
+          selectedPath={changesPath()}
+          diff={changesDiff() ?? null}
+          view={changesView()}
+          minimized={changesMinimized()}
+          onOpenFile={setChangesPath}
+          onBack={() => setChangesPath(null)}
+          onViewChange={setChangesView}
+          onToggleMinimized={() => setChangesMinimized(!changesMinimized())}
+        />
       </Show>
 
       <Show when={browserSidebarOpen() || browserExpandedOpen()}>

@@ -103,10 +103,6 @@
   padding: var(--openbot-space-1) var(--openbot-space-2);
 }
 
-.changes-diff-back-icon {
-  rotate: 180deg;
-}
-
 .changes-diff-path {
   overflow: hidden;
   text-overflow: ellipsis;

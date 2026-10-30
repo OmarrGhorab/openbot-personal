@@ -29,7 +29,7 @@ const TURN_LIMIT = 50;
 const STEP_LIMIT = 200;
 
 /** `steps` with `step` added or replaced in the turn, capped like the progress lines. */
-export function upsertTurnLiveStep(
+export function upsertTurnLiveSteps(
   steps: TurnLiveSteps,
   turnId: string,
   step: TurnLiveStep,

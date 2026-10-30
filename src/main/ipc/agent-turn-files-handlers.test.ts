@@ -1,7 +1,10 @@
 // @vitest-environment node
 
 import type { ConversationSnapshot, TurnFileDiffResult, TurnFilesResult } from "@openbot/contracts/ipc";
+import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
+import type { HostService } from "../host-service";
+import { RemoteWorkflowError } from "../remote-service-effects";
 import { agentTurnFilesIpcHandlers } from "./agent-turn-files-handlers";
 
 // Same reason as define-ipc-group.test.ts: electron cannot be imported outside an Electron process, so
@@ -58,21 +61,22 @@ function event(senderId: number, url = "openbot-app://app/index.html") {
 
 function register() {
   registrations.clear();
-  const listTurnFiles = vi.fn(async (agentId: string, turnId?: string): Promise<TurnFilesResult> => {
-    if (agentId !== "agent-1") throw new Error("unknown agent");
-    const files =
+  const fail = (reason: string) => Effect.fail(new RemoteWorkflowError({ cause: new Error(reason) }));
+  const listTurnFiles: HostService["listTurnFiles"] = vi.fn((agentId: string, turnId?: string) => {
+    if (agentId !== "agent-1") return fail("unknown agent");
+    const files: TurnFilesResult["files"] =
       turnId === undefined
-        ? [{ path: "/workspace/notes.md", status: "modified" as const }]
-        : [{ path: "/workspace/notes.md", status: "modified" as const, additions: 2, deletions: 1 }];
-    return { agentId, threadId: "thread-1", turnId: turnId ?? null, files };
+        ? [{ path: "/workspace/notes.md", status: "modified" }]
+        : [{ path: "/workspace/notes.md", status: "modified", additions: 2, deletions: 1 }];
+    return Effect.succeed({ agentId, threadId: "thread-1", turnId: turnId ?? null, files });
   });
-  const readTurnFileDiff = vi.fn(
-    async (agentId: string, path: string): Promise<TurnFileDiffResult> => {
-      if (agentId !== "agent-1") throw new Error("unknown agent");
-      if (path === "/etc/passwd") throw new Error("outside the agent workspace");
-      return { path, diff: "--- a/notes.md\n+++ b/notes.md\n@@ -1 +1 @@\n-old\n+new\n" };
-    },
-  );
+  const readTurnFileDiff: HostService["readTurnFileDiff"] = vi.fn((agentId: string, path: string) => {
+    if (agentId !== "agent-1" || path === "/etc/passwd") return fail("outside the agent workspace");
+    return Effect.succeed({
+      path,
+      diff: "--- a/notes.md\n+++ b/notes.md\n@@ -1 +1 @@\n-old\n+new\n",
+    });
+  });
   const { agentTurnFiles: handlers } = agentTurnFilesIpcHandlers({
     host: { listTurnFiles, readTurnFileDiff },
     mainRendererIds: () => new Set([MAIN_ID]),
