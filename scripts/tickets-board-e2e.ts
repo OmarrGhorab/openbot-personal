@@ -2,7 +2,7 @@
 // Storybook, on the `App/Tickets Board` story, and clicks every button that the page shows: the Board
 // and By agent switch, a lane, the agent strip, Pause, Resume and Stop of a work thread, Open ticket,
 // the drawer's Move to menu, the agent picker, Start now, the issue link, the steer box, Delete and its
-// confirmation, the review banner with Request changes and Approve (#191), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
+// confirmation, the review banner with Request changes and Approve (#191), Auto-detect of the type (#192), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
 // and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
 // connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
@@ -383,6 +383,12 @@ try {
   const dialog = page.getByRole("dialog", { name: t("tickets.new"), exact: true });
   await newTicket.click();
   await dialog.waitFor();
+  // Auto-detect shows the detected type after the person types (#192). Without Autopilot the option is hidden.
+  await dialog.getByRole("textbox", { name: t("tickets.new.name") }).fill("Fix the crash on start");
+  await dialog
+    .getByRole("tab", { name: t("tickets.new.typeAutoDetected", { type: t("tickets.type.bug") }), exact: true })
+    .waitFor();
+  assert.equal(await dialog.getByText(t("tickets.new.autopilot.title"), { exact: true }).count(), 0);
   await dialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
   await dialog.waitFor({ state: "detached" });
 

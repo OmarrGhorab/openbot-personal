@@ -5,26 +5,9 @@ import type {
   BoardTicketType,
   ConversationMessage,
 } from "@openbot/contracts/ipc";
-import {
-  ArrowLeft,
-  Button,
-  buttonVariants,
-  Dialog,
-  DropdownMenu,
-  Field,
-  IconButton,
-  Input,
-  PanelLeft,
-  Play,
-  Plus,
-  RefreshCw,
-  Textarea,
-  UsersRound,
-} from "@openbot/ui";
-import type { AgentProfile } from "@openbot/ui/data";
-import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
+import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw, UsersRound } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, createUniqueId, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
@@ -38,6 +21,7 @@ import {
   TicketsViewSwitch,
 } from "./TicketsBoard";
 import { TicketsChangesDialog } from "./TicketsChangesDialog";
+import { type TicketNew, type TicketsAutopilot as TicketsNewAutopilot, TicketsNewDialog } from "./TicketsNewDialog";
 import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
 import {
   autopilotNext,
@@ -48,13 +32,6 @@ import {
   type TicketsFilter,
   type TicketsView,
 } from "./tickets-model";
-
-/** A ticket that the New ticket dialog adds to the backlog. */
-export interface TicketNew {
-  title: string;
-  body: string;
-  agentId: string | null;
-}
 
 export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControls {
   /** The board lives on this computer. False on a joined server: the page then shows a notice. */
@@ -95,6 +72,11 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onRequestChanges?: ((ticket: BoardTicket, text: string) => Promise<boolean>) | undefined;
   /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
   sync?: TicketsSyncControls | undefined;
+  /**
+   * Autopilot for the New ticket dialog while its switch is on. Absent: the dialog hides "Let autopilot
+   * work on it". (Named apart from the board's `autopilot` below, which #189 added.)
+   */
+  newTicketAutopilot?: TicketsNewAutopilot | undefined;
   /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
   onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
   /**
@@ -371,7 +353,9 @@ export function TicketsPage(props: TicketsPageProps) {
       <Show when={creating()}>
         <TicketsNewDialog
           agents={props.agents}
+          snapshots={props.snapshots}
           agentId={agentId()}
+          autopilot={props.newTicketAutopilot}
           onClose={() => setCreating(false)}
           onCreate={props.onCreate}
           onStart={props.onStart}
@@ -390,146 +374,5 @@ function TicketsNotice(props: { title: string; body: string }) {
   );
 }
 
-const UNASSIGNED = "";
-
 /** How often the cards' times ("14m", "2h ago") count up. */
 const CLOCK_MS = 60_000;
-
-/**
- * The New ticket dialog: a title, details and an agent. Add to backlog keeps the ticket for later;
- * Start now starts its work thread with the agent. The agent of an open agent panel is chosen first.
- */
-function TicketsNewDialog(props: {
-  agents: readonly AgentProfile[];
-  agentId: string | null;
-  onClose: () => void;
-  onCreate: (ticket: TicketNew) => Promise<boolean>;
-  onStart: (start: TicketStart) => Promise<boolean>;
-}) {
-  const { t } = useText();
-  const [title, setTitle] = createSignal("");
-  const [body, setBody] = createSignal("");
-  const [agentId, setAgentId] = createSignal<string | null>(untrack(() => props.agentId));
-  const [busy, setBusy] = createSignal<"add" | "start" | null>(null);
-  const agent = () => props.agents.find((candidate) => candidate.id === agentId());
-  const trimmed = () => title().trim();
-
-  async function submit(start: boolean): Promise<void> {
-    const name = trimmed();
-    const owner = agentId();
-    if (!name || busy() || (start && !owner)) return;
-    setBusy(start ? "start" : "add");
-    const done =
-      start && owner
-        ? await props.onStart({ agentId: owner, title: name, body: body().trim() })
-        : await props.onCreate({ title: name, body: body().trim(), agentId: owner });
-    setBusy(null);
-    if (done) props.onClose();
-  }
-
-  return (
-    <Dialog.Root
-      open={true}
-      onOpenChange={(open) => {
-        if (!open && !busy()) props.onClose();
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay>
-          <Dialog.Content class="tickets-new" as="section">
-            <header class="tickets-new-header">
-              <Dialog.Title as="h2" class="tickets-new-title">
-                {t("tickets.new")}
-              </Dialog.Title>
-              <Dialog.Description class="tickets-muted">{t("tickets.new.description")}</Dialog.Description>
-            </header>
-            <form
-              class="tickets-new-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit(false);
-              }}
-            >
-              <Field label={t("tickets.new.name")} required>
-                <Input value={title()} disabled={busy() !== null} onValueChange={setTitle} />
-              </Field>
-              <Field label={t("tickets.new.details")}>
-                <Textarea
-                  value={body()}
-                  rows={4}
-                  disabled={busy() !== null}
-                  placeholder={t("tickets.new.detailsPlaceholder")}
-                  onValueChange={setBody}
-                />
-              </Field>
-              <div class="tickets-new-agent">
-                <span class="tickets-stat-label">{t("tickets.new.agent")}</span>
-                <DropdownMenu.Root placement="bottom-start" gutter={4}>
-                  <DropdownMenu.Trigger
-                    class={`${buttonVariants({ variant: "outline", size: "sm" })} tickets-drawer-agent`}
-                    aria-label={t("tickets.new.agent")}
-                    disabled={busy() !== null}
-                  >
-                    <Show when={agent()} fallback={t("tickets.card.unassigned")}>
-                      {(owner) => (
-                        <>
-                          <AgentAvatar agent={owner()} class="tickets-drawer-avatar" />
-                          {owner().name}
-                        </>
-                      )}
-                    </Show>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content class="tickets-new-menu">
-                      <DropdownMenu.RadioGroup
-                        value={agentId() ?? UNASSIGNED}
-                        onChange={(value: string) => setAgentId(value === UNASSIGNED ? null : value)}
-                      >
-                        <DropdownMenu.RadioItem value={UNASSIGNED} closeOnSelect>
-                          {t("tickets.card.unassigned")}
-                        </DropdownMenu.RadioItem>
-                        <For each={props.agents} keyed={(option) => option.id}>
-                          {(option) => (
-                            <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tickets-drawer-agent">
-                              <AgentAvatar agent={option()} class="tickets-drawer-avatar" />
-                              {option().name}
-                            </DropdownMenu.RadioItem>
-                          )}
-                        </For>
-                      </DropdownMenu.RadioGroup>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
-              </div>
-              <Show when={!agentId()}>
-                <p class="tickets-muted">{t("tickets.new.needsAgent")}</p>
-              </Show>
-              <footer class="tickets-new-actions">
-                <Button type="button" variant="ghost" disabled={busy() !== null} onClick={props.onClose}>
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  loading={busy() === "add"}
-                  disabled={!trimmed() || busy() !== null}
-                >
-                  {t("tickets.new.add")}
-                </Button>
-                <Button
-                  type="button"
-                  loading={busy() === "start"}
-                  disabled={!trimmed() || !agentId() || busy() !== null}
-                  onClick={() => void submit(true)}
-                >
-                  <Play aria-hidden="true" />
-                  {t("tickets.new.start")}
-                </Button>
-              </footer>
-            </form>
-          </Dialog.Content>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
