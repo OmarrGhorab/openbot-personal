@@ -16,6 +16,7 @@ import {
   RAVEN_TEAM_ROUND_CAP,
   type RavenAutopilotDecision,
   type RavenAutopilotDecisionSwitch,
+  type RavenAutopilotMerge,
   type RavenTeamJob,
   type RavenTeamPlan,
   type RavenTeamQuestion,
@@ -23,6 +24,7 @@ import {
   type RavenTeamReport,
   type RavenTeamTemplate,
   type RavenTeamVerdict,
+  type RavenTicketMerged,
   ravenTeamPlatformName,
   workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
@@ -170,6 +172,8 @@ export class RavenTeamService {
   readonly #platform: string;
   readonly #workspaceOnlySupported: (provider: AgentProviderId) => boolean;
   readonly #lock = Semaphore.makeUnsafe(1);
+  /** The listeners of `onTicketMerged` (#198). */
+  readonly #mergedListeners = new Set<(event: RavenTicketMerged) => void>();
 
   constructor(options: RavenTeamServiceOptions) {
     this.#store = options.store;
@@ -222,6 +226,43 @@ export class RavenTeamService {
    */
   plan(input: PlanRavenTeamInput): RavenTeamPlan {
     return this.#planFor(input);
+  }
+
+  /**
+   * Listens for a ticket that the Reviewer merged (#198). It is called once per merge, after the job's
+   * ticket moved to Done. Answers the unsubscribe. Main passes it on to the merge notification (#199):
+   * `ravenTeam.onTicketMerged((event) => services.ticketMerge.notifyTicketMerged(event))`.
+   */
+  onTicketMerged(listener: (event: RavenTicketMerged) => void): () => void {
+    this.#mergedListeners.add(listener);
+    return () => {
+      this.#mergedListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Records what the Reviewer's merge (#198) did with an Autopilot job: merged, or why not. A merge is
+   * recorded once: a second record for a merged job is ignored. A merge moves the ticket to Done, and
+   * then `event` goes to each `onTicketMerged` listener.
+   */
+  recordMerge(jobId: string, merge: RavenAutopilotMerge, event: RavenTicketMerged | null): Effect.Effect<void> {
+    return this.#lock.withPermit(
+      Effect.sync(() => {
+        const job = this.#store.findJob(jobId);
+        const decision = job?.decision;
+        if (!job || !decision || decision.merge?.state === "merged") return;
+        this.#store.updateJob(jobId, { decision: { ...decision, merge } }, this.#now());
+        this.#changed(jobId);
+        if (merge.state !== "merged" || event === null) return;
+        for (const listener of this.#mergedListeners) {
+          try {
+            listener(event);
+          } catch (error) {
+            logger.warn("A ticket-merged listener failed.", { cause: redactText(String(error)) });
+          }
+        }
+      }),
+    );
   }
 
   listJobs(): RavenTeamJob[] {
@@ -935,6 +976,11 @@ export class RavenTeamService {
         return;
       }
       const commit = report.commit;
+      // The pull request of an Autopilot job (#198): the Reviewer's merge reads it. A report with none keeps the last one.
+      const decision = this.#job(jobId).decision;
+      if (decision && report.pr !== null && decision.pullRequest !== report.pr) {
+        this.#store.updateJob(jobId, { decision: { ...decision, pullRequest: report.pr } }, now);
+      }
       this.#store.updateRole(
         jobId,
         RAVEN_TEAM_BUILDER_ROLE_ID,
