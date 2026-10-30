@@ -5,6 +5,7 @@ import {
   BOARD_TICKET_EVENT_LIMIT,
   BOARD_TICKET_LIST_LIMIT,
   BOARD_TICKET_PROVIDERS,
+  BOARD_TICKET_TYPE_SOURCES,
   type BoardTicket,
   type BoardTicketActor,
   type BoardTicketEvent,
@@ -12,7 +13,10 @@ import {
   type BoardTicketExternal,
   type BoardTicketProvider,
   type BoardTicketStatus,
+  type BoardTicketType,
+  type BoardTicketTypeSource,
   isBoardTicketStatus,
+  isBoardTicketType,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isOneOf } from "@openbot/contracts/runtime-values";
 import {
@@ -30,6 +34,8 @@ export interface NewBoardTicket {
   body: string;
   status: BoardTicketStatus;
   agentId: string | null;
+  type?: BoardTicketType | null;
+  typeSource?: BoardTicketTypeSource | null;
   taskId?: string | null;
   threadId?: string | null;
   teamJobId?: string | null;
@@ -42,6 +48,9 @@ export interface BoardTicketPatch {
   title?: string;
   body?: string;
   agentId?: string | null;
+  /** The type and who set it. Present together. */
+  type?: BoardTicketType | null;
+  typeSource?: BoardTicketTypeSource | null;
   taskId?: string | null;
   threadId?: string | null;
   external?: BoardTicketExternal | null;
@@ -57,7 +66,7 @@ export interface BoardSettingsRecord {
 }
 
 /**
- * Owns `board_tickets`, `board_ticket_events` and `board_settings` (migration 51). It never imports the
+ * Owns `board_tickets`, `board_ticket_events` and `board_settings` (migrations 51 and 52). It never imports the
  * database facade's callers and opens no transaction of its own.
  *
  * Order is a REAL so a move between two tickets takes the midpoint and changes one row only.
@@ -123,16 +132,18 @@ export class BoardTicketStore {
     const external = input.external ?? null;
     this.#database.connection
       .prepare(
-        `INSERT INTO board_tickets (ticket_id, title, body, status, agent_id, sort_order, task_id, thread_id,
-           team_job_id, team_role_id, external_provider, external_key, external_url, progress, error,
+        `INSERT INTO board_tickets (ticket_id, title, body, status, type, type_source, agent_id, sort_order, task_id,
+           thread_id, team_job_id, team_role_id, external_provider, external_key, external_url, progress, error,
            status_changed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
       )
       .run(
         ticketId,
         input.title,
         input.body,
         input.status,
+        input.type ?? null,
+        input.type ? (input.typeSource ?? "detected") : (input.typeSource ?? null),
         input.agentId,
         this.#endOrder(input.status),
         input.taskId ?? null,
@@ -158,6 +169,8 @@ export class BoardTicketStore {
       ["title", patch.title, "title" in patch],
       ["body", patch.body, "body" in patch],
       ["agent_id", patch.agentId, "agentId" in patch],
+      ["type", patch.type, "type" in patch],
+      ["type_source", patch.typeSource, "typeSource" in patch],
       ["task_id", patch.taskId, "taskId" in patch],
       ["thread_id", patch.threadId, "threadId" in patch],
       ["progress", patch.progress, "progress" in patch],
@@ -339,6 +352,12 @@ export class BoardTicketStore {
 function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicketStatus, string>>): BoardTicket {
   const status = requiredStringColumn(row, "status");
   if (!isBoardTicketStatus(status)) throw new Error(`Unknown board ticket status: ${status}`);
+  const type = optionalStringColumn(row, "type");
+  if (type !== null && !isBoardTicketType(type)) throw new Error(`Unknown board ticket type: ${type}`);
+  const typeSource = optionalStringColumn(row, "type_source");
+  if (typeSource !== null && !isOneOf(BOARD_TICKET_TYPE_SOURCES, typeSource)) {
+    throw new Error(`Unknown board ticket type source: ${typeSource}`);
+  }
   const provider = optionalStringColumn(row, "external_provider");
   const key = optionalStringColumn(row, "external_key");
   const url = optionalStringColumn(row, "external_url");
@@ -352,6 +371,8 @@ function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicke
     title: requiredStringColumn(row, "title"),
     body: requiredStringColumn(row, "body"),
     status,
+    type,
+    typeSource,
     agentId: optionalStringColumn(row, "agent_id"),
     order: requiredNumberColumn(row, "sort_order"),
     taskId: optionalStringColumn(row, "task_id"),

@@ -56,7 +56,8 @@ export async function routeBoardTickets(
       case BOARD_TICKETS_ROUTES.events: {
         const ticketId = parse(() => parseBoardTicketId(body.ticketId));
         requireVisibleTicket(ticketId);
-        return json(200, { events: board.events(ticketId) });
+        // board-tickets-v1 is frozen without the `type_changed` kind, so the host leaves those events out.
+        return json(200, { events: board.events(ticketId).filter((event) => event.kind !== "type_changed") });
       }
       case BOARD_TICKETS_ROUTES.create:
         return json(200, board.create(parse(() => parseCreateBoardTicket(body))));

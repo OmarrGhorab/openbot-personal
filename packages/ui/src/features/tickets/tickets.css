@@ -213,6 +213,55 @@
   color: var(--openbot-text-dim);
 }
 
+/* The type chip (Figma "Type chip"): a dot in the type's colour and its name, on the glass surface. */
+.tickets-type {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: calc(var(--openbot-space-1) + 1px);
+  padding: var(--openbot-space-0-5) calc(var(--openbot-space-1-5) + 1px) var(--openbot-space-0-5)
+    var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tickets-type-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--tickets-type);
+}
+
+.tickets-type[data-type="feature"] {
+  --tickets-type: var(--openbot-accent);
+}
+
+.tickets-type[data-type="bug"] {
+  --tickets-type: var(--openbot-danger);
+}
+
+.tickets-type:is([data-type="chore"], [data-type="unset"]) {
+  --tickets-type: var(--openbot-text-dim);
+}
+
+.tickets-type[data-type="unset"] {
+  color: var(--openbot-text-muted);
+}
+
+/* The top row of a card: the type chip, then where the ticket comes from. */
+.tickets-card-top {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
 /* The ticket system and key above the title: where the ticket comes from. */
 .tickets-card-source {
   display: inline-flex;
@@ -914,4 +963,10 @@
 
 .tickets-sync-stop.ui-button {
   margin-inline-end: auto;
+}
+
+/* The type picker of the drawer: the chip is the button's content, so the button keeps no extra padding. */
+.tickets-drawer-type.ui-button {
+  gap: 0;
+  padding-inline: var(--openbot-space-1);
 }
