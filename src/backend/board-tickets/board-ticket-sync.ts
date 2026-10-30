@@ -175,18 +175,23 @@ export class BoardTicketSync {
     this.#announce();
   }).bind(this);
 
-  /** Adds an issue to Backlog once. A linked ticket takes the new title and text, and keeps its column. */
+  /**
+   * Adds an issue to Backlog once, with the type that its labels, title or text show. A linked ticket takes
+   * the new title and text, keeps its column, and gets the type again unless a person or an agent chose it.
+   */
   #importIssue(provider: BoardTicketProvider, issue: BoardTicketSyncIssue): void {
     if (issue.key.length > BOARD_TICKET_EXTERNAL_KEY_LIMIT || issue.url.length > BOARD_TICKET_URL_LIMIT) return;
     const { store, board } = this.#options;
     const title = issue.title.replace(/\s+/gu, " ").trim().slice(0, BOARD_TICKET_TITLE_LIMIT) || issue.key;
     const body = issue.body.slice(0, BOARD_TICKET_BODY_LIMIT);
+    const labels = issue.labels ?? [];
     const linked = store.forExternal(provider, issue.key);
     if (!linked) {
-      board.create({ title, body }, "sync", { external: { provider, key: issue.key, url: issue.url } });
+      board.create({ title, body }, "sync", { external: { provider, key: issue.key, url: issue.url } }, labels);
       return;
     }
     if (linked.title !== title || linked.body !== body) board.update({ ticketId: linked.id, title, body }, "sync");
+    board.redetectType(linked.id, { labels, title, body }, "sync");
   }
 
   /**

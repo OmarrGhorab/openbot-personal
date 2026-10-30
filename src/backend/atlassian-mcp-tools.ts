@@ -79,6 +79,8 @@ const issuesSchema = Schema.Struct({
       fields: Schema.Struct({
         summary: Schema.optional(Schema.String),
         description: Schema.optional(Schema.NullOr(Schema.String)),
+        labels: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+        issuetype: Schema.optional(Schema.NullOr(Schema.Struct({ name: Schema.String }))),
       }),
     }),
   ),
@@ -199,7 +201,7 @@ export function createAtlassianTools(options: AtlassianToolsOptions): AtlassianT
         {
           cloudId,
           jql: `project = ${project} AND statusCategory != Done ORDER BY created DESC`,
-          fields: ["summary", "description"],
+          fields: ["summary", "description", "labels", "issuetype"],
           maxResults: OPEN_ISSUE_LIMIT,
         },
         issuesSchema,
@@ -210,6 +212,11 @@ export function createAtlassianTools(options: AtlassianToolsOptions): AtlassianT
               key: issue.key,
               summary: issue.fields.summary ?? "",
               description: issue.fields.description ?? "",
+              // The issue type, such as Bug or Story, counts as one more label for the ticket type.
+              labels: [
+                ...(issue.fields.labels ?? []),
+                ...(issue.fields.issuetype ? [issue.fields.issuetype.name] : []),
+              ],
             }),
           ),
         ),

@@ -51,7 +51,17 @@ interface BoardTicketIpcDependencies {
   remoteServers: BoardTicketRemoteServers;
 }
 
-const decodeTicket: ResponseDecoder<BoardTicket> = (value) => {
+/**
+ * The frozen board-tickets-v1 wire carries no ticket type, so a ticket from a joined server has the type
+ * "not set yet". A field that the server did send stays as it is.
+ */
+function withWireType(value: unknown): unknown {
+  if (!isDynamicRecord(value) || "type" in value) return value;
+  return { ...value, type: null, typeSource: null };
+}
+
+const decodeTicket: ResponseDecoder<BoardTicket> = (input) => {
+  const value = withWireType(input);
   if (!isBoardTicket(value)) throw new Error("The server sent an invalid ticket.");
   return value;
 };
@@ -62,9 +72,9 @@ const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
 };
 
 const decodeTickets: ResponseDecoder<BoardTicket[]> = (value) => {
-  if (!isDynamicRecord(value) || !isBoardTicketList(value.tickets))
-    throw new Error("The server sent an invalid board.");
-  return value.tickets;
+  const tickets = isDynamicRecord(value) && Array.isArray(value.tickets) ? value.tickets.map(withWireType) : null;
+  if (!isBoardTicketList(tickets)) throw new Error("The server sent an invalid board.");
+  return tickets;
 };
 
 const decodeEvents: ResponseDecoder<BoardTicketEvent[]> = (value) => {

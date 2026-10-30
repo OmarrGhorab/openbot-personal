@@ -6,6 +6,7 @@ import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 import { TicketsProviderMark } from "./TicketsProviderMark";
+import { TicketTypeChip } from "./TicketTypeChip";
 import {
   columnTickets,
   isTicketsView,
@@ -107,13 +108,18 @@ export function TicketCard(
       pressed={props.selected}
       onPress={() => props.onSelect(props.ticket.id)}
     >
-      <Show when={props.ticket.external}>
-        {(external) => (
-          <span class="tickets-card-source">
-            <TicketsProviderMark provider={external().provider} class="tickets-card-source-mark" />
-            <span class="tickets-card-key">{external().key}</span>
-          </span>
-        )}
+      <Show when={props.ticket.type !== null || props.ticket.external !== null}>
+        <span class="tickets-card-top">
+          <TicketTypeChip type={props.ticket.type} />
+          <Show when={props.ticket.external}>
+            {(external) => (
+              <span class="tickets-card-source">
+                <TicketsProviderMark provider={external().provider} class="tickets-card-source-mark" />
+                <span class="tickets-card-key">{external().key}</span>
+              </span>
+            )}
+          </Show>
+        </span>
       </Show>
       <span class="tickets-card-title">{props.ticket.title}</span>
       <Show when={progress()}>{(line) => <span class="tickets-card-progress">{line()}</span>}</Show>

@@ -269,6 +269,17 @@ export function TicketsPanel(props: TicketsPanelProps) {
           .then(() => changedOnServer(ticketId))
           .catch((error) => fail(error, "tickets.error.assign"));
       }}
+      // The board-tickets-v1 wire of a joined server carries no type, so only this computer's board sets one.
+      onSetType={
+        local()
+          ? (ticketId, type) => {
+              boardTickets()
+                .update({ ticketId, type }, props.serverId)
+                .then(() => changedOnServer(ticketId))
+                .catch((error) => fail(error, "tickets.error.type"));
+            }
+          : undefined
+      }
       onDelete={(ticketId) => {
         boardTickets()
           .delete(ticketId, props.serverId)

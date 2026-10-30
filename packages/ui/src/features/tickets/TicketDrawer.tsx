@@ -1,9 +1,12 @@
-import type {
-  AgentTasksSnapshot,
-  BoardTicket,
-  BoardTicketEvent,
-  BoardTicketStatus,
-  ConversationMessage,
+import {
+  type AgentTasksSnapshot,
+  BOARD_TICKET_TYPES,
+  type BoardTicket,
+  type BoardTicketEvent,
+  type BoardTicketStatus,
+  type BoardTicketType,
+  type ConversationMessage,
+  isBoardTicketType,
 } from "@openbot/contracts/ipc";
 import {
   Button,
@@ -26,6 +29,7 @@ import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, Show } from "solid-js";
+import { TICKET_TYPE_LABEL, TicketTypeChip } from "./TicketTypeChip";
 import {
   finishedTurns,
   latestPlan,
@@ -52,6 +56,8 @@ export interface TicketDrawerProps {
   onStart: () => void;
   onMove: (status: BoardTicketStatus) => void;
   onAssign: (agentId: string | null) => void;
+  /** The person's choice of type, which wins over detection. Without it, the drawer shows the chip only. */
+  onSetType?: ((type: BoardTicketType | null) => void) | undefined;
   onDelete: () => void;
   /** Opens the ticket's work thread. Without it, the drawer has no button for the thread. */
   onOpenThread?: (() => void) | undefined;
@@ -67,6 +73,7 @@ export interface TicketDrawerProps {
 }
 
 const UNASSIGNED = "";
+const NO_TYPE = "";
 
 /**
  * The detail of one ticket: the status stepper, the stats that have a source, the live activity, the
@@ -116,6 +123,10 @@ export function TicketDrawer(props: TicketDrawerProps) {
         return event.text
           ? t("tickets.event.assigned", { name: agentName(event.text) })
           : t("tickets.event.unassigned");
+      case "type_changed":
+        return isBoardTicketType(event.text)
+          ? t("tickets.event.typeChanged", { type: t(TICKET_TYPE_LABEL[event.text]) })
+          : t("tickets.event.typeCleared");
       default:
         return event.text ?? "";
     }
@@ -185,6 +196,37 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
+          <Show when={props.onSetType} fallback={<TicketTypeChip type={props.ticket.type} />}>
+            {(setType) => (
+              <DropdownMenu.Root placement="bottom-start" gutter={4}>
+                <DropdownMenu.Trigger
+                  class={`${buttonVariants({ variant: "outline", size: "sm" })} tickets-drawer-type`}
+                  aria-label={t("tickets.type.label")}
+                >
+                  <TicketTypeChip type={props.ticket.type} unset />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content>
+                    <DropdownMenu.RadioGroup
+                      value={props.ticket.type ?? NO_TYPE}
+                      onChange={(value: string) => setType()(isBoardTicketType(value) ? value : null)}
+                    >
+                      <For each={BOARD_TICKET_TYPES}>
+                        {(type) => (
+                          <DropdownMenu.RadioItem value={type} closeOnSelect>
+                            <TicketTypeChip type={type} />
+                          </DropdownMenu.RadioItem>
+                        )}
+                      </For>
+                      <DropdownMenu.RadioItem value={NO_TYPE} closeOnSelect>
+                        {t("tickets.type.unset")}
+                      </DropdownMenu.RadioItem>
+                    </DropdownMenu.RadioGroup>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            )}
+          </Show>
           <Show when={!props.ticket.taskId}>
             <Button size="sm" disabled={!props.ticket.agentId} onClick={props.onStart}>
               <Play aria-hidden="true" />

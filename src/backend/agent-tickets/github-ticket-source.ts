@@ -20,6 +20,8 @@ const githubIssueSchema = Schema.Struct({
   title: Schema.String,
   body: Schema.NullOr(Schema.String),
   html_url: Schema.String,
+  // A label is an object with a name; an old payload can give a plain name.
+  labels: Schema.optional(Schema.Array(Schema.Union([Schema.String, Schema.Struct({ name: Schema.String })]))),
 });
 const githubIssuesSchema = Schema.Array(githubIssueSchema);
 
@@ -108,6 +110,7 @@ export class GitHubTicketSource implements TicketSource {
       title: issue.title,
       body: issue.body ?? "",
       url: issue.html_url,
+      labels: (issue.labels ?? []).map((label) => (typeof label === "string" ? label : label.name)),
     }));
   }).bind(this);
 
