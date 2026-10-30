@@ -23,10 +23,10 @@ const logger = createOpenBotLogger("ticket-take");
 const FIX_INTENT = /(?:^|[^\p{L}])(?:fix|repair|resolve|debug|صلح|صلّح|اصلح|أصلح)(?=$|[^\p{L}])/iu;
 
 /** The board operations a take uses. */
-export type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create">;
+type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create">;
 
 /** The sync operations a take uses: which systems are connected, and the import of one issue by key. */
-export interface TicketTakeSync {
+interface TicketTakeSync {
   connected(): readonly BoardTicketProvider[];
   importIssueByKey(provider: BoardTicketProvider, key: string): Effect.Effect<string | null, unknown>;
 }

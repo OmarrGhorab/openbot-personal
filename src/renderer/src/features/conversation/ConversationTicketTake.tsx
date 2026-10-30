@@ -99,7 +99,7 @@ export function createChatTicketTake() {
   };
 }
 
-export type ChatTicketTake = ReturnType<typeof createChatTicketTake>;
+type ChatTicketTake = ReturnType<typeof createChatTicketTake>;
 
 /** A key at the start of a title, such as `PROJ-482` in "PROJ-482: Checkout fails". Null when it has none. */
 function keyFromTitle(title: string): string | null {

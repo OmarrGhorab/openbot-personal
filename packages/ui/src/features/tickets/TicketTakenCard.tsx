@@ -47,7 +47,7 @@ function useMinutesSince(start: () => string) {
   };
 }
 
-export interface TicketTakenCardProps {
+interface TicketTakenCardProps {
   /** The job of the taken ticket. Its decision names the stack, the models and why. */
   job: RavenTeamJob;
   /** The issue key, such as `PROJ-482`. Null for a ticket that lives on this computer only. */
@@ -173,7 +173,7 @@ export function TicketTakenCard(props: TicketTakenCardProps) {
   );
 }
 
-export interface TicketTakeNoticeProps {
+interface TicketTakeNoticeProps {
   /** `connect`: the ticket system is not connected. `failed`: the ticket was found, but no job started. */
   kind: "connect" | "failed";
   ticketKey: string;

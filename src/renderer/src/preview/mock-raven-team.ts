@@ -447,7 +447,7 @@ function previewRunningJob(): RavenTeamJob {
  * A job that an agent took from a chat message (#200): pstack · tdd for a Bug, the Builder at work and the
  * Reviewer waiting. Its decision names the agent of the chat, so the chat shows the "Ticket taken" card.
  */
-export function previewTakenJob(key: string, agentId: string, index = 1): RavenTeamJob {
+function previewTakenJob(key: string, agentId: string, index = 1): RavenTeamJob {
   const at = new Date().toISOString();
   const model = PREVIEW_MODELS[1]?.id ?? "";
   const reviewModel = PREVIEW_MODELS[0]?.id ?? model;
