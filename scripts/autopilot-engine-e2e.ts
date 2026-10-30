@@ -25,6 +25,13 @@
 // 7. pstack · tdd (#197): with `pstack-tdd` installed, a Bug with a failing case starts a pstack job: stack
 //    `pstack`, playbook `tdd`, only a Builder and a Reviewer. The Builder's first message names
 //    `$pstack-tdd` and not the Raven Stack build skills, and the job passes the review.
+// 8. Reviewer merge (#198), with a fake GitHub that records each merge:
+//    - with "Reviewer can merge" off, a passed job waits in Needs review and nothing merges;
+//    - with it on for Features and CI green, the passed head merges once with squash and the head as
+//      precondition, the ticket moves to Done with the merged note, and `onTicketMerged` fires once;
+//    - when the pull request head is not the commit that passed, nothing merges, the decision records
+//      `new-commit` and the ticket stays in Needs review with the note;
+//    - after the setting is turned off again, the next passed job does not merge.
 //
 // `bun scripts/autopilot-engine-e2e.ts`. Writes .openbot-build/autopilot/autopilot-engine-e2e.json.
 
@@ -34,10 +41,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/agent-providers";
-import type { BoardTicket, RavenAutopilotSettings, RavenTeamJob } from "@openbot/contracts/ipc";
+import type { BoardTicket, RavenAutopilotSettings, RavenTeamJob, RavenTicketMerged } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
+import type { PullRequestMerger } from "../src/backend/raven-team/github-pull-request-merger";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/autopilot");
 const root = await mkdtemp(join(tmpdir(), "openbot-autopilot-engine-"));
@@ -109,7 +117,7 @@ const scriptedReply = (threadId, text, count) => {
   if (role === "Architect") return "Plan: change the helper.\\nRAVEN-REPORT: {\\"verdict\\":\\"DONE\\"}";
   if (role === "Builder") {
     const head = HEADS[Math.min(count - 1, HEADS.length - 1)];
-    return "Built the ticket and got CI green.\\nRAVEN-REPORT: {\\"verdict\\":\\"DONE\\",\\"commit\\":\\"" + head + "\\"}";
+    return "Built the ticket and got CI green.\\nRAVEN-REPORT: {\\"verdict\\":\\"DONE\\",\\"commit\\":\\"" + head + "\\",\\"pr\\":\\"https://github.com/openbot/autopilot-e2e/pull/7\\"}";
   }
   if (role === "Reviewer") {
     const seen = (reviewCount.get(threadId) || 0) + 1;
@@ -199,7 +207,7 @@ const report: {
     "A model that plans, codes or reviews. The verdicts here are scripted.",
     "The pause on a usage limit. The scripted provider has no usage limit to report.",
     "The Tickets drawer and the Autopilot tab in the running app. Not run in this check.",
-    "A pull request, CI and a merge. Merge belongs to #198.",
+    "A real GitHub pull request, CI and merge. Check 8 uses a fake GitHub that records each merge.",
   ],
 };
 
@@ -251,6 +259,14 @@ function turnCount(): number {
 
 /** The Autopilot settings of the check. Read by the engine at each pick-up, so a change applies at once. */
 let settings: RavenAutopilotSettings = { ...defaultRavenAutopilotSettings(), enabled: true, ticketsAtOnce: 2 };
+/** The fake GitHub of the Reviewer merge (#198): what `read` answers, and each merge it was asked for. */
+const fakeGitHub: {
+  /** `match`: the pull request head is the head of the job of `ticketId`. `moved`: it is another commit. */
+  head: "match" | "moved";
+  ticketId: string | null;
+  merges: { number: number; sha: string; method: string }[];
+} = { head: "match", ticketId: null, merges: [] };
+const mergedEvents: RavenTicketMerged[] = [];
 /** Whether the `pstack-tdd` skill counts as installed. The engine reads it at each pick-up (#197). */
 let pstackInstalled = false;
 
@@ -287,6 +303,23 @@ async function startRuntime() {
     platform: "linux",
     workspaceOnlySupported: () => true,
   });
+  team.onTicketMerged((event) => mergedEvents.push(event));
+  const merger: PullRequestMerger = {
+    read: () =>
+      Effect.sync(() => {
+        const job = team.listJobs().find((candidate) => candidate.decision?.ticketId === fakeGitHub.ticketId);
+        const head = job?.headCommit ?? "0".repeat(40);
+        return {
+          headSha: fakeGitHub.head === "match" ? head : "f".repeat(40),
+          state: "open" as const,
+          checks: "green" as const,
+        };
+      }),
+    merge: (pr, input) =>
+      Effect.sync(() => {
+        fakeGitHub.merges.push({ number: pr.number, sha: input.sha, method: input.method });
+      }),
+  };
   agents.on("turn", (event) => Effect.runFork(team.notice(event)));
   agents.on("event", (event) => {
     if (event.type === "agents-changed" || event.type === "error") Effect.runFork(team.notice(event));
@@ -300,6 +333,7 @@ async function startRuntime() {
       preferredProvider: () => agents.preferredProvider(),
       listAgents: () => agents.listAgents(),
     },
+    merger,
     skills: { pstackReady: (playbook) => Effect.succeed(pstackInstalled && playbook === "tdd") },
     settings: () => settings,
     repo: () => "openbot/autopilot-e2e",
@@ -502,6 +536,64 @@ try {
     "the pstack ticket has no pstack-missing note",
     !notes(second, tdd.id).includes(sourceText("error.agent.autopilot.pstackMissing", { skill: "pstack-tdd" })),
   );
+
+  // 8. Reviewer merge. Off by default: nothing merged so far, and the passed tickets wait in Needs review.
+  check("with the merge setting off, nothing merged", fakeGitHub.merges.length === 0 && mergedEvents.length === 0);
+  check("with the merge setting off, the passed job has no merge record", !jobOf(second, feature.id)?.decision?.merge);
+  check("the Builder's pull request is on the decision", Boolean(jobOf(second, tdd.id)?.decision?.pullRequest));
+  const mergeOn = (enabled: boolean): RavenAutopilotSettings => ({
+    ...settings,
+    reviewerMerge: { enabled, types: { feature: true, bug: false, chore: false }, method: "squash" },
+  });
+  const smallFeature = (title: string) =>
+    second.board.create({ title, body: "Add it in src/ui/Tooltip.tsx.", type: "feature" });
+
+  settings = mergeOn(true);
+  fakeGitHub.head = "match";
+  const merging = smallFeature("Add a tooltip to the save button");
+  fakeGitHub.ticketId = merging.id;
+  await waitFor("the merged job", () => jobOf(second, merging.id)?.decision?.merge?.state === "merged", 120_000);
+  await waitFor("the merged ticket in Done", () => ticketOf(second, merging.id)?.status === "done");
+  const mergedJob = jobOf(second, merging.id);
+  record("merged decision", mergedJob?.decision?.merge ?? {});
+  check("the passed head merged once", fakeGitHub.merges.length === 1);
+  check("the merge names the head commit as its precondition", fakeGitHub.merges[0]?.sha === mergedJob?.headCommit);
+  check("the merge uses the squash default", fakeGitHub.merges[0]?.method === "squash");
+  check("the merged ticket moved to Done", ticketOf(second, merging.id)?.status === "done");
+  check(
+    "the merged ticket has the merged note",
+    notes(second, merging.id).includes(sourceText("error.agent.autopilot.merged", { method: "squash", number: 7 })),
+  );
+  check("onTicketMerged fired once", mergedEvents.length === 1);
+  check(
+    "the ticket-merged event has the facts only",
+    mergedEvents[0]?.ticketId === merging.id &&
+      mergedEvents[0]?.prNumber === 7 &&
+      mergedEvents[0]?.repo === "openbot/autopilot-e2e" &&
+      mergedEvents[0]?.ci === "green" &&
+      mergedEvents[0]?.commit === mergedJob?.headCommit,
+  );
+
+  fakeGitHub.head = "moved";
+  const moved = smallFeature("Add a tooltip to the cancel button");
+  fakeGitHub.ticketId = moved.id;
+  await waitFor("the blocked merge", () => jobOf(second, moved.id)?.decision?.merge?.state === "blocked", 120_000);
+  check("a new commit after PASS stops the merge", jobOf(second, moved.id)?.decision?.merge?.reason === "new-commit");
+  check("the moved head did not merge", fakeGitHub.merges.length === 1);
+  await waitFor("the blocked ticket in Needs review", () => ticketOf(second, moved.id)?.status === "needs_review");
+  check(
+    "the blocked ticket has the new-commit note",
+    notes(second, moved.id).includes(sourceText("error.agent.autopilot.mergeBlocked.newCommit")),
+  );
+
+  settings = mergeOn(false);
+  fakeGitHub.head = "match";
+  const off = smallFeature("Add a tooltip to the close button");
+  fakeGitHub.ticketId = off.id;
+  await waitFor("the job after the setting went off", () => jobOf(second, off.id)?.state === "done", 120_000);
+  await waitFor("its ticket in Needs review", () => ticketOf(second, off.id)?.status === "needs_review");
+  check("after the setting went off, nothing more merged", fakeGitHub.merges.length === 1);
+  check("after the setting went off, the job has no merge record", !jobOf(second, off.id)?.decision?.merge);
 
   report.passed = true;
 } catch (error) {
