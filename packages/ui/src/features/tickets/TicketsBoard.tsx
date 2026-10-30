@@ -1,5 +1,5 @@
 import type { AgentTasksSnapshot, BoardTicket, BoardTicketStatus } from "@openbot/contracts/ipc";
-import { Button, SlidingTabs, Sparkles } from "@openbot/ui";
+import { Button, IconButton, Plus, SlidingTabs, Sparkles, Zap } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
@@ -7,15 +7,22 @@ import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
+  autopilotRunning,
+  boardThreads,
   columnTickets,
+  filterTickets,
+  hasQuickAdd,
   isTicketsView,
   laneTickets,
   runningThreads,
+  sameTicketsFilter,
   shortTicketKey,
   TICKET_COLUMNS,
   TICKET_STATUS_LABEL,
   TICKET_STEP_LABEL,
   TICKET_STEPS,
+  type TicketsAutopilot,
+  type TicketsFilter,
   type TicketsView,
   ticketAgo,
   ticketEdge,
@@ -23,6 +30,7 @@ import {
   ticketError,
   ticketProgress,
   ticketSteps,
+  ticketsSummary,
   ticketThread,
 } from "./tickets-model";
 
@@ -69,33 +77,105 @@ export function ThreadCount(props: { snapshot: AgentTasksSnapshot | undefined; c
   );
 }
 
-/** The strip of agents above the board: each agent with "N of M threads running". A click opens its panel. */
-export function TicketsAgentStrip(
-  props: TicketsBoardData & { selectedAgentId: string | null; onSelectAgent: (agentId: string) => void },
-) {
+/**
+ * The line under the title: "12 tickets · 2 running · 2 need your review". With Autopilot on, the
+ * running count says how many tickets Raven works on.
+ */
+export function TicketsSummaryLine(props: { tickets: readonly BoardTicket[]; autopilot: TicketsAutopilot }) {
+  const { t } = useText();
+  const parts = () => {
+    const counts = ticketsSummary(props.tickets);
+    return [
+      counts.total === 1 ? t("tickets.summary.ticket") : t("tickets.summary.tickets", { count: counts.total }),
+      props.autopilot.enabled
+        ? t("tickets.summary.ravenWorking", { count: autopilotRunning(props.tickets) })
+        : t("tickets.summary.running", { count: counts.running }),
+      counts.review === 1 ? t("tickets.summary.reviewOne") : t("tickets.summary.review", { count: counts.review }),
+    ];
+  };
+  return <p class="tickets-summary">{parts().join(t("tickets.summary.separator"))}</p>;
+}
+
+/** The pill by the title while Autopilot is on: "Autopilot on · 1 of 2 slots". */
+export function TicketsAutopilotPill(props: { tickets: readonly BoardTicket[]; autopilot: TicketsAutopilot }) {
   const { t } = useText();
   return (
-    <section class="tickets-strip" aria-label={t("tickets.strip.label")}>
-      <For each={props.agents} keyed={(agent) => agent.id}>
-        {(agent) => {
-          const snapshot = () => props.snapshots[agent().id];
-          return (
-            <TicketsPressable
-              class="tickets-strip-agent"
-              busy={runningThreads(snapshot()) > 0}
-              pressed={props.selectedAgentId === agent().id}
-              onPress={() => props.onSelectAgent(agent().id)}
-            >
-              <AgentAvatar agent={agent()} mood={agentMood(snapshot())} class="tickets-strip-avatar" />
-              <span class="tickets-strip-text">
-                <span class="tickets-strip-name">{agent().name}</span>
-                <ThreadCount snapshot={snapshot()} class="tickets-strip-count" />
-              </span>
-            </TicketsPressable>
-          );
-        }}
-      </For>
-    </section>
+    <Show when={props.autopilot.enabled}>
+      <span class="tickets-autopilot-pill">
+        <Zap aria-hidden="true" />
+        {t("tickets.autopilot.on", { running: autopilotRunning(props.tickets), slots: props.autopilot.slots })}
+      </span>
+    </Show>
+  );
+}
+
+function TicketsChip(props: {
+  label: string;
+  count: number;
+  pressed: boolean;
+  onPress: () => void;
+  children?: JSX.Element;
+}) {
+  return (
+    <TicketsPressable class="tickets-chip" pressed={props.pressed} onPress={props.onPress}>
+      {props.children}
+      <span class="tickets-chip-name">{props.label}</span>
+      <span class="tickets-chip-count">{props.count}</span>
+    </TicketsPressable>
+  );
+}
+
+/**
+ * The filter chips above the board: every agent, one chip for each agent with its ticket count, and the
+ * unassigned tickets. A second click on a chip clears the filter. At the end, the running threads of all agents.
+ */
+export function TicketsFilterChips(
+  props: TicketsBoardData & { filter: TicketsFilter | null; onFilter: (filter: TicketsFilter | null) => void },
+) {
+  const { t } = useText();
+  const threads = () => boardThreads(props.agents, props.snapshots);
+  const toggle = (filter: TicketsFilter) => props.onFilter(sameTicketsFilter(props.filter, filter) ? null : filter);
+  const unassigned: TicketsFilter = { kind: "unassigned" };
+  return (
+    <div class="tickets-filters">
+      <div class="tickets-chips" role="group" aria-label={t("tickets.filter.label")}>
+        <TicketsChip
+          label={t("tickets.filter.all")}
+          count={props.tickets.length}
+          pressed={props.filter === null}
+          onPress={() => props.onFilter(null)}
+        />
+        <For each={props.agents} keyed={(agent) => agent.id}>
+          {(agent) => {
+            const filter = (): TicketsFilter => ({ kind: "agent", agentId: agent().id });
+            return (
+              <TicketsChip
+                label={agent().name}
+                count={filterTickets(props.tickets, filter()).length}
+                pressed={sameTicketsFilter(props.filter, filter())}
+                onPress={() => toggle(filter())}
+              >
+                <AgentAvatar
+                  agent={agent()}
+                  mood={agentMood(props.snapshots[agent().id])}
+                  class="tickets-chip-avatar"
+                />
+              </TicketsChip>
+            );
+          }}
+        </For>
+        <TicketsChip
+          label={t("tickets.card.unassigned")}
+          count={filterTickets(props.tickets, unassigned).length}
+          pressed={sameTicketsFilter(props.filter, unassigned)}
+          onPress={() => toggle(unassigned)}
+        />
+      </div>
+      <span class="tickets-threads" data-busy={threads().running > 0 ? "" : undefined}>
+        <span class="tickets-threads-dot" aria-hidden="true" />
+        {t("tickets.agent.threads", threads())}
+      </span>
+    </div>
   );
 }
 
@@ -271,17 +351,41 @@ interface TicketsGridProps extends TicketsBoardData {
   selectedTicketId: string | null;
   onSelectTicket: (ticketId: string) => void;
   review?: TicketReviewActions | undefined;
+  /** Raven Autopilot as the board shows it. Absent: off. */
+  autopilot?: TicketsAutopilot | undefined;
+  /** The ticket that Raven picks next, marked above its card while Autopilot is on. */
+  nextTicketId?: string | undefined;
+  /** The quick add button of Backlog and Queued. Absent: no button. */
+  onQuickAdd?: ((status: BoardTicketStatus) => void) | undefined;
 }
 
 function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) {
   const { t } = useText();
   const tickets = () => columnTickets(props.tickets, props.status);
+  /** The marker shows only while Autopilot is on, above the ticket that Raven picks next. */
+  const isNext = (ticketId: string) =>
+    props.status === "backlog" && props.autopilot?.enabled === true && props.nextTicketId === ticketId;
   return (
     <section class="tickets-column" aria-label={t(TICKET_STATUS_LABEL[props.status])}>
       <header class="tickets-column-header">
         <span class="tickets-column-dot" data-status={props.status} aria-hidden="true" />
         <span class="tickets-column-name">{t(TICKET_STATUS_LABEL[props.status])}</span>
         <span class="tickets-column-count">{tickets().length}</span>
+        <Show when={props.status === "done" && props.autopilot?.enabled && props.autopilot.autoMerge}>
+          <span class="tickets-column-note">{t("tickets.autopilot.autoMerge")}</span>
+        </Show>
+        <Show when={hasQuickAdd(props.status) ? props.onQuickAdd : undefined}>
+          {(add) => (
+            <IconButton
+              variant="ghost"
+              class="tickets-column-add"
+              label={t("tickets.column.add", { column: t(TICKET_STATUS_LABEL[props.status]) })}
+              onClick={() => add()(props.status)}
+            >
+              <Plus />
+            </IconButton>
+          )}
+        </Show>
       </header>
       <div class="tickets-column-list">
         <For
@@ -290,16 +394,24 @@ function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) 
           fallback={<p class="tickets-column-empty">{t("tickets.column.empty")}</p>}
         >
           {(ticket) => (
-            <TicketCard
-              agents={props.agents}
-              tickets={props.tickets}
-              snapshots={props.snapshots}
-              now={props.now}
-              ticket={ticket()}
-              selected={props.selectedTicketId === ticket().id}
-              onSelect={props.onSelectTicket}
-              review={props.review}
-            />
+            <div class="tickets-column-item" data-next={isNext(ticket().id) ? "" : undefined}>
+              <Show when={isNext(ticket().id)}>
+                <p class="tickets-next">
+                  <Zap aria-hidden="true" />
+                  {t("tickets.autopilot.next")}
+                </p>
+              </Show>
+              <TicketCard
+                agents={props.agents}
+                tickets={props.tickets}
+                snapshots={props.snapshots}
+                now={props.now}
+                ticket={ticket()}
+                selected={props.selectedTicketId === ticket().id}
+                onSelect={props.onSelectTicket}
+                review={props.review}
+              />
+            </div>
           )}
         </For>
       </div>
@@ -340,6 +452,9 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
                 onSelectTicket={props.onSelectTicket}
                 now={props.now}
                 review={props.review}
+                autopilot={props.autopilot}
+                nextTicketId={props.nextTicketId}
+                onQuickAdd={props.onQuickAdd}
               />
             </section>
           );
@@ -358,6 +473,9 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
             onSelectTicket={props.onSelectTicket}
             now={props.now}
             review={props.review}
+            autopilot={props.autopilot}
+            nextTicketId={props.nextTicketId}
+            onQuickAdd={props.onQuickAdd}
           />
         </section>
       </Show>
