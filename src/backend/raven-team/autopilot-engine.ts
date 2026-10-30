@@ -9,6 +9,7 @@ import {
   type RavenAutopilotReasonCode,
   type RavenAutopilotSettings,
   type RavenTeamJob,
+  ravenAutopilotPlaybooks,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
@@ -26,6 +27,14 @@ export interface AutopilotAgents {
   listAgents(): readonly { id: string; name: string }[];
 }
 
+/**
+ * The skill reads the engine needs. `pstackReady` answers whether the skill of a pstack playbook
+ * (`pstack-<playbook>`) is installed; a failed read counts as not installed.
+ */
+export interface AutopilotSkills {
+  pstackReady(playbook: string): Effect.Effect<boolean>;
+}
+
 /** The team operations the engine uses. */
 export type AutopilotTeam = Pick<RavenTeamService, "start" | "listJobs" | "startQueuedJobs">;
 
@@ -33,6 +42,8 @@ export interface AutopilotEngineOptions {
   board: BoardTicketService;
   team: AutopilotTeam;
   agents: AutopilotAgents;
+  /** Absent: no pstack playbook counts as installed, so a pstack choice runs Autopilot lite and says why. */
+  skills?: AutopilotSkills;
   /** Read at each pick-up, so a change of the settings applies to the next ticket at once. */
   settings: () => RavenAutopilotSettings;
   /** The repository or project of the board's sync target, such as `owner/repo`. Null without sync. */
@@ -65,6 +76,7 @@ const REASON_KEYS = {
   "chore-small": "error.agent.autopilot.reason.choreSmall",
   override: "error.agent.autopilot.reason.override",
   "manual-stack": "error.agent.autopilot.reason.manualStack",
+  "pstack-missing": "error.agent.autopilot.reason.pstackMissing",
 } as const satisfies Record<RavenAutopilotReasonCode, string>;
 
 function isAutopilotJob(job: RavenTeamJob): boolean {
@@ -95,6 +107,7 @@ export class AutopilotEngine {
   readonly #board: BoardTicketService;
   readonly #team: AutopilotTeam;
   readonly #agents: AutopilotAgents;
+  readonly #skills: AutopilotSkills | null;
   readonly #settings: () => RavenAutopilotSettings;
   readonly #repo: () => string | null;
   readonly #changed: () => void;
@@ -113,6 +126,7 @@ export class AutopilotEngine {
     this.#board = options.board;
     this.#team = options.team;
     this.#agents = options.agents;
+    this.#skills = options.skills ?? null;
     this.#settings = options.settings;
     this.#repo = options.repo;
     this.#changed = options.changed ?? (() => {});
@@ -248,11 +262,13 @@ export class AutopilotEngine {
   /** Decides and starts one ticket. Answers whether a job started. */
   #take(ticket: BoardTicket, settings: RavenAutopilotSettings): Effect.Effect<boolean> {
     return Effect.gen({ self: this }, function* () {
+      const ready = yield* this.#installedPlaybooks();
       const choice = decideAutopilot({
         ticket: { id: ticket.id, title: ticket.title, body: ticket.body, type: ticket.type, repo: this.#repo() },
         settings,
         models: this.#agents.listModels(),
         preferredProvider: this.#agents.preferredProvider(),
+        pstackReady: (playbook) => ready.has(playbook),
         reasonText: (code, files, type) =>
           code === "feature-large" && files !== null
             ? sourceText("error.agent.autopilot.reason.featureFiles", { count: files })
@@ -281,9 +297,34 @@ export class AutopilotEngine {
           }),
         );
       if (!started) return false;
+      // A pstack playbook that is not installed is never silent: the ticket says what ran instead and how to fix it.
+      if (choice.missingSkill !== null) {
+        this.#note(ticket.id, sourceText("error.agent.autopilot.pstackMissing", { skill: choice.missingSkill }));
+      }
       this.#told.set(started.id, started.state);
       this.#changed();
       return true;
+    });
+  }
+
+  /** The pstack playbooks whose skill is installed now. Read at each pick-up, so an install counts at once. */
+  #installedPlaybooks(): Effect.Effect<Set<string>> {
+    const skills = this.#skills;
+    if (!skills) return Effect.succeed(new Set());
+    return Effect.gen(function* () {
+      const ready = new Set<string>();
+      for (const playbook of ravenAutopilotPlaybooks()) {
+        const installed = yield* skills.pstackReady(playbook).pipe(
+          Effect.catchCause((cause) =>
+            Effect.sync(() => {
+              logger.warn("Could not read the pstack skills.", { cause: redactText(String(cause)) });
+              return false;
+            }),
+          ),
+        );
+        if (installed) ready.add(playbook);
+      }
+      return ready;
     });
   }
 
