@@ -46,11 +46,13 @@ const QUEUED_JOB = "Show the sync time on the board";
 interface Report {
   steps: string[];
   errors: string[];
+  /** Error toasts the app showed after an action that worked. Each one fails the run. */
+  appErrors: string[];
   passed: boolean;
   failure?: string;
 }
 
-const report: Report = { steps: [], errors: [], passed: false };
+const report: Report = { steps: [], errors: [], appErrors: [], passed: false };
 
 function column(
   page: Page,
@@ -140,6 +142,22 @@ async function saveAndSync(dialog: Locator): Promise<void> {
     await dialog.getByRole("button", { name: t("common.close"), exact: true }).click();
   }
   await dialog.waitFor({ state: "detached" });
+}
+
+/**
+ * Records each error toast on the page as a failure of `action`, then closes it. The toast sits on top
+ * of the page header and would take the next click, so closing it lets the later steps still run; the
+ * run still fails at the end with the toast's text.
+ */
+async function recordErrorToasts(page: Page, action: string): Promise<void> {
+  await page.waitForTimeout(500);
+  const toasts = page.locator('[data-sonner-toast][data-type="error"]');
+  for (const text of await toasts.allTextContents()) report.appErrors.push(`${action}: ${text.trim()}`);
+  // The close button sits under the toast's own content in its corner, so it is pressed directly.
+  for (const close of await toasts.getByRole("button", { name: t("notification.toast.close"), exact: true }).all()) {
+    await close.dispatchEvent("click").catch(() => undefined);
+  }
+  await toasts.first().waitFor({ state: "detached" });
 }
 
 async function screenshot(page: Page, name: string): Promise<void> {
@@ -308,6 +326,7 @@ try {
   await confirm.getByRole("button", { name: t("common.delete"), exact: true }).click();
   await unassignedDrawer.waitFor({ state: "detached" });
   await card(page, UNASSIGNED).waitFor({ state: "detached" });
+  await recordErrorToasts(page, "Delete");
   report.steps.push("Delete asks for a confirmation and removes the ticket.");
 
   // With no drawer open, the agent panel shows again. Closing it leaves New ticket with no agent.
@@ -437,6 +456,7 @@ try {
   report.steps.push("Open thread opens the agent's chat.");
 
   assert.deepEqual(report.errors, [], "The page threw an error.");
+  assert.deepEqual(report.appErrors, [], "The app showed an error toast after an action that worked.");
   report.passed = true;
 } catch (error) {
   report.failure = error instanceof Error ? error.message : String(error);
