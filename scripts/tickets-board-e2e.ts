@@ -93,6 +93,49 @@ async function assertTakesClicks(target: Locator, name: string): Promise<void> {
   );
 }
 
+/**
+ * The status line of the Sync dialog: "Not synced yet." for a board that never synced, or the time of
+ * the last sync when the story opens the dialog with a target that synced before.
+ */
+function syncStatus(dialog: Locator): Locator {
+  const [before = "", after = ""] = t("tickets.sync.lastSynced", { time: "\u0000" }).split("\u0000");
+  const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return dialog
+    .getByText(t("tickets.sync.never"), { exact: true })
+    .or(dialog.getByText(new RegExp(`^${literal(before)}.+${literal(after)}$`, "u")));
+}
+
+/**
+ * Chooses a repository in the Sync dialog. The repositories are toggle buttons in the "Repository or
+ * project" group, and each button's name also holds its provider mark, so the button is found by its
+ * text inside that group. The dialog may open with the repository already chosen (a saved target);
+ * then it is pressed already and is not clicked again.
+ */
+async function chooseSyncProject(dialog: Locator, project: string): Promise<void> {
+  const group = dialog.getByRole("region", { name: t("tickets.sync.project"), exact: true });
+  const option = group.getByRole("button").filter({ hasText: project });
+  await option.waitFor();
+  if ((await option.getAttribute("aria-pressed")) !== "true") await option.click();
+  assert.equal(await option.getAttribute("aria-pressed"), "true", `${project} is chosen in the Sync dialog.`);
+}
+
+/**
+ * Saves the target and imports its issues. With a new or changed target the dialog offers Save and sync,
+ * which closes it. With the saved target unchanged it offers Sync now instead, which keeps it open.
+ */
+async function saveAndSync(dialog: Locator): Promise<void> {
+  const save = dialog.getByRole("button", { name: t("tickets.sync.save"), exact: true });
+  const syncNow = dialog.getByRole("button", { name: t("tickets.sync.now"), exact: true });
+  await save.or(syncNow).first().waitFor();
+  if (await save.isVisible()) {
+    await save.click();
+  } else {
+    await syncNow.click();
+    await dialog.getByRole("button", { name: t("common.close"), exact: true }).click();
+  }
+  await dialog.waitFor({ state: "detached" });
+}
+
 async function screenshot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: resolve(OUT, `${name}.png`) });
 }
@@ -135,12 +178,10 @@ try {
   const syncDialog = page.getByRole("dialog", { name: t("tickets.sync.title"), exact: true });
   await syncButton.click();
   await syncDialog.waitFor();
-  await syncDialog.getByText(t("tickets.sync.never"), { exact: true }).waitFor();
-  await syncDialog.getByRole("button", { name: t("tickets.sync.project"), exact: true }).click();
-  await page.getByRole("menuitemradio").filter({ hasText: SYNC_REPOSITORY }).click();
+  await syncStatus(syncDialog).waitFor();
+  await chooseSyncProject(syncDialog, SYNC_REPOSITORY);
   await screenshot(page, "sync");
-  await syncDialog.getByRole("button", { name: t("tickets.sync.save"), exact: true }).click();
-  await syncDialog.waitFor({ state: "detached" });
+  await saveAndSync(syncDialog);
   const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
   const importedKey = imported.getByText(IMPORTED_SHORT_KEY, { exact: true });
   await importedKey.waitFor();
