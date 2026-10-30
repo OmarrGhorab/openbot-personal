@@ -74,6 +74,13 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (ticket: BoardTicket, text: string) => Promise<boolean>;
+  /**
+   * Approves a ticket in Needs review. Without it, Approve moves the ticket to Done. A consumer where the
+   * Reviewer merges (auto-merge on for the ticket's type) does the merge here.
+   */
+  onApprove?: ((ticket: BoardTicket) => void) | undefined;
+  /** Sends the text to the ticket's work thread and moves the ticket back to Running. True when it went out. */
+  onRequestChanges?: ((ticket: BoardTicket, text: string) => Promise<boolean>) | undefined;
   /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
   sync?: TicketsSyncControls | undefined;
   /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
@@ -276,6 +283,12 @@ export function TicketsPage(props: TicketsPageProps) {
                 onRunTeam={props.onOpenTeam ? () => props.onOpenTeam?.(ticket()) : undefined}
                 onOpenLink={props.onOpenLink}
                 onSteer={(text) => props.onSteer(ticket(), text)}
+                onApprove={() => (props.onApprove ? props.onApprove(ticket()) : props.onMove(ticket().id, "done"))}
+                onRequestChanges={
+                  props.onRequestChanges
+                    ? (text) => props.onRequestChanges?.(ticket(), text) ?? Promise.resolve(false)
+                    : undefined
+                }
                 tickets={props.tickets}
                 onOpenTicket={(ticketId) => props.onSelectTicket(ticketId)}
               />

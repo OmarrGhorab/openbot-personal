@@ -1,8 +1,8 @@
 // Checks the Tickets page (#155). It drives the real app against the preview mock in a running
 // Storybook, on the `App/Tickets Board` story, and clicks every button that the page shows: the Board
 // and By agent switch, a lane, the agent strip, Pause, Resume and Stop of a work thread, Open ticket,
-// the drawer stepper, the agent picker, Start now, Open issue, the steer box, Delete and its
-// confirmation, New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
+// the drawer's Move to menu, the agent picker, Start now, the issue link, the steer box, Delete and its
+// confirmation, the review banner with Request changes and Approve (#191), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
 // and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
 // connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
@@ -26,6 +26,7 @@ assert.ok(storybook, "Pass --storybook=<url> with the URL that `bun run storyboo
 
 /** The seeded tickets and agents of the story. */
 const RUNNING = "Fix the login timeout";
+const RUNNING_KEY = "OmarrGhorab/openbot-personal#155";
 const BACKLOG = "Write the release notes";
 const UNASSIGNED = "Clean up old logs";
 const CHIEF = "Chief";
@@ -33,6 +34,7 @@ const SALES = "Sales Outbound";
 const ADDED = "Add a dark mode switch";
 const STARTED = "Ship the changelog";
 const STEER = "Keep the old session API for one release.";
+const CHANGES = "Add a line about the new search box.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
@@ -52,7 +54,12 @@ const report: Report = { steps: [], errors: [], passed: false };
 
 function column(
   page: Page,
-  status: "tickets.status.backlog" | "tickets.status.queued" | "tickets.status.running" | "tickets.status.needsReview",
+  status:
+    | "tickets.status.backlog"
+    | "tickets.status.queued"
+    | "tickets.status.running"
+    | "tickets.status.needsReview"
+    | "tickets.status.done",
 ): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
@@ -84,6 +91,12 @@ async function assertTakesClicks(target: Locator, name: string): Promise<void> {
     hit.takesClicks && hit.pointerEvents !== "none",
     `${name} takes no clicks: pointer-events is ${hit.pointerEvents}, and ${hit.top} is on top of it.`,
   );
+}
+
+/** Moves the ticket of an open drawer with its Move to menu. */
+async function moveTo(page: Page, drawer: Locator, status: Parameters<typeof column>[1]): Promise<void> {
+  await drawer.getByRole("button", { name: t("tickets.drawer.moveTo"), exact: true }).click();
+  await page.getByRole("menuitem", { name: t(status), exact: true }).click();
 }
 
 async function screenshot(page: Page, name: string): Promise<void> {
@@ -138,7 +151,11 @@ try {
   await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
   await imported.click();
   const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
-  await importedDrawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).waitFor();
+  const issueLink = t("tickets.drawer.sourceExternal", {
+    provider: t("tickets.sync.provider.github"),
+    key: IMPORTED_KEY,
+  });
+  await importedDrawer.getByRole("button", { name: issueLink, exact: true }).waitFor();
   await importedDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
   await importedDrawer.waitFor({ state: "detached" });
   await syncButton.click();
@@ -193,21 +210,26 @@ try {
   const drawer = page.getByRole("complementary", { name: RUNNING, exact: true });
   await drawer.waitFor();
 
-  // The stepper moves the ticket, and the step of the new column becomes the current one.
-  const reviewStep = drawer.getByRole("button", { name: t("tickets.status.needsReview"), exact: true });
-  await reviewStep.click();
-  await drawer.getByRole("button", { name: t("tickets.status.needsReview"), exact: true, disabled: true }).waitFor();
+  // Move to moves the ticket. In Needs review the drawer shows the review banner first.
+  const reviewBanner = drawer.getByRole("region", { name: t("tickets.drawer.review.title"), exact: true });
+  await moveTo(page, drawer, "tickets.status.needsReview");
+  await reviewBanner.waitFor();
   await drawer
     .getByText(t("tickets.event.moved", { from: t("tickets.status.backlog"), to: t("tickets.status.needsReview") }), {
       exact: true,
     })
     .waitFor();
-  await drawer.getByRole("button", { name: t("tickets.status.running"), exact: true }).click();
-  await drawer.getByRole("button", { name: t("tickets.status.running"), exact: true, disabled: true }).waitFor();
-  report.steps.push("The stepper moves the ticket and records each move in the activity.");
+  await moveTo(page, drawer, "tickets.status.running");
+  await reviewBanner.waitFor({ state: "detached" });
+  report.steps.push("Move to moves the ticket and records each move in the activity.");
 
-  // Open issue, and the steer box: the text goes to the thread and into the activity.
-  await drawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).click();
+  // The issue link in Source, and the steer box: the text goes to the thread and into the activity.
+  await drawer
+    .getByRole("button", {
+      name: t("tickets.drawer.sourceExternal", { provider: t("tickets.sync.provider.github"), key: RUNNING_KEY }),
+      exact: true,
+    })
+    .click();
   const steer = drawer.getByRole("textbox", { name: t("tickets.drawer.steer"), exact: true });
   await steer.fill(STEER);
   await drawer.getByRole("button", { name: t("tickets.drawer.send"), exact: true }).click();
@@ -216,7 +238,7 @@ try {
   await screenshot(page, "drawer");
   await drawer.getByRole("button", { name: t("common.close"), exact: true }).click();
   await drawer.waitFor({ state: "detached" });
-  report.steps.push("Open issue works, and a steer message goes to the thread and into the activity.");
+  report.steps.push("A steer message goes to the thread and into the activity.");
 
   // The agent picker and Start now on a backlog ticket: the ticket gets a work thread.
   await card(column(page, "tickets.status.backlog"), BACKLOG).click();
@@ -224,7 +246,10 @@ try {
   await backlogDrawer.waitFor();
   await backlogDrawer.getByRole("button", { name: t("tickets.new.agent"), exact: true }).click();
   await page.getByRole("menuitemradio").filter({ hasText: SALES }).click();
-  await backlogDrawer.getByText(t("tickets.drawer.agent", { name: SALES }), { exact: true }).waitFor();
+  await backlogDrawer
+    .getByRole("button", { name: t("tickets.new.agent"), exact: true })
+    .getByText(SALES, { exact: true })
+    .waitFor();
   await backlogDrawer.getByRole("button", { name: t("tickets.new.start"), exact: true }).click();
   await backlogDrawer.getByRole("button", { name: t("tickets.drawer.openThread"), exact: true }).waitFor();
   await backlogDrawer.getByRole("textbox", { name: t("tickets.drawer.steer"), exact: true }).waitFor();
@@ -275,6 +300,32 @@ try {
   // Its agent moves it: when the mock thread ends its turn, the ticket goes to Needs review by itself.
   await card(column(page, "tickets.status.needsReview"), STARTED).waitFor();
   await screenshot(page, "needs-review");
+
+  // The review banner (#191): Request changes sends the comment to the thread and moves the ticket back to
+  // Running; when the turn ends it comes back to Needs review, and Approve moves it to Done.
+  await card(column(page, "tickets.status.needsReview"), STARTED).click();
+  const reviewDrawer = page.getByRole("complementary", { name: STARTED, exact: true });
+  const startedBanner = reviewDrawer.getByRole("region", { name: t("tickets.drawer.review.title"), exact: true });
+  await startedBanner.waitFor();
+  const comment = reviewDrawer.getByRole("textbox", { name: t("tickets.drawer.requestChanges"), exact: true });
+  await comment.fill(CHANGES);
+  await startedBanner.getByRole("button", { name: t("tickets.drawer.requestChanges"), exact: true }).click();
+  await reviewDrawer.getByText(CHANGES, { exact: true }).waitFor();
+  await reviewDrawer
+    .getByText(t("tickets.event.moved", { from: t("tickets.status.needsReview"), to: t("tickets.status.running") }), {
+      exact: true,
+    })
+    .waitFor();
+  await card(column(page, "tickets.status.needsReview"), STARTED).waitFor();
+  await startedBanner.waitFor();
+  await screenshot(page, "drawer-review");
+  await startedBanner.getByRole("button", { name: t("tickets.drawer.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  await startedBanner.waitFor({ state: "detached" });
+  await reviewDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
+  report.steps.push(
+    "Request changes sends the comment to the thread and moves the ticket back to Running; Approve moves it to Done.",
+  );
   report.steps.push(
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
   );
@@ -308,7 +359,10 @@ try {
   await screenshot(page, "team-job-drawer");
   await builderRow.click();
   const builderDrawer = page.getByRole("complementary", { name: `Builder: ${TEAM_JOB}`, exact: true });
-  await builderDrawer.getByText(t("tickets.drawer.agent", { name: CHIEF }), { exact: true }).waitFor();
+  await builderDrawer
+    .getByRole("button", { name: t("tickets.new.agent"), exact: true })
+    .getByText(CHIEF, { exact: true })
+    .waitFor();
   await builderDrawer.getByRole("button", { name: t("tickets.drawer.openTeamJob"), exact: true }).click();
   await jobDrawer.waitFor();
   await jobDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
