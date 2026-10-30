@@ -529,40 +529,118 @@
   color: var(--openbot-text-muted);
 }
 
-/* The lanes. */
+/* The lanes (Figma 153-635): one grid, so every lane lines up its cells with the status names on top. */
 .tickets-lanes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-icon-lg);
+  display: grid;
+  min-width: calc(12rem + 5 * 13.3125rem + 6 * var(--openbot-space-3));
+  grid-template-columns: minmax(10rem, 12rem) repeat(5, minmax(13.3125rem, 1fr));
+  column-gap: var(--openbot-space-3);
+  row-gap: var(--openbot-space-3);
+}
+
+.tickets-lanes-head,
+.tickets-lane {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  padding-inline: var(--openbot-space-3);
+  border: 1px solid transparent;
+}
+
+.tickets-lanes-status {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-1);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
 }
 
 .tickets-lane {
+  align-items: start;
+  padding-block: var(--openbot-space-3);
+  border-color: var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-hover);
+}
+
+.tickets-lane-side {
+  min-width: 0;
+}
+
+.tickets-lane-header.ui-button,
+.tickets-lane-header {
   display: flex;
+  height: auto;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1);
+  text-align: start;
+  white-space: normal;
+}
+
+.tickets-lane-who {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-lane-name {
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-lane-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}
+
+.tickets-lane-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.tickets-lane-count[data-busy] .tickets-lane-dot {
+  background: var(--openbot-accent);
+}
+
+.tickets-lane-auto.tickets-card-auto {
+  width: 28px;
+  height: 28px;
+}
+
+.tickets-lane-cell {
+  display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: var(--openbot-space-2);
 }
 
-.tickets-lane-header.ui-button,
-.tickets-lane-header-static {
-  display: flex;
-  height: auto;
-  align-items: center;
-  align-self: flex-start;
-  justify-content: flex-start;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-1) var(--openbot-space-2);
-}
-
-.tickets-lane-name {
+/* An empty cell: a dashed slot. */
+.tickets-lane-empty {
   margin: 0;
-  font-size: var(--openbot-text-md);
-  font-weight: var(--openbot-weight-semibold);
-}
-
-.tickets-lane-count {
-  color: var(--openbot-text-muted);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px dashed var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-md);
+  color: var(--openbot-text-dim);
   font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
 }
 
 /* The side region: the agent panel or the ticket drawer. */
