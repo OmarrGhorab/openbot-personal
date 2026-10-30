@@ -243,7 +243,7 @@
 }
 
 .tickets-type[data-type="bug"] {
-  --tickets-type: var(--openbot-badge-new);
+  --tickets-type: var(--openbot-danger);
 }
 
 .tickets-type:is([data-type="chore"], [data-type="unset"]) {
