@@ -976,7 +976,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-2);
-  padding: var(--openbot-space-3) var(--openbot-space-3-5, var(--openbot-space-3));
+  padding: var(--openbot-space-3);
   border: 1px solid var(--openbot-glass-border);
   border-radius: var(--openbot-radius-lg);
   background: var(--openbot-bg-surface);
@@ -994,7 +994,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--openbot-space-1-5);
-  padding: calc(var(--openbot-space-0-5) + 1px) var(--openbot-space-2);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
   border-radius: var(--openbot-radius-pill);
   background: color-mix(in srgb, var(--openbot-accent) 12%, transparent);
   color: var(--openbot-accent-text);
@@ -1002,9 +1002,9 @@
   font-weight: var(--openbot-weight-medium);
 }
 
-.tickets-decision-stack svg {
-  width: calc(var(--openbot-space-3) - 1px);
-  height: calc(var(--openbot-space-3) - 1px);
+.tickets-decision .tickets-decision-stack svg {
+  width: var(--openbot-space-3);
+  height: var(--openbot-space-3);
 }
 
 .tickets-decision-source {
@@ -1025,8 +1025,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--openbot-space-1-5);
-  padding: calc(var(--openbot-space-0-5) + 1px) var(--openbot-space-2) calc(var(--openbot-space-0-5) + 1px)
-    var(--openbot-space-1);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2) var(--openbot-space-0-5) var(--openbot-space-1);
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-glass-surface);
   color: var(--openbot-text-secondary);

@@ -68,7 +68,9 @@ const FILE_PATH =
 const PACKAGE_ROOT = /\b(?:packages|apps|libs|services|crates|modules)\/([\w@.-]+)/giu;
 
 /** The ticket type: the one set on the ticket, else the board's detection from the title and the text. */
-export function autopilotTicketType(ticket: Pick<AutopilotTicketInput, "type" | "title" | "body">): BoardTicketType | null {
+export function autopilotTicketType(
+  ticket: Pick<AutopilotTicketInput, "type" | "title" | "body">,
+): BoardTicketType | null {
   return ticket.type ?? detectBoardTicketType({ title: ticket.title, body: ticket.body });
 }
 

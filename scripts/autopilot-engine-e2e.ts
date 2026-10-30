@@ -370,25 +370,33 @@ try {
   const decision = featureJob?.decision;
   record("feature decision", decision ?? {});
   check("the decision names a stack and a template", Boolean(decision?.stack && decision.templateId));
-  check("the decision has a model for each role", (decision?.roles.length ?? 0) > 0 && decision?.roles.every((role) => role.model) === true);
+  check(
+    "the decision has a model for each role",
+    (decision?.roles.length ?? 0) > 0 && decision?.roles.every((role) => role.model) === true,
+  );
   check("the decision has a reason code and its sentence", Boolean(decision?.reasonCode && decision.reason));
   check("the decision keeps the repository", decision?.repo === "openbot/autopilot-e2e");
   check(
     "the job's ticket is the Backlog ticket, not a second one",
-    first.board.list().filter((ticket) => ticket.teamJobId === featureJob?.id && ticket.teamRoleId === null).length === 1 &&
-      ticketOf(first, feature.id)?.teamJobId === featureJob?.id,
+    first.board.list().filter((ticket) => ticket.teamJobId === featureJob?.id && ticket.teamRoleId === null).length ===
+      1 && ticketOf(first, feature.id)?.teamJobId === featureJob?.id,
   );
 
   // 1. Backlog → Needs review with the passed note.
   await waitFor("the feature job done", () => jobOf(first, feature.id)?.state === "done");
   await waitFor("the feature ticket in Needs review", () => ticketOf(first, feature.id)?.status === "needs_review");
   check("the feature ticket moved to Needs review", ticketOf(first, feature.id)?.status === "needs_review");
-  check("the feature ticket has the passed note", notes(first, feature.id).includes(sourceText("error.agent.autopilot.passed")));
+  check(
+    "the feature ticket has the passed note",
+    notes(first, feature.id).includes(sourceText("error.agent.autopilot.passed")),
+  );
   record("feature ticket times", ticketOf(first, feature.id)?.statusTimes ?? {});
 
   // 2. The freed slot takes the chore.
   await waitFor("the chore job", () => jobOf(first, chore.id));
-  await waitFor("every job done", () => [feature, bug, chore].every((ticket) => jobOf(first, ticket.id)?.state === "done"));
+  await waitFor("every job done", () =>
+    [feature, bug, chore].every((ticket) => jobOf(first, ticket.id)?.state === "done"),
+  );
   clearInterval(sampler);
   check("never more than two Autopilot jobs ran at once", maxRunning <= 2, String(maxRunning));
   check("the chore ran on Autopilot lite or its own stack", Boolean(jobOf(first, chore.id)?.decision?.reasonCode));
@@ -432,7 +440,10 @@ try {
     notes(second, stuck.id).includes(sourceText("error.agent.autopilot.roundLimit", { rounds: 1 })),
   );
   check("the stuck ticket has the round-limit note", true);
-  record("stuck job", { state: jobOf(second, stuck.id)?.state, switches: jobOf(second, stuck.id)?.decision?.switches ?? [] });
+  record("stuck job", {
+    state: jobOf(second, stuck.id)?.state,
+    switches: jobOf(second, stuck.id)?.decision?.switches ?? [],
+  });
   record("stuck ticket", { status: ticketOf(second, stuck.id)?.status, error: ticketOf(second, stuck.id)?.error });
 
   report.passed = true;

@@ -126,9 +126,8 @@ describe("raven team Autopilot migration", () => {
       JSON.stringify(DECISION),
     );
     const row = db.prepare("SELECT decision_json, round_cap FROM raven_team_jobs WHERE job_id = 'job-running'").get();
-    const stored: unknown = JSON.parse(String(row?.decision_json));
-    expect(isRavenAutopilotDecision(stored)).toBe(true);
-    expect(stored).toEqual(DECISION);
+    expect(isRavenAutopilotDecision(JSON.parse(String(row?.decision_json)))).toBe(true);
+    expect(JSON.parse(String(row?.decision_json))).toEqual(DECISION);
     expect(row?.round_cap).toBe(5);
     expect(() =>
       db.prepare("UPDATE raven_team_jobs SET decision_json = 'not json' WHERE job_id = 'job-done'").run(),

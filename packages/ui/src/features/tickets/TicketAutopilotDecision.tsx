@@ -19,7 +19,9 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
     if (decision.stack === "pstack") {
       return decision.playbook ? t("tickets.autopilot.stackPlaybook", { playbook: decision.playbook }) : "pstack";
     }
-    return decision.templateId === LITE_TEMPLATE_ID ? t("tickets.autopilot.stackLite") : t("tickets.autopilot.stackFull");
+    return decision.templateId === LITE_TEMPLATE_ID
+      ? t("tickets.autopilot.stackLite")
+      : t("tickets.autopilot.stackFull");
   };
   const reason = () => {
     const decision = props.decision;

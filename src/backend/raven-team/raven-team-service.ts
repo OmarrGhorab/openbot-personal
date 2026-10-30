@@ -3,9 +3,9 @@ import { agentProviderName, workspaceOnlySupported } from "@openbot/contracts/ag
 import type { AgentEvent, AgentModelId, AgentProviderId, AgentReasoningEffort } from "@openbot/contracts/ipc";
 import {
   agentTaskLimit,
-  RAVEN_AUTOPILOT_SWITCH_LIMIT,
   type PlanRavenTeamInput,
   parseRavenTeamReport,
+  RAVEN_AUTOPILOT_SWITCH_LIMIT,
   RAVEN_STACK_LITE_ROLES,
   RAVEN_STACK_LITE_TEMPLATE_ID,
   RAVEN_STACK_TEAM_ROLES,

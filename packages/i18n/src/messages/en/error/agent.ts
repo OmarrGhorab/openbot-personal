@@ -173,7 +173,8 @@ export const messages = defineMessages("error.agent", {
   "error.agent.autopilot.startFailed": "Autopilot could not start a team for this ticket: {reason}",
   "error.agent.autopilot.roundLimit":
     "Autopilot stopped after {rounds} rounds without a PASS. Read the last review, then start the ticket again or change it.",
-  "error.agent.autopilot.needsYou": "Autopilot needs you: a role of the team asked a question. Answer it in the team thread.",
+  "error.agent.autopilot.needsYou":
+    "Autopilot needs you: a role of the team asked a question. Answer it in the team thread.",
   "error.agent.autopilot.passed": "Autopilot finished: the review passed. The ticket is ready for your review.",
   "error.agent.autopilot.usageLimit":
     "Autopilot paused new tickets: a provider usage limit holds a role of this job. It goes on when the provider allows work again.",
@@ -181,7 +182,8 @@ export const messages = defineMessages("error.agent", {
     "A feature that touches many files or packages, so the full Raven Stack team plans first and a second model reviews.",
   "error.agent.autopilot.reason.featureFiles":
     "A feature that touches {count} files, so the full Raven Stack team plans first and a second model reviews.",
-  "error.agent.autopilot.reason.featureSmall": "A small feature, so Autopilot lite builds it and a second model reviews.",
+  "error.agent.autopilot.reason.featureSmall":
+    "A small feature, so Autopilot lite builds it and a second model reviews.",
   "error.agent.autopilot.reason.bugFailingCase":
     "A bug with a failing case, so a test-first team reproduces it, fixes it and checks the case passes.",
   "error.agent.autopilot.reason.bugInvestigate":

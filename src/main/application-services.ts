@@ -170,7 +170,6 @@ import { catalogPluginSlug, isReportedMcpServerName, loadCatalogPluginServers } 
 import { readAnalyticsPreference } from "./analytics-preference-store";
 import { providerAuthKind } from "./analytics-provider-auth";
 import { AppBehaviorService } from "./app-behavior-service";
-import { RAVEN_AUTOPILOT_PREFERENCE_FILE, RavenAutopilotSettingsStore } from "./raven-autopilot-settings";
 import { AppearanceService } from "./appearance-service";
 import { ApprovalAutomation, readApprovalAutomation } from "./approval-automation-store";
 import { AutomationServer } from "./automation-server";
@@ -298,6 +297,7 @@ import { startAccountLog, startAgentLog, startProviderLog } from "./provider-log
 import { toProviderRuntimeFailure } from "./provider-runtime-effects";
 import { ProviderRuntimeManager, providerRuntimeRoot, runtimeTarget } from "./provider-runtime-manager";
 import { ProviderUseSettingsStore } from "./provider-use-settings-store";
+import { RAVEN_AUTOPILOT_PREFERENCE_FILE, RavenAutopilotSettingsStore } from "./raven-autopilot-settings";
 import { RelayedMessagingInstalls } from "./relayed-messaging-installs";
 import { decodeQueuedMessageReceipt } from "./remote-agent-decoding";
 import { RemoteConnectTrace } from "./remote-connect-trace";
