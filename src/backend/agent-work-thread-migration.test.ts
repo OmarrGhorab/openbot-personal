@@ -24,6 +24,7 @@ const WORK_THREAD_TABLES = {
   projection_agent_ticket_pulls: [],
   board_settings: [],
   board_ticket_events: [],
+  board_ticket_evidence: [],
   board_tickets: [],
 };
 
@@ -107,7 +108,7 @@ describe("agent work thread migration", () => {
       const before = contents(db);
       migrateOpenBotDatabase(db);
       expect(contents(db)).toEqual({ ...before, ...WORK_THREAD_TABLES });
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 53 });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 54 });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -132,9 +133,9 @@ describe("agent work thread migration", () => {
   it("rejects newer and incomplete migration histories before it creates the table", () => {
     const db = databaseAtWithSeed(45);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(54,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(55,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=54; DELETE FROM schema_migrations WHERE version=38");
+    db.exec("DELETE FROM schema_migrations WHERE version=55; DELETE FROM schema_migrations WHERE version=38");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 38");
     expect(contents(db)).toEqual(before);
     expect(workThreadTables(db)).toEqual([]);

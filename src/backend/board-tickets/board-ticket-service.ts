@@ -8,6 +8,7 @@ import {
   type BoardTicket,
   type BoardTicketActor,
   type BoardTicketEvent,
+  type BoardTicketEvidence,
   type BoardTicketStatus,
   type BoardTicketTypeSource,
   type BoardTicketWorktree,
@@ -19,6 +20,7 @@ import {
   type UpdateBoardTicketInput,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
+import type { BoardTicketEvidenceInput, BoardTicketEvidenceStore } from "./board-ticket-evidence";
 import type { BoardTicketPatch, BoardTicketStore, NewBoardTicket } from "./board-ticket-store";
 
 export interface BoardTicketServiceOptions {
@@ -27,6 +29,8 @@ export interface BoardTicketServiceOptions {
   changed: (ticketIds: string[]) => void;
   /** Starts a work thread of the agent with this first message. Without it, `start` refuses. */
   startWorkThread?: StartWorkThread;
+  /** The evidence of the tickets (#236). Without it, evidence requests refuse. */
+  evidence?: BoardTicketEvidenceStore;
   /** The worktree path and branch of a work thread, shown on its ticket. */
   worktreeOf?: (taskId: string) => BoardTicketWorktree | null;
 }
@@ -61,6 +65,7 @@ export class BoardTicketService {
   readonly #store: BoardTicketStore;
   readonly #changed: (ticketIds: string[]) => void;
   readonly #startWorkThread: StartWorkThread | undefined;
+  readonly #evidence: BoardTicketEvidenceStore | undefined;
   readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
   /** The tickets whose Start is in flight, so a second click does not start a second run. */
   readonly #starting = new Set<string>();
@@ -71,6 +76,42 @@ export class BoardTicketService {
     this.#changed = options.changed;
     this.#startWorkThread = options.startWorkThread;
     this.#worktreeOf = options.worktreeOf;
+    this.#evidence = options.evidence;
+  }
+
+  /** The evidence of a ticket, oldest first. Empty when this board keeps none. */
+  evidence(ticketId: string): BoardTicketEvidence[] {
+    this.#require(ticketId);
+    return this.#evidence?.list(ticketId) ?? [];
+  }
+
+  /** Attaches one piece of evidence to a ticket, and tells the view. */
+  async attachEvidence(
+    input: BoardTicketEvidenceInput,
+    actor: BoardTicketActor = "user",
+  ): Promise<BoardTicketEvidence> {
+    this.#require(input.ticketId);
+    if (!this.#evidence) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
+    const evidence = await this.#evidence.add(input, actor);
+    this.#changed([input.ticketId]);
+    return evidence;
+  }
+
+  /** The stored file of a screenshot or a recording, for Open. */
+  evidenceFile(evidenceId: string): string | null {
+    return this.#evidence?.filePath(evidenceId)?.path ?? null;
+  }
+
+  /** A screenshot as a data URL, for its thumbnail. */
+  evidenceImage(evidenceId: string): Promise<string | null> {
+    return this.#evidence ? this.#evidence.imageDataUrl(evidenceId) : Promise.resolve(null);
+  }
+
+  /** The ticket that a thread does: its work thread's ticket, or the ticket that the chat took (#263). */
+  forThread(taskId: string | null, threadId: string | null): BoardTicket | null {
+    const byTask = taskId ? this.#store.forTask(taskId) : null;
+    if (byTask) return byTask;
+    return threadId ? this.#store.forChatThread(threadId) : null;
   }
 
   list(): BoardTicket[] {
@@ -297,6 +338,7 @@ export class BoardTicketService {
 
   delete(ticketId: string): void {
     if (!this.#store.delete(ticketId)) throw new Error(sourceText("error.agent.boardTickets.notFound"));
+    void this.#evidence?.removeTicket(ticketId).catch(() => undefined);
     this.#changed([ticketId]);
   }
 

@@ -1,8 +1,11 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
+  type AttachBoardTicketEvidenceInput,
   BOARD_TICKET_BODY_LIMIT,
   BOARD_TICKET_COMMENT_LIMIT,
   BOARD_TICKET_ERROR_LIMIT,
+  BOARD_TICKET_EVIDENCE_CAPTION_LIMIT,
+  BOARD_TICKET_EVIDENCE_PHASES,
   BOARD_TICKET_PROGRESS_LIMIT,
   BOARD_TICKET_SYNC_PROJECT_LIMIT,
   BOARD_TICKET_TITLE_LIMIT,
@@ -19,7 +22,7 @@ import {
   type StartBoardTicketInput,
   type UpdateBoardTicketInput,
 } from "@openbot/contracts/ipc";
-import { isString } from "@openbot/contracts/runtime-values";
+import { isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { isObject, requireString } from "./validation";
 
 export function parseBoardTicketId(value: unknown): string {
@@ -129,4 +132,19 @@ export function parseBoardTicketSyncTarget(value: unknown): BoardTicketSyncTarge
     provider: parseBoardTicketProvider(value.provider),
     project: requireString(value.project, "project", BOARD_TICKET_SYNC_PROJECT_LIMIT),
   };
+}
+
+export function parseAttachBoardTicketEvidence(value: unknown): AttachBoardTicketEvidenceInput {
+  if (!isObject(value)) throw new Error("Invalid ticket request.");
+  if (!isOneOf(BOARD_TICKET_EVIDENCE_PHASES, value.phase)) throw new Error("Invalid evidence phase.");
+  const caption = parseOptionalText(value.caption, "caption", BOARD_TICKET_EVIDENCE_CAPTION_LIMIT);
+  return {
+    ticketId: parseBoardTicketId(value.ticketId),
+    phase: value.phase,
+    ...(caption === undefined ? {} : { caption }),
+  };
+}
+
+export function parseBoardTicketEvidenceId(value: unknown): string {
+  return requireString(value, "evidenceId", INPUT_LIMITS.identifier);
 }

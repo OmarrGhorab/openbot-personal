@@ -21,12 +21,13 @@ const RAVEN_TEAM_TABLES = {
   projection_agent_ticket_pulls: [],
   board_settings: [],
   board_ticket_events: [],
+  board_ticket_evidence: [],
   board_tickets: [],
 };
 const LATEST = 48;
 const MIGRATION_VERSION = LATEST;
 // The newest version of the application. The autonomy (49), agent ticket (50), Tickets board (51) and ticket type (52) migrations come after this one.
-const LATEST_SCHEMA = 53;
+const LATEST_SCHEMA = 54;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");

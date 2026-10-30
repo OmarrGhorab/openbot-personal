@@ -1,6 +1,8 @@
 import type {
   BoardTicket,
   BoardTicketEvent,
+  BoardTicketEvidence,
+  BoardTicketEvidencePhase,
   BoardTicketStatus,
   BoardTicketType,
   ConversationMessage,
@@ -65,6 +67,12 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (ticket: BoardTicket, text: string) => Promise<boolean>;
+  /** The open ticket's evidence (#236). Null while it loads or where the board keeps none. */
+  evidence?: readonly BoardTicketEvidence[] | null | undefined;
+  loadEvidenceImage?: ((evidenceId: string) => Promise<string | null>) | undefined;
+  onOpenEvidence?: ((evidenceId: string) => void) | undefined;
+  onAttachEvidence?: ((ticketId: string, phase: BoardTicketEvidencePhase) => Promise<void>) | undefined;
+  onComment?: ((ticketId: string, text: string) => Promise<boolean>) | undefined;
   /**
    * Approves a ticket in Needs review. Without it, Approve moves the ticket to Done. A consumer where the
    * Reviewer merges (auto-merge on for the ticket's type) does the merge here.
@@ -342,6 +350,17 @@ export function TicketsPage(props: TicketsPageProps) {
                 agents={props.agents}
                 snapshot={snapshotOf(ticket().agentId)}
                 events={props.events}
+                evidence={props.evidence ?? undefined}
+                loadEvidenceImage={props.loadEvidenceImage}
+                onOpenEvidence={props.onOpenEvidence}
+                onAttachEvidence={
+                  props.onAttachEvidence
+                    ? (phase) => props.onAttachEvidence?.(ticket().id, phase) ?? Promise.resolve()
+                    : undefined
+                }
+                onComment={
+                  props.onComment ? (text) => props.onComment?.(ticket().id, text) ?? Promise.resolve(false) : undefined
+                }
                 messages={props.messages}
                 onClose={() => props.onSelectTicket(null)}
                 onStart={() => {

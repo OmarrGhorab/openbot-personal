@@ -3,6 +3,9 @@ import {
   BOARD_TICKET_ACTORS,
   BOARD_TICKET_EVENT_KINDS,
   BOARD_TICKET_EVENT_LIMIT,
+  BOARD_TICKET_EVIDENCE_KINDS,
+  BOARD_TICKET_EVIDENCE_LIMIT,
+  BOARD_TICKET_EVIDENCE_PHASES,
   BOARD_TICKET_LIST_LIMIT,
   BOARD_TICKET_PROVIDERS,
   BOARD_TICKET_TYPE_SOURCES,
@@ -10,6 +13,7 @@ import {
   type BoardTicketActor,
   type BoardTicketEvent,
   type BoardTicketEventKind,
+  type BoardTicketEvidence,
   type BoardTicketExternal,
   type BoardTicketProvider,
   type BoardTicketStatus,
@@ -104,6 +108,18 @@ export class BoardTicketStore {
   forTask(taskId: string): BoardTicket | null {
     const row = databaseRow(
       this.#database.connection.prepare("SELECT ticket_id FROM board_tickets WHERE task_id = ? LIMIT 1").get(taskId),
+    );
+    return row ? this.get(requiredStringColumn(row, "ticket_id")) : null;
+  }
+
+  /** The open ticket that a chat thread took (#263), or null. A ticket with a work thread is never one. */
+  forChatThread(threadId: string): BoardTicket | null {
+    const row = databaseRow(
+      this.#database.connection
+        .prepare(
+          "SELECT ticket_id FROM board_tickets WHERE thread_id = ? AND task_id IS NULL AND status <> 'done' ORDER BY updated_at DESC LIMIT 1",
+        )
+        .get(threadId),
     );
     return row ? this.get(requiredStringColumn(row, "ticket_id")) : null;
   }
@@ -254,6 +270,77 @@ export class BoardTicketStore {
       )
       .run(event.id, ticketId, kind, actor, event.fromStatus, event.toStatus, event.text, event.createdAt);
     return event;
+  }
+
+  /** Adds one piece of evidence. `storedName` is the file in the ticket's evidence folder, or null for text. */
+  addEvidence(
+    input: Omit<BoardTicketEvidence, "id" | "createdAt"> & { storedName: string | null; id?: string },
+  ): BoardTicketEvidence {
+    const evidence: BoardTicketEvidence = {
+      id: input.id ?? randomUUID(),
+      ticketId: input.ticketId,
+      kind: input.kind,
+      phase: input.phase,
+      actor: input.actor,
+      caption: input.caption,
+      fileName: input.fileName,
+      mime: input.mime,
+      sizeBytes: input.sizeBytes,
+      text: input.text,
+      createdAt: this.#now(),
+    };
+    this.#database.connection
+      .prepare(
+        `INSERT INTO board_ticket_evidence (evidence_id, ticket_id, kind, phase, actor, caption, file_name,
+           stored_name, mime, size_bytes, text_content, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        evidence.id,
+        evidence.ticketId,
+        evidence.kind,
+        evidence.phase,
+        evidence.actor,
+        evidence.caption,
+        evidence.fileName,
+        input.storedName,
+        evidence.mime,
+        evidence.sizeBytes,
+        evidence.text,
+        evidence.createdAt,
+      );
+    return evidence;
+  }
+
+  /** The evidence of a ticket, oldest first. */
+  evidence(ticketId: string): BoardTicketEvidence[] {
+    return databaseRows(
+      this.#database.connection
+        .prepare(
+          `SELECT * FROM (SELECT rowid AS position, * FROM board_ticket_evidence WHERE ticket_id = ?
+             ORDER BY created_at DESC, position DESC LIMIT ${BOARD_TICKET_EVIDENCE_LIMIT})
+           ORDER BY created_at, position`,
+        )
+        .all(ticketId),
+    ).map((row) => decodeEvidence(row).evidence);
+  }
+
+  /** How many pieces of evidence a ticket has. */
+  evidenceCount(ticketId: string): number {
+    const row = databaseRow(
+      this.#database.connection
+        .prepare("SELECT COUNT(*) AS count FROM board_ticket_evidence WHERE ticket_id = ?")
+        .get(ticketId),
+    );
+    return typeof row?.count === "number" ? row.count : 0;
+  }
+
+  /** One piece of evidence with the name of its stored file, or null. */
+  evidenceById(evidenceId: string): { evidence: BoardTicketEvidence; storedName: string | null } | null {
+    const row = databaseRow(
+      this.#database.connection.prepare("SELECT * FROM board_ticket_evidence WHERE evidence_id = ?").get(evidenceId),
+    );
+    return row ? decodeEvidence(row) : null;
   }
 
   /** The activity of a ticket, oldest first, at most `BOARD_TICKET_EVENT_LIMIT` of the newest. */
@@ -408,5 +495,30 @@ function decodeEvent(row: DynamicRecord): BoardTicketEvent {
     toStatus: toStatus !== null && isBoardTicketStatus(toStatus) ? toStatus : null,
     text: optionalStringColumn(row, "text"),
     createdAt: requiredStringColumn(row, "created_at"),
+  };
+}
+
+function decodeEvidence(row: DynamicRecord): { evidence: BoardTicketEvidence; storedName: string | null } {
+  const kind = requiredStringColumn(row, "kind");
+  const phase = requiredStringColumn(row, "phase");
+  const actor = requiredStringColumn(row, "actor");
+  if (!isOneOf(BOARD_TICKET_EVIDENCE_KINDS, kind)) throw new Error(`Unknown evidence kind: ${kind}`);
+  if (!isOneOf(BOARD_TICKET_EVIDENCE_PHASES, phase)) throw new Error(`Unknown evidence phase: ${phase}`);
+  if (!isOneOf(BOARD_TICKET_ACTORS, actor)) throw new Error(`Unknown evidence actor: ${actor}`);
+  return {
+    evidence: {
+      id: requiredStringColumn(row, "evidence_id"),
+      ticketId: requiredStringColumn(row, "ticket_id"),
+      kind,
+      phase,
+      actor,
+      caption: optionalStringColumn(row, "caption"),
+      fileName: optionalStringColumn(row, "file_name"),
+      mime: optionalStringColumn(row, "mime"),
+      sizeBytes: requiredNumberColumn(row, "size_bytes"),
+      text: optionalStringColumn(row, "text_content"),
+      createdAt: requiredStringColumn(row, "created_at"),
+    },
+    storedName: optionalStringColumn(row, "stored_name"),
   };
 }

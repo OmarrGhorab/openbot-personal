@@ -15,6 +15,7 @@ afterEach(() => {
 const BOARD_TABLES = {
   board_settings: [],
   board_ticket_events: [],
+  board_ticket_evidence: [],
   board_tickets: [],
 };
 
@@ -77,7 +78,7 @@ describe("board ticket migration", () => {
       const after = contents(db);
       expect(Object.fromEntries(Object.keys(before).map((table) => [table, after[table]]))).toEqual(before);
       expect(after).toMatchObject(BOARD_TABLES);
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 53 });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 54 });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -97,7 +98,7 @@ describe("board ticket migration", () => {
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
     expect(contents(db)).toMatchObject({ ...before, ...BOARD_TABLES });
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 53 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 54 });
   });
 
   it("refuses a history that is missing a version, and leaves the board tables out", () => {
@@ -113,7 +114,12 @@ describe("board ticket migration", () => {
     migrateOpenBotDatabase(fresh);
     expect(
       fresh.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'board_%' ORDER BY name").all(),
-    ).toEqual([{ name: "board_settings" }, { name: "board_ticket_events" }, { name: "board_tickets" }]);
+    ).toEqual([
+      { name: "board_settings" },
+      { name: "board_ticket_events" },
+      { name: "board_ticket_evidence" },
+      { name: "board_tickets" },
+    ]);
     expect(contents(fresh)).toMatchObject(BOARD_TABLES);
   });
 

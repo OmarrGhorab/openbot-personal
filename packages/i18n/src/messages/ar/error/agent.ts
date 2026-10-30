@@ -16,6 +16,16 @@ export const messages = {
   "error.agent.boardTickets.teamJobNotDone": "شغلانة الفريق بتاعتها خلصت من غير ما تتم بعد آخر جولة FAIL.",
   "error.agent.boardTickets.toolInvalid":
     "اكتب حالة (backlog أو running أو needs_review)، أو سطر تقدّم 500 حرف على الأكتر، أو تعليق.",
+  "error.agent.boardTickets.evidenceLimit": "التذكرة تشيل {count} دليل بالكتير.",
+  "error.agent.boardTickets.evidenceNeedsFile": "لقطة الشاشة أو التسجيل محتاجين مسار ملف.",
+  "error.agent.boardTickets.evidenceType":
+    "نوع الملف ده مينفعش يبقى دليل. استخدم PNG أو JPEG أو WebP أو GIF للقطة الشاشة، وMP4 أو WebM أو MOV للتسجيل.",
+  "error.agent.boardTickets.evidenceTooLarge": "الملف ده أكبر من {megabytes} ميجا.",
+  "error.agent.boardTickets.evidenceTextTooLong":
+    "ناتج الاختبار أو الـ diff يبقى {count} حرف بالكتير. حط الجزء المهم بس.",
+  "error.agent.boardTickets.evidenceEmpty": "الدليل فاضي.",
+  "error.agent.boardTickets.evidenceInvalid": "attach_ticket_evidence محتاج phase، ومسار أو نص.",
+  "error.agent.boardTickets.evidenceNotFound": "الدليل ده مش موجود على الجهاز ده.",
   "error.agent.boardTickets.notTicketThread": "المهمة اللي شغّالة على تذكرة في لوحة التذاكر بس هي اللي تقدر تحدّثها.",
   "error.agent.boardTickets.syncNotConnected": "اربط نظام التذاكر ده على الجهاز ده الأول قبل ما تزامن معاه.",
   "error.agent.boardTickets.syncProjectInvalid": "اختار ريبو أو مشروع تزامن معاه.",

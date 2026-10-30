@@ -82,7 +82,7 @@ function profileTables(db: DatabaseSync) {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 53 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 54 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -108,6 +108,7 @@ describe("browser profile migration", () => {
         projection_agent_ticket_pulls: [],
         board_settings: [],
         board_ticket_events: [],
+        board_ticket_evidence: [],
         board_tickets: [],
         browser_profiles: [],
         projection_agent_work_threads: [],
@@ -138,6 +139,7 @@ describe("browser profile migration", () => {
       projection_agent_ticket_pulls: [],
       board_settings: [],
       board_ticket_events: [],
+      board_ticket_evidence: [],
       board_tickets: [],
       browser_profiles: [],
       projection_agent_work_threads: [],
@@ -170,6 +172,7 @@ describe("browser profile migration", () => {
       projection_agent_ticket_pulls: [],
       board_settings: [],
       board_ticket_events: [],
+      board_ticket_evidence: [],
       board_tickets: [],
       browser_profiles: [],
       projection_agent_work_threads: [],
@@ -186,9 +189,9 @@ describe("browser profile migration", () => {
     const db = databaseAt(44);
     seed(db, 44);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(54,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(55,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=54; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=55; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(profileTables(db)).toEqual([]);

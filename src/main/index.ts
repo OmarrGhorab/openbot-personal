@@ -21,6 +21,7 @@ import {
   Notification,
   nativeImage,
   net,
+  type OpenDialogOptions,
   powerMonitor,
   powerSaveBlocker,
   protocol,
@@ -758,7 +759,29 @@ function registerIpcHandlers({
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),
     ...autonomyIpcHandlers({ autonomy }),
-    ...boardTicketIpcHandlers({ boardTickets, boardTicketSync, remoteServers }),
+    ...boardTicketIpcHandlers({
+      boardTickets,
+      boardTicketSync,
+      remoteServers,
+      chooseEvidenceFile: async () => {
+        const options: OpenDialogOptions = {
+          properties: ["openFile"],
+          filters: [
+            {
+              name: "Evidence",
+              extensions: ["png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov", "txt", "log", "diff", "patch"],
+            },
+          ],
+        };
+        const window = windowHolder.current;
+        const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      openPath: async (path) => {
+        const failure = await shell.openPath(path);
+        if (failure) throw new Error(failure);
+      },
+    }),
     ...agentAdminIpcHandlers({
       settings: agentAdminSettings,
       hostSettings: agentHostSettings,

@@ -102,6 +102,72 @@ export interface BoardTicketWorktree {
   branch: string;
 }
 
+/** What a piece of ticket evidence is: an image, a screen recording, test output or a diff. */
+export const BOARD_TICKET_EVIDENCE_KINDS = ["screenshot", "recording", "test_output", "diff"] as const;
+export type BoardTicketEvidenceKind = (typeof BOARD_TICKET_EVIDENCE_KINDS)[number];
+/** When it was taken: before the change, after it, or for the review. */
+export const BOARD_TICKET_EVIDENCE_PHASES = ["before", "after", "review"] as const;
+export type BoardTicketEvidencePhase = (typeof BOARD_TICKET_EVIDENCE_PHASES)[number];
+/** The longest caption of a piece of evidence. */
+export const BOARD_TICKET_EVIDENCE_CAPTION_LIMIT = 500;
+/** The longest test output or diff that a ticket keeps, in characters. */
+export const BOARD_TICKET_EVIDENCE_TEXT_LIMIT = 65_536;
+/** The largest screenshot, in bytes. */
+export const BOARD_TICKET_EVIDENCE_IMAGE_BYTES = 10 * 1024 * 1024;
+/** The largest screen recording, in bytes. */
+export const BOARD_TICKET_EVIDENCE_RECORDING_BYTES = 50 * 1024 * 1024;
+/** The most pieces of evidence that one ticket keeps. */
+export const BOARD_TICKET_EVIDENCE_LIMIT = 200;
+
+/**
+ * One piece of a ticket's evidence (#236, #264). A screenshot or a recording is a file in the app data;
+ * test output and a diff are text. The ticket detail shows them in a Before / After / Review strip.
+ */
+export interface BoardTicketEvidence {
+  id: string;
+  ticketId: string;
+  kind: BoardTicketEvidenceKind;
+  phase: BoardTicketEvidencePhase;
+  actor: BoardTicketActor;
+  caption: string | null;
+  /** The name of the attached file, such as `before.png`. Null for text given without a file. */
+  fileName: string | null;
+  /** The file type of a screenshot or a recording, such as `image/png`. Null for text. */
+  mime: string | null;
+  sizeBytes: number;
+  /** The test output or the diff. Null for a screenshot or a recording. */
+  text: string | null;
+  createdAt: string;
+}
+
+/** A person's attachment: main asks for the file, so the renderer never names a path. */
+export interface AttachBoardTicketEvidenceInput {
+  ticketId: string;
+  phase: BoardTicketEvidencePhase;
+  caption?: string;
+}
+
+export function isBoardTicketEvidence(value: unknown): value is BoardTicketEvidence {
+  return (
+    isDynamicRecord(value) &&
+    isIdentifier(value.id) &&
+    isIdentifier(value.ticketId) &&
+    isOneOf(BOARD_TICKET_EVIDENCE_KINDS, value.kind) &&
+    isOneOf(BOARD_TICKET_EVIDENCE_PHASES, value.phase) &&
+    isOneOf(BOARD_TICKET_ACTORS, value.actor) &&
+    isNullableBoundedString(value.caption, BOARD_TICKET_EVIDENCE_CAPTION_LIMIT) &&
+    isNullableBoundedString(value.fileName, 300) &&
+    isNullableBoundedString(value.mime, 100) &&
+    isFiniteNumber(value.sizeBytes) &&
+    isNullableBoundedString(value.text, BOARD_TICKET_EVIDENCE_TEXT_LIMIT) &&
+    isBoundedString(value.createdAt, 160)
+  );
+}
+
+export function isBoardTicketEvidenceList(value: unknown): value is BoardTicketEvidence[] {
+  return Array.isArray(value) && value.length <= BOARD_TICKET_EVIDENCE_LIMIT && value.every(isBoardTicketEvidence);
+}
+
 /** One entry of a ticket's activity. */
 export interface BoardTicketEvent {
   id: string;

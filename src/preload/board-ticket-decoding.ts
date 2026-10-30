@@ -1,11 +1,14 @@
 import {
   type BoardTicket,
   type BoardTicketEvent,
+  type BoardTicketEvidence,
   type BoardTicketSyncState,
   type BoardTicketsChanged,
   isBoardTicket,
   isBoardTicketEvent,
   isBoardTicketEventList,
+  isBoardTicketEvidence,
+  isBoardTicketEvidenceList,
   isBoardTicketList,
   isBoardTicketSyncProjects,
   isBoardTicketSyncState,
@@ -44,5 +47,25 @@ export function decodeBoardTicketSyncState(value: unknown): BoardTicketSyncState
 
 export function decodeBoardTicketSyncProjects(value: unknown): string[] {
   if (!isBoardTicketSyncProjects(value)) throw new Error("Invalid ticket sync response.");
+  return value;
+}
+
+export function decodeBoardTicketEvidence(value: unknown): BoardTicketEvidence {
+  if (!isBoardTicketEvidence(value)) throw new Error("Invalid ticket evidence response.");
+  return value;
+}
+
+export function decodeOptionalBoardTicketEvidence(value: unknown): BoardTicketEvidence | null {
+  return value === null ? null : decodeBoardTicketEvidence(value);
+}
+
+export function decodeBoardTicketEvidenceList(value: unknown): BoardTicketEvidence[] {
+  if (!isBoardTicketEvidenceList(value)) throw new Error("Invalid ticket evidence response.");
+  return value;
+}
+
+export function decodeEvidenceImage(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || !value.startsWith("data:image/")) throw new Error("Invalid evidence image.");
   return value;
 }
