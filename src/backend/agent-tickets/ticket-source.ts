@@ -10,6 +10,8 @@ export interface TicketCandidate {
   body: string;
   /** The page of the ticket, for the agent and the comment. */
   url: string;
+  /** The label names of the ticket, when the system gives them. */
+  labels?: readonly string[];
 }
 
 /** A failed call to a ticket system. It keeps the cause private: it never holds a token or a response body. */

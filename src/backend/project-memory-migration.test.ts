@@ -28,8 +28,8 @@ const PROJECT_MEMORY_TABLES = {
 };
 const LATEST = 47;
 const MIGRATION_VERSION = LATEST;
-// The newest version of the application. The Raven Stack team (48), autonomy (49) and agent ticket (50) and Tickets board (51) migrations come after this one.
-const LATEST_SCHEMA = 51;
+// The newest version of the application. The Raven Stack team (48), autonomy (49) and agent ticket (50), Tickets board (51) and ticket type (52) migrations come after this one.
+const LATEST_SCHEMA = 52;
 
 function databaseAt(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");

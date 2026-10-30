@@ -249,7 +249,13 @@ describe("board ticket sync", () => {
         if (method !== "GET") return new Response("{}", { status: 200 });
         return new Response(
           JSON.stringify([
-            { number: 1, title: "Fix the login timeout", body: null, html_url: "https://github.com/Octo/App/issues/1" },
+            {
+              number: 1,
+              title: "Fix the login timeout",
+              body: null,
+              html_url: "https://github.com/Octo/App/issues/1",
+              labels: [{ name: "bug" }],
+            },
             {
               number: 2,
               title: "A pull request",
@@ -276,6 +282,7 @@ describe("board ticket sync", () => {
         title: "Fix the login timeout",
         body: "",
         url: "https://github.com/Octo/App/issues/1",
+        labels: ["bug"],
       },
     ]);
     expect(requests).toEqual([

@@ -19,6 +19,8 @@ export interface AtlassianIssue {
   summary: string;
   /** The description as Markdown, or empty. */
   description: string;
+  /** The labels of the issue and the name of its issue type, such as `Bug`. */
+  labels: string[];
 }
 
 /** A workflow transition that an issue can take now, and the category of the status it reaches. */
@@ -81,6 +83,7 @@ export class JiraBoardSyncSource implements BoardTicketSyncSource {
                 title: issue.summary || issue.key,
                 body: issue.description,
                 url: `${site.url}/browse/${issue.key}`,
+                labels: issue.labels,
               }),
             ),
           ),

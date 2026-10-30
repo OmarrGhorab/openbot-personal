@@ -1,4 +1,10 @@
-import type { BoardTicket, BoardTicketEvent, BoardTicketStatus, ConversationMessage } from "@openbot/contracts/ipc";
+import type {
+  BoardTicket,
+  BoardTicketEvent,
+  BoardTicketStatus,
+  BoardTicketType,
+  ConversationMessage,
+} from "@openbot/contracts/ipc";
 import {
   ArrowLeft,
   Button,
@@ -60,6 +66,8 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onStart: (start: TicketStart) => Promise<boolean>;
   onMove: (ticketId: string, status: BoardTicketStatus) => void;
   onAssign: (ticketId: string, agentId: string | null) => void;
+  /** Sets the person's choice of type for the ticket. `null` clears it. */
+  onSetType?: ((ticketId: string, type: BoardTicketType | null) => void) | undefined;
   onDelete: (ticketId: string) => void;
   /** Opens the ticket's work thread in its agent's chat. */
   onOpenThread?: ((ticket: BoardTicket) => void) | undefined;
@@ -262,6 +270,7 @@ export function TicketsPage(props: TicketsPageProps) {
                 }}
                 onMove={(status) => props.onMove(ticket().id, status)}
                 onAssign={(owner) => props.onAssign(ticket().id, owner)}
+                onSetType={props.onSetType ? (type) => props.onSetType?.(ticket().id, type) : undefined}
                 onDelete={() => props.onDelete(ticket().id)}
                 onOpenThread={props.onOpenThread ? () => props.onOpenThread?.(ticket()) : undefined}
                 onRunTeam={props.onOpenTeam ? () => props.onOpenTeam?.(ticket()) : undefined}
