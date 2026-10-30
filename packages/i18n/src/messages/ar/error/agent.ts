@@ -147,4 +147,26 @@ export const messages = {
     "{role} مينفعش يشتغل قراءة بس مع {provider} على {os}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
   "error.agent.ravenTeam.workspaceAccessHere":
     "على الجهاز ده، {role} مينفعش يشتغل قراءة بس مع {provider}، علشان كده الفريق مابدأش. ادّيله وصول كامل من كارت التأكيد أو اختار مزوّد بيدعم القراءة بس.",
+  "error.agent.autopilot.noType":
+    "الأوتوبايلوت ساب التذكرة دي في Backlog: نوعها مش متحدد والنص مش بيقول. حدّد Feature أو Bug أو Chore والأوتوبايلوت هياخدها.",
+  "error.agent.autopilot.startFailed": "الأوتوبايلوت معرفش يبدأ فريق للتذكرة دي: {reason}",
+  "error.agent.autopilot.roundLimit":
+    "الأوتوبايلوت وقف بعد {rounds} جولات من غير PASS. اقرا آخر مراجعة، وبعدين ابدأ التذكرة تاني أو غيّرها.",
+  "error.agent.autopilot.needsYou": "الأوتوبايلوت محتاجك: دور في الفريق سأل سؤال. جاوبه في ثريد الفريق.",
+  "error.agent.autopilot.passed": "الأوتوبايلوت خلّص: المراجعة عدّت. التذكرة جاهزة لمراجعتك.",
+  "error.agent.autopilot.usageLimit":
+    "الأوتوبايلوت وقّف التذاكر الجديدة: حد الاستخدام عند مزوّد موقّف دور في الشغلانة دي. هيكمّل لما المزوّد يسمح بالشغل تاني.",
+  "error.agent.autopilot.reason.featureLarge":
+    "ميزة بتلمس ملفات أو حزم كتير، علشان كده فريق Raven Stack الكامل بيخطّط الأول وموديل تاني بيراجع.",
+  "error.agent.autopilot.reason.featureFiles":
+    "ميزة بتلمس {count} ملفات، علشان كده فريق Raven Stack الكامل بيخطّط الأول وموديل تاني بيراجع.",
+  "error.agent.autopilot.reason.featureSmall": "ميزة صغيرة، علشان كده Autopilot lite بيبنيها وموديل تاني بيراجع.",
+  "error.agent.autopilot.reason.bugFailingCase":
+    "باج ليه حالة بتفشل، علشان كده فريق بيبدأ بالاختبار بيكرّرها ويصلّحها ويتأكد إن الحالة عدّت.",
+  "error.agent.autopilot.reason.bugInvestigate":
+    "باج من غير حالة بتفشل، علشان كده فريق Raven Stack الكامل بيحقّق قبل ما يبني.",
+  "error.agent.autopilot.reason.choreSmall": "مهمة روتينية، علشان كده Autopilot lite بيعملها على موديلات صغيرة.",
+  "error.agent.autopilot.reason.override": "إعدادات الأوتوبايلوت بتاعتك محدّدة الستاك لنوع التذكرة ده.",
+  "error.agent.autopilot.reason.manualStack":
+    "الستاك التلقائي مقفول في إعدادات الأوتوبايلوت بتاعتك، علشان كده فريق Raven Stack الكامل هو اللي بيشتغل.",
 } as const satisfies PartialTranslation<typeof source>;

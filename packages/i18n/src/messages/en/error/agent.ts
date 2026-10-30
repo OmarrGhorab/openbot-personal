@@ -167,4 +167,27 @@ export const messages = defineMessages("error.agent", {
     "{role} can't run read-only with {provider} on {os}, so the team did not start. Give it Full access on the confirm card or pick a provider that supports read-only.",
   "error.agent.ravenTeam.workspaceAccessHere":
     "On this computer, {role} can't run read-only with {provider}, so the team did not start. Give it Full access on the confirm card or pick a provider that supports read-only.",
+  // Autopilot (#196): notes on a ticket and the reason of a decision. The reason names the stack and why.
+  "error.agent.autopilot.noType":
+    "Autopilot left this ticket in Backlog: its type is not set and the text does not say. Set Feature, Bug or Chore and Autopilot takes it.",
+  "error.agent.autopilot.startFailed": "Autopilot could not start a team for this ticket: {reason}",
+  "error.agent.autopilot.roundLimit":
+    "Autopilot stopped after {rounds} rounds without a PASS. Read the last review, then start the ticket again or change it.",
+  "error.agent.autopilot.needsYou": "Autopilot needs you: a role of the team asked a question. Answer it in the team thread.",
+  "error.agent.autopilot.passed": "Autopilot finished: the review passed. The ticket is ready for your review.",
+  "error.agent.autopilot.usageLimit":
+    "Autopilot paused new tickets: a provider usage limit holds a role of this job. It goes on when the provider allows work again.",
+  "error.agent.autopilot.reason.featureLarge":
+    "A feature that touches many files or packages, so the full Raven Stack team plans first and a second model reviews.",
+  "error.agent.autopilot.reason.featureFiles":
+    "A feature that touches {count} files, so the full Raven Stack team plans first and a second model reviews.",
+  "error.agent.autopilot.reason.featureSmall": "A small feature, so Autopilot lite builds it and a second model reviews.",
+  "error.agent.autopilot.reason.bugFailingCase":
+    "A bug with a failing case, so a test-first team reproduces it, fixes it and checks the case passes.",
+  "error.agent.autopilot.reason.bugInvestigate":
+    "A bug with no failing case, so the full Raven Stack team investigates before it builds.",
+  "error.agent.autopilot.reason.choreSmall": "A chore, so Autopilot lite does it on small models.",
+  "error.agent.autopilot.reason.override": "Your Autopilot settings fix the stack for this ticket type.",
+  "error.agent.autopilot.reason.manualStack":
+    "Auto stack is off in your Autopilot settings, so the full Raven Stack team runs.",
 });
