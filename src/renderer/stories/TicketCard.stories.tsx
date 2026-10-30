@@ -1,7 +1,15 @@
 import type { BoardTicket, BoardTicketStatus, BoardTicketType } from "@openbot/contracts/ipc";
-import { TicketCard, type TicketReviewActions } from "@openbot/ui/features/tickets/TicketsBoard";
+import {
+  TicketCard,
+  type TicketReviewActions,
+  TicketsAutopilotPill,
+  TicketsColumns,
+  TicketsFilterChips,
+  TicketsSummaryLine,
+} from "@openbot/ui/features/tickets/TicketsBoard";
+import { filterTickets, type TicketsAutopilot, type TicketsFilter } from "@openbot/ui/features/tickets/tickets-model";
 import "@openbot/ui/features/tickets/tickets.css";
-import { For } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { STORY_AGENTS } from "./fixtures";
@@ -142,4 +150,44 @@ export const Selected: Story = {
       />
     </div>
   ),
+};
+
+/** The board header and columns (#189): the summary line, the filter chips, and the Autopilot marks when on. */
+function BoardStory(props: { autopilot: TicketsAutopilot }) {
+  const [filter, setFilter] = createSignal<TicketsFilter | null>(null);
+  const firstBacklog = () => TICKETS.find((item) => item.status === "backlog")?.id;
+  return (
+    <div style={{ display: "flex", "flex-direction": "column", gap: "12px", padding: "16px" }}>
+      <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+        <TicketsAutopilotPill tickets={TICKETS} autopilot={props.autopilot} />
+      </div>
+      <TicketsSummaryLine tickets={TICKETS} autopilot={props.autopilot} />
+      <TicketsFilterChips
+        agents={STORY_AGENTS}
+        tickets={TICKETS}
+        snapshots={{}}
+        filter={filter()}
+        onFilter={setFilter}
+      />
+      <TicketsColumns
+        agents={STORY_AGENTS}
+        tickets={filterTickets(TICKETS, filter())}
+        snapshots={{}}
+        now={NOW}
+        selectedTicketId={null}
+        onSelectTicket={fn()}
+        review={REVIEW}
+        autopilot={props.autopilot}
+        nextTicketId={props.autopilot.enabled ? firstBacklog() : undefined}
+        onQuickAdd={fn()}
+      />
+    </div>
+  );
+}
+
+/** The board with Autopilot off: no pill, no marker, no "Auto-merge on". A chip filters; a second click clears. */
+export const Board: Story = { render: () => <BoardStory autopilot={{ enabled: false, slots: 0, autoMerge: false }} /> };
+/** The board with Autopilot on: "Autopilot on · 0 of 2 slots", "Raven picks this next" and "Auto-merge on" in Done. */
+export const BoardAutopilot: Story = {
+  render: () => <BoardStory autopilot={{ enabled: true, slots: 2, autoMerge: true }} />,
 };
