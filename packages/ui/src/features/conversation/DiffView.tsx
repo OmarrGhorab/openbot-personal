@@ -41,7 +41,7 @@ export function DiffView(props: {
         <span class="changes-diff-path" title={props.file.path}>
           {props.file.path}
         </span>
-        <div class="changes-diff-views" role="group" aria-label={t("chat.changes.title")}>
+        <div class="changes-diff-views">
           <Button
             variant={props.view === "diff" ? "secondary" : "ghost"}
             type="button"
@@ -97,7 +97,7 @@ export function DiffView(props: {
                   </span>
                 }
               >
-                {(content) => <pre class="changes-file-text">{content()}</pre>}
+                <pre class="changes-file-text">{loaded().content}</pre>
               </Show>
             </Show>
           )}
