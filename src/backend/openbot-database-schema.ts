@@ -25,7 +25,7 @@ import {
   MESSAGING_SCHEMA_SQL,
 } from "./messaging/messaging-schema";
 import { PROJECT_MEMORY_SCHEMA_SQL } from "./project-memory/project-memory-schema";
-import { RAVEN_TEAM_SCHEMA_SQL } from "./raven-team/raven-team-schema";
+import { RAVEN_TEAM_AUTOPILOT_SQL, RAVEN_TEAM_SCHEMA_SQL } from "./raven-team/raven-team-schema";
 import { ROUTINE_FLOW_SCHEMA_SQL } from "./routine-flows/routine-flow-schema";
 import { ROUTINE_RESULT_SCHEMA_SQL } from "./routine-results/routine-result-schema";
 
@@ -616,7 +616,8 @@ const LATEST_SCHEMA_SQL =
   RAVEN_TEAM_SCHEMA_SQL +
   AUTONOMY_SCHEMA_SQL +
   AGENT_TICKET_SCHEMA_SQL +
-  BOARD_TICKET_LATEST_SCHEMA_SQL;
+  BOARD_TICKET_LATEST_SCHEMA_SQL +
+  RAVEN_TEAM_AUTOPILOT_SQL;
 
 /** The end of the thread message table with the migration 40 columns before its PRIMARY KEY constraint. */
 function withThreadMessageOrderColumns(tableEnd: string): string {
@@ -916,6 +917,13 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // proves that every event still has its ticket. Every ticket keeps its data and gets a null type.
     disableForeignKeys: true,
     up: (db) => db.exec(V52_BOARD_TICKET_TYPE_MIGRATION_SQL),
+  },
+  {
+    version: 53,
+    // Adds two nullable columns with no default, so no row is rewritten: no foreign-key pause and no
+    // vacuum. Every stored job keeps its data and reads as a job with no Autopilot decision and the
+    // built-in round limit, which is what it was before.
+    up: (db) => db.exec(RAVEN_TEAM_AUTOPILOT_SQL),
   },
 ];
 

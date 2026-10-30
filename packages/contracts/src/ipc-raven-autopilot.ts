@@ -265,6 +265,81 @@ export interface RavenAutopilotDecision {
   /** `auto`: Raven picked. `override`: the user's fixed choice for the ticket type. */
   source: "auto" | "override";
   decidedAt: string;
+  /**
+   * The engine's (#196) code of the reason, so each language shows its own sentence. `reason` keeps the
+   * English sentence for a reader that does not know the code. Absent on a decision from an older build.
+   */
+  reasonCode?: RavenAutopilotReasonCode;
+  /** How big the engine thinks the change is, from the ticket and the repository. */
+  changeSize?: RavenAutopilotChangeSize;
+  /** How many files the ticket names. Null when it names none. */
+  files?: number | null;
+  /** The repository or project of the ticket, such as `owner/repo`. Null when it is not known. */
+  repo?: string | null;
+  /** The model class of the decision: strong models for big work, small ones for a chore. */
+  modelTier?: RavenAutopilotModelTier;
+  /** Every change of model or stack after a failed round, oldest first. */
+  switches?: RavenAutopilotDecisionSwitch[];
+}
+
+export const RAVEN_AUTOPILOT_CHANGE_SIZES = ["small", "medium", "large"] as const;
+export type RavenAutopilotChangeSize = (typeof RAVEN_AUTOPILOT_CHANGE_SIZES)[number];
+
+export const RAVEN_AUTOPILOT_MODEL_TIERS = ["strong", "standard", "small"] as const;
+export type RavenAutopilotModelTier = (typeof RAVEN_AUTOPILOT_MODEL_TIERS)[number];
+
+/** Why the engine chose the stack. The ticket shows the sentence of the code, with the file count. */
+export const RAVEN_AUTOPILOT_REASON_CODES = [
+  "feature-large",
+  "feature-small",
+  "bug-failing-case",
+  "bug-investigate",
+  "chore-small",
+  "override",
+  "manual-stack",
+] as const;
+export type RavenAutopilotReasonCode = (typeof RAVEN_AUTOPILOT_REASON_CODES)[number];
+
+/** The most switches that one decision keeps. */
+export const RAVEN_AUTOPILOT_SWITCH_LIMIT = 20;
+
+/** A change of model or stack after a failed round. The role keeps its agent and thread. */
+export interface RavenAutopilotDecisionSwitch {
+  /** The FAIL round after which the job switched. */
+  round: number;
+  roleId: string;
+  /** `model`: the role moved to another model. `stack`: the job moved to another stack. */
+  kind: "model" | "stack";
+  from: string;
+  to: string;
+  at: string;
+}
+
+function isDecisionSwitch(value: unknown): value is RavenAutopilotDecisionSwitch {
+  return (
+    isDynamicRecord(value) &&
+    integerInRange(value.round, 0, 100) &&
+    isIdentifier(value.roleId) &&
+    (value.kind === "model" || value.kind === "stack") &&
+    isBoundedString(value.from, MODEL_ID_LIMIT) &&
+    isBoundedString(value.to, MODEL_ID_LIMIT) &&
+    isBoundedString(value.at, 160)
+  );
+}
+
+/** The optional engine fields of a decision: each one is absent or valid. */
+function hasValidEngineFields(value: DynamicRecord): boolean {
+  return (
+    (value.reasonCode === undefined || isOneOf(RAVEN_AUTOPILOT_REASON_CODES, value.reasonCode)) &&
+    (value.changeSize === undefined || isOneOf(RAVEN_AUTOPILOT_CHANGE_SIZES, value.changeSize)) &&
+    (value.files === undefined || value.files === null || integerInRange(value.files, 0, 100_000)) &&
+    (value.repo === undefined || isNullableBoundedString(value.repo, 300)) &&
+    (value.modelTier === undefined || isOneOf(RAVEN_AUTOPILOT_MODEL_TIERS, value.modelTier)) &&
+    (value.switches === undefined ||
+      (Array.isArray(value.switches) &&
+        value.switches.length <= RAVEN_AUTOPILOT_SWITCH_LIMIT &&
+        value.switches.every(isDecisionSwitch)))
+  );
 }
 
 export const RAVEN_AUTOPILOT_REASON_LIMIT = 600;
@@ -290,6 +365,7 @@ export function isRavenAutopilotDecision(value: unknown): value is RavenAutopilo
     ) &&
     isBoundedString(value.reason, RAVEN_AUTOPILOT_REASON_LIMIT) &&
     (value.source === "auto" || value.source === "override") &&
-    isString(value.decidedAt)
+    isString(value.decidedAt) &&
+    hasValidEngineFields(value)
   );
 }
