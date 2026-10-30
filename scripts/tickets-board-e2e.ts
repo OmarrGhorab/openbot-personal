@@ -54,7 +54,12 @@ const report: Report = { steps: [], errors: [], passed: false };
 
 function column(
   page: Page,
-  status: "tickets.status.backlog" | "tickets.status.queued" | "tickets.status.running" | "tickets.status.needsReview",
+  status:
+    | "tickets.status.backlog"
+    | "tickets.status.queued"
+    | "tickets.status.running"
+    | "tickets.status.needsReview"
+    | "tickets.status.done",
 ): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
