@@ -10,7 +10,7 @@ interface RavenAutopilotIpcDependencies {
   ravenAutopilot: RavenAutopilotSettingsStore;
 }
 
-export function parseRavenAutopilotSettings(value: unknown): RavenAutopilotSettings {
+function parseRavenAutopilotSettings(value: unknown): RavenAutopilotSettings {
   if (!isRavenAutopilotSettings(value)) throw new Error("Invalid Autopilot settings.");
   return value;
 }
