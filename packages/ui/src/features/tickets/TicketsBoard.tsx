@@ -428,58 +428,107 @@ export function TicketsColumns(props: TicketsGridProps) {
   );
 }
 
-/** One lane for each agent, and one for the unassigned tickets when there are any. Each lane keeps the five columns. */
+/**
+ * The By agent view (Figma 153-635): the five status names once on top, then one lane for each agent
+ * and one for the unassigned tickets when there are any. Each lane lines up its cells with the status
+ * names. An empty cell shows a dashed "No tickets" slot. The cards are the compact card: no key.
+ */
 export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId: string) => void }) {
   const { t } = useText();
   const unassigned = () => laneTickets(props.tickets, null);
   return (
     <div class="tickets-lanes">
+      <div class="tickets-lanes-head">
+        <span class="tickets-lanes-corner" />
+        <For each={TICKET_COLUMNS}>
+          {(status) => (
+            <span class="tickets-lanes-status">
+              <span class="tickets-column-dot" data-status={status} aria-hidden="true" />
+              {t(TICKET_STATUS_LABEL[status])}
+            </span>
+          )}
+        </For>
+      </div>
       <For each={props.agents} keyed={(agent) => agent.id}>
         {(agent) => {
           const snapshot = () => props.snapshots[agent().id];
+          const running = () => runningThreads(snapshot());
           return (
-            <section class="tickets-lane" aria-label={agent().name}>
+            <TicketsLane {...props} label={agent().name} tickets={laneTickets(props.tickets, agent().id)}>
               <TicketsPressable class="tickets-lane-header" onPress={() => props.onSelectAgent(agent().id)}>
-                <AgentAvatar agent={agent()} mood={agentMood(snapshot())} class="tickets-lane-avatar" />
-                <span class="tickets-lane-name">{agent().name}</span>
-                <ThreadCount snapshot={snapshot()} class="tickets-lane-count" />
+                <span class="tickets-lane-who">
+                  <AgentAvatar agent={agent()} mood={agentMood(snapshot())} class="tickets-lane-avatar" />
+                  <span class="tickets-lane-name">{agent().name}</span>
+                </span>
+                <span class="tickets-lane-count" data-busy={running() > 0 ? "" : undefined}>
+                  <span class="tickets-lane-dot" aria-hidden="true" />
+                  {running() > 0
+                    ? t("tickets.agent.threads", { running: running(), limit: snapshot()?.limit ?? 1 })
+                    : t("tickets.thread.idle")}
+                </span>
               </TicketsPressable>
-              <TicketsColumns
-                agents={props.agents}
-                snapshots={props.snapshots}
-                tickets={laneTickets(props.tickets, agent().id)}
-                selectedTicketId={props.selectedTicketId}
-                onSelectTicket={props.onSelectTicket}
-                now={props.now}
-                review={props.review}
-                autopilot={props.autopilot}
-                nextTicketId={props.nextTicketId}
-                onQuickAdd={props.onQuickAdd}
-              />
-            </section>
+            </TicketsLane>
           );
         }}
       </For>
       <Show when={unassigned().length > 0}>
-        <section class="tickets-lane" aria-label={t("tickets.card.unassigned")}>
-          <div class="tickets-lane-header-static">
-            <span class="tickets-lane-name">{t("tickets.card.unassigned")}</span>
+        <TicketsLane {...props} label={t("tickets.card.unassigned")} tickets={unassigned()}>
+          <div class="tickets-lane-header">
+            <span class="tickets-lane-who">
+              <span class="tickets-card-auto tickets-lane-auto" aria-hidden="true">
+                <Sparkles />
+              </span>
+              <span class="tickets-lane-name">{t("tickets.card.unassigned")}</span>
+            </span>
+            <span class="tickets-lane-count">{t("tickets.card.ravenPicks")}</span>
           </div>
-          <TicketsColumns
-            agents={props.agents}
-            snapshots={props.snapshots}
-            tickets={unassigned()}
-            selectedTicketId={props.selectedTicketId}
-            onSelectTicket={props.onSelectTicket}
-            now={props.now}
-            review={props.review}
-            autopilot={props.autopilot}
-            nextTicketId={props.nextTicketId}
-            onQuickAdd={props.onQuickAdd}
-          />
-        </section>
+        </TicketsLane>
       </Show>
     </div>
+  );
+}
+
+/** One lane: its header, then one cell for each status, in the columns of the status names. */
+function TicketsLane(props: TicketsGridProps & { label: string; children: JSX.Element }) {
+  const { t } = useText();
+  const isNext = (ticketId: string) => props.autopilot?.enabled === true && props.nextTicketId === ticketId;
+  return (
+    <section class="tickets-lane" aria-label={props.label}>
+      <div class="tickets-lane-side">{props.children}</div>
+      <For each={TICKET_COLUMNS}>
+        {(status) => (
+          <div class="tickets-lane-cell" data-status={status}>
+            <For
+              each={columnTickets(props.tickets, status)}
+              keyed={(ticket) => ticket.id}
+              fallback={<p class="tickets-lane-empty">{t("tickets.column.empty")}</p>}
+            >
+              {(ticket) => (
+                <div class="tickets-column-item" data-next={isNext(ticket().id) ? "" : undefined}>
+                  <Show when={isNext(ticket().id)}>
+                    <p class="tickets-next">
+                      <Zap aria-hidden="true" />
+                      {t("tickets.autopilot.next")}
+                    </p>
+                  </Show>
+                  <TicketCard
+                    agents={props.agents}
+                    tickets={props.tickets}
+                    snapshots={props.snapshots}
+                    now={props.now}
+                    ticket={ticket()}
+                    selected={props.selectedTicketId === ticket().id}
+                    onSelect={props.onSelectTicket}
+                    compact
+                    review={props.review}
+                  />
+                </div>
+              )}
+            </For>
+          </div>
+        )}
+      </For>
+    </section>
   );
 }
 
