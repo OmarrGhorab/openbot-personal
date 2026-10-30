@@ -27,7 +27,8 @@ export class RavenAutopilotSettingsStore {
     this.#store = new PreferenceStore({
       path,
       defaultValue: RAVEN_AUTOPILOT_DEFAULT_SETTINGS,
-      decode: (parsed) => (isDynamicRecord(parsed) && parsed.version === 1 ? normalizeRavenAutopilotSettings(parsed) : null),
+      decode: (parsed) =>
+        isDynamicRecord(parsed) && parsed.version === 1 ? normalizeRavenAutopilotSettings(parsed) : null,
     });
   }
 
