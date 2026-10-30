@@ -53,10 +53,10 @@ export function AgentAvatarKindTabs(props: AgentAvatarKindTabsProps): JSX.Elemen
       }}
     >
       <SlidingTabs.List class="agent-avatar-kind-tabs" aria-label={t("agent.avatar.kind")}>
-        <SlidingTabs.Trigger value="shapes" disabled={props.disabled}>
+        <SlidingTabs.Trigger value="shapes" disabled={props.disabled ?? false}>
           {t("agent.avatar.shapes")}
         </SlidingTabs.Trigger>
-        <SlidingTabs.Trigger value="mascots" disabled={props.disabled}>
+        <SlidingTabs.Trigger value="mascots" disabled={props.disabled ?? false}>
           {t("agent.avatar.mascots")}
         </SlidingTabs.Trigger>
       </SlidingTabs.List>
