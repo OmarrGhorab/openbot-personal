@@ -472,9 +472,10 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
             <SlidingTabs.Trigger value="jobs">
               {t("agent.team.tab.jobs")}
               <Show when={props.jobs.length > 0}>
-                <span class="raven-team-tab-count" aria-label={t("agent.team.tab.openJobs", { count: openJobs() })}>
+                <span class="raven-team-tab-count" aria-hidden="true">
                   {openJobs()}
                 </span>
+                <span class="sr-only">{t("agent.team.tab.openJobs", { count: openJobs() })}</span>
               </Show>
             </SlidingTabs.Trigger>
           </SlidingTabs.List>

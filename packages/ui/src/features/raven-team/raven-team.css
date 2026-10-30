@@ -271,6 +271,34 @@
   font-weight: 400;
 }
 
+/* The provider, model and effort of a role, in one row. */
+.raven-team-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--openbot-space-2);
+  min-width: 0;
+}
+
+.raven-team-picker[data-effort="hidden"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.raven-team-picker-field {
+  min-width: 0;
+}
+
+.raven-team-role-label {
+  font-weight: 600;
+}
+
+.raven-team-role-locked,
+.raven-team-role-hint,
+.raven-team-role-skipnote {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
 /* One row for each role: the agent shape, the name, access and hint, then the model and the switch. */
 .raven-team-roles {
   display: flex;
@@ -334,14 +362,6 @@
 
 .raven-team-role-controls .raven-team-picker {
   width: min(26rem, 100%);
-}
-
-.raven-team-role-locked,
-.raven-team-role-hint,
-.raven-team-role-skipnote {
-  margin: 0;
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-md);
 }
 
 .raven-team-role-locked {
@@ -504,10 +524,6 @@
   font-size: var(--openbot-text-md);
 }
 
-.raven-team-role-label {
-  font-weight: 600;
-}
-
 .raven-team-role-state {
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-md);
@@ -637,22 +653,6 @@
 
 .raven-team-job-head-commit code {
   font-family: inherit;
-}
-
-/* The provider, model and effort of a role, in one row. */
-.raven-team-picker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--openbot-space-2);
-  min-width: 0;
-}
-
-.raven-team-picker[data-effort="hidden"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.raven-team-picker-field {
-  min-width: 0;
 }
 
 /* A narrow page: one column, the flow first. The page scrolls, and "Start team" sticks to its bottom. */
