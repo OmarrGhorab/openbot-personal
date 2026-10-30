@@ -90,6 +90,7 @@ function createMascotAvatarSvg(url: string): SVGSVGElement {
   image.setAttribute("width", "100");
   image.setAttribute("height", "100");
   image.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  svg.append(image);
+  // `appendChild`: the Worker types of the public web give `append` a different signature.
+  svg.appendChild(image);
   return svg;
 }
