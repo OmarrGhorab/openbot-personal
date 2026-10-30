@@ -6,6 +6,83 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-10-30
+
+### Added
+
+- Add the Autopilot tab to the Raven team page. Turn on Autopilot to let Raven take tickets from
+  Backlog, pick the stack, the team and the models for each ticket, and keep going until the ticket is
+  done. The defaults work with no setup: 2 tickets at once, 3 FAIL rounds, a pause on a usage limit.
+- Set a fixed stack for Feature, Bug or Chore tickets. A new choice applies to new tickets only.
+- Let the Reviewer merge the pull request (off by default, per ticket type, squash by default), and
+  choose to be told when a ticket merges. The settings stay on this computer.
+- Give an agent a mascot avatar. The avatar picker has two tabs: Shapes, the colored shapes with two
+  eyes, and Mascots, the App icon mascots in each logo color. A mascot avatar shows everywhere an
+  agent avatar shows and stays after a restart or a provider switch.
+- Autopilot now works the board. With Autopilot on, Raven takes the next ticket in Backlog when a slot
+  is free (2 at once by default), picks the stack, the team and a model for each role from the ticket
+  type and the size of the change, and keeps going until the review passes. The ticket then moves to
+  Needs review with a note.
+- The ticket shows why: the Autopilot decision on the ticket drawer names the type, the stack, the model
+  of each role and the reason, and lists each model change after a failed round.
+- A ticket whose type is not set and cannot be read from its text stays in Backlog with a note. Set its
+  type and Autopilot takes it.
+- When a job stops at the round limit, or a role needs you, the ticket gets a note that says so. A usage
+  limit on an Autopilot job pauses new tickets until the provider allows work again.
+- Jobs and their decisions survive a restart. Queued team jobs start again when OpenBot opens.
+- Approve or ask for changes right on a card that waits for your review. Approve moves the ticket to Done; Changes sends your note to the agent's work thread, and the ticket goes back to Running.
+- Tickets: an empty board now explains what a ticket is, offers New ticket and Sync from your connected ticket system, and shows three example tickets you can add to the backlog with one click. It appears only once the board has loaded, so it no longer flashes while tickets load.
+- Tell the user when the Reviewer merges a ticket. The Dynamic Island shows the merge for a few
+  seconds, a system notification and an in-app toast show the ticket title, the pull request number
+  and PASS, Quality and CI. "View ticket" opens the ticket on the board and "View PR" opens the pull
+  request. Each surface shows the App icon from Settings › Appearance.
+- Autopilot can run a ticket with pstack and one playbook. A Bug with a failing case now runs
+  `pstack · tdd`: a Builder writes the failing test first and fixes the root cause, and a Reviewer
+  checks the commit. A pstack job shows its two roles, not the four Raven roles.
+- The ticket card shows the stack of its Autopilot job in a pill, such as "pstack · tdd".
+- A missing pstack skill is never silent. When `pstack-tdd` is not installed, Autopilot lite runs the
+  ticket, and the decision and a note on the ticket say so and tell you to install pstack from Skills.
+  A Builder that cannot find the playbook skill stops and asks you.
+- The Reviewer can merge the pull request itself when you turn on "Reviewer can merge" and the switch of
+  the ticket type in the Autopilot tab. It is off by default. The merge method is squash by default.
+- It merges only when all of these hold: the Reviewer said PASS on the head commit, Quality scored 10/10
+  (when Quality is on the team), every CI check is green, and no new commit came after the verdict. GitHub
+  also refuses the merge when the pull request head is not the commit that passed.
+- A merged ticket moves to Done and shows "Merged by Reviewer". When a rule does not hold, the ticket stays
+  in Needs review with a note that says why. A FAIL never merges.
+- Turning the setting off stops the next merge at once: it is read again just before each merge.
+- An agent can take a ticket from a chat message. Write "take this ticket in jira fix it" with a Jira,
+  Linear or GitHub link or key. The agent finds the ticket on the board, imports it from the connected
+  ticket system, or adds it to Backlog, and Autopilot starts its job at once, also when Autopilot is off.
+- A "Ticket taken" card shows in the chat: the type, the key and the title, the stack chosen and why, the
+  model of each role, and a live checklist. It follows the job as it changes. "Open on the board" opens the
+  Tickets board, and "Stop" stops the job and leaves the ticket in Needs review.
+- When the ticket system is not connected, the agent asks you to connect it. Linear has no connection in
+  OpenBot yet.
+- You can keep chatting with the agent while the job runs. The card says when you get a merge notification.
+- Give each ticket a type: Feature, Bug or Chore. The board detects it from the issue labels, then from the title and the text, and shows it as a chip on the card and in the drawer. Choose another type in the drawer; your choice wins over detection, and the activity records the change. Existing tickets keep all their data and start with no type.
+
+### Changed
+
+- Raven team roles show an agent shape with two eyes.
+- Redesign the Raven team page in tabs: Set up and Team jobs, with the count of open jobs. Set up shows
+  the ticket and the team on the left and a fixed "Your team" panel on the right, so Start team is
+  always in view. A narrow window shows one column, and Start team stays at the bottom.
+- Show each team job as a card with one step for each role, coloured by its state, the head commit,
+  the FAIL rounds, and Stop or Resume. The access question is a red banner with "Give Builder Full
+  access". Each role shows its agent shape.
+- The ticket drawer puts the next action first: Open thread (or Start now), Move to and Delete. Five status steps replace the stepper, and one Details list shows the agent, the source, when the work started and its usage (tool calls and tokens).
+- A ticket in Needs review shows a review banner with Approve and move to Done and Request changes. Request changes sends your comment to the work thread and moves the ticket back to Running.
+- The drawer body scrolls while the steer box stays at the bottom. A team job's ticket still lists its role tickets.
+- The New ticket dialog has a Type field: Auto-detect, Feature, Bug or Chore. Auto-detect shows the type it found as you type, and a type you pick wins over detection.
+- When Autopilot is on, the dialog offers "Let autopilot work on it" and shows the rule that applies to the ticket's type. Add ticket then puts the ticket in Backlog for Autopilot, with no agent to choose.
+- Without Autopilot, the agent field and Start now stay. The agent list shows each agent's free threads and says what happens when you choose no agent.
+- Redesign the ticket card on the Tickets board. It shows the type, the short key and how long ago the ticket moved; the title on up to two lines; the four steps Plan, Build, Review and Merge with the current stage and the live line; the agent with a live pill such as "Raven · 14m"; and an edge that marks a running, waiting, blocked or done ticket. A failed turn shows its reason in a banner. An unassigned ticket shows "Raven picks".
+- Redesign the top of the Tickets board. The line under the title counts the tickets, the running ones and the ones that need your review. Filter chips replace the agent strip: all agents, one chip for each agent with its ticket count, and Unassigned; click a chip again to clear the filter. "N of M threads running" sits at the end of the chips. Every column header has the same height, and Backlog and Queued have a quick add button.
+- With Raven Autopilot on, the board shows "Autopilot on · 1 of 2 slots" by the title, marks the ticket that Raven picks next, and says "Auto-merge on" in Done when the Reviewer merges.
+- Redesign the By agent view of the Tickets board. The five status names show once above the lanes, and every lane lines up its cells with them. Each lane header shows the agent's avatar, name and "N of M threads running" (or Idle); unassigned tickets keep their own lane. An empty cell shows a dashed "No tickets" slot, and the lanes use the compact card without the key.
+- The release app icon is the blob mascot on a dark tile, the default App icon setting.
+
 ## [0.51.2] - 2026-10-29
 
 ### Added
