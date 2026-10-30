@@ -21,34 +21,114 @@
   --tickets-status: var(--openbot-success);
 }
 
-/* The strip of agents. */
-.tickets-strip {
+/* The filter chips above the board, and the running threads of every agent at their end. */
+.tickets-filters {
   display: flex;
-  gap: var(--openbot-space-2);
-  overflow-x: auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
   padding: 0 var(--openbot-space-6) var(--openbot-space-3);
 }
 
-.tickets-strip-agent.ui-button {
+.tickets-chips {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: var(--openbot-space-2);
+  overflow-x: auto;
+}
+
+.tickets-chip.ui-button {
   height: auto;
   flex: 0 0 auto;
-  justify-content: flex-start;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-1-5) var(--openbot-space-3) var(--openbot-space-1-5) var(--openbot-space-2);
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-3);
   border: 1px solid var(--openbot-glass-border);
   border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-bg-surface);
+  background: transparent;
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
 }
 
-.tickets-strip-agent[aria-pressed="true"] {
-  border-color: var(--openbot-accent);
+.tickets-chip[aria-pressed="true"] {
+  border-color: var(--openbot-glass-border);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-primary);
 }
 
-.tickets-strip-agent[data-busy] .tickets-strip-count {
+.tickets-chip-count {
+  color: var(--openbot-text-dim);
+}
+
+.tickets-chip-avatar.agent-avatar {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+}
+
+.tickets-threads {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.tickets-threads-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.tickets-threads[data-busy] .tickets-threads-dot {
+  background: var(--openbot-accent);
+}
+
+/* The title, the Autopilot pill and the summary line under them. */
+.tickets-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+}
+
+.tickets-heading-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-summary {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-autopilot-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border: 1px solid color-mix(in srgb, var(--openbot-accent) 40%, transparent);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
   color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
 }
 
-.tickets-strip-avatar.agent-avatar,
+.tickets-autopilot-pill svg,
+.tickets-next svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+}
+
 .tickets-lane-avatar.agent-avatar {
   width: 28px;
   height: 28px;
@@ -59,25 +139,6 @@
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-}
-
-.tickets-strip-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: var(--openbot-leading-sm);
-}
-
-.tickets-strip-name {
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-medium);
-}
-
-.tickets-strip-count {
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
 }
 
 /* The columns. */
@@ -98,11 +159,14 @@
   background: var(--openbot-hover);
 }
 
+/* Every column header has the same height, with or without its quick add button or note. */
 .tickets-column-header {
   display: flex;
+  height: var(--openbot-space-8);
+  flex: 0 0 auto;
   align-items: center;
-  gap: var(--openbot-space-1-5);
-  padding: var(--openbot-space-1);
+  gap: var(--openbot-space-2);
+  padding: 0 var(--openbot-space-1);
   font-size: var(--openbot-text-sm);
   font-weight: var(--openbot-weight-medium);
 }
@@ -115,7 +179,48 @@
 }
 
 .tickets-column-name {
-  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-column-note {
+  overflow: hidden;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-column-add.ui-button {
+  margin-inline-start: auto;
+}
+
+.tickets-column-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+/* The marker above the ticket that Raven picks next, and that card's border. */
+.tickets-next {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+}
+
+.tickets-column-item[data-next] .tickets-card {
+  border-color: color-mix(in srgb, var(--openbot-accent) 60%, transparent);
 }
 
 .tickets-column-count {
@@ -873,7 +978,6 @@
 
 .tickets-page-header h2 {
   min-width: 0;
-  flex: 1;
   margin: 0;
   font-size: var(--openbot-text-lg);
   font-weight: var(--openbot-weight-semibold);
