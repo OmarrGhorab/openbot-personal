@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { type AppLogoColorPreference, IPC_ENDPOINTS } from "@openbot/contracts/ipc";
 import type { AppTranslate } from "@openbot/i18n";
-import { app, type BrowserWindow, Notification, type NativeImage } from "electron";
+import { app, type BrowserWindow, type NativeImage, Notification } from "electron";
 import { resolveMascotPath } from "./app-icon";
 import { composeMascotIcon } from "./app-icon-mascot";
 import { showRetainedNotification } from "./desktop-notifications";

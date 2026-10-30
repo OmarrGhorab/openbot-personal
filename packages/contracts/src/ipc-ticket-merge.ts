@@ -1,4 +1,4 @@
-import { isHttpsUrl, isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { isDynamicRecord, isHttpsUrl, isNumber, isString } from "./runtime-values";
 
 /**
  * A ticket that the Reviewer merged (#198). Main turns it into the island, the system notification

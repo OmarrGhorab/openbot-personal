@@ -394,7 +394,6 @@ import type {
   MonitorSnapshotInput,
 } from "./ipc-monitor";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
-import type { TicketMergeNotice, TicketMergeOpenedEvent, TicketMergeOpenRequest } from "./ipc-ticket-merge";
 import type {
   OnePasswordConnectInput,
   OnePasswordConnectorStatus,
@@ -540,6 +539,7 @@ import type {
   UpdateHostIdentityInput,
   UpdateTeamMemberInput,
 } from "./ipc-team-host";
+import type { TicketMergeNotice, TicketMergeOpenedEvent, TicketMergeOpenRequest } from "./ipc-ticket-merge";
 import type { VaultImportResult, VaultSaveInput, VaultSecretRequest, VaultState } from "./ipc-vault";
 import type {
   SpeechAudio,

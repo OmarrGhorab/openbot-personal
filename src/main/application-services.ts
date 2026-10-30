@@ -315,8 +315,6 @@ import {
   type RemoteSessionReusePreferenceStore,
 } from "./remote-session-reuse-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
-import { createDesktopTicketMergeNotifier } from "./ticket-merge-desktop";
-import type { TicketMergeNotifier } from "./ticket-merge-notifier";
 import { RequestedUpdate, RequestedUpdateRefusal } from "./requested-update";
 import { ResourceMonitor } from "./resource-monitor";
 import { StatementTimings } from "./resource-summary";
@@ -342,6 +340,8 @@ import { TeamStore } from "./team-store";
 import { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
 import type { TeardownRegistry } from "./teardown-registry";
+import { createDesktopTicketMergeNotifier } from "./ticket-merge-desktop";
+import type { TicketMergeNotifier } from "./ticket-merge-notifier";
 import { TraceFile } from "./trace-file";
 import { appBundlePath, needsManualInstall, readCodeSignature, releasePageUrl } from "./update-manual-install";
 import { readUpdatePreference, writeUpdatePreference } from "./update-preference-store";
