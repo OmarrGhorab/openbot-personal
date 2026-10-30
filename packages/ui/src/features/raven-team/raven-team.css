@@ -655,6 +655,365 @@
   font-family: inherit;
 }
 
+/* ---------- Autopilot (RavenAutopilotPanel.tsx) ----------
+ * Two columns: the switch, the stack and the overrides on the left, the guardrails on the right.
+ * A narrow page shows one column, the guardrails last. */
+.raven-autopilot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+  align-items: start;
+  gap: var(--openbot-space-6);
+}
+
+.raven-autopilot-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+}
+
+.raven-autopilot-master {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-4);
+}
+
+.raven-autopilot-master-text .raven-team-hint {
+  margin-top: var(--openbot-space-0-5);
+}
+
+.raven-autopilot-counts {
+  display: flex;
+  gap: var(--openbot-space-2);
+  margin: 0;
+}
+
+.raven-autopilot-count {
+  --raven-autopilot-count-color: var(--openbot-text-dim);
+  display: flex;
+  min-width: 4.5rem;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+}
+
+.raven-autopilot-count[data-kind="running"] {
+  --raven-autopilot-count-color: var(--openbot-accent);
+}
+
+.raven-autopilot-count[data-kind="waiting"] {
+  --raven-autopilot-count-color: var(--openbot-warning);
+}
+
+.raven-autopilot-count dt {
+  display: inline-flex;
+  align-items: center;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.raven-autopilot-count dt .raven-team-dot {
+  color: var(--raven-autopilot-count-color);
+}
+
+.raven-autopilot-count dd {
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.raven-autopilot-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--openbot-space-3);
+}
+
+.raven-autopilot-accent-icon {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  margin-top: var(--openbot-space-0-5);
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: 600;
+}
+
+.raven-autopilot-note {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-autopilot-note svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: none;
+}
+
+.raven-autopilot-decisions,
+.raven-autopilot-overrides,
+.raven-autopilot-decision-roles,
+.raven-autopilot-rules ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-autopilot-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-autopilot-decision-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-autopilot-decision-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.raven-autopilot-decision-arrow {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  color: var(--openbot-text-dim);
+}
+
+.raven-autopilot-decision-roles {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.raven-autopilot-type-chip,
+.raven-autopilot-model-chip,
+.raven-autopilot-stack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.raven-autopilot-model-chip .raven-team-role-icon.agent-avatar {
+  width: 16px;
+  height: 16px;
+}
+
+.raven-autopilot-stack-chip {
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-stack-chip svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-autopilot-type-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.raven-autopilot-type-dot[data-type="feature"] {
+  background: var(--openbot-accent);
+}
+
+.raven-autopilot-type-dot[data-type="bug"] {
+  background: var(--openbot-danger);
+}
+
+.raven-autopilot-override {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-autopilot-override-type {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-weight: 500;
+}
+
+.raven-autopilot-override-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-autopilot-override-value[data-auto] {
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-override-value svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-autopilot-automerge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+/* The guardrails stay in view while the left column scrolls. */
+.raven-autopilot-guardrails {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.raven-autopilot-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-autopilot-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.raven-autopilot-setting-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-weight: 500;
+}
+
+.raven-autopilot-setting-title svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  color: var(--openbot-text-secondary);
+}
+
+.raven-autopilot-wide {
+  width: 100%;
+}
+
+.raven-autopilot-muted {
+  color: var(--openbot-text-secondary);
+}
+
+.raven-autopilot-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+}
+
+.raven-autopilot-stepper-value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.raven-autopilot-divider {
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--openbot-border);
+}
+
+.raven-autopilot-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+}
+
+.raven-autopilot-rules li {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-autopilot-rules svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: none;
+  color: var(--openbot-success);
+}
+
+@container (max-width: 52rem) {
+  .raven-autopilot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .raven-autopilot-guardrails {
+    position: static;
+  }
+
+  .raven-autopilot-master {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .raven-autopilot-counts {
+    grid-column: 1 / -1;
+  }
+
+  .raven-autopilot-override {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .raven-autopilot-override-choice {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 /* A narrow page: one column, the flow first. The page scrolls, and "Start team" sticks to its bottom. */
 @container (max-width: 52rem) {
   .raven-team-setup {
