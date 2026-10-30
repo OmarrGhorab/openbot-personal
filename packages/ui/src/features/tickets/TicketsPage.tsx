@@ -7,19 +7,31 @@ import type {
 } from "@openbot/contracts/ipc";
 import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw, UsersRound } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, createUniqueId, onSettled, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
-  TicketsAgentStrip,
+  type TicketReviewActions,
+  TicketsAutopilotPill,
   type TicketsBoardData,
   TicketsColumns,
+  TicketsFilterChips,
   TicketsLanes,
+  TicketsSummaryLine,
   TicketsViewSwitch,
 } from "./TicketsBoard";
-import { type TicketNew, type TicketsAutopilot, TicketsNewDialog } from "./TicketsNewDialog";
+import { TicketsChangesDialog } from "./TicketsChangesDialog";
+import { type TicketNew, type TicketsAutopilot as TicketsNewAutopilot, TicketsNewDialog } from "./TicketsNewDialog";
 import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
-import type { TicketStart, TicketsView } from "./tickets-model";
+import {
+  autopilotNext,
+  filterTickets,
+  TICKETS_AUTOPILOT_OFF,
+  type TicketStart,
+  type TicketsAutopilot,
+  type TicketsFilter,
+  type TicketsView,
+} from "./tickets-model";
 
 export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControls {
   /** The board lives on this computer. False on a joined server: the page then shows a notice. */
@@ -60,10 +72,20 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onRequestChanges?: ((ticket: BoardTicket, text: string) => Promise<boolean>) | undefined;
   /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
   sync?: TicketsSyncControls | undefined;
-  /** Autopilot while its switch is on. Absent: the New ticket dialog hides "Let autopilot work on it". */
-  autopilot?: TicketsAutopilot | undefined;
+  /**
+   * Autopilot for the New ticket dialog while its switch is on. Absent: the dialog hides "Let autopilot
+   * work on it". (Named apart from the board's `autopilot` below, which #189 added.)
+   */
+  newTicketAutopilot?: TicketsNewAutopilot | undefined;
   /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
   onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
+  /**
+   * Raven Autopilot as the board shows it: the header pill, the "Raven picks this next" marker and
+   * "Auto-merge on" in Done. Absent: off.
+   * WIRING POINT (#195): the consumer maps `window.openbot.ravenAutopilot.get()` / `onChanged` to
+   * `{ enabled, slots: ticketsAtOnce, autoMerge: reviewerMerge.enabled }` once feat/195-autopilot-tab merges.
+   */
+  autopilot?: TicketsAutopilot | undefined;
 }
 
 /**
@@ -80,14 +102,35 @@ export function TicketsPage(props: TicketsPageProps) {
   const [creating, setCreating] = createSignal(false);
   const [syncOpen, setSyncOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
-  /** The board shows the tickets that match the search in their title, key or text. */
-  const shown = createMemo(() => {
+  /** The ticket whose Changes dialog is open. */
+  const [changesId, setChangesId] = createSignal<string | null>(null);
+  /** The cards count their times from this clock, which ticks each minute. */
+  const [now, setNow] = createSignal(new Date());
+  const clock = window.setInterval(() => setNow(new Date()), CLOCK_MS);
+  onCleanup(() => window.clearInterval(clock));
+  /** Approve moves the ticket to Done. Changes asks what to change and sends it to the work thread. */
+  const review: TicketReviewActions = {
+    onApprove: (ticketId) => props.onMove(ticketId, "done"),
+    onRequestChanges: (ticketId) => setChangesId(ticketId),
+  };
+  const changesTicket = () => {
+    const id = changesId();
+    return id ? props.tickets.find((ticket) => ticket.id === id && ticket.taskId !== null) : undefined;
+  };
+  const [filter, setFilter] = createSignal<TicketsFilter | null>(null);
+  const autopilot = () => props.autopilot ?? TICKETS_AUTOPILOT_OFF;
+  /** The tickets that match the search in their title, key or text. */
+  const found = createMemo(() => {
     const needle = query().trim().toLowerCase();
     if (!needle) return props.tickets;
     return props.tickets.filter((ticket) =>
       [ticket.title, ticket.body, ticket.external?.key ?? ""].some((text) => text.toLowerCase().includes(needle)),
     );
   });
+  /** The board shows the found tickets of the chosen filter chip. */
+  const shown = createMemo(() => filterTickets(found(), filter()));
+  /** Raven picks the first Backlog ticket of the whole board, whatever the filter shows. */
+  const nextTicketId = () => (autopilot().enabled ? autopilotNext(props.tickets)?.id : undefined);
   const canSync = () => (props.sync?.state?.providers.length ?? 0) > 0;
   const agentsLabel = () =>
     t(props.agentsOpen ? "conversation.tasks.page.hideAgents" : "conversation.tasks.page.showAgents");
@@ -133,17 +176,27 @@ export function TicketsPage(props: TicketsPageProps) {
               </Button>
             )}
           </Show>
-          <h2 id={headingId} ref={heading} tabindex={-1}>
-            {t("tickets.title")}
-            <Show when={props.hostName}>
-              {(host) => (
-                <>
-                  {" "}
-                  <span aria-hidden="true">/</span> <span>{host()}</span>
-                </>
-              )}
+          <div class="tickets-heading">
+            <div class="tickets-heading-title">
+              <h2 id={headingId} ref={heading} tabindex={-1}>
+                {t("tickets.title")}
+                <Show when={props.hostName}>
+                  {(host) => (
+                    <>
+                      {" "}
+                      <span aria-hidden="true">/</span> <span>{host()}</span>
+                    </>
+                  )}
+                </Show>
+              </h2>
+              <Show when={props.available}>
+                <TicketsAutopilotPill tickets={props.tickets} autopilot={autopilot()} />
+              </Show>
+            </div>
+            <Show when={props.available && props.loaded}>
+              <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
             </Show>
-          </h2>
+          </div>
           <Show when={props.available}>
             <div class="tickets-page-tools">
               <Input
@@ -179,18 +232,18 @@ export function TicketsPage(props: TicketsPageProps) {
           when={props.available}
           fallback={<TicketsNotice title={t("tickets.unavailable.title")} body={t("tickets.unavailable.body")} />}
         >
-          <TicketsAgentStrip
+          <TicketsFilterChips
             agents={props.agents}
             tickets={props.tickets}
             snapshots={props.snapshots}
-            selectedAgentId={agentId()}
-            onSelectAgent={selectAgent}
+            filter={filter()}
+            onFilter={setFilter}
           />
           <div class="tickets-page-scroll">
             <Show when={empty()}>
               <TicketsNotice title={t("tickets.empty.title")} body={t("tickets.empty.body")} />
             </Show>
-            <Show when={!empty() && query().trim() !== "" && shown().length === 0}>
+            <Show when={!empty() && query().trim() !== "" && found().length === 0}>
               <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
             </Show>
             <Show
@@ -202,6 +255,11 @@ export function TicketsPage(props: TicketsPageProps) {
                   snapshots={props.snapshots}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
+                  now={now()}
+                  review={review}
+                  autopilot={autopilot()}
+                  nextTicketId={nextTicketId()}
+                  onQuickAdd={() => setCreating(true)}
                 />
               }
             >
@@ -212,6 +270,11 @@ export function TicketsPage(props: TicketsPageProps) {
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
                 onSelectAgent={selectAgent}
+                now={now()}
+                review={review}
+                autopilot={autopilot()}
+                nextTicketId={nextTicketId()}
+                onQuickAdd={() => setCreating(true)}
               />
             </Show>
           </div>
@@ -278,12 +341,21 @@ export function TicketsPage(props: TicketsPageProps) {
       <Show when={syncOpen() && canSync() ? props.sync : undefined}>
         {(sync) => <TicketsSyncDialog sync={sync()} onClose={() => setSyncOpen(false)} />}
       </Show>
+      <Show when={changesTicket()} keyed>
+        {(ticket) => (
+          <TicketsChangesDialog
+            ticket={ticket}
+            onClose={() => setChangesId(null)}
+            onSend={(text) => props.onSteer(ticket, text)}
+          />
+        )}
+      </Show>
       <Show when={creating()}>
         <TicketsNewDialog
           agents={props.agents}
           snapshots={props.snapshots}
           agentId={agentId()}
-          autopilot={props.autopilot}
+          autopilot={props.newTicketAutopilot}
           onClose={() => setCreating(false)}
           onCreate={props.onCreate}
           onStart={props.onStart}
@@ -301,3 +373,6 @@ function TicketsNotice(props: { title: string; body: string }) {
     </div>
   );
 }
+
+/** How often the cards' times ("14m", "2h ago") count up. */
+const CLOCK_MS = 60_000;

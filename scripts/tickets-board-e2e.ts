@@ -38,6 +38,8 @@ const CHANGES = "Add a line about the new search box.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
+/** The card shows the short key of a GitHub issue (#188); the full key is its tooltip. */
+const IMPORTED_SHORT_KEY = "#158";
 /** The seeded Autopilot lite team jobs: one runs, one waits in Queued. */
 const TEAM_JOB = "Add a retry to the upload";
 const TEAM_JOB_ID = "story-team-job-1";
@@ -207,7 +209,9 @@ try {
   await screenshot(page, "sync");
   await saveAndSync(syncDialog);
   const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
-  await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
+  const importedKey = imported.getByText(IMPORTED_SHORT_KEY, { exact: true });
+  await importedKey.waitFor();
+  assert.equal(await importedKey.getAttribute("title"), IMPORTED_KEY);
   await imported.click();
   const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
   const issueLink = t("tickets.drawer.sourceExternal", {
@@ -231,21 +235,21 @@ try {
   const chiefLane = page.getByRole("region", { name: CHIEF, exact: true });
   await card(chiefLane, RUNNING).waitFor();
   await page.getByRole("region", { name: t("tickets.card.unassigned"), exact: true }).waitFor();
+  // The status names show once above the lanes, and an empty cell shows a "No tickets" slot (#190).
+  for (const status of ["tickets.status.backlog", "tickets.status.needsReview", "tickets.status.done"] as const) {
+    assert.equal(await page.getByText(t(status), { exact: true }).count(), 1);
+  }
+  await chiefLane.getByText(t("tickets.column.empty"), { exact: true }).first().waitFor();
   // The lane header is the first button of the lane; the cards follow it.
   await chiefLane.getByRole("button").first().click();
   const panel = page.getByRole("complementary", { name: CHIEF, exact: true });
   await panel.waitFor();
   await screenshot(page, "lanes");
-  await panel.getByRole("button", { name: t("common.close"), exact: true }).click();
-  await panel.waitFor({ state: "detached" });
-  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
-  await column(page, "tickets.status.backlog").waitFor();
-  report.steps.push("By agent shows a lane for each agent and the unassigned lane; a lane header opens the panel.");
+  report.steps.push(
+    "By agent shows the status names once, a lane for each agent and the unassigned lane, dashed slots for empty cells; a lane header opens the panel.",
+  );
 
-  // The agent strip opens the panel of the agent: its running thread with Pause, Resume and Stop.
-  const strip = page.getByRole("region", { name: t("tickets.strip.label"), exact: true });
-  await strip.getByRole("button").filter({ hasText: CHIEF }).click();
-  await panel.waitFor();
+  // The agent panel: its running thread with Pause, Resume and Stop.
   const thread = panel.getByRole("article", { name: RUNNING, exact: true });
   await thread.getByText("openbot/story-ticket-task").waitFor();
   await thread.getByRole("button", { name: t("tickets.panel.pause"), exact: true }).click();
@@ -256,13 +260,54 @@ try {
   await thread.getByRole("button", { name: t("tickets.panel.stop"), exact: true }).click();
   await thread.getByText(t("tickets.thread.idle"), { exact: true }).waitFor();
   assert.equal(await thread.getByRole("button", { name: t("tickets.panel.stop"), exact: true }).count(), 0);
-  report.steps.push("The strip opens the agent panel; Pause, Resume and Stop change the thread.");
+  report.steps.push("The agent panel's Pause, Resume and Stop change the thread.");
+  await panel.getByRole("button", { name: t("common.close"), exact: true }).click();
+  await panel.waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
+  await column(page, "tickets.status.backlog").waitFor();
+
+  // The filter chips (#189): a chip shows only the tickets of its agent, and a second click clears it.
+  const chips = page.getByRole("group", { name: t("tickets.filter.label"), exact: true });
+  const chiefChip = chips.getByRole("button").filter({ hasText: CHIEF });
+  await chiefChip.click();
+  await card(page, UNASSIGNED).waitFor({ state: "detached" });
+  await card(page, RUNNING).first().waitFor();
+  assert.equal(await chiefChip.getAttribute("aria-pressed"), "true");
+  await screenshot(page, "filter-chief");
+  await chiefChip.click();
+  await card(page, UNASSIGNED).waitFor();
+  assert.equal(await chiefChip.getAttribute("aria-pressed"), "false");
+  const unassignedChip = chips.getByRole("button").filter({ hasText: t("tickets.card.unassigned") });
+  await unassignedChip.click();
+  await card(page, RUNNING).first().waitFor({ state: "detached" });
+  await card(page, UNASSIGNED).waitFor();
+  await chips
+    .getByRole("button")
+    .filter({ hasText: t("tickets.filter.all") })
+    .click();
+  await card(page, RUNNING).first().waitFor();
+  assert.equal(await unassignedChip.getAttribute("aria-pressed"), "false");
+  // Autopilot is off in the preview: no pill, no "Raven picks this next" marker, no "Auto-merge on".
+  assert.equal(await page.getByText(t("tickets.autopilot.next"), { exact: true }).count(), 0);
+  assert.equal(await page.getByText(t("tickets.autopilot.autoMerge"), { exact: true }).count(), 0);
+  report.steps.push(
+    "A filter chip shows only its agent's tickets and a second click clears it; Unassigned and All agents filter too; Autopilot marks stay hidden while it is off.",
+  );
 
   // The agent moves its own ticket: the stopped thread puts it back in Backlog with the failure line.
   await card(column(page, "tickets.status.backlog"), RUNNING)
     .getByText(sourceText("error.agent.boardTickets.threadStopped"), { exact: true })
     .waitFor();
   report.steps.push("Stop puts the thread's ticket back in Backlog with the failure line, with no click.");
+
+  // The filter chips need the panel closed (#189), so it opens again from Chief's lane header, and the
+  // board comes back behind it. The drawer steps below run with the panel open, as before.
+  await page.getByRole("tab", { name: t("tickets.view.agents"), exact: true }).click();
+  await chiefLane.getByRole("button").first().click();
+  await panel.waitFor();
+  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
+  await column(page, "tickets.status.backlog").waitFor();
+  await panel.waitFor();
 
   // Open ticket shows the drawer of the thread's ticket.
   await thread.getByRole("button", { name: t("tickets.panel.openTicket"), exact: true }).click();
@@ -396,6 +441,20 @@ try {
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
   );
 
+  // A card that waits for review has Approve and Changes (#188). Neither opens the drawer.
+  const reviewCard = column(page, "tickets.status.needsReview").locator(".tickets-card").filter({ hasText: STARTED });
+  await reviewCard.getByText(t("tickets.step.waiting"), { exact: true }).waitFor();
+  await reviewCard.getByRole("button", { name: t("tickets.card.changes"), exact: true }).click();
+  const changesDialog = page.getByRole("dialog", { name: t("tickets.changes.title"), exact: true });
+  await changesDialog.waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  await changesDialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
+  await changesDialog.waitFor({ state: "detached" });
+  await reviewCard.getByRole("button", { name: t("tickets.card.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  report.steps.push("Changes opens its dialog and Approve moves the ticket to Done; neither opens the drawer.");
+
   // Raven team jobs: each job has its own ticket and one ticket per role, assigned to the role's agent.
   // The running job's Builder works and its Reviewer waits; the queued job's tickets wait in Queued.
   const running = column(page, "tickets.status.running");
@@ -457,7 +516,7 @@ try {
     .getByRole("complementary", { name: RUNNING, exact: true })
     .getByRole("button", { name: t("tickets.drawer.openThread"), exact: true })
     .click();
-  await page.getByRole("region", { name: t("tickets.strip.label"), exact: true }).waitFor({ state: "detached" });
+  await page.getByRole("group", { name: t("tickets.filter.label"), exact: true }).waitFor({ state: "detached" });
   await screenshot(page, "thread");
   report.steps.push("Open thread opens the agent's chat.");
 
