@@ -15,7 +15,28 @@ export type BoardTicketStatus = (typeof BOARD_TICKET_STATUSES)[number];
 export const BOARD_TICKET_PROVIDERS = ["github", "jira", "linear"] as const;
 export type BoardTicketProvider = (typeof BOARD_TICKET_PROVIDERS)[number];
 
-export const BOARD_TICKET_EVENT_KINDS = ["created", "moved", "assigned", "comment", "progress"] as const;
+/**
+ * The kind of work of a ticket. Null on a ticket means "not set yet": the detection found no sign, and the
+ * person or Autopilot sets it later.
+ */
+export const BOARD_TICKET_TYPES = ["feature", "bug", "chore"] as const;
+export type BoardTicketType = (typeof BOARD_TICKET_TYPES)[number];
+
+/**
+ * Who set the type of a ticket. `detected`: the labels, the title or the text, when the ticket was created
+ * or synced. `user`: the person chose it, and detection never changes it again. `agent`: an agent set it.
+ */
+export const BOARD_TICKET_TYPE_SOURCES = ["detected", "user", "agent"] as const;
+export type BoardTicketTypeSource = (typeof BOARD_TICKET_TYPE_SOURCES)[number];
+
+export const BOARD_TICKET_EVENT_KINDS = [
+  "created",
+  "moved",
+  "assigned",
+  "comment",
+  "progress",
+  "type_changed",
+] as const;
 export type BoardTicketEventKind = (typeof BOARD_TICKET_EVENT_KINDS)[number];
 
 export const BOARD_TICKET_ACTORS = ["user", "agent", "sync"] as const;
@@ -46,6 +67,10 @@ export interface BoardTicket {
   title: string;
   body: string;
   status: BoardTicketStatus;
+  /** Feature, Bug or Chore. Null: not set yet. */
+  type: BoardTicketType | null;
+  /** Who set the type. Null while the type was never set. */
+  typeSource: BoardTicketTypeSource | null;
   /** The assigned agent. Null: the ticket is unassigned. */
   agentId: string | null;
   /** The order in the column. A lower value shows higher. */
@@ -77,6 +102,7 @@ export interface BoardTicketEvent {
   actor: BoardTicketActor;
   fromStatus: BoardTicketStatus | null;
   toStatus: BoardTicketStatus | null;
+  /** The comment, the progress line or the assigned agent. For `type_changed`, the new type, or null when it was cleared. */
   text: string | null;
   createdAt: string;
 }
@@ -117,6 +143,8 @@ export interface CreateBoardTicketInput {
   /** The default is `backlog`. */
   status?: BoardTicketStatus;
   agentId?: string | null;
+  /** The type that the person chose. Absent: the board detects it from the title and the text. */
+  type?: BoardTicketType | null;
 }
 
 /** Changes the fields that are present. `null` clears a nullable field. */
@@ -125,6 +153,8 @@ export interface UpdateBoardTicketInput {
   title?: string;
   body?: string;
   agentId?: string | null;
+  /** The person's choice of type. It wins over detection from then on; `null` clears it. */
+  type?: BoardTicketType | null;
   progress?: string | null;
   error?: string | null;
 }
@@ -237,6 +267,88 @@ export function boardTicketTeamRoleStep(
   return { status: "backlog", failure: null };
 }
 
+const TYPE_LABELS: Record<BoardTicketType, readonly string[]> = {
+  bug: ["bug", "bugs", "defect", "regression", "crash", "fix", "bugfix", "hotfix", "incident", "type: bug", "kind/bug"],
+  feature: ["feature", "features", "feat", "enhancement", "story", "new feature", "feature request", "improvement"],
+  chore: [
+    "chore",
+    "maintenance",
+    "refactor",
+    "refactoring",
+    "tech debt",
+    "technical debt",
+    "dependencies",
+    "deps",
+    "ci",
+    "build",
+    "docs",
+    "documentation",
+    "cleanup",
+    "tooling",
+  ],
+};
+
+const TITLE_PREFIX: readonly [RegExp, BoardTicketType][] = [
+  [/^(?:\[)?(?:feat|feature)(?:\(.*?\))?!?(?:\])?\s*[:-]/iu, "feature"],
+  [/^(?:\[)?(?:fix|bug|bugfix|hotfix)(?:\(.*?\))?!?(?:\])?\s*[:-]/iu, "bug"],
+  [/^(?:\[)?(?:chore|refactor|docs|ci|build|test|tests|perf|style|deps)(?:\(.*?\))?!?(?:\])?\s*[:-]/iu, "chore"],
+];
+
+/** The first word of the title, as an order: "Add dark mode", "Fix the redirect", "Bump Electron". */
+const TITLE_START: readonly [RegExp, BoardTicketType][] = [
+  [/^(?:fix|repair|resolve|debug|investigate)\b/iu, "bug"],
+  [/^(?:bump|upgrade|refactor|clean ?up|rename|remove|delete|migrate|document|audit|update|tidy|lint)\b/iu, "chore"],
+  [/^(?:add|implement|support|introduce|allow|enable|create|build|design|new|let)\b/iu, "feature"],
+];
+
+/** Words anywhere in the title. A bug word wins over a chore word. */
+const TITLE_WORDS: readonly [RegExp, BoardTicketType][] = [
+  [
+    /\b(?:bug|crash(?:es|ed|ing)?|broken|regression|fails?|failing|failed|not working|doesn'?t work|incorrect)\b/iu,
+    "bug",
+  ],
+  [/\b(?:dependencies|tech debt|clean ?up|chore|refactor)\b/iu, "chore"],
+];
+
+const BODY_BUG_SIGNS = /\b(?:steps to reproduce|expected behaviou?r|actual behaviou?r|stack ?trace|repro steps)\b/iu;
+
+/** The type that one label names, such as `bug`, `type: feature` or `kind/chore`, or null. */
+function labelType(label: string): BoardTicketType | null {
+  const clean = label.trim().toLowerCase();
+  const bare = clean.replace(/^(?:type|kind|issue type|t)\s*[:/]\s*/u, "");
+  for (const type of BOARD_TICKET_TYPES) {
+    if (TYPE_LABELS[type].includes(clean) || TYPE_LABELS[type].includes(bare)) return type;
+  }
+  return null;
+}
+
+/**
+ * The type of a ticket from what its ticket system and its text say: a label first (GitHub, Jira, Linear),
+ * then a prefix of the title such as `fix:`, then its first word and its other words, then signs of a bug
+ * report in the text. Null when nothing says. The desktop and the preview detect with the same rule. The
+ * words are English: a title in another language gets its type from a label or from the person.
+ */
+export function detectBoardTicketType(input: {
+  labels?: readonly string[];
+  title: string;
+  body?: string;
+}): BoardTicketType | null {
+  for (const label of input.labels ?? []) {
+    const type = labelType(label);
+    if (type) return type;
+  }
+  const title = input.title.trim();
+  for (const rules of [TITLE_PREFIX, TITLE_START, TITLE_WORDS]) {
+    for (const [pattern, type] of rules) if (pattern.test(title)) return type;
+  }
+  if (input.body && BODY_BUG_SIGNS.test(input.body)) return "bug";
+  return null;
+}
+
+export function isBoardTicketType(value: unknown): value is BoardTicketType {
+  return isOneOf(BOARD_TICKET_TYPES, value);
+}
+
 export function isBoardTicketStatus(value: unknown): value is BoardTicketStatus {
   return isOneOf(BOARD_TICKET_STATUSES, value);
 }
@@ -302,6 +414,8 @@ export function isBoardTicket(value: unknown): value is BoardTicket {
     isBoundedString(value.title, BOARD_TICKET_TITLE_LIMIT) &&
     isBoundedString(value.body, BOARD_TICKET_BODY_LIMIT) &&
     isBoardTicketStatus(value.status) &&
+    (value.type === null || isBoardTicketType(value.type)) &&
+    (value.typeSource === null || isOneOf(BOARD_TICKET_TYPE_SOURCES, value.typeSource)) &&
     isNullableIdentifier(value.agentId) &&
     isFiniteNumber(value.order) &&
     isNullableIdentifier(value.taskId) &&

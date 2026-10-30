@@ -425,6 +425,7 @@ import type {
   SteerQueuedMessageInput,
   UpdateQueuedMessageInput,
 } from "./ipc-queue";
+import type { RavenAutopilotSettings } from "./ipc-raven-autopilot";
 import type {
   GiveRavenTeamRoleFullAccessInput,
   PlanRavenTeamInput,
@@ -1468,6 +1469,14 @@ export const IPC_ENDPOINTS = {
     resume: request<string, RavenTeamJob>()("raven-team:resume"),
     changed: event<RavenTeamChanged>()("raven-team:changed"),
   },
+  // The Autopilot settings of the Raven team. They stay on this computer in one preference file. `set`
+  // takes the whole settings and answers what was saved; `changed` carries the saved settings to every
+  // window, so a view reads no file and does not poll.
+  ravenAutopilot: {
+    get: request<undefined, RavenAutopilotSettings>()("raven-autopilot:get"),
+    set: request<RavenAutopilotSettings, RavenAutopilotSettings>()("raven-autopilot:set"),
+    changed: event<RavenAutopilotSettings>()("raven-autopilot:changed"),
+  },
   // The Tickets board of this computer. The one event carries the changed ticket IDs, so the view reads
   // the list again instead of polling.
   // The board requests take the server: a joined server serves its board through `board-tickets-v1`.
@@ -1918,6 +1927,7 @@ export const IPC_GROUP_PATHS = {
   monitor: "monitor",
   routineFlows: "routineFlows",
   ravenTeam: "ravenTeam",
+  ravenAutopilot: "ravenAutopilot",
   boardTickets: "boardTickets",
   routineResults: "routineResults",
   billing: "billing",

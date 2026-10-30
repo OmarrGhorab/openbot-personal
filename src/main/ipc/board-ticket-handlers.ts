@@ -9,7 +9,6 @@ import {
   isBoardTicket,
   isBoardTicketEvent,
   isBoardTicketEventList,
-  isBoardTicketList,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { BOARD_TICKETS_CAPABILITY, BOARD_TICKETS_ROUTES } from "@openbot/contracts/team-protocol/board-tickets-v1";
@@ -51,9 +50,19 @@ interface BoardTicketIpcDependencies {
   remoteServers: BoardTicketRemoteServers;
 }
 
-const decodeTicket: ResponseDecoder<BoardTicket> = (value) => {
-  if (!isBoardTicket(value)) throw new Error("The server sent an invalid ticket.");
-  return value;
+/**
+ * A ticket from a joined server, or null when it is not one. The frozen board-tickets-v1 wire carries no
+ * ticket type, so such a ticket has the type "not set yet". A field that the server did send stays as it is.
+ */
+function wireTicket(value: unknown): BoardTicket | null {
+  const typed = isDynamicRecord(value) && !("type" in value) ? { ...value, type: null, typeSource: null } : value;
+  return isBoardTicket(typed) ? typed : null;
+}
+
+const decodeTicket: ResponseDecoder<BoardTicket> = (input) => {
+  const ticket = wireTicket(input);
+  if (!ticket) throw new Error("The server sent an invalid ticket.");
+  return ticket;
 };
 
 const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
@@ -62,9 +71,9 @@ const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
 };
 
 const decodeTickets: ResponseDecoder<BoardTicket[]> = (value) => {
-  if (!isDynamicRecord(value) || !isBoardTicketList(value.tickets))
-    throw new Error("The server sent an invalid board.");
-  return value.tickets;
+  const tickets = isDynamicRecord(value) && Array.isArray(value.tickets) ? value.tickets.map(wireTicket) : null;
+  if (!tickets?.every((ticket) => ticket !== null)) throw new Error("The server sent an invalid board.");
+  return tickets.filter((ticket) => ticket !== null);
 };
 
 const decodeEvents: ResponseDecoder<BoardTicketEvent[]> = (value) => {

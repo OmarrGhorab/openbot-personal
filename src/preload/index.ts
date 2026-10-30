@@ -256,6 +256,7 @@ import {
 import { decodeMonitorChange, decodeMonitorConversation, decodeMonitorSnapshot } from "./monitor-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
 import {
+  decodeRavenAutopilotSettings,
   decodeRavenChanged,
   decodeRavenJob,
   decodeRavenJobs,
@@ -768,6 +769,11 @@ const openbotApi: OpenBotDesktopApi = {
     stop: decodeRavenJob,
     resume: decodeRavenJob,
     changed: decodeRavenChanged,
+  }),
+  ravenAutopilot: bridgeGroup(IPC_ENDPOINTS.ravenAutopilot, {
+    get: decodeRavenAutopilotSettings,
+    set: decodeRavenAutopilotSettings,
+    changed: decodeRavenAutopilotSettings,
   }),
   routineFlows: bridgeGroup(IPC_ENDPOINTS.routineFlows, {
     canvas: decodeRoutineFlowCanvas,

@@ -91,6 +91,7 @@ import { projectMemoryIpcHandlers } from "./ipc/project-memory-handlers";
 import { providerAdminIpcHandlers } from "./ipc/provider-admin-handlers";
 import { providerDetectionIpcHandlers } from "./ipc/provider-detection-handlers";
 import { providerIpcHandlers } from "./ipc/provider-handlers";
+import { ravenAutopilotIpcHandlers } from "./ipc/raven-autopilot-handlers";
 import { ravenTeamIpcHandlers } from "./ipc/raven-team-handlers";
 import { routineFeedIpcHandlers } from "./ipc/routine-feed-handlers";
 import { routineFlowIpcHandlers } from "./ipc/routine-flow-handlers";
@@ -607,6 +608,7 @@ function registerIpcHandlers({
   resourceMonitor,
   routineFlows,
   ravenTeam,
+  ravenAutopilot,
   routineResults,
   boardTickets,
   boardTicketSync,
@@ -742,6 +744,7 @@ function registerIpcHandlers({
     ...ticketWatchIpcHandlers({ settings: agentTicketSettings }),
     ...routineFlowIpcHandlers({ routineFlows, remoteServers }),
     ...ravenTeamIpcHandlers({ ravenTeam }),
+    ...ravenAutopilotIpcHandlers({ ravenAutopilot }),
     ...routineResultIpcHandlers({ routineResults }),
     ...channelMemoryIpcHandlers({ service, remoteServers }),
     ...channelRoutineIpcHandlers({ service, remoteServers }),

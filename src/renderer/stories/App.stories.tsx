@@ -327,6 +327,8 @@ function storyTicket(
   statusTimes[ticket.status] = TICKETS_STORY_TIME;
   return {
     body: "",
+    type: null,
+    typeSource: null,
     taskId: null,
     threadId: null,
     teamJobId: null,
@@ -415,6 +417,8 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
       id: "story-ticket-running",
       title: "Fix the login timeout",
       body: "Sessions end after 5 minutes. They should last 30.",
+      type: "bug",
+      typeSource: "detected",
       status: "running",
       agentId: "chief",
       order: 1,
@@ -429,6 +433,8 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
     storyTicket({
       id: "story-ticket-backlog",
       title: "Write the release notes",
+      type: "chore",
+      typeSource: "user",
       status: "backlog",
       agentId: "research",
       order: 1,
@@ -443,6 +449,8 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
     storyTicket({
       id: "story-ticket-review",
       title: "Add a retry to the sync job",
+      type: "feature",
+      typeSource: "detected",
       status: "needs_review",
       agentId: "sales",
       order: 1,
@@ -450,6 +458,8 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
     storyTicket({
       id: "story-ticket-done",
       title: "Rename the settings tab",
+      type: "chore",
+      typeSource: "user",
       status: "done",
       agentId: "chief",
       order: 1,
@@ -465,6 +475,7 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
           title: "Show the issue link on each card",
           body: "Each imported ticket keeps the link to its issue.",
           url: "https://github.com/OmarrGhorab/openbot-personal/issues/158",
+          labels: ["enhancement"],
         },
       ],
     },
@@ -498,4 +509,26 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
  */
 export const TicketsBoard: Story = {
   render: () => <OpenBotPlayground options={TICKETS_STORY_OPTIONS} />,
+};
+
+/**
+ * The Tickets page with an empty board. Linear is connected, so the empty state offers "Sync from
+ * Linear". The first ticket list takes a moment, as a slow disk does: the board shows no empty state until
+ * it arrives. `scripts/tickets-board-e2e.ts` drives this story.
+ */
+export const TicketsBoardEmpty: Story = {
+  render: () => (
+    <OpenBotPlayground
+      options={{
+        boardTickets: [],
+        boardTicketsFirstListDelayMs: 1500,
+        boardTicketSync: { providers: ["linear"], projects: { linear: ["Product"] }, issues: { Product: [] } },
+      }}
+    />
+  ),
+};
+
+/** The empty board with no ticket system connected: the empty state has no Sync button. */
+export const TicketsBoardEmptyNoSync: Story = {
+  render: () => <OpenBotPlayground options={{ boardTickets: [] }} />,
 };

@@ -1,22 +1,26 @@
-import type {
-  AgentTasksSnapshot,
-  BoardTicket,
-  BoardTicketEvent,
-  BoardTicketStatus,
-  ConversationMessage,
+import {
+  type AgentTasksSnapshot,
+  BOARD_TICKET_TYPES,
+  type BoardTicket,
+  type BoardTicketEvent,
+  type BoardTicketStatus,
+  type BoardTicketType,
+  type ConversationMessage,
+  isBoardTicketType,
 } from "@openbot/contracts/ipc";
 import {
   Button,
   buttonVariants,
-  CircleCheck,
-  CircleDot,
+  Check,
+  ChevronDown,
   ConfirmDialog,
   DropdownMenu,
-  ExternalLink,
   File,
   IconButton,
   LoaderCircle,
+  MessageCircle,
   Play,
+  Send,
   Textarea,
   Trash2,
   UsersRound,
@@ -25,18 +29,24 @@ import {
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, onCleanup, Show } from "solid-js";
+import { TICKET_TYPE_LABEL, TicketTypeChip } from "./TicketTypeChip";
 import {
-  finishedTurns,
+  relativeTime,
+  TICKET_PROVIDER_LABEL,
+  TICKET_STEP_LABEL,
+  threadTokens,
+  threadToolCalls,
+  ticketStartedAt,
+} from "./ticket-drawer-model";
+import {
   latestPlan,
   TICKET_COLUMNS,
   TICKET_STATUS_LABEL,
   threadFiles,
-  threadStateLabel,
   ticketError,
   ticketProgress,
   ticketThread,
-  turnTokens,
 } from "./tickets-model";
 
 export interface TicketDrawerProps {
@@ -52,6 +62,8 @@ export interface TicketDrawerProps {
   onStart: () => void;
   onMove: (status: BoardTicketStatus) => void;
   onAssign: (agentId: string | null) => void;
+  /** The person's choice of type, which wins over detection. Without it, the drawer shows the chip only. */
+  onSetType?: ((type: BoardTicketType | null) => void) | undefined;
   onDelete: () => void;
   /** Opens the ticket's work thread. Without it, the drawer has no button for the thread. */
   onOpenThread?: (() => void) | undefined;
@@ -60,6 +72,13 @@ export interface TicketDrawerProps {
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (text: string) => Promise<boolean>;
+  /** Approves a ticket in Needs review: "Approve and move to Done". */
+  onApprove: () => void;
+  /**
+   * Sends the text to the work thread and moves the ticket back to Running. True when it went out.
+   * Absent: the review has no Request changes (a ticket with no work thread).
+   */
+  onRequestChanges?: ((text: string) => Promise<boolean>) | undefined;
   /** Every ticket of the board: the drawer of a team job lists its role tickets, a role ticket links its job. */
   tickets: readonly BoardTicket[];
   /** Opens the drawer of another ticket. */
@@ -67,28 +86,41 @@ export interface TicketDrawerProps {
 }
 
 const UNASSIGNED = "";
+const NO_TYPE = "";
+/** The relative times of the drawer read the clock again this often. */
+const CLOCK_MS = 30_000;
 
 /**
- * The detail of one ticket: the status stepper, the stats that have a source, the live activity, the
- * plan and the files of its thread, and a box that steers the thread.
+ * The detail of one ticket. The next action comes first: Open thread (or Start now) with Move to and
+ * Delete, or the review banner with Approve and Request changes. Then the five status steps, the
+ * details, the live activity, the plan ("What changed" in review), the files and the activity. The body
+ * scrolls; the steer box stays at the bottom. In review, its button is Request changes.
  */
 export function TicketDrawer(props: TicketDrawerProps) {
   const { t, format } = useText();
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  const [now, setNow] = createSignal(Date.now());
+  const clock = setInterval(() => setNow(Date.now()), CLOCK_MS);
+  onCleanup(() => clearInterval(clock));
+  let steerBox: HTMLTextAreaElement | undefined;
+
   const agent = () => props.agents.find((candidate) => candidate.id === props.ticket.agentId);
   const thread = () => ticketThread(props.ticket, props.snapshot);
   const progress = () => ticketProgress(props.ticket, thread());
   const error = () => ticketError(props.ticket, thread());
   const plan = () => latestPlan(props.messages);
   const files = () => threadFiles(props.messages);
-  const tokens = () => turnTokens(props.messages);
-  const tokenTotal = () => tokens().reduce((sum, turn) => sum + turn.tokens, 0);
-  const tokenPeak = () => Math.max(1, ...tokens().map((turn) => turn.tokens));
-  const comments = () => (props.events ?? []).filter((event) => event.kind === "comment").length;
+  const toolCalls = () => threadToolCalls(props.messages);
+  const tokens = () => threadTokens(props.messages);
+  const reviewing = () => props.ticket.status === "needs_review";
+  /** Request changes needs a work thread to send the text to. */
+  const canRequestChanges = () => reviewing() && props.onRequestChanges !== undefined && props.ticket.taskId !== null;
   const currentIndex = () => TICKET_COLUMNS.indexOf(props.ticket.status);
   const time = (iso: string) => format.date(new Date(iso), { dateStyle: "medium", timeStyle: "short" });
+  const ago = (iso: string) => relativeTime(format.locale, iso, now());
+  const agoShort = (iso: string) => relativeTime(format.locale, iso, now(), "narrow");
   const statusName = (status: BoardTicketStatus | null) => (status ? t(TICKET_STATUS_LABEL[status]) : "");
   const agentName = (agentId: string) => props.agents.find((candidate) => candidate.id === agentId)?.name ?? agentId;
   const newestFirst = () => [...(props.events ?? [])].reverse();
@@ -105,6 +137,24 @@ export function TicketDrawer(props: TicketDrawerProps) {
     if (jobId === null || props.ticket.teamRoleId === null) return undefined;
     return props.tickets.find((candidate) => candidate.teamJobId === jobId && candidate.teamRoleId === null);
   };
+  const usage = () => {
+    const parts: string[] = [];
+    if (toolCalls() > 0) parts.push(t("tickets.drawer.toolCalls", { count: toolCalls() }));
+    if (tokens() > 0) parts.push(t("tickets.drawer.tokenCount", { tokens: format.compact(tokens()) }));
+    return parts.join(" · ");
+  };
+  /** The first line of the review banner: who finished, with the tool calls and the changed files when known. */
+  const reviewSummary = () => {
+    const owner = agent();
+    if (!owner || toolCalls() === 0) return t("tickets.drawer.review.ready");
+    const calls = t("tickets.drawer.toolCalls", { count: toolCalls() });
+    if (files().length === 0) return t("tickets.drawer.review.finishedNoFiles", { name: owner.name, calls });
+    return t("tickets.drawer.review.finished", {
+      name: owner.name,
+      calls,
+      files: t("tickets.drawer.fileCount", { count: files().length }),
+    });
+  };
 
   function eventText(event: BoardTicketEvent): string {
     switch (event.kind) {
@@ -116,6 +166,10 @@ export function TicketDrawer(props: TicketDrawerProps) {
         return event.text
           ? t("tickets.event.assigned", { name: agentName(event.text) })
           : t("tickets.event.unassigned");
+      case "type_changed":
+        return isBoardTicketType(event.text)
+          ? t("tickets.event.typeChanged", { type: t(TICKET_TYPE_LABEL[event.text]) })
+          : t("tickets.event.typeCleared");
       default:
         return event.text ?? "";
     }
@@ -123,70 +177,103 @@ export function TicketDrawer(props: TicketDrawerProps) {
 
   function actorName(event: BoardTicketEvent): string {
     if (event.actor === "user") return t("tickets.actor.user");
-    if (event.actor === "agent") return t("tickets.actor.agent");
+    if (event.actor === "agent") return agent()?.name ?? t("tickets.actor.agent");
     return t("tickets.actor.sync");
   }
 
-  async function steer(): Promise<void> {
+  /** Sends the steer box: in review it requests changes, otherwise it steers the thread. */
+  async function send(): Promise<void> {
     const text = draft().trim();
     if (!text || sending()) return;
+    const request = canRequestChanges() ? props.onRequestChanges : undefined;
     setSending(true);
-    const sent = await props.onSteer(text);
+    const sent = request ? await request(text) : await props.onSteer(text);
     setSending(false);
     if (sent) setDraft("");
   }
 
+  /** Request changes in the banner sends the comment when there is one; otherwise it asks for one. */
+  function requestChanges(): void {
+    if (draft().trim()) void send();
+    else steerBox?.focus();
+  }
+
+  const moveMenu = () => (
+    <DropdownMenu.Root placement="bottom-end" gutter={4}>
+      <DropdownMenu.Trigger class={`${buttonVariants({ variant: "outline", size: "sm" })} ticket-drawer-move`}>
+        <ChevronDown aria-hidden="true" />
+        {t("tickets.drawer.moveTo")}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content>
+          <For each={TICKET_COLUMNS}>
+            {(status) => (
+              <DropdownMenu.Item disabled={status === props.ticket.status} onSelect={() => props.onMove(status)}>
+                {t(TICKET_STATUS_LABEL[status])}
+              </DropdownMenu.Item>
+            )}
+          </For>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+
   return (
-    <aside class="tickets-side" aria-label={props.ticket.title}>
-      <header class="tickets-side-header">
-        <h3>{props.ticket.title}</h3>
-        <IconButton label={t("common.close")} variant="ghost" onClick={props.onClose}>
-          <X aria-hidden="true" />
-        </IconButton>
+    <aside class="tickets-side ticket-drawer" aria-label={props.ticket.title}>
+      <header class="ticket-drawer-header">
+        <div class="ticket-drawer-meta">
+          <Show when={props.ticket.external}>
+            {(external) => <span class="ticket-drawer-key">{external().key}</span>}
+          </Show>
+          <span class="ticket-drawer-pill" data-status={props.ticket.status}>
+            <span class="ticket-drawer-pill-dot" aria-hidden="true" />
+            {t(TICKET_STATUS_LABEL[props.ticket.status])}
+          </span>
+          <span class="ticket-drawer-spacer" />
+          <IconButton label={t("common.close")} variant="ghost" onClick={props.onClose}>
+            <X aria-hidden="true" />
+          </IconButton>
+        </div>
+        <h3 class="ticket-drawer-title">{props.ticket.title}</h3>
       </header>
-      <div class="tickets-side-scroll">
-        <div class="tickets-actions">
-          <DropdownMenu.Root placement="bottom-start" gutter={4}>
-            <DropdownMenu.Trigger
-              class={`${buttonVariants({ variant: "outline", size: "sm" })} tickets-drawer-agent`}
-              aria-label={t("tickets.new.agent")}
-            >
-              <Show when={agent()} fallback={t("tickets.card.unassigned")}>
-                {(owner) => (
-                  <>
-                    <AgentAvatar
-                      agent={owner()}
-                      mood={thread()?.state === "running" ? "working" : "idle"}
-                      class="tickets-drawer-avatar"
-                    />
-                    {t("tickets.drawer.agent", { name: owner().name })}
-                  </>
-                )}
+
+      <div class="ticket-drawer-body">
+        <Show when={reviewing()}>
+          <section class="ticket-drawer-review" aria-label={t("tickets.drawer.review.title")}>
+            <h4 class="ticket-drawer-review-title">{t("tickets.drawer.review.title")}</h4>
+            <p class="ticket-drawer-review-text">
+              {reviewSummary()} {t("tickets.drawer.review.check")}
+            </p>
+            <div class="ticket-drawer-review-actions">
+              <Button size="sm" onClick={props.onApprove}>
+                <Check aria-hidden="true" />
+                {t("tickets.drawer.approve")}
+              </Button>
+              <Show when={canRequestChanges()}>
+                <Button size="sm" variant="outline" loading={sending()} onClick={requestChanges}>
+                  {t("tickets.drawer.requestChanges")}
+                </Button>
               </Show>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content>
-                <DropdownMenu.RadioGroup
-                  value={props.ticket.agentId ?? UNASSIGNED}
-                  onChange={(value: string) => props.onAssign(value === UNASSIGNED ? null : value)}
-                >
-                  <DropdownMenu.RadioItem value={UNASSIGNED} closeOnSelect>
-                    {t("tickets.card.unassigned")}
-                  </DropdownMenu.RadioItem>
-                  <For each={props.agents} keyed={(option) => option.id}>
-                    {(option) => (
-                      <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tickets-drawer-agent">
-                        <AgentAvatar agent={option()} class="tickets-drawer-avatar" />
-                        {option().name}
-                      </DropdownMenu.RadioItem>
-                    )}
-                  </For>
-                </DropdownMenu.RadioGroup>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-          <Show when={!props.ticket.taskId}>
-            <Button size="sm" disabled={!props.ticket.agentId} onClick={props.onStart}>
+            </div>
+          </section>
+        </Show>
+
+        <div class="ticket-drawer-actions">
+          <Show when={props.ticket.threadId ? props.onOpenThread : undefined}>
+            {(open) => (
+              <Button
+                size="sm"
+                variant={reviewing() ? "outline" : "default"}
+                class="ticket-drawer-primary"
+                onClick={() => open()()}
+              >
+                <MessageCircle aria-hidden="true" />
+                {t("tickets.drawer.openThread")}
+              </Button>
+            )}
+          </Show>
+          <Show when={!props.ticket.taskId && props.ticket.teamJobId === null}>
+            <Button size="sm" class="ticket-drawer-primary" disabled={!props.ticket.agentId} onClick={props.onStart}>
               <Play aria-hidden="true" />
               {t("tickets.new.start")}
             </Button>
@@ -199,21 +286,6 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </Button>
             )}
           </Show>
-          <Show when={props.ticket.threadId ? props.onOpenThread : undefined}>
-            {(open) => (
-              <Button variant="outline" size="sm" onClick={() => open()()}>
-                {t("tickets.drawer.openThread")}
-              </Button>
-            )}
-          </Show>
-          <Show when={props.ticket.external}>
-            {(external) => (
-              <Button variant="outline" size="sm" onClick={() => props.onOpenLink(external().url)}>
-                <ExternalLink aria-hidden="true" />
-                {t("tickets.drawer.openIssue")}
-              </Button>
-            )}
-          </Show>
           <Show when={jobTicket()}>
             {(job) => (
               <Button variant="outline" size="sm" onClick={() => props.onOpenTicket(job().id)}>
@@ -221,49 +293,42 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </Button>
             )}
           </Show>
-          <IconButton label={t("common.delete")} variant="destructive-ghost" onClick={() => setConfirmDelete(true)}>
+          {moveMenu()}
+          <IconButton label={t("common.delete")} variant="outline" onClick={() => setConfirmDelete(true)}>
             <Trash2 aria-hidden="true" />
           </IconButton>
         </div>
-        <Show when={!props.ticket.taskId && !props.ticket.agentId}>
+        <Show when={!props.ticket.taskId && !props.ticket.agentId && props.ticket.teamJobId === null}>
           <p class="tickets-muted">{t("tickets.new.needsAgent")}</p>
         </Show>
 
-        <section class="tickets-section">
-          <h4>{t("tickets.drawer.steps")}</h4>
-          <ol class="tickets-stepper">
-            <For each={TICKET_COLUMNS}>
-              {(status) => {
-                const index = TICKET_COLUMNS.indexOf(status);
-                return (
-                  <li
-                    class="tickets-step"
-                    data-status={status}
-                    data-reached={index <= currentIndex() ? "" : undefined}
-                    data-current={index === currentIndex() ? "" : undefined}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      aria-current={index === currentIndex() ? "step" : undefined}
-                      disabled={index === currentIndex()}
-                      onClick={() => props.onMove(status)}
-                    >
-                      {t(TICKET_STATUS_LABEL[status])}
-                    </Button>
-                    <Show when={props.ticket.statusTimes[status]}>
-                      {(at) => <span class="tickets-step-time">{time(at())}</span>}
-                    </Show>
-                  </li>
-                );
-              }}
-            </For>
-          </ol>
-        </section>
+        <ol class="ticket-drawer-steps" aria-label={t("tickets.drawer.steps")}>
+          <For each={TICKET_COLUMNS}>
+            {(status) => {
+              const index = TICKET_COLUMNS.indexOf(status);
+              const at = () => {
+                const entered = props.ticket.statusTimes[status];
+                return entered ? time(entered) : undefined;
+              };
+              return (
+                <li
+                  class="ticket-drawer-step"
+                  data-status={status}
+                  data-reached={index < currentIndex() ? "" : undefined}
+                  data-current={index === currentIndex() ? "" : undefined}
+                  aria-current={index === currentIndex() ? "step" : undefined}
+                  title={at()}
+                >
+                  {t(TICKET_STEP_LABEL[status])}
+                </li>
+              );
+            }}
+          </For>
+        </ol>
 
         <Show when={roleTickets().length > 0}>
-          <section class="tickets-section">
-            <h4>{t("tickets.drawer.roleTickets")}</h4>
+          <section class="ticket-drawer-section">
+            <h4 class="ticket-drawer-heading">{t("tickets.drawer.roleTickets")}</h4>
             <ul class="tickets-list">
               <For each={roleTickets()} keyed={(role) => role.id}>
                 {(role) => (
@@ -293,77 +358,166 @@ export function TicketDrawer(props: TicketDrawerProps) {
           </section>
         </Show>
 
-        <section class="tickets-section">
-          <h4>{t("tickets.drawer.stats")}</h4>
-          <div class="tickets-stats">
-            <TicketStat label={t("tickets.drawer.inColumn")} value={time(props.ticket.statusChangedAt)} />
-            <TicketStat label={t("tickets.drawer.created")} value={time(props.ticket.createdAt)} />
-            <Show when={thread()}>
-              {(current) => <TicketStat label={t("tickets.drawer.thread")} value={t(threadStateLabel(current()))} />}
+        <section class="ticket-drawer-section">
+          <h4 class="ticket-drawer-heading">{t("tickets.drawer.details")}</h4>
+          <dl class="ticket-drawer-details">
+            <div class="ticket-drawer-row">
+              <dt>{t("tickets.new.agent")}</dt>
+              <dd>
+                <DropdownMenu.Root placement="bottom-start" gutter={4}>
+                  <DropdownMenu.Trigger
+                    class={`${buttonVariants({ variant: "ghost", size: "xs" })} ticket-drawer-agent`}
+                    aria-label={t("tickets.new.agent")}
+                  >
+                    <Show when={agent()} fallback={t("tickets.card.unassigned")}>
+                      {(owner) => (
+                        <>
+                          <AgentAvatar
+                            agent={owner()}
+                            mood={thread()?.state === "running" ? "working" : "idle"}
+                            class="ticket-drawer-avatar"
+                          />
+                          {owner().name}
+                        </>
+                      )}
+                    </Show>
+                    <ChevronDown aria-hidden="true" class="ticket-drawer-chevron" />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content>
+                      <DropdownMenu.RadioGroup
+                        value={props.ticket.agentId ?? UNASSIGNED}
+                        onChange={(value: string) => props.onAssign(value === UNASSIGNED ? null : value)}
+                      >
+                        <DropdownMenu.RadioItem value={UNASSIGNED} closeOnSelect>
+                          {t("tickets.card.unassigned")}
+                        </DropdownMenu.RadioItem>
+                        <For each={props.agents} keyed={(option) => option.id}>
+                          {(option) => (
+                            <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tickets-drawer-agent">
+                              <AgentAvatar agent={option()} class="tickets-drawer-avatar" />
+                              {option().name}
+                            </DropdownMenu.RadioItem>
+                          )}
+                        </For>
+                      </DropdownMenu.RadioGroup>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              </dd>
+            </div>
+            <div class="ticket-drawer-row">
+              <dt>{t("tickets.type.label")}</dt>
+              <dd>
+                <Show
+                  when={props.onSetType}
+                  fallback={
+                    <Show when={props.ticket.type} fallback={t("tickets.type.unset")}>
+                      <TicketTypeChip type={props.ticket.type} />
+                    </Show>
+                  }
+                >
+                  {(setType) => (
+                    <DropdownMenu.Root placement="bottom-start" gutter={4}>
+                      <DropdownMenu.Trigger
+                        class={`${buttonVariants({ variant: "ghost", size: "xs" })} ticket-drawer-agent`}
+                        aria-label={t("tickets.type.label")}
+                      >
+                        <TicketTypeChip type={props.ticket.type} unset />
+                        <ChevronDown aria-hidden="true" class="ticket-drawer-chevron" />
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content>
+                          <DropdownMenu.RadioGroup
+                            value={props.ticket.type ?? NO_TYPE}
+                            onChange={(value: string) => setType()(isBoardTicketType(value) ? value : null)}
+                          >
+                            <For each={BOARD_TICKET_TYPES}>
+                              {(type) => (
+                                <DropdownMenu.RadioItem value={type} closeOnSelect>
+                                  <TicketTypeChip type={type} />
+                                </DropdownMenu.RadioItem>
+                              )}
+                            </For>
+                            <DropdownMenu.RadioItem value={NO_TYPE} closeOnSelect>
+                              {t("tickets.type.unset")}
+                            </DropdownMenu.RadioItem>
+                          </DropdownMenu.RadioGroup>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  )}
+                </Show>
+              </dd>
+            </div>
+            <div class="ticket-drawer-row">
+              <dt>{t("tickets.drawer.source")}</dt>
+              <dd>
+                <Show when={props.ticket.external} fallback={t("tickets.drawer.sourceLocal")}>
+                  {(external) => (
+                    <Button
+                      variant="link"
+                      size="xs"
+                      class="ticket-drawer-link"
+                      onClick={() => props.onOpenLink(external().url)}
+                    >
+                      {t("tickets.drawer.sourceExternal", {
+                        provider: t(TICKET_PROVIDER_LABEL[external().provider]),
+                        key: external().key,
+                      })}
+                    </Button>
+                  )}
+                </Show>
+              </dd>
+            </div>
+            <div class="ticket-drawer-row">
+              <dt>{t("tickets.drawer.started")}</dt>
+              <dd title={time(ticketStartedAt(props.ticket))}>{ago(ticketStartedAt(props.ticket))}</dd>
+            </div>
+            <Show when={usage()}>
+              {(line) => (
+                <div class="ticket-drawer-row">
+                  <dt>{t("tickets.drawer.usage")}</dt>
+                  <dd>{line()}</dd>
+                </div>
+              )}
             </Show>
-            <Show when={props.messages.length > 0}>
-              <TicketStat label={t("tickets.drawer.turns")} value={format.number(finishedTurns(props.messages))} />
-            </Show>
-            <Show when={tokens().length > 0}>
-              <TicketStat label={t("tickets.drawer.tokens")} value={format.number(tokenTotal())} />
-            </Show>
-            <Show when={props.events !== null}>
-              <TicketStat label={t("tickets.drawer.comments")} value={format.number(comments())} />
-            </Show>
-          </div>
+          </dl>
+          <Show when={props.ticket.body.trim()}>{(body) => <p class="tickets-body">{body()}</p>}</Show>
         </section>
 
-        <Show when={props.ticket.body.trim()}>
-          {(body) => (
-            <section class="tickets-section">
-              <h4>{t("tickets.drawer.details")}</h4>
-              <p class="tickets-body">{body()}</p>
-            </section>
-          )}
+        <Show when={progress() || error() !== null}>
+          <section class="ticket-drawer-section" aria-live="polite">
+            <h4 class="ticket-drawer-heading">{t("tickets.drawer.liveActivity")}</h4>
+            <Show when={progress()}>
+              {(line) => (
+                <p class="ticket-drawer-live">
+                  <LoaderCircle aria-hidden="true" />
+                  <span>{line()}</span>
+                </p>
+              )}
+            </Show>
+            <Show when={error() !== null}>
+              <p class="ticket-drawer-error">{error() || t("tickets.card.turnFailed")}</p>
+            </Show>
+          </section>
         </Show>
-
-        <section class="tickets-section" aria-live="polite">
-          <h4>{t("tickets.drawer.activity")}</h4>
-          <Show when={progress()}>
-            {(line) => (
-              <p class="tickets-live">
-                <LoaderCircle aria-hidden="true" />
-                {line()}
-              </p>
-            )}
-          </Show>
-          <Show when={error() !== null}>
-            <p class="tickets-card-error">{error() || t("tickets.card.turnFailed")}</p>
-          </Show>
-          <Show
-            when={newestFirst().length > 0}
-            fallback={<p class="tickets-muted">{t("tickets.drawer.activityEmpty")}</p>}
-          >
-            <ol class="tickets-list">
-              <For each={newestFirst()} keyed={(event) => event.id}>
-                {(event) => (
-                  <li class="tickets-event">
-                    <span class="tickets-event-actor">{actorName(event())}</span>
-                    <span class="tickets-event-text">{eventText(event())}</span>
-                    <span class="tickets-event-time">{time(event().createdAt)}</span>
-                  </li>
-                )}
-              </For>
-            </ol>
-          </Show>
-        </section>
 
         <Show when={plan()}>
           {(current) => (
-            <section class="tickets-section">
-              <h4>{t("tickets.drawer.plan")}</h4>
-              <ol class="tickets-list">
+            <section class="ticket-drawer-section">
+              <h4 class="ticket-drawer-heading">
+                {reviewing() ? t("tickets.drawer.whatChanged") : t("tickets.drawer.plan")}
+              </h4>
+              <ol class="ticket-drawer-plan">
                 <For each={current().steps} keyed={(step) => step.id}>
                   {(step) => (
-                    <li class="tickets-plan-step" data-status={step().status}>
-                      <Show when={step().status === "completed"} fallback={<CircleDot aria-hidden="true" />}>
-                        <CircleCheck aria-hidden="true" />
-                      </Show>
+                    <li class="ticket-drawer-plan-step" data-status={step().status}>
+                      <span class="ticket-drawer-plan-box" aria-hidden="true">
+                        <Show when={step().status === "completed"}>
+                          <Check />
+                        </Show>
+                      </span>
                       <span>{step().status === "inProgress" ? (step().activeText ?? step().text) : step().text}</span>
                     </li>
                   )}
@@ -374,12 +528,12 @@ export function TicketDrawer(props: TicketDrawerProps) {
         </Show>
 
         <Show when={files().length > 0}>
-          <section class="tickets-section">
-            <h4>{t("tickets.drawer.files")}</h4>
-            <ul class="tickets-list">
+          <section class="ticket-drawer-section">
+            <h4 class="ticket-drawer-heading">{t("tickets.drawer.files")}</h4>
+            <ul class="ticket-drawer-files">
               <For each={files()} keyed={(file) => file.id}>
                 {(file) => (
-                  <li class="tickets-file">
+                  <li class="ticket-drawer-file">
                     <File aria-hidden="true" />
                     <span>{file().name}</span>
                   </li>
@@ -389,57 +543,70 @@ export function TicketDrawer(props: TicketDrawerProps) {
           </section>
         </Show>
 
-        <Show when={tokens().length > 1}>
-          <section class="tickets-section">
-            <h4>{t("tickets.drawer.tokensChart")}</h4>
-            <div class="tickets-tokens">
-              <For each={tokens()} keyed={(turn) => turn.id}>
-                {(turn) => (
-                  <span
-                    class="tickets-tokens-bar"
-                    role="img"
-                    aria-label={t("tickets.drawer.tokensTurn", {
-                      turn: turn().turn,
-                      tokens: format.number(turn().tokens),
-                    })}
-                    style={{ height: `${Math.max(4, (turn().tokens / tokenPeak()) * 100)}%` }}
-                  />
+        <section class="ticket-drawer-section">
+          <h4 class="ticket-drawer-heading">{t("tickets.drawer.activity")}</h4>
+          <Show
+            when={newestFirst().length > 0}
+            fallback={<p class="tickets-muted">{t("tickets.drawer.activityEmpty")}</p>}
+          >
+            <ol class="ticket-drawer-events">
+              <For each={newestFirst()} keyed={(event) => event.id}>
+                {(event) => (
+                  <li class="ticket-drawer-event">
+                    <span class="ticket-drawer-event-dot" aria-hidden="true" />
+                    <span class="ticket-drawer-event-text">
+                      <span>{eventText(event())}</span>
+                      <span class="ticket-drawer-event-meta" title={time(event().createdAt)}>
+                        {t("tickets.drawer.eventMeta", {
+                          actor: actorName(event()),
+                          time: agoShort(event().createdAt),
+                        })}
+                      </span>
+                    </span>
+                  </li>
                 )}
               </For>
-            </div>
-          </section>
-        </Show>
+            </ol>
+          </Show>
+        </section>
+      </div>
 
-        <Show when={props.ticket.taskId}>
-          <form
-            class="tickets-steer"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void steer();
-            }}
-          >
-            <h4 class="tickets-stat-label">{t("tickets.drawer.steer")}</h4>
+      <Show when={props.ticket.taskId}>
+        <form
+          class="ticket-drawer-composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void send();
+          }}
+        >
+          <div class="ticket-drawer-composer-box">
             <Textarea
+              ref={steerBox}
+              class="ticket-drawer-composer-input"
               value={draft()}
               onValueChange={setDraft}
-              rows={3}
-              aria-label={t("tickets.drawer.steer")}
-              placeholder={t("tickets.drawer.steerPlaceholder")}
+              rows={2}
+              aria-label={canRequestChanges() ? t("tickets.drawer.requestChanges") : t("tickets.drawer.steer")}
+              placeholder={
+                canRequestChanges() ? t("tickets.drawer.reviewPlaceholder") : t("tickets.drawer.steerPlaceholder")
+              }
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  void steer();
+                  void send();
                 }
               }}
             />
-            <div class="tickets-steer-actions">
+            <div class="ticket-drawer-composer-row">
+              <span class="ticket-drawer-composer-hint">{t("tickets.drawer.enterToSend")}</span>
               <Button type="submit" size="sm" loading={sending()} disabled={!draft().trim()}>
-                {t("tickets.drawer.send")}
+                <Send aria-hidden="true" />
+                {canRequestChanges() ? t("tickets.drawer.requestChanges") : t("tickets.drawer.send")}
               </Button>
             </div>
-          </form>
-        </Show>
-      </div>
+          </div>
+        </form>
+      </Show>
       <ConfirmDialog
         open={confirmDelete()}
         onCancel={() => setConfirmDelete(false)}
@@ -452,14 +619,5 @@ export function TicketDrawer(props: TicketDrawerProps) {
         }}
       />
     </aside>
-  );
-}
-
-function TicketStat(props: { label: string; value: string }) {
-  return (
-    <div class="tickets-stat">
-      <span class="tickets-stat-label">{props.label}</span>
-      <span class="tickets-stat-value">{props.value}</span>
-    </div>
   );
 }

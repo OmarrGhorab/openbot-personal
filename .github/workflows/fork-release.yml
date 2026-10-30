@@ -182,5 +182,68 @@ jobs:
       - name: Add to the release
         shell: bash
         run: |
-          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" \
+          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" --clobber \
             "dist/OpenBot-$VERSION-x86_64.AppImage" dist/latest-linux.yml
+
+  windows-x64:
+    # Adds the Windows x64 installer and its update feed to the release. Installed Windows builds
+    # read latest.yml from the newest release, so they update in the app without a download.
+    needs: mac-x64
+    if: >-
+      always() && github.repository == 'OmarrGhorab/openbot-personal' &&
+      (needs.mac-x64.result == 'success' || (inputs.linux_only && needs.mac-x64.result == 'skipped'))
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.mac-x64.outputs.version || inputs.version }}
+      OPENBOT_ACCOUNT_URL: ${{ vars.OPENBOT_ACCOUNT_URL }}
+      OPENBOT_SIGNAL_URL: ${{ vars.OPENBOT_SIGNAL_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+        with:
+          install: none
+      - run: bun install --frozen-lockfile
+      - name: Set version
+        shell: bash
+        run: |
+          VERSION="${VERSION:-$(node -p "require('./package.json').version")}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$VERSION does not exist." >&2; exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "Invalid version: $VERSION" >&2; exit 1; fi
+          node -e "const f='package.json',p=require('./'+f);p.version='$VERSION';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+      - name: Install native runtimes
+        run: |
+          bun run install:codex-runtime
+          bun run install:claude-runtime
+          bun run install:grok-runtime
+      - name: Install the Windows remote desktop runtime
+        shell: bash
+        run: |
+          bun scripts/install-remote-desktop-runtime.ts win32 x64
+          bun run verify:remote-desktop-runtime --windows
+      - name: Build x64 installer
+        run: bun run dist:win
+      - name: Verify Windows release files
+        shell: bash
+        run: |
+          shopt -s nullglob
+          ls -la dist
+          installers=(dist/OpenBot-"$VERSION"-x64.exe)
+          if (( ${#installers[@]} != 1 )) || [[ ! -f dist/latest.yml ]]; then
+            echo "Expected OpenBot-$VERSION-x64.exe and latest.yml." >&2; exit 1
+          fi
+          cat dist/latest.yml
+          grep -F "version: $VERSION" dist/latest.yml
+          grep -F "OpenBot-$VERSION-x64.exe" dist/latest.yml
+      - name: Add to the release
+        shell: bash
+        run: |
+          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" --clobber \
+            "dist/OpenBot-$VERSION-x64.exe" "dist/OpenBot-$VERSION-x64.exe.blockmap" dist/latest.yml

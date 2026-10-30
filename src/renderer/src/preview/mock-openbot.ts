@@ -9,6 +9,7 @@ import type {
   MacAutomationTarget,
   McpSignInApp,
   McpSignInAppState,
+  RavenAutopilotSettings,
   RavenTeamJob,
   TicketMergeNotice,
   TicketMergeOpenedEvent,
@@ -191,7 +192,7 @@ import { createMockAuth, type MockAuthOptions } from "./mock-auth";
 import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
-import { mockBoardTickets, type PreviewBoardTicketSync } from "./mock-board-tickets";
+import { mockBoardTickets, type PreviewBoardTicketSync, withFirstListDelay } from "./mock-board-tickets";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
@@ -204,6 +205,7 @@ import { createMockMessaging } from "./mock-messaging";
 import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
+import { mockRavenAutopilot } from "./mock-raven-autopilot";
 import { mockRavenTeam } from "./mock-raven-team";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
 import { createMockRoutineFeed } from "./mock-routine-feed";
@@ -253,8 +255,12 @@ export interface MockOpenBotOptions
   boardTickets?: BoardTicket[];
   /** The ticket systems that the Tickets board can sync with. None by default: the board shows no sync. */
   boardTicketSync?: PreviewBoardTicketSync;
+  /** Holds the first ticket list for this long, so a story shows the board while it loads. None by default. */
+  boardTicketsFirstListDelayMs?: number;
   /** The Raven Stack team jobs when the preview starts, newest first. None by default. */
   ravenTeamJobs?: RavenTeamJob[];
+  /** The Raven Autopilot settings when the preview starts. The defaults when not given: Autopilot is off. */
+  ravenAutopilot?: Partial<RavenAutopilotSettings>;
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -1346,28 +1352,32 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     openUrl: async () => undefined,
     voice: mockVoice.voice,
     ravenTeam,
-    boardTickets: mockBoardTickets(
-      options.boardTickets,
-      (agentId, text) => {
-        const task = createTask(agentId, text);
-        runTaskTurn(task, text);
-        return { taskId: task.id, threadId: task.threadId };
-      },
-      (listener) => {
-        boardTaskListeners.add(listener);
-      },
-      options.boardTicketSync,
-      // Each team job's tickets follow the job, as the desktop's team follower does.
-      (listener) => {
-        const followJob = async (jobId: string) => {
-          const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
-          if (job) listener(clone(job));
-        };
-        ravenTeam.onChanged(({ jobId }) => {
-          if (jobId) void followJob(jobId);
-        });
-        for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
-      },
+    ravenAutopilot: mockRavenAutopilot(options.ravenAutopilot),
+    boardTickets: withFirstListDelay(
+      mockBoardTickets(
+        options.boardTickets,
+        (agentId, text) => {
+          const task = createTask(agentId, text);
+          runTaskTurn(task, text);
+          return { taskId: task.id, threadId: task.threadId };
+        },
+        (listener) => {
+          boardTaskListeners.add(listener);
+        },
+        options.boardTicketSync,
+        // Each team job's tickets follow the job, as the desktop's team follower does.
+        (listener) => {
+          const followJob = async (jobId: string) => {
+            const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
+            if (job) listener(clone(job));
+          };
+          ravenTeam.onChanged(({ jobId }) => {
+            if (jobId) void followJob(jobId);
+          });
+          for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
+        },
+      ),
+      options.boardTicketsFirstListDelayMs,
     ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },

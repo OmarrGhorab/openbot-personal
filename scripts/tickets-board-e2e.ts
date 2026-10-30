@@ -1,8 +1,8 @@
 // Checks the Tickets page (#155). It drives the real app against the preview mock in a running
 // Storybook, on the `App/Tickets Board` story, and clicks every button that the page shows: the Board
 // and By agent switch, a lane, the agent strip, Pause, Resume and Stop of a work thread, Open ticket,
-// the drawer stepper, the agent picker, Start now, Open issue, the steer box, Delete and its
-// confirmation, New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
+// the drawer's Move to menu, the agent picker, Start now, the issue link, the steer box, Delete and its
+// confirmation, the review banner with Request changes and Approve (#191), Auto-detect of the type (#192), the empty board with its example tickets (#193), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
 // and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
 // connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
@@ -26,6 +26,7 @@ assert.ok(storybook, "Pass --storybook=<url> with the URL that `bun run storyboo
 
 /** The seeded tickets and agents of the story. */
 const RUNNING = "Fix the login timeout";
+const RUNNING_KEY = "OmarrGhorab/openbot-personal#155";
 const BACKLOG = "Write the release notes";
 const UNASSIGNED = "Clean up old logs";
 const CHIEF = "Chief";
@@ -33,9 +34,12 @@ const SALES = "Sales Outbound";
 const ADDED = "Add a dark mode switch";
 const STARTED = "Ship the changelog";
 const STEER = "Keep the old session API for one release.";
+const CHANGES = "Add a line about the new search box.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
+/** The card shows the short key of a GitHub issue (#188); the full key is its tooltip. */
+const IMPORTED_SHORT_KEY = "#158";
 /** The seeded Autopilot lite team jobs: one runs, one waits in Queued. */
 const TEAM_JOB = "Add a retry to the upload";
 const TEAM_JOB_ID = "story-team-job-1";
@@ -44,15 +48,22 @@ const QUEUED_JOB = "Show the sync time on the board";
 interface Report {
   steps: string[];
   errors: string[];
+  /** Error toasts the app showed after an action that worked. Each one fails the run. */
+  appErrors: string[];
   passed: boolean;
   failure?: string;
 }
 
-const report: Report = { steps: [], errors: [], passed: false };
+const report: Report = { steps: [], errors: [], appErrors: [], passed: false };
 
 function column(
   page: Page,
-  status: "tickets.status.backlog" | "tickets.status.queued" | "tickets.status.running" | "tickets.status.needsReview",
+  status:
+    | "tickets.status.backlog"
+    | "tickets.status.queued"
+    | "tickets.status.running"
+    | "tickets.status.needsReview"
+    | "tickets.status.done",
 ): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
@@ -84,6 +95,71 @@ async function assertTakesClicks(target: Locator, name: string): Promise<void> {
     hit.takesClicks && hit.pointerEvents !== "none",
     `${name} takes no clicks: pointer-events is ${hit.pointerEvents}, and ${hit.top} is on top of it.`,
   );
+}
+
+/** Moves the ticket of an open drawer with its Move to menu. */
+async function moveTo(page: Page, drawer: Locator, status: Parameters<typeof column>[1]): Promise<void> {
+  await drawer.getByRole("button", { name: t("tickets.drawer.moveTo"), exact: true }).click();
+  await page.getByRole("menuitem", { name: t(status), exact: true }).click();
+}
+
+/**
+ * The status line of the Sync dialog: "Not synced yet." for a board that never synced, or the time of
+ * the last sync when the story opens the dialog with a target that synced before.
+ */
+function syncStatus(dialog: Locator): Locator {
+  const [before = "", after = ""] = t("tickets.sync.lastSynced", { time: "\u0000" }).split("\u0000");
+  const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return dialog
+    .getByText(t("tickets.sync.never"), { exact: true })
+    .or(dialog.getByText(new RegExp(`^${literal(before)}.+${literal(after)}$`, "u")));
+}
+
+/**
+ * Chooses a repository in the Sync dialog. The repositories are toggle buttons in the "Repository or
+ * project" group, and each button's name also holds its provider mark, so the button is found by its
+ * text inside that group. The dialog may open with the repository already chosen (a saved target);
+ * then it is pressed already and is not clicked again.
+ */
+async function chooseSyncProject(dialog: Locator, project: string): Promise<void> {
+  const group = dialog.getByRole("region", { name: t("tickets.sync.project"), exact: true });
+  const option = group.getByRole("button").filter({ hasText: project });
+  await option.waitFor();
+  if ((await option.getAttribute("aria-pressed")) !== "true") await option.click();
+  assert.equal(await option.getAttribute("aria-pressed"), "true", `${project} is chosen in the Sync dialog.`);
+}
+
+/**
+ * Saves the target and imports its issues. With a new or changed target the dialog offers Save and sync,
+ * which closes it. With the saved target unchanged it offers Sync now instead, which keeps it open.
+ */
+async function saveAndSync(dialog: Locator): Promise<void> {
+  const save = dialog.getByRole("button", { name: t("tickets.sync.save"), exact: true });
+  const syncNow = dialog.getByRole("button", { name: t("tickets.sync.now"), exact: true });
+  await save.or(syncNow).first().waitFor();
+  if (await save.isVisible()) {
+    await save.click();
+  } else {
+    await syncNow.click();
+    await dialog.getByRole("button", { name: t("common.close"), exact: true }).click();
+  }
+  await dialog.waitFor({ state: "detached" });
+}
+
+/**
+ * Records each error toast on the page as a failure of `action`, then closes it. The toast sits on top
+ * of the page header and would take the next click, so closing it lets the later steps still run; the
+ * run still fails at the end with the toast's text.
+ */
+async function recordErrorToasts(page: Page, action: string): Promise<void> {
+  await page.waitForTimeout(500);
+  const toasts = page.locator('[data-sonner-toast][data-type="error"]');
+  for (const text of await toasts.allTextContents()) report.appErrors.push(`${action}: ${text.trim()}`);
+  // The close button sits under the toast's own content in its corner, so it is pressed directly.
+  for (const close of await toasts.getByRole("button", { name: t("notification.toast.close"), exact: true }).all()) {
+    await close.dispatchEvent("click").catch(() => undefined);
+  }
+  await toasts.first().waitFor({ state: "detached" });
 }
 
 async function screenshot(page: Page, name: string): Promise<void> {
@@ -128,17 +204,21 @@ try {
   const syncDialog = page.getByRole("dialog", { name: t("tickets.sync.title"), exact: true });
   await syncButton.click();
   await syncDialog.waitFor();
-  await syncDialog.getByText(t("tickets.sync.never"), { exact: true }).waitFor();
-  await syncDialog.getByRole("button", { name: t("tickets.sync.project"), exact: true }).click();
-  await page.getByRole("menuitemradio").filter({ hasText: SYNC_REPOSITORY }).click();
+  await syncStatus(syncDialog).waitFor();
+  await chooseSyncProject(syncDialog, SYNC_REPOSITORY);
   await screenshot(page, "sync");
-  await syncDialog.getByRole("button", { name: t("tickets.sync.save"), exact: true }).click();
-  await syncDialog.waitFor({ state: "detached" });
+  await saveAndSync(syncDialog);
   const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
-  await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
+  const importedKey = imported.getByText(IMPORTED_SHORT_KEY, { exact: true });
+  await importedKey.waitFor();
+  assert.equal(await importedKey.getAttribute("title"), IMPORTED_KEY);
   await imported.click();
   const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
-  await importedDrawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).waitFor();
+  const issueLink = t("tickets.drawer.sourceExternal", {
+    provider: t("tickets.sync.provider.github"),
+    key: IMPORTED_KEY,
+  });
+  await importedDrawer.getByRole("button", { name: issueLink, exact: true }).waitFor();
   await importedDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
   await importedDrawer.waitFor({ state: "detached" });
   await syncButton.click();
@@ -155,21 +235,21 @@ try {
   const chiefLane = page.getByRole("region", { name: CHIEF, exact: true });
   await card(chiefLane, RUNNING).waitFor();
   await page.getByRole("region", { name: t("tickets.card.unassigned"), exact: true }).waitFor();
+  // The status names show once above the lanes, and an empty cell shows a "No tickets" slot (#190).
+  for (const status of ["tickets.status.backlog", "tickets.status.needsReview", "tickets.status.done"] as const) {
+    assert.equal(await page.getByText(t(status), { exact: true }).count(), 1);
+  }
+  await chiefLane.getByText(t("tickets.column.empty"), { exact: true }).first().waitFor();
   // The lane header is the first button of the lane; the cards follow it.
   await chiefLane.getByRole("button").first().click();
   const panel = page.getByRole("complementary", { name: CHIEF, exact: true });
   await panel.waitFor();
   await screenshot(page, "lanes");
-  await panel.getByRole("button", { name: t("common.close"), exact: true }).click();
-  await panel.waitFor({ state: "detached" });
-  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
-  await column(page, "tickets.status.backlog").waitFor();
-  report.steps.push("By agent shows a lane for each agent and the unassigned lane; a lane header opens the panel.");
+  report.steps.push(
+    "By agent shows the status names once, a lane for each agent and the unassigned lane, dashed slots for empty cells; a lane header opens the panel.",
+  );
 
-  // The agent strip opens the panel of the agent: its running thread with Pause, Resume and Stop.
-  const strip = page.getByRole("region", { name: t("tickets.strip.label"), exact: true });
-  await strip.getByRole("button").filter({ hasText: CHIEF }).click();
-  await panel.waitFor();
+  // The agent panel: its running thread with Pause, Resume and Stop.
   const thread = panel.getByRole("article", { name: RUNNING, exact: true });
   await thread.getByText("openbot/story-ticket-task").waitFor();
   await thread.getByRole("button", { name: t("tickets.panel.pause"), exact: true }).click();
@@ -180,7 +260,39 @@ try {
   await thread.getByRole("button", { name: t("tickets.panel.stop"), exact: true }).click();
   await thread.getByText(t("tickets.thread.idle"), { exact: true }).waitFor();
   assert.equal(await thread.getByRole("button", { name: t("tickets.panel.stop"), exact: true }).count(), 0);
-  report.steps.push("The strip opens the agent panel; Pause, Resume and Stop change the thread.");
+  report.steps.push("The agent panel's Pause, Resume and Stop change the thread.");
+  await panel.getByRole("button", { name: t("common.close"), exact: true }).click();
+  await panel.waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
+  await column(page, "tickets.status.backlog").waitFor();
+
+  // The filter chips (#189): a chip shows only the tickets of its agent, and a second click clears it.
+  const chips = page.getByRole("group", { name: t("tickets.filter.label"), exact: true });
+  const chiefChip = chips.getByRole("button").filter({ hasText: CHIEF });
+  await chiefChip.click();
+  await card(page, UNASSIGNED).waitFor({ state: "detached" });
+  await card(page, RUNNING).first().waitFor();
+  assert.equal(await chiefChip.getAttribute("aria-pressed"), "true");
+  await screenshot(page, "filter-chief");
+  await chiefChip.click();
+  await card(page, UNASSIGNED).waitFor();
+  assert.equal(await chiefChip.getAttribute("aria-pressed"), "false");
+  const unassignedChip = chips.getByRole("button").filter({ hasText: t("tickets.card.unassigned") });
+  await unassignedChip.click();
+  await card(page, RUNNING).first().waitFor({ state: "detached" });
+  await card(page, UNASSIGNED).waitFor();
+  await chips
+    .getByRole("button")
+    .filter({ hasText: t("tickets.filter.all") })
+    .click();
+  await card(page, RUNNING).first().waitFor();
+  assert.equal(await unassignedChip.getAttribute("aria-pressed"), "false");
+  // Autopilot is off in the preview: no pill, no "Raven picks this next" marker, no "Auto-merge on".
+  assert.equal(await page.getByText(t("tickets.autopilot.next"), { exact: true }).count(), 0);
+  assert.equal(await page.getByText(t("tickets.autopilot.autoMerge"), { exact: true }).count(), 0);
+  report.steps.push(
+    "A filter chip shows only its agent's tickets and a second click clears it; Unassigned and All agents filter too; Autopilot marks stay hidden while it is off.",
+  );
 
   // The agent moves its own ticket: the stopped thread puts it back in Backlog with the failure line.
   await card(column(page, "tickets.status.backlog"), RUNNING)
@@ -188,26 +300,40 @@ try {
     .waitFor();
   report.steps.push("Stop puts the thread's ticket back in Backlog with the failure line, with no click.");
 
+  // The filter chips need the panel closed (#189), so it opens again from Chief's lane header, and the
+  // board comes back behind it. The drawer steps below run with the panel open, as before.
+  await page.getByRole("tab", { name: t("tickets.view.agents"), exact: true }).click();
+  await chiefLane.getByRole("button").first().click();
+  await panel.waitFor();
+  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
+  await column(page, "tickets.status.backlog").waitFor();
+  await panel.waitFor();
+
   // Open ticket shows the drawer of the thread's ticket.
   await thread.getByRole("button", { name: t("tickets.panel.openTicket"), exact: true }).click();
   const drawer = page.getByRole("complementary", { name: RUNNING, exact: true });
   await drawer.waitFor();
 
-  // The stepper moves the ticket, and the step of the new column becomes the current one.
-  const reviewStep = drawer.getByRole("button", { name: t("tickets.status.needsReview"), exact: true });
-  await reviewStep.click();
-  await drawer.getByRole("button", { name: t("tickets.status.needsReview"), exact: true, disabled: true }).waitFor();
+  // Move to moves the ticket. In Needs review the drawer shows the review banner first.
+  const reviewBanner = drawer.getByRole("region", { name: t("tickets.drawer.review.title"), exact: true });
+  await moveTo(page, drawer, "tickets.status.needsReview");
+  await reviewBanner.waitFor();
   await drawer
     .getByText(t("tickets.event.moved", { from: t("tickets.status.backlog"), to: t("tickets.status.needsReview") }), {
       exact: true,
     })
     .waitFor();
-  await drawer.getByRole("button", { name: t("tickets.status.running"), exact: true }).click();
-  await drawer.getByRole("button", { name: t("tickets.status.running"), exact: true, disabled: true }).waitFor();
-  report.steps.push("The stepper moves the ticket and records each move in the activity.");
+  await moveTo(page, drawer, "tickets.status.running");
+  await reviewBanner.waitFor({ state: "detached" });
+  report.steps.push("Move to moves the ticket and records each move in the activity.");
 
-  // Open issue, and the steer box: the text goes to the thread and into the activity.
-  await drawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).click();
+  // The issue link in Source, and the steer box: the text goes to the thread and into the activity.
+  await drawer
+    .getByRole("button", {
+      name: t("tickets.drawer.sourceExternal", { provider: t("tickets.sync.provider.github"), key: RUNNING_KEY }),
+      exact: true,
+    })
+    .click();
   const steer = drawer.getByRole("textbox", { name: t("tickets.drawer.steer"), exact: true });
   await steer.fill(STEER);
   await drawer.getByRole("button", { name: t("tickets.drawer.send"), exact: true }).click();
@@ -216,7 +342,7 @@ try {
   await screenshot(page, "drawer");
   await drawer.getByRole("button", { name: t("common.close"), exact: true }).click();
   await drawer.waitFor({ state: "detached" });
-  report.steps.push("Open issue works, and a steer message goes to the thread and into the activity.");
+  report.steps.push("A steer message goes to the thread and into the activity.");
 
   // The agent picker and Start now on a backlog ticket: the ticket gets a work thread.
   await card(column(page, "tickets.status.backlog"), BACKLOG).click();
@@ -224,7 +350,10 @@ try {
   await backlogDrawer.waitFor();
   await backlogDrawer.getByRole("button", { name: t("tickets.new.agent"), exact: true }).click();
   await page.getByRole("menuitemradio").filter({ hasText: SALES }).click();
-  await backlogDrawer.getByText(t("tickets.drawer.agent", { name: SALES }), { exact: true }).waitFor();
+  await backlogDrawer
+    .getByRole("button", { name: t("tickets.new.agent"), exact: true })
+    .getByText(SALES, { exact: true })
+    .waitFor();
   await backlogDrawer.getByRole("button", { name: t("tickets.new.start"), exact: true }).click();
   await backlogDrawer.getByRole("button", { name: t("tickets.drawer.openThread"), exact: true }).waitFor();
   await backlogDrawer.getByRole("textbox", { name: t("tickets.drawer.steer"), exact: true }).waitFor();
@@ -242,6 +371,7 @@ try {
   await confirm.getByRole("button", { name: t("common.delete"), exact: true }).click();
   await unassignedDrawer.waitFor({ state: "detached" });
   await card(page, UNASSIGNED).waitFor({ state: "detached" });
+  await recordErrorToasts(page, "Delete");
   report.steps.push("Delete asks for a confirmation and removes the ticket.");
 
   // With no drawer open, the agent panel shows again. Closing it leaves New ticket with no agent.
@@ -253,6 +383,12 @@ try {
   const dialog = page.getByRole("dialog", { name: t("tickets.new"), exact: true });
   await newTicket.click();
   await dialog.waitFor();
+  // Auto-detect shows the detected type after the person types (#192). Without Autopilot the option is hidden.
+  await dialog.getByRole("textbox", { name: t("tickets.new.name") }).fill("Fix the crash on start");
+  await dialog
+    .getByRole("tab", { name: t("tickets.new.typeAutoDetected", { type: t("tickets.type.bug") }), exact: true })
+    .waitFor();
+  assert.equal(await dialog.getByText(t("tickets.new.autopilot.title"), { exact: true }).count(), 0);
   await dialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
   await dialog.waitFor({ state: "detached" });
 
@@ -275,9 +411,49 @@ try {
   // Its agent moves it: when the mock thread ends its turn, the ticket goes to Needs review by itself.
   await card(column(page, "tickets.status.needsReview"), STARTED).waitFor();
   await screenshot(page, "needs-review");
+
+  // The review banner (#191): Request changes sends the comment to the thread and moves the ticket back to
+  // Running; when the turn ends it comes back to Needs review, and Approve moves it to Done.
+  await card(column(page, "tickets.status.needsReview"), STARTED).click();
+  const reviewDrawer = page.getByRole("complementary", { name: STARTED, exact: true });
+  const startedBanner = reviewDrawer.getByRole("region", { name: t("tickets.drawer.review.title"), exact: true });
+  await startedBanner.waitFor();
+  const comment = reviewDrawer.getByRole("textbox", { name: t("tickets.drawer.requestChanges"), exact: true });
+  await comment.fill(CHANGES);
+  await startedBanner.getByRole("button", { name: t("tickets.drawer.requestChanges"), exact: true }).click();
+  await reviewDrawer.getByText(CHANGES, { exact: true }).waitFor();
+  await reviewDrawer
+    .getByText(t("tickets.event.moved", { from: t("tickets.status.needsReview"), to: t("tickets.status.running") }), {
+      exact: true,
+    })
+    .waitFor();
+  await card(column(page, "tickets.status.needsReview"), STARTED).waitFor();
+  await startedBanner.waitFor();
+  await screenshot(page, "drawer-review");
+  await startedBanner.getByRole("button", { name: t("tickets.drawer.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  await startedBanner.waitFor({ state: "detached" });
+  await reviewDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
+  report.steps.push(
+    "Request changes sends the comment to the thread and moves the ticket back to Running; Approve moves it to Done.",
+  );
   report.steps.push(
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
   );
+
+  // A card that waits for review has Approve and Changes (#188). Neither opens the drawer.
+  const reviewCard = column(page, "tickets.status.needsReview").locator(".tickets-card").filter({ hasText: STARTED });
+  await reviewCard.getByText(t("tickets.step.waiting"), { exact: true }).waitFor();
+  await reviewCard.getByRole("button", { name: t("tickets.card.changes"), exact: true }).click();
+  const changesDialog = page.getByRole("dialog", { name: t("tickets.changes.title"), exact: true });
+  await changesDialog.waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  await changesDialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
+  await changesDialog.waitFor({ state: "detached" });
+  await reviewCard.getByRole("button", { name: t("tickets.card.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  report.steps.push("Changes opens its dialog and Approve moves the ticket to Done; neither opens the drawer.");
 
   // Raven team jobs: each job has its own ticket and one ticket per role, assigned to the role's agent.
   // The running job's Builder works and its Reviewer waits; the queued job's tickets wait in Queued.
@@ -308,7 +484,10 @@ try {
   await screenshot(page, "team-job-drawer");
   await builderRow.click();
   const builderDrawer = page.getByRole("complementary", { name: `Builder: ${TEAM_JOB}`, exact: true });
-  await builderDrawer.getByText(t("tickets.drawer.agent", { name: CHIEF }), { exact: true }).waitFor();
+  await builderDrawer
+    .getByRole("button", { name: t("tickets.new.agent"), exact: true })
+    .getByText(CHIEF, { exact: true })
+    .waitFor();
   await builderDrawer.getByRole("button", { name: t("tickets.drawer.openTeamJob"), exact: true }).click();
   await jobDrawer.waitFor();
   await jobDrawer.getByRole("button", { name: t("common.close"), exact: true }).click();
@@ -337,11 +516,57 @@ try {
     .getByRole("complementary", { name: RUNNING, exact: true })
     .getByRole("button", { name: t("tickets.drawer.openThread"), exact: true })
     .click();
-  await page.getByRole("region", { name: t("tickets.strip.label"), exact: true }).waitFor({ state: "detached" });
+  await page.getByRole("group", { name: t("tickets.filter.label"), exact: true }).waitFor({ state: "detached" });
   await screenshot(page, "thread");
   report.steps.push("Open thread opens the agent's chat.");
 
+  // The empty board (#193), on the `App/Tickets Board Empty` story: Linear is connected and the first
+  // ticket list takes 1.5 s. The empty state must not show while the list loads, it offers Sync from
+  // Linear, and one example adds exactly one ticket to Backlog.
+  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty&viewMode=story`);
+  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
+  await page.getByRole("heading", { level: 2, name: new RegExp(`^${t("tickets.title")}`, "u") }).waitFor();
+  const emptyState = page.getByRole("region", { name: t("tickets.emptyState.title"), exact: true });
+  assert.equal(await emptyState.count(), 0, "The empty state showed while the first ticket list was loading.");
+  await emptyState.waitFor();
+  await emptyState
+    .getByRole("button", {
+      name: t("tickets.emptyState.syncFrom", { provider: t("tickets.sync.provider.linear") }),
+      exact: true,
+    })
+    .waitFor();
+  await emptyState.getByRole("button", { name: t("tickets.new"), exact: true }).waitFor();
+  await screenshot(page, "empty-board");
+  const exampleTitle = t("tickets.emptyState.example.bug.title");
+  await emptyState
+    .getByRole("button", { name: t("tickets.emptyState.addLabel", { title: exampleTitle }), exact: true })
+    .click();
+  await card(column(page, "tickets.status.backlog"), exampleTitle).waitFor();
+  await emptyState.waitFor({ state: "detached" });
+  assert.equal(await card(page, exampleTitle).count(), 1, "An example added more than one ticket.");
+  assert.equal(
+    await column(page, "tickets.status.backlog").getByRole("button").filter({ hasText: exampleTitle }).count(),
+    1,
+  );
+  await screenshot(page, "empty-board-example-added");
+  report.steps.push(
+    "The empty board shows no empty state while the list loads, offers Sync from Linear, and an example adds one Backlog ticket.",
+  );
+
+  // With no ticket system connected, the empty state has New ticket and the three examples, and no Sync.
+  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty-no-sync&viewMode=story`);
+  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
+  await emptyState.waitFor();
+  assert.equal(
+    await emptyState.getByRole("button").count(),
+    4,
+    "The empty state shows a Sync button with no ticket system.",
+  );
+  assert.equal(await page.getByRole("button", { name: t("tickets.sync.open"), exact: true }).count(), 0);
+  report.steps.push("With no ticket system connected, the empty board shows no Sync button.");
+
   assert.deepEqual(report.errors, [], "The page threw an error.");
+  assert.deepEqual(report.appErrors, [], "The app showed an error toast after an action that worked.");
   report.passed = true;
 } catch (error) {
   report.failure = error instanceof Error ? error.message : String(error);
