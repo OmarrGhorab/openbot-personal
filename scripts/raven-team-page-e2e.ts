@@ -1,8 +1,11 @@
 // Drives the Raven Stack team page and its Autopilot tab in this worktree's dev app (`bun run dev`).
+//   0. Open: the Tickets page's "Raven team" button opens the page, whose heading is "Raven Stack team".
 //   1. Tabs: the page opens on Set up. The tab list holds Set up, Autopilot and Team jobs, and each tab
 //      shows its own content. The Autopilot tab shows the On pill only while Autopilot is on.
 //   2. Autopilot: the master switch, "Raven picks the stack", "Pause on a usage limit" and "Reviewer can
 //      merge" each save through `window.openbot.ravenAutopilot` and come back from `get()` as shown.
+//      Each switch is found by its role and name. It is pressed where a person presses it, on the
+//      visible switch (its input is visually hidden, 1x1 px), and one is flipped with Space instead.
 //   3. Guardrails: the Tickets at once and Rounds steppers stay inside 1..8 and 1..10.
 //   4. Restore: the settings the app had before the run are saved again, whatever failed.
 // Start the dev app, then run the script with `--allow-mutations`:
@@ -13,6 +16,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { OpenBotDesktopApi, RavenAutopilotSettings } from "@openbot/contracts/ipc";
+import { translateFor } from "@openbot/i18n";
 import { createOpenBotLogger } from "@openbot/logging";
 import type { Locator, Page } from "playwright-core";
 import { assertMutationAllowed, connectToDevApp } from "./dev-automation/cdp-client";
@@ -25,6 +29,7 @@ declare global {
 }
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/raven-team-page");
+const t = translateFor("en");
 const TICKETS_AT_ONCE = { min: 1, max: 8 };
 const ROUND_CAP = { min: 1, max: 10 };
 
@@ -77,16 +82,26 @@ async function settled(test: (settings: RavenAutopilotSettings) => boolean): Pro
 
 const isChecked = async (control: Locator) => (await control.getAttribute("aria-checked")) === "true";
 
-/** Flips a switch and checks that the saved value and the switch agree afterwards. */
+/**
+ * Flips a switch and checks that the saved value and the switch agree afterwards. `control` is the
+ * switch found by role and name: Kobalte's visually hidden native input. A pointer press goes to the
+ * visible switch around it, as a person's click does; `keyboard` focuses the input and presses Space.
+ */
 async function flip(
   name: string,
   control: Locator,
   read: (settings: RavenAutopilotSettings) => boolean,
+  via: "pointer" | "keyboard" = "pointer",
 ): Promise<void> {
   const before = await isChecked(control);
-  await control.click();
+  if (via === "keyboard") {
+    await control.focus();
+    await control.press("Space");
+  } else {
+    await control.locator("xpath=ancestor::*[@data-slot='switch'][1]").click();
+  }
   const saved = await settled((settings) => read(settings) !== before);
-  check(`${name} saves`, read(saved) !== before, { before, saved: read(saved) });
+  check(`${name} saves (${via})`, read(saved) !== before, { before, saved: read(saved) });
   check(`${name} shows the saved value`, (await isChecked(control)) === read(saved), null);
 }
 
@@ -104,12 +119,9 @@ const original = await readSettings(page);
 try {
   // 1. Tabs ------------------------------------------------------------------------
   await saveSettings(page, { ...original, enabled: false });
-  const opener = page
-    .getByRole("button", { name: "Raven Stack team" })
-    .or(page.getByRole("link", { name: "Raven Stack team" }))
-    .first();
-  await opener.click();
-  await page.getByRole("heading", { name: "Raven Stack team" }).waitFor();
+  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
+  await page.getByRole("button", { name: t("tickets.team.open"), exact: true }).click();
+  await page.getByRole("heading", { name: t("agent.team.title"), exact: true }).waitFor();
   const tabs = page.getByRole("tablist", { name: "Raven team views" });
   await tabs.waitFor();
   const tabNames = (await tabs.getByRole("tab").allTextContents()).map((name) => name.trim());
@@ -156,6 +168,7 @@ try {
     "Pause on a usage limit",
     page.getByRole("switch", { name: "Pause on a usage limit" }),
     (settings) => settings.pauseOnUsageLimit,
+    "keyboard",
   );
   await flip(
     "Reviewer can merge",
