@@ -1,6 +1,8 @@
 // Gives an agent of a running dev app a mascot avatar (#201), and checks that it stays:
 // - the saved `avatarSeed` is `mascot:<shape>:<color>` and the sidebar draws the mascot picture;
 // - a window reload (the renderer half of a restart) reads it back from main and draws it again;
+//   against a Storybook preview (no main process; its mock agents live in page memory) the read-back
+//   is skipped with a warning, and the mascot is saved again so the later checks still run;
 // - a provider switch keeps it, when a second provider lists a model;
 // - the other agents keep their shape avatar;
 // - with reduced motion, the mascot has no transition and no hover lift.
@@ -58,6 +60,7 @@ interface Report {
   seed: string;
   drawnBeforeReload?: number;
   drawnAfterReload?: number;
+  reloadPersistence?: "checked" | string;
   providerSwitch?: { to: string; kept: boolean } | string;
   othersKept?: number;
   reducedMotionTransition?: string;
@@ -69,6 +72,15 @@ async function savedSeed(): Promise<string | undefined> {
     async (id) => (await window.openbot.agent.listAgents()).find((agent) => agent.id === id)?.avatarSeed,
     target.id,
   );
+}
+
+/**
+ * True only for a Storybook preview: its iframe page with Storybook's preview global. The dev app's
+ * renderer is neither, so the real-app checks always run there.
+ */
+async function runsInStorybook(): Promise<boolean> {
+  if (!new URL(page.url()).pathname.endsWith("/iframe.html")) return false;
+  return page.evaluate(() => "__STORYBOOK_PREVIEW__" in window);
 }
 
 /** The mascot pictures on screen for the target agent: every `data-avatar="mascot"` image. */
@@ -99,7 +111,20 @@ try {
 
   // Reload: the renderer reads the agent back from main and draws the mascot again.
   await page.reload();
-  assert.equal(await savedSeed(), seed);
+  await page.waitForFunction(() => typeof window.openbot === "object" && window.openbot !== null);
+  if (await runsInStorybook()) {
+    logger.warn(
+      "Storybook preview: skipped the reload read-back check. The preview mock keeps agents in page memory, so a reload starts from the story's agents again; saving the mascot again for the remaining checks.",
+    );
+    report.reloadPersistence = "skipped: Storybook preview mock does not survive a reload";
+    await page.evaluate(({ id, avatarSeed }) => window.openbot.agent.updateAgent({ agentId: id, avatarSeed }), {
+      id: target.id,
+      avatarSeed: seed,
+    });
+  } else {
+    assert.equal(await savedSeed(), seed);
+    report.reloadPersistence = "checked";
+  }
   report.drawnAfterReload = (await mascotImages()).length;
 
   // Provider switch: the avatar is identity and must stay.
