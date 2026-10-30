@@ -35,10 +35,12 @@ export function createDesktopTicketMergeNotifier(options: DesktopTicketMergeOpti
     appIcon: options.appIcon,
     showSystemNotification: (shown) => {
       if (!Notification.isSupported()) return;
+      const icon = drawNotificationIcon(shown.appIcon);
       const notification = new Notification({
         title: shown.title,
         body: shown.body,
-        icon: drawNotificationIcon(shown.appIcon),
+        // No icon keeps the system's own icon when the mascot file is missing.
+        ...(icon ? { icon } : {}),
         // macOS shows the buttons; elsewhere a click on the notification opens the ticket.
         actions: process.platform === "darwin" ? shown.actions.map((text) => ({ type: "button", text })) : [],
       });

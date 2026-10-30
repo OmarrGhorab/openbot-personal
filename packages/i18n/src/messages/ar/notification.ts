@@ -33,6 +33,5 @@ export const messages = {
   "notification.ticketMerged.ciGreen": "الـ CI أخضر",
   "notification.ticketMerged.viewTicket": "افتح التيكت",
   "notification.ticketMerged.viewPullRequest": "افتح الـ PR",
-  "notification.ticketMerged.dismiss": "إخفاء",
   "notification.ticketMerged.openFailed": "مقدرناش نفتح الـ PR.",
 } as const satisfies PartialTranslation<typeof source>;
