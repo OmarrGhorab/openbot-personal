@@ -129,3 +129,42 @@ export const MemoryCountOnly: Story = {
     </div>
   ),
 };
+
+const LIVE_STEPS: AgentStep[] = [
+  {
+    id: "c1",
+    kind: "command",
+    text: "Checking the work…",
+    command: "bun test src/backend/agent/turn-step-event.test.ts",
+    status: "done",
+  },
+  {
+    id: "c2",
+    kind: "command",
+    text: "Running the deploy…",
+    command: "bun run deploy --token [redacted]",
+    exitCode: 1,
+    status: "failed",
+  },
+  {
+    id: "f1",
+    kind: "file-change",
+    text: "Making the requested changes…",
+    files: [
+      { path: "src/notes.md", status: "modified", additions: 12, deletions: 3 },
+      { path: "src/plan.md", status: "added", additions: 40 },
+      { path: "src/draft.md", status: "deleted", deletions: 8 },
+    ],
+    status: "done",
+  },
+  { id: "s1", kind: "subagent", text: "Coordinating with another agent…", status: "running" },
+];
+
+/** A finished turn with a command, a file change and a subagent: the summary names the file count. */
+export const LiveKinds: Story = {
+  render: () => (
+    <div style={{ width: "640px" }}>
+      <AgentStepsDisclosure steps={LIVE_STEPS} defaultOpen facts={{ durationMs: 42_000, failed: 1 }} />
+    </div>
+  ),
+};

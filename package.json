@@ -288,6 +288,7 @@
     "test:routine-timezone-move": "bun scripts/routine-timezone-move-e2e.ts",
     "test:routine-overnight-window": "bun scripts/routine-overnight-window-e2e.ts",
     "test:agent-waits-tools": "bun scripts/agent-waits-tools-e2e.ts",
+    "test:turn-changes-panel": "bun scripts/turn-changes-panel-e2e.ts",
     "test:agent-hide-restore": "bun scripts/agent-hide-restore-e2e.ts",
     "test:messaging-pause-resume": "bun scripts/messaging-pause-resume-e2e.ts",
     "test:messaging-discord-access": "bun scripts/messaging-discord-access-e2e.ts",
