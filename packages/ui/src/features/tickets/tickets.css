@@ -1321,3 +1321,9 @@
   color: var(--openbot-danger-text);
   font-size: var(--openbot-text-xs);
 }
+
+.ticket-taken-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+}
