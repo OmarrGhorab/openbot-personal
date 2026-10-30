@@ -1,12 +1,12 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
-import {
-  INPUT_LIMITS,
-  type ConversationSnapshot,
-  type TurnChangedFile,
-  type TurnFileDiffResult,
-  type TurnFilesResult,
+import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
+import type {
+  ConversationSnapshot,
+  TurnChangedFile,
+  TurnFileDiffResult,
+  TurnFilesResult,
 } from "@openbot/contracts/ipc";
 
 /**
@@ -14,11 +14,7 @@ import {
  * stored on its trace, in the order the steps changed them. A path shows once: the first step
  * that changed it names it.
  */
-export function collectTurnFiles(
-  agentId: string,
-  snapshot: ConversationSnapshot,
-  turnId?: string,
-): TurnFilesResult {
+export function collectTurnFiles(agentId: string, snapshot: ConversationSnapshot, turnId?: string): TurnFilesResult {
   const files: TurnChangedFile[] = [];
   const seen = new Set<string>();
   for (const message of snapshot.messages) {

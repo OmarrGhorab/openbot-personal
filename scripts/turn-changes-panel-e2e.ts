@@ -8,19 +8,19 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
+  type AgentEvent,
+  type ConversationSnapshot,
   isAgentEvent,
   isTurnFileDiffResult,
   isTurnFilesResult,
   parseTurnFileDiffInput,
   parseTurnFilesInput,
-  type AgentEvent,
-  type ConversationSnapshot,
   type TurnChangedFile,
 } from "@openbot/contracts/ipc";
 import { buildTurnStepEvent, TurnStepFileBudget, turnStepFiles } from "../src/backend/agent/turn-step-event";
 import type { ThreadItem } from "../src/backend/protocol";
 import { collectTurnFiles, readWorkspaceFileDiff } from "../src/main/turn-file-diff";
-import { upsertTurnLiveSteps, type TurnLiveSteps } from "../src/renderer/src/features/conversation/turn-live-steps";
+import { type TurnLiveSteps, upsertTurnLiveSteps } from "../src/renderer/src/features/conversation/turn-live-steps";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/turn-changes-panel-e2e");
 const SECRET = "sk-ant-e2e-fake-token-000000000000000000";
@@ -34,7 +34,7 @@ interface Check {
 const checks: Check[] = [];
 function check(name: string, ok: boolean, detail: string): void {
   checks.push({ name, ok, detail });
-  console.log(`${ok ? "ok" : "FAIL"} ${name} — ${detail}`);
+  process.stdout.write(`${ok ? "ok" : "FAIL"} ${name} — ${detail}\n`);
 }
 
 function runGit(workspace: string, args: string[]): Promise<void> {
@@ -88,7 +88,7 @@ function emitTurn(item: ThreadItem, completed: boolean, text: string): void {
     endedAt: completed ? ENDED_AT : null,
     files: kind === "file-change" ? budget.take(TURN_ID, turnStepFiles(item)) : [],
   });
-  if (!event || event.type !== "turn-step" || !isAgentEvent(event)) {
+  if (event?.type !== "turn-step" || !isAgentEvent(event)) {
     check(`turn-step ${item.id} ${completed ? "done" : "running"}`, false, "the backend built no decodable event.");
     return;
   }
@@ -174,7 +174,7 @@ try {
                 kind: "tool" as const,
                 text: event.text,
                 startedAt: event.startedAt,
-                endedAt: event.endedAt,
+                endedAt: event.endedAt ?? null,
                 ...(event.command === undefined ? {} : { command: event.command }),
                 ...(event.files === undefined ? {} : { files: event.files }),
               };
@@ -224,7 +224,7 @@ try {
     const plain = await readWorkspaceFileDiff(join(plainDir, "plain.md"));
     check(
       "diff outside git",
-      isTurnFileDiffResult(plain) && plain.diff === "" && plain.content?.includes("# Plain"),
+      isTurnFileDiffResult(plain) && plain.diff === "" && (plain.content?.includes("# Plain") ?? false),
       "an empty diff with the file text.",
     );
   } finally {
@@ -258,7 +258,7 @@ const failed = checks.filter((entry) => !entry.ok);
 const report = { passed: failed.length === 0, checks };
 await writeFile(join(OUT, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 if (failed.length > 0) {
-  console.error(`${failed.length} checks failed.`);
+  process.stderr.write(`${failed.length} checks failed.\n`);
   process.exit(1);
 }
-console.log(`All ${checks.length} checks passed. Report: ${join(OUT, "report.json")}`);
+process.stdout.write(`All ${checks.length} checks passed. Report: ${join(OUT, "report.json")}\n`);

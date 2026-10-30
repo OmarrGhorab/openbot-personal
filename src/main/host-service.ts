@@ -59,12 +59,12 @@ import {
 import type { RemoteDesktopRuntimePaths } from "./remote-desktop-runtime-artifact";
 import { appendRemoteDiagnosticLog } from "./remote-diagnostics";
 import { RemoteScreenGateway, type RemoteScreenGatewayCreateRuntime } from "./remote-screen-gateway";
-import { collectTurnFiles, readWorkspaceFileDiff } from "./turn-file-diff";
 import { RemoteWorkflowError, remoteDecode } from "./remote-service-effects";
 import { TeamApiServer } from "./team-api-server";
 import type { RemoteDirectoryMember, TeamIdentity, TeamStore } from "./team-store";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcHostGateway } from "./team-webrtc-host-gateway";
+import { collectTurnFiles, readWorkspaceFileDiff } from "./turn-file-diff";
 
 export const DEVELOPMENT_REMOTE_CLIENT_USERNAME = "openbot-dev-client";
 
@@ -1117,7 +1117,7 @@ export class HostService extends EventEmitter<HostEvents> {
    * refused, even when the agent may read it: the panel shows only the agent's own changes.
    */
   readTurnFileDiff(agentId: string, inputPath: string): Effect.Effect<TurnFileDiffResult, RemoteWorkflowError> {
-    return this.#options.agents.resolveLocalWorkspaceFile(agentId, inputPath).pipe(
+    return this.#options.agents.resolveWorkspaceFile(agentId, inputPath).pipe(
       Effect.flatMap((resolved) =>
         resolved.insideWorkspace
           ? Effect.promise(() => readWorkspaceFileDiff(resolved.path))

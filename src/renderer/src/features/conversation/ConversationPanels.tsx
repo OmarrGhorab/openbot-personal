@@ -1,4 +1,4 @@
-import type { ServerSummary } from "@openbot/contracts/ipc";
+import type { ServerSummary, TurnFileDiffResult, TurnFilesResult } from "@openbot/contracts/ipc";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { classifyFailure } from "@openbot/telemetry";
 import { SETTINGS_PANEL_DEFAULT, SETTINGS_PANEL_MAX } from "@openbot/ui/components/SettingsPanel";
@@ -41,7 +41,6 @@ import {
   createEffect,
   createMemo,
   createProjection,
-  createResource,
   createSignal,
   Loading,
   lazy,
@@ -196,9 +195,32 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
   const [changesPath, setChangesPath] = createSignal<string | null>(null);
   const [changesView, setChangesView] = createSignal<ChangesView>("diff");
   const changesTraceCount = createMemo(() => props.messages.filter((message) => message.trace).length);
-  const [changesFilesResource] = createResource(
-    () => (changesOpen() && props.agent ? { agentId: props.agent.id, traces: changesTraceCount() } : null),
-    async (input) => conversationPort().agent.listTurnFiles({ agentId: input.agentId }).catch(() => null),
+  const [changesStored, setChangesStored] = createSignal<TurnFilesResult | null>(null);
+  createEffect(
+    () => {
+      if (!changesOpen()) return undefined;
+      // The stored list grows when a turn ends, so a new trace refetches it.
+      changesTraceCount();
+      return props.agent?.id;
+    },
+    (agentId) => {
+      if (!agentId) {
+        setChangesStored(null);
+        return;
+      }
+      let cancelled = false;
+      void conversationPort()
+        .agent.listTurnFiles({ agentId })
+        .then((result) => {
+          if (!cancelled) setChangesStored(result);
+        })
+        .catch(() => {
+          if (!cancelled) setChangesStored(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
   );
   const changesActiveTurnId = createMemo(() => {
     const agentId = props.agent?.id;
@@ -216,27 +238,57 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
         files.push({ path: file.path, status: file.status, additions: file.additions, deletions: file.deletions });
       }
     }
-    for (const file of changesFilesResource()?.files ?? []) {
+    for (const file of changesStored()?.files ?? []) {
       if (seen.has(file.path)) continue;
       seen.add(file.path);
       files.push({ path: file.path, status: file.status, additions: file.additions, deletions: file.deletions });
     }
     return files;
   });
-  const [changesDiff] = createResource(
-    () => (changesOpen() && props.agent && changesPath() ? { agentId: props.agent.id, path: changesPath() ?? "" } : null),
-    async (input) => conversationPort().agent.readTurnFileDiff(input).catch(() => null),
+  const [changesDiff, setChangesDiff] = createSignal<TurnFileDiffResult | null>(null);
+  createEffect(
+    () => {
+      if (!changesOpen()) return undefined;
+      const agentId = props.agent?.id;
+      const path = changesPath();
+      return agentId && path ? { agentId, path } : undefined;
+    },
+    (input) => {
+      if (!input) {
+        setChangesDiff(null);
+        return;
+      }
+      let cancelled = false;
+      void conversationPort()
+        .agent.readTurnFileDiff(input)
+        .then((result) => {
+          if (!cancelled) setChangesDiff(result);
+        })
+        .catch(() => {
+          if (!cancelled) setChangesDiff(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
   );
   // A newly opened file starts on its diff.
-  createEffect(() => {
-    changesPath();
-    setChangesView("diff");
-  });
+  createEffect(
+    () => changesPath(),
+    () => {
+      setChangesView("diff");
+    },
+  );
   // A file that left the list closes the view.
-  createEffect(() => {
-    const path = changesPath();
-    if (path && !changesFiles().some((file) => file.path === path)) setChangesPath(null);
-  });
+  createEffect(
+    () => {
+      const path = changesPath();
+      return path && !changesFiles().some((file) => file.path === path) ? path : null;
+    },
+    (stale) => {
+      if (stale) setChangesPath(null);
+    },
+  );
   /** The subagent in the Subagent pane, from the newest turn that has it. */
   const panelSubagent = createMemo(() => {
     const subagentId = panelSubagentId();

@@ -196,6 +196,7 @@ function isTurnStepFile(value: unknown): value is TurnStepFile {
   return (
     isDynamicRecord(value) &&
     isBoundedString(value.path, INPUT_LIMITS.path) &&
+    value.path.length > 0 &&
     isOneOf(TURN_STEP_FILE_STATUSES, value.status) &&
     (value.additions === undefined || integerInRange(value.additions, 0, Number.MAX_SAFE_INTEGER)) &&
     (value.deletions === undefined || integerInRange(value.deletions, 0, Number.MAX_SAFE_INTEGER))
@@ -316,8 +317,7 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         isBoundedString(value.text, INPUT_LIMITS.turnStepText) &&
         value.text.length > 0 &&
         (value.command === undefined || isBoundedString(value.command, INPUT_LIMITS.turnStepCommand)) &&
-        (value.exitCode === undefined ||
-          (isNumber(value.exitCode) && Number.isSafeInteger(value.exitCode))) &&
+        (value.exitCode === undefined || (isNumber(value.exitCode) && Number.isSafeInteger(value.exitCode))) &&
         (value.files === undefined ||
           (Array.isArray(value.files) &&
             value.files.length <= INPUT_LIMITS.turnStepFiles &&
