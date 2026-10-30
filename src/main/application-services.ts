@@ -169,6 +169,7 @@ import { catalogPluginSlug, isReportedMcpServerName, loadCatalogPluginServers } 
 import { readAnalyticsPreference } from "./analytics-preference-store";
 import { providerAuthKind } from "./analytics-provider-auth";
 import { AppBehaviorService } from "./app-behavior-service";
+import { RAVEN_AUTOPILOT_PREFERENCE_FILE, RavenAutopilotSettingsStore } from "./raven-autopilot-settings";
 import { AppearanceService } from "./appearance-service";
 import { ApprovalAutomation, readApprovalAutomation } from "./approval-automation-store";
 import { AutomationServer } from "./automation-server";
@@ -563,6 +564,8 @@ export interface ApplicationServices {
   service: AgentService;
   routineFlows: RoutineFlowsHandle;
   ravenTeam: RavenTeamService;
+  /** The Autopilot settings of the Raven team, on this computer. */
+  ravenAutopilot: RavenAutopilotSettingsStore;
   routineResults: RoutineResultsHandle;
   providerRuntimes: ProviderRuntimeManager;
   providerCredentials: ProviderCredentialStore;
@@ -1299,6 +1302,10 @@ export async function createApplicationServices({
     offersKeepAwake: process.platform !== "linux" && !hostedServer && !serverModeEnvironment,
   });
   await runCauseEffect(appBehavior.load());
+  const ravenAutopilot = new RavenAutopilotSettingsStore(
+    join(app.getPath("userData"), RAVEN_AUTOPILOT_PREFERENCE_FILE),
+  );
+  await runCauseEffect(ravenAutopilot.load());
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
     logger.warn("The login item did not refresh.", toLogValue(error)),
   );
@@ -1997,6 +2004,9 @@ export async function createApplicationServices({
       if (job) boardTicketTeamFollower.follow(job);
     },
   });
+  const unsubscribeRavenAutopilot = ravenAutopilot.subscribe((settings) =>
+    sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenAutopilot.changed, settings),
+  );
   const ravenTeamListener = (event: AgentEvent) => {
     Effect.runFork(ravenTeam.notice(event));
   };
@@ -2010,6 +2020,7 @@ export async function createApplicationServices({
   };
   service.on("event", ravenTeamAgentListener);
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    unsubscribeRavenAutopilot();
     service.off("turn", ravenTeamListener);
     service.off("event", ravenTeamAgentListener);
   });
@@ -3197,6 +3208,7 @@ export async function createApplicationServices({
     service,
     routineFlows: routineFlowRuntime,
     ravenTeam,
+    ravenAutopilot,
     routineResults: routineResultRuntime,
     providerRuntimes,
     providerCredentials,

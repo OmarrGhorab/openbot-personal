@@ -1,6 +1,7 @@
 import { type AgentModelId, type AgentReasoningEffort, isAgentModel, isReasoningEffort } from "./ipc-agent-identity";
 import { type AgentProviderId, isAgentProvider } from "./ipc-agent-status";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
+import { isRavenAutopilotDecision, type RavenAutopilotDecision } from "./ipc-raven-autopilot";
 import { type DynamicRecord, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
 /**
@@ -257,6 +258,11 @@ export interface RavenTeamJob {
   fallbackModel: AgentModelId | null;
   question: RavenTeamQuestion | null;
   roles: RavenTeamRoleRun[];
+  /**
+   * Why Autopilot started the job with this stack, team and models. Absent or null for a job that the
+   * user started on the Set up tab. The Autopilot engine (#196) sets it when it picks the ticket up.
+   */
+  decision?: RavenAutopilotDecision | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -379,6 +385,7 @@ export function isRavenTeamJob(value: unknown): value is RavenTeamJob {
     (value.question === null || isRavenTeamQuestion(value.question)) &&
     Array.isArray(value.roles) &&
     value.roles.every(isRavenTeamRoleRun) &&
+    (value.decision === undefined || value.decision === null || isRavenAutopilotDecision(value.decision)) &&
     isString(value.createdAt) &&
     isString(value.updatedAt)
   );
