@@ -56,6 +56,7 @@ export { default as FolderOpen } from "lucide-solid/icons/folder-open";
 export { default as FolderPlus } from "lucide-solid/icons/folder-plus";
 export { default as Gauge } from "lucide-solid/icons/gauge";
 export { default as Gift } from "lucide-solid/icons/gift";
+export { default as GitCommitHorizontal } from "lucide-solid/icons/git-commit-horizontal";
 export { default as GripVertical } from "lucide-solid/icons/grip-vertical";
 export { default as HardDrive } from "lucide-solid/icons/hard-drive";
 export { default as Hash } from "lucide-solid/icons/hash";
