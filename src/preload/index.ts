@@ -262,6 +262,7 @@ import {
   decodeRavenJobs,
   decodeRavenPlan,
   decodeRavenTemplates,
+  decodeRavenTicketTake,
 } from "./raven-team-decoding";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
 import {
@@ -767,6 +768,7 @@ const openbotApi: OpenBotDesktopApi = {
     giveRoleFullAccess: decodeRavenJob,
     stop: decodeRavenJob,
     resume: decodeRavenJob,
+    takeTicket: decodeRavenTicketTake,
     changed: decodeRavenChanged,
   }),
   ravenAutopilot: bridgeGroup(IPC_ENDPOINTS.ravenAutopilot, {
