@@ -68,6 +68,7 @@ export function RavenTeamPanel(props: {
         jobs={jobs()}
         models={models()}
         initialBrief={props.brief}
+        initialTab={props.jobId ? "jobs" : "setup"}
         onPlan={(input) => window.openbot.ravenTeam.plan(input)}
         onStart={(input) => window.openbot.ravenTeam.start(input)}
         onStop={(jobId) => window.openbot.ravenTeam.stop(jobId)}
