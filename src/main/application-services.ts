@@ -22,6 +22,7 @@ import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/s
 import { AutopilotEngine } from "../backend/raven-team/autopilot-engine";
 import { GitHubPullRequestMerger } from "../backend/raven-team/github-pull-request-merger";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
+import { TicketTakeService } from "../backend/raven-team/ticket-take";
 import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
 import { RoutineFlowStore } from "../backend/routine-flows/routine-flow-store";
@@ -567,6 +568,8 @@ export interface ApplicationServices {
   service: AgentService;
   routineFlows: RoutineFlowsHandle;
   ravenTeam: RavenTeamService;
+  /** Chat (#200): an agent takes the ticket that a message names, and Autopilot starts its job. */
+  ticketTake: TicketTakeService;
   /** The Autopilot settings of the Raven team, on this computer. */
   ravenAutopilot: RavenAutopilotSettingsStore;
   routineResults: RoutineResultsHandle;
@@ -2045,6 +2048,18 @@ export async function createApplicationServices({
     repo: () => boardTicketSync.state().target?.project ?? null,
   });
   autopilotEngine = autopilot;
+  const ticketTake = new TicketTakeService({
+    board: boardTickets,
+    sync: {
+      connected: () => boardTicketSync.state().providers,
+      importIssueByKey: (provider, key) => boardTicketSync.importIssueByKey(provider, key),
+    },
+    take: (ticketId, chat) => autopilot.takeNow(ticketId, chat),
+    agentThread: (agentId) => {
+      const agent = store.list().find((candidate) => candidate.id === agentId);
+      return agent ? (agent.threadId ?? null) : undefined;
+    },
+  });
   const unsubscribeRavenAutopilot = ravenAutopilot.subscribe((settings) => {
     sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenAutopilot.changed, settings);
     autopilot.wake();
@@ -3253,6 +3268,7 @@ export async function createApplicationServices({
     service,
     routineFlows: routineFlowRuntime,
     ravenTeam,
+    ticketTake,
     ravenAutopilot,
     routineResults: routineResultRuntime,
     providerRuntimes,
