@@ -20,8 +20,8 @@ const NOTICE_LIMIT = 50;
 export interface TicketMergeSystemNotification {
   title: string;
   body: string;
-  /** The App icon from Settings › Appearance, already drawn. Undefined keeps the system default. */
-  icon: unknown;
+  /** The App icon from Settings › Appearance. The system notification draws it as its icon. */
+  appIcon: AppLogoColorPreference;
   /** Button labels, in order. macOS shows them; other systems show a click only. */
   actions: readonly string[];
   /** Called with the button index, or null for a click on the notification itself. */
@@ -38,8 +38,6 @@ export interface TicketMergeNotifierDependencies {
   desktopNotifications: () => boolean;
   /** Settings › Appearance: App icon (mascot), Logo color and App icon tile. */
   appIcon: () => AppLogoColorPreference;
-  /** Draws the App icon for the system notification, or returns undefined to keep the default. */
-  drawAppIcon: (preference: AppLogoColorPreference) => unknown;
   showSystemNotification: (notification: TicketMergeSystemNotification) => void;
   /** Shows the merge on the island for a few seconds, over what the window published. */
   showOnIsland: (presentation: DynamicIslandPresentation, durationMs: number) => void;
@@ -67,6 +65,11 @@ export class TicketMergeNotifier {
   readonly #deps: TicketMergeNotifierDependencies;
   readonly #notices = new Map<string, TicketMergeNotice>();
   #sequence = 0;
+
+  #nextId(): string {
+    this.#sequence += 1;
+    return `merge-${Date.now().toString(36)}-${this.#sequence}`;
+  }
 
   constructor(deps: TicketMergeNotifierDependencies) {
     this.#deps = deps;
@@ -127,7 +130,9 @@ export class TicketMergeNotifier {
   factsLine(notice: Pick<TicketMergeNotice, "verdict" | "qualityScore" | "ci">): string {
     const { translate } = this.#deps;
     const facts = [
-      translate(notice.verdict === "PASS" ? "notification.ticketMerged.pass" : "notification.ticketMerged.passWithNotes"),
+      translate(
+        notice.verdict === "PASS" ? "notification.ticketMerged.pass" : "notification.ticketMerged.passWithNotes",
+      ),
     ];
     if (notice.qualityScore !== null) {
       facts.push(translate("notification.ticketMerged.quality", { score: formatScore(notice.qualityScore) }));
@@ -140,7 +145,7 @@ export class TicketMergeNotifier {
     const redact = this.#deps.redact ?? redactText;
     const title = shortenTicketMergeTitle(redact(event.ticketTitle)) || (event.ticketKey ?? "");
     return {
-      id: this.#deps.createId?.() ?? `merge-${Date.now().toString(36)}-${(this.#sequence += 1)}`,
+      id: this.#deps.createId?.() ?? this.#nextId(),
       ticketId: event.ticketId,
       ticketKey: event.ticketKey,
       title: title.length > 0 ? title : "—",
@@ -180,7 +185,7 @@ export class TicketMergeNotifier {
     this.#deps.showSystemNotification({
       title: translate("notification.ticketMerged.title", { ticket: notice.title }),
       body: `${body} ${this.factsLine(notice)}`,
-      icon: this.#deps.drawAppIcon(appIcon),
+      appIcon,
       actions,
       onAction: (index) => {
         // A click on the notification itself opens the ticket, or the PR when there is no ticket.

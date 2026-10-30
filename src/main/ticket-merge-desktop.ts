@@ -33,13 +33,12 @@ export function createDesktopTicketMergeNotifier(options: DesktopTicketMergeOpti
     notifyOnMerge: options.notifyOnMerge ?? (() => true),
     desktopNotifications: options.desktopNotifications,
     appIcon: options.appIcon,
-    drawAppIcon: (preference) => drawNotificationIcon(preference),
     showSystemNotification: (shown) => {
       if (!Notification.isSupported()) return;
       const notification = new Notification({
         title: shown.title,
         body: shown.body,
-        icon: shown.icon as NativeImage | undefined,
+        icon: drawNotificationIcon(shown.appIcon),
         // macOS shows the buttons; elsewhere a click on the notification opens the ticket.
         actions: process.platform === "darwin" ? shown.actions.map((text) => ({ type: "button", text })) : [],
       });
