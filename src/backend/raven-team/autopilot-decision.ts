@@ -28,7 +28,7 @@ import {
  */
 
 /** The parts of a ticket that the decision reads. */
-export interface AutopilotTicketInput {
+interface AutopilotTicketInput {
   id: string | null;
   title: string;
   body: string;
@@ -68,22 +68,17 @@ const FILE_PATH =
 const PACKAGE_ROOT = /\b(?:packages|apps|libs|services|crates|modules)\/([\w@.-]+)/giu;
 
 /** The ticket type: the one set on the ticket, else the board's detection from the title and the text. */
-export function autopilotTicketType(
-  ticket: Pick<AutopilotTicketInput, "type" | "title" | "body">,
-): BoardTicketType | null {
+function autopilotTicketType(ticket: Pick<AutopilotTicketInput, "type" | "title" | "body">): BoardTicketType | null {
   return ticket.type ?? detectBoardTicketType({ title: ticket.title, body: ticket.body });
 }
 
 /** Whether a Bug ticket carries a failing case that a test can reproduce first. */
-export function hasFailingCase(title: string, body: string): boolean {
+function hasFailingCase(title: string, body: string): boolean {
   return FAILING_CASE.test(`${title}\n${body}`);
 }
 
 /** The size of the change from the files and packages the ticket names and the words it uses. */
-export function estimateChangeSize(
-  title: string,
-  body: string,
-): { size: RavenAutopilotChangeSize; files: number | null } {
+function estimateChangeSize(title: string, body: string): { size: RavenAutopilotChangeSize; files: number | null } {
   const text = `${title}\n${body}`;
   const files = new Set([...text.matchAll(FILE_PATH)].map((match) => match[0].toLowerCase()));
   const packages = new Set([...text.matchAll(PACKAGE_ROOT)].map((match) => (match[1] ?? "").toLowerCase()));
@@ -98,7 +93,7 @@ const SMALL_MODEL = /(haiku|mini|nano|flash|lite|small|tiny|fast)/iu;
 const STRONG_MODEL = /(opus|ultra|max|large|(^|[-_.\s])pro($|[-_.\s]))/iu;
 
 /** The class of a model from its id and name. Unknown names are `standard`. */
-export function autopilotModelTier(option: Pick<AgentModelOption, "id" | "name">): RavenAutopilotModelTier {
+function autopilotModelTier(option: Pick<AgentModelOption, "id" | "name">): RavenAutopilotModelTier {
   const text = `${option.id} ${option.name}`;
   if (SMALL_MODEL.test(text)) return "small";
   if (STRONG_MODEL.test(text)) return "strong";
@@ -139,7 +134,7 @@ function pickModel(
  * model other than the Builder's when one exists. The fallback is a strong model other than the Builder's,
  * so a failed round can switch without asking the user; none when no other model exists.
  */
-export function autopilotModels(
+function autopilotModels(
   templateId: string,
   tier: RavenAutopilotModelTier,
   models: readonly AgentModelOption[],

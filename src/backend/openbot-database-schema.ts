@@ -923,7 +923,20 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Adds two nullable columns with no default, so no row is rewritten: no foreign-key pause and no
     // vacuum. Every stored job keeps its data and reads as a job with no Autopilot decision and the
     // built-in round limit, which is what it was before.
-    up: (db) => db.exec(RAVEN_TEAM_AUTOPILOT_SQL),
+    // A column that is there already (a database whose history was rewound past 53 by a repair) is
+    // kept as it is, so the upgrade never fails on a duplicate column.
+    up: (db) => {
+      const existing = new Set(
+        db
+          .prepare("PRAGMA table_info(raven_team_jobs)")
+          .all()
+          .map((row) => String(row.name)),
+      );
+      for (const statement of RAVEN_TEAM_AUTOPILOT_SQL.split(";")) {
+        const column = /ADD COLUMN (\w+)/u.exec(statement)?.[1];
+        if (column && !existing.has(column)) db.exec(statement);
+      }
+    },
   },
 ];
 
