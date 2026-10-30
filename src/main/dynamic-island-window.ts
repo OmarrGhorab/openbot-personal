@@ -5,6 +5,7 @@ import type {
   DynamicIslandPreference,
   DynamicIslandPresentation,
   DynamicIslandWindowPosition,
+  TicketMergeOpenRequest,
 } from "@openbot/contracts/ipc";
 import {
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
@@ -77,13 +78,19 @@ export interface DynamicIslandWindowControllerOptions {
   presentMainWindow: (window: BrowserWindow) => void;
   performHaptic: () => void;
   performCriticalAction: (action: CriticalAction) => Effect.Effect<void, DynamicIslandFailed>;
+  /** "View ticket" and "View PR" on a merged ticket. Main looks the merge up by its notice id. */
+  openTicketMerge?: (request: TicketMergeOpenRequest) => Promise<void>;
   logger?: Logger;
 }
 
 export class DynamicIslandWindowController {
   readonly #options: DynamicIslandWindowControllerOptions;
   #preference: DynamicIslandPreference = { ...DEFAULT_DYNAMIC_ISLAND_PREFERENCE };
-  #presentation = IDLE_DYNAMIC_ISLAND_PRESENTATION;
+  /** What the main window published. */
+  #published = IDLE_DYNAMIC_ISLAND_PRESENTATION;
+  /** A merge shown for a few seconds over the published presentation. */
+  #transient: DynamicIslandPresentation | null = null;
+  #transientTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #windows = new Map<number, BrowserWindow>();
   readonly #interactiveDisplays = new Set<number>();
   /** Where each window is while the user drags it, before the drag ends and the move is saved. */
@@ -115,7 +122,12 @@ export class DynamicIslandWindowController {
   }
 
   get presentation(): DynamicIslandPresentation {
-    return this.#presentation;
+    return this.#current();
+  }
+
+  /** The transient presentation while one shows, otherwise the published one. */
+  #current(): DynamicIslandPresentation {
+    return this.#transient ?? this.#published;
   }
 
   /** The notch of the built-in display, or null when there is no built-in display or it has no notch. */
@@ -189,10 +201,36 @@ export class DynamicIslandWindowController {
   }
 
   publish(presentation: DynamicIslandPresentation): void {
-    if (isDeepStrictEqual(this.#presentation, presentation)) return;
-    this.#presentation = presentation;
+    if (isDeepStrictEqual(this.#published, presentation)) return;
+    this.#published = presentation;
+    // A merge on show keeps the island until its time is up; the window's change shows after it.
+    if (!this.#transient) this.#sendPresentation();
+  }
+
+  /**
+   * Shows a presentation for a while over the one the window published, then goes back to it. Main
+   * uses it for a merged ticket, which no window state holds. A newer one replaces the one on show.
+   * It shows on a display with a notch and without one, as every presentation does.
+   */
+  showTransient(presentation: DynamicIslandPresentation, durationMs: number): void {
+    clearTimeout(this.#transientTimer);
+    this.#transient = presentation;
+    this.#sendPresentation();
+    this.performHaptic();
+    this.#transientTimer = setTimeout(() => this.#clearTransient(), durationMs);
+  }
+
+  #clearTransient(): void {
+    clearTimeout(this.#transientTimer);
+    this.#transientTimer = undefined;
+    if (!this.#transient) return;
+    this.#transient = null;
+    this.#sendPresentation();
+  }
+
+  #sendPresentation(): void {
     for (const window of this.#windows.values()) {
-      sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.presentation, presentation);
+      sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.presentation, this.#current());
     }
   }
 
@@ -335,6 +373,19 @@ export class DynamicIslandWindowController {
         action.type === "stop-agent"
       ) {
         return this.#performCriticalAction(action);
+      }
+      if (action.type === "open-merged-ticket" || action.type === "open-merged-pull-request") {
+        const openTicketMerge = this.#options.openTicketMerge;
+        this.#clearTransient();
+        if (!openTicketMerge) return Effect.void;
+        const request: TicketMergeOpenRequest = {
+          noticeId: action.noticeId,
+          target: action.type === "open-merged-ticket" ? "ticket" : "pull-request",
+        };
+        return Effect.tryPromise({
+          try: () => openTicketMerge(request),
+          catch: (cause) => new DynamicIslandFailed({ cause }),
+        });
       }
       return Effect.gen({ self: this }, function* () {
         const window = yield* this.#ensureMainWindow();
@@ -485,7 +536,7 @@ export class DynamicIslandWindowController {
     window.webContents.on("did-finish-load", () => {
       if (this.#windows.get(display.id) !== window || window.isDestroyed()) return;
       const currentDisplay = this.#options.getDisplays().find((candidate) => candidate.id === display.id) ?? display;
-      sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.presentation, this.#presentation);
+      sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.presentation, this.#current());
       sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.preference, this.#preference);
       const notchSize = notchSizeForDisplay(currentDisplay);
       if (sendToRenderer(window, IPC_ENDPOINTS.dynamicIsland.geometry, notchSize ?? null)) {
@@ -525,6 +576,7 @@ export class DynamicIslandWindowController {
   destroy(): void {
     this.#destroyed = true;
     clearInterval(this.#returnFade);
+    clearTimeout(this.#transientTimer);
     this.destroyWindows();
   }
 
