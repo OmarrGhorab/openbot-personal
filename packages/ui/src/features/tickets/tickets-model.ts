@@ -319,8 +319,9 @@ export const TICKETS_AUTOPILOT_OFF: TicketsAutopilot = { enabled: false, slots: 
 
 /** The Raven team jobs that run now: each job has one job ticket (no role) in Running. */
 export function autopilotRunning(tickets: readonly BoardTicket[]): number {
-  return tickets.filter((ticket) => ticket.teamJobId !== null && ticket.teamRoleId === null && ticket.status === "running")
-    .length;
+  return tickets.filter(
+    (ticket) => ticket.teamJobId !== null && ticket.teamRoleId === null && ticket.status === "running",
+  ).length;
 }
 
 /** The ticket that Raven picks next: the first ticket of Backlog. */
