@@ -20,6 +20,7 @@ import { JiraBoardSyncSource } from "../backend/board-tickets/jira-board-sync-so
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { AutopilotEngine } from "../backend/raven-team/autopilot-engine";
+import { GitHubPullRequestMerger } from "../backend/raven-team/github-pull-request-merger";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
 import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -2028,6 +2029,12 @@ export async function createApplicationServices({
       preferredProvider: () => service.preferredProvider(),
       listAgents: () => service.listAgents(),
     },
+    // The Reviewer's merge (#198) reads and merges the pull request with the user's GitHub token. The token
+    // stays in the request header; a failure carries a code and a status only.
+    merger: new GitHubPullRequestMerger({
+      accessToken: () => githubConnector.accessToken(),
+      fetch: (url, init) => fetch(url, init),
+    }),
     // pstack (#197): a pstack choice needs its playbook skill. The skill service is made further down; the
     // engine reads it at a pick-up, after the start of the app.
     skills: {
