@@ -9,6 +9,7 @@ import type {
   MacAutomationTarget,
   McpSignInApp,
   McpSignInAppState,
+  RavenAutopilotSettings,
   RavenTeamJob,
 } from "@openbot/contracts/ipc";
 import {
@@ -202,6 +203,7 @@ import { createMockMessaging } from "./mock-messaging";
 import { createMockMonitor } from "./mock-monitor";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
 import { createMockProviderRuntimes, type MockProviderRuntimeOptions } from "./mock-provider-runtimes";
+import { mockRavenAutopilot } from "./mock-raven-autopilot";
 import { mockRavenTeam } from "./mock-raven-team";
 import { mockRoutineCalendar } from "./mock-routine-calendar";
 import { createMockRoutineFeed } from "./mock-routine-feed";
@@ -255,6 +257,8 @@ export interface MockOpenBotOptions
   boardTicketsFirstListDelayMs?: number;
   /** The Raven Stack team jobs when the preview starts, newest first. None by default. */
   ravenTeamJobs?: RavenTeamJob[];
+  /** The Raven Autopilot settings when the preview starts. The defaults when not given: Autopilot is off. */
+  ravenAutopilot?: Partial<RavenAutopilotSettings>;
   customProviders?: CustomProviderSummary[];
   /** The read state of each agent's chat, keyed by agent id. An agent with none shows no unread count. */
   conversationReads?: Record<string, ConversationReadState>;
@@ -1340,6 +1344,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     openUrl: async () => undefined,
     voice: mockVoice.voice,
     ravenTeam,
+    ravenAutopilot: mockRavenAutopilot(options.ravenAutopilot),
     boardTickets: withFirstListDelay(
       mockBoardTickets(
         options.boardTickets,

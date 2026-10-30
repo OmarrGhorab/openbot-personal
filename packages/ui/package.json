@@ -334,6 +334,7 @@
     "./features/monitor/monitor-status": "./src/features/monitor/monitor-status.ts",
     "./features/monitor/monitor-time": "./src/features/monitor/monitor-time.ts",
     "./features/monitor/monitor.css": "./src/features/monitor/monitor.css",
+    "./features/raven-team/RavenAutopilotPanel": "./src/features/raven-team/RavenAutopilotPanel.tsx",
     "./features/raven-team/RavenTeamPage": "./src/features/raven-team/RavenTeamPage.tsx",
     "./features/tasks/TasksPage": "./src/features/tasks/TasksPage.tsx",
     "./features/team/TeamPersonAvatar": "./src/features/team/TeamPersonAvatar.tsx",

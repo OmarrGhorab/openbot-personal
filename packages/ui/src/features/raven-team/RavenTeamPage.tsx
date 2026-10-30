@@ -68,8 +68,6 @@ export type RavenTeamTab = "setup" | "autopilot" | "jobs";
 export interface RavenTeamAutopilotTab {
   /** True when Autopilot is on: the tab shows an On pill. */
   on: boolean;
-  /** The line under the title while the tab is open. */
-  intro: string;
   content: JSX.Element;
 }
 
@@ -439,7 +437,8 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   const jobAccessText = (role: RavenTeamRoleRun, platform: string | undefined) =>
     accessText(role.label, role.provider, platform);
 
-  const intro = () => (tab() === "autopilot" && props.autopilot ? props.autopilot.intro : t("agent.team.intro"));
+  const intro = () =>
+    tab() === "autopilot" && props.autopilot ? t("agent.team.autopilot.intro") : t("agent.team.intro");
 
   return (
     <div class="raven-team-page">

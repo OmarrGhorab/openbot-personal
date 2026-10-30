@@ -1,4 +1,10 @@
-import { providerDisplayName, type RavenTeamJob, type RavenTeamTemplate } from "@openbot/contracts/ipc";
+import {
+  providerDisplayName,
+  type RavenAutopilotSettings,
+  type RavenTeamJob,
+  type RavenTeamTemplate,
+} from "@openbot/contracts/ipc";
+import { RavenAutopilotPanel } from "@openbot/ui/features/raven-team/RavenAutopilotPanel";
 import { type RavenTeamModelChoice, RavenTeamPage } from "@openbot/ui/features/raven-team/RavenTeamPage";
 import { createSignal, onSettled, Show } from "solid-js";
 
@@ -17,6 +23,7 @@ export function RavenTeamPanel(props: {
   const [templates, setTemplates] = createSignal<RavenTeamTemplate[]>([]);
   const [jobs, setJobs] = createSignal<RavenTeamJob[]>([]);
   const [models, setModels] = createSignal<RavenTeamModelChoice[]>([]);
+  const [autopilot, setAutopilot] = createSignal<RavenAutopilotSettings | null>(null);
   const [loaded, setLoaded] = createSignal(false);
 
   const refreshJobs = () => window.openbot.ravenTeam.listJobs().then(setJobs);
@@ -37,8 +44,10 @@ export function RavenTeamPanel(props: {
       window.openbot.ravenTeam.listTemplates(),
       window.openbot.ravenTeam.listJobs(),
       window.openbot.agent.listModels(props.serverId),
-    ]).then(([nextTemplates, nextJobs, nextModels]) => {
+      window.openbot.ravenAutopilot.get(),
+    ]).then(([nextTemplates, nextJobs, nextModels, nextAutopilot]) => {
       setTemplates(nextTemplates);
+      setAutopilot(nextAutopilot);
       setJobs(nextJobs);
       setModels(
         nextModels.map((model) => {
@@ -57,9 +66,29 @@ export function RavenTeamPanel(props: {
       const focus = nextJobs.find((job) => job.id === props.jobId);
       if (focus) requestAnimationFrame(() => showJob(focus));
     });
+    const stopJobs = window.openbot.ravenTeam.onChanged(() => void refreshJobs());
+    // Another window can change the Autopilot settings; main sends the saved settings to each one.
+    const stopAutopilot = window.openbot.ravenAutopilot.onChanged(setAutopilot);
     // Solid runs the function that onSettled returns as its cleanup; onCleanup is not allowed here.
-    return window.openbot.ravenTeam.onChanged(() => void refreshJobs());
+    return () => {
+      stopJobs();
+      stopAutopilot();
+    };
   });
+
+  /** The Autopilot tab, made once: its settings change in place, so a switch keeps its focus. */
+  const autopilotPanel = (
+    <Show when={autopilot()}>
+      {(settings) => (
+        <RavenAutopilotPanel
+          settings={settings()}
+          jobs={jobs()}
+          models={models()}
+          onChange={(next) => window.openbot.ravenAutopilot.set(next).then(setAutopilot)}
+        />
+      )}
+    </Show>
+  );
 
   return (
     <Show when={loaded()}>
@@ -76,6 +105,7 @@ export function RavenTeamPanel(props: {
         onSetRoleModel={(input) => window.openbot.ravenTeam.setRoleModel(input)}
         onGiveRoleFullAccess={(input) => window.openbot.ravenTeam.giveRoleFullAccess(input)}
         onBack={props.onBack}
+        autopilot={autopilot() ? { on: autopilot()?.enabled ?? false, content: autopilotPanel } : undefined}
       />
     </Show>
   );
