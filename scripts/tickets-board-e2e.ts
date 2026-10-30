@@ -392,7 +392,7 @@ try {
     .getByRole("complementary", { name: RUNNING, exact: true })
     .getByRole("button", { name: t("tickets.drawer.openThread"), exact: true })
     .click();
-  await page.getByRole("region", { name: t("tickets.strip.label"), exact: true }).waitFor({ state: "detached" });
+  await page.getByRole("group", { name: t("tickets.filter.label"), exact: true }).waitFor({ state: "detached" });
   await screenshot(page, "thread");
   report.steps.push("Open thread opens the agent's chat.");
 
