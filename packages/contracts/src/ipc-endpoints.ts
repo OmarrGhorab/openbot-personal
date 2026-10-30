@@ -542,6 +542,12 @@ import type {
 } from "./ipc-team-host";
 import type { TicketMergeNotice, TicketMergeOpenedEvent, TicketMergeOpenRequest } from "./ipc-ticket-merge";
 import type { RavenTicketTakeResult, TakeRavenTicketInput } from "./ipc-ticket-take";
+import type {
+  TurnFileDiffInput,
+  TurnFileDiffResult,
+  TurnFilesInput,
+  TurnFilesResult,
+} from "./ipc-turn-files";
 import type { VaultImportResult, VaultSaveInput, VaultSecretRequest, VaultState } from "./ipc-vault";
 import type {
   SpeechAudio,
@@ -1446,6 +1452,12 @@ export const IPC_ENDPOINTS = {
   // has no route for them, so its questions reach the phone and the web as prompts, as before.
   agentQuestions: {
     listOpenQuestions: request<undefined, OpenQuestionsSnapshot>()("agent:open-questions"),
+  },
+  // The files a turn changed, for the Changes panel. Local only: the Team API has no turn steps,
+  // so a joined server has no route for them.
+  agentTurnFiles: {
+    listTurnFiles: request<TurnFilesInput, TurnFilesResult>()("agent:list-turn-files"),
+    readTurnFileDiff: request<TurnFileDiffInput, TurnFileDiffResult>()("agent:read-turn-file-diff"),
   },
   // Project memory lives on this computer only, so its calls are plain requests, not scoped to a host.
   projectMemories: {

@@ -89,6 +89,7 @@ export * from "./ipc-storage";
 export * from "./ipc-team-host";
 export * from "./ipc-ticket-merge";
 export * from "./ipc-ticket-take";
+export * from "./ipc-turn-files";
 export * from "./ipc-vault";
 export * from "./ipc-voice";
 export * from "./marketplace-suggestion-events";
