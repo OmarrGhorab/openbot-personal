@@ -1018,7 +1018,7 @@
   white-space: nowrap;
 }
 
-.tickets-card-stack svg {
+.tickets-card-top .tickets-card-stack svg {
   width: var(--openbot-space-3);
   height: var(--openbot-space-3);
 }
