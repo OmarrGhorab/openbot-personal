@@ -597,6 +597,7 @@ function registerIpcHandlers({
   voice,
   speech,
   dynamicIsland,
+  ticketMerge,
   globalVoice,
   cuaDriver,
   computerUsePermissionHelp,
@@ -722,6 +723,7 @@ function registerIpcHandlers({
       translate: language.translate,
       requestPermission: () => requestDesktopNotificationPermission(notificationPreference, language.translate),
       openExternal: (url) => shell.openExternal(url),
+      ticketMerge,
     }),
     ...teamIpcHandlers({
       host,

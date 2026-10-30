@@ -315,6 +315,8 @@ import {
   type RemoteSessionReusePreferenceStore,
 } from "./remote-session-reuse-preference-store";
 import { sendToRenderer } from "./renderer-ipc";
+import { createDesktopTicketMergeNotifier } from "./ticket-merge-desktop";
+import type { TicketMergeNotifier } from "./ticket-merge-notifier";
 import { RequestedUpdate, RequestedUpdateRefusal } from "./requested-update";
 import { ResourceMonitor } from "./resource-monitor";
 import { StatementTimings } from "./resource-summary";
@@ -655,6 +657,8 @@ export interface ApplicationServices {
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
   dynamicIsland: DynamicIslandWindowController;
+  /** Tells the user when the Reviewer merges a ticket: island, system notification and toast. */
+  ticketMerge: TicketMergeNotifier;
   globalVoice: GlobalVoiceController;
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
@@ -937,6 +941,8 @@ export async function createApplicationServices({
   // two lazy getters, so the gap is visible and bounded.
   let criticalActionTargets: { agents: AgentService; host: HostService; remoteServers: RemoteServerManager } | null =
     null;
+  // The merge notifier needs the language and App icon settings, which load below the island.
+  let ticketMergeTarget: TicketMergeNotifier | null = null;
   const dynamicIsland = new DynamicIslandWindowController({
     platform: process.platform,
     preferencePath: join(app.getPath("userData"), DYNAMIC_ISLAND_PREFERENCE_FILE),
@@ -963,6 +969,9 @@ export async function createApplicationServices({
           () => host.conversationSender(),
         ).pipe(toDynamicIslandFailed);
       }),
+    openTicketMerge: async (request) => {
+      await ticketMergeTarget?.open(request);
+    },
   });
   teardown.push(TEARDOWN_ORDER.dynamicIsland, "the Dynamic Island", () => dynamicIsland.destroy());
   // The shortcuts send through the same path as the Dynamic Island's reply, so a message from either
@@ -1259,6 +1268,20 @@ export async function createApplicationServices({
     join(app.getPath("userData"), NOTIFICATION_PREFERENCE_FILE),
   );
   await runCauseEffect(notificationPreference.load());
+  // The Reviewer (#198) calls `ticketMerge.notifyTicketMerged(event)` once per merge. The "Tell me when
+  // it merges" setting (#195) is read here once its store is in the build; until then it is on.
+  const ticketMerge = createDesktopTicketMergeNotifier({
+    desktopNotifications: () => notificationPreference.get().desktopNotifications,
+    appIcon: () => logoColor.preference,
+    dynamicIsland,
+    getMainWindow: windows.getMainWindow,
+    ensureMainWindow: windows.ensureMainWindow,
+    showMainWindow,
+    openExternal: (url) => shell.openExternal(url),
+    translate: language.translate,
+    reportError: (message, error) => logger.error(message, toLogValue(error)),
+  });
+  ticketMergeTarget = ticketMerge;
   const busyMessageMode = new BusyMessageModePreferenceStore(
     join(app.getPath("userData"), BUSY_MESSAGE_MODE_PREFERENCE_FILE),
   );
@@ -3278,6 +3301,7 @@ export async function createApplicationServices({
     voice,
     speech,
     dynamicIsland,
+    ticketMerge,
     globalVoice,
     cuaDriver,
     computerUseHighlight,
