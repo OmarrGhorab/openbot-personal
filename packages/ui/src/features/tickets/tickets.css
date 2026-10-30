@@ -137,80 +137,250 @@
   font-size: var(--openbot-text-sm);
 }
 
-/* A card. */
-.tickets-card.ui-button {
-  height: auto;
+/* A card (Figma "Ticket card v2"). The body is one button; Approve and Changes sit below it. */
+.tickets-card {
+  --tickets-edge: transparent;
+  position: relative;
+  display: flex;
+  min-width: 0;
   flex-direction: column;
-  align-items: stretch;
-  gap: var(--openbot-space-1-5);
-  padding: var(--openbot-space-2) var(--openbot-space-3);
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
   border: 1px solid var(--openbot-glass-border);
-  border-inline-start: 2px solid var(--tickets-status);
   border-radius: var(--openbot-radius-lg);
   background: var(--openbot-bg-surface);
+}
+
+.tickets-card:has(.tickets-card-body[aria-pressed="true"]) {
+  border-color: var(--openbot-accent);
+}
+
+/* The left edge: blue running, amber waiting for review, red blocked, green done. */
+.tickets-card[data-edge="running"] {
+  --tickets-edge: var(--openbot-accent);
+}
+
+.tickets-card[data-edge="waiting"] {
+  --tickets-edge: var(--openbot-warning);
+}
+
+.tickets-card[data-edge="blocked"] {
+  --tickets-edge: var(--openbot-danger);
+}
+
+.tickets-card[data-edge="done"] {
+  --tickets-edge: var(--openbot-success);
+}
+
+.tickets-card[data-edge]::before {
+  position: absolute;
+  inset-block-start: var(--openbot-space-3);
+  inset-inline-start: -1px;
+  width: 2px;
+  height: var(--openbot-space-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--tickets-edge);
+  content: "";
+}
+
+.tickets-card-body.ui-button {
+  display: flex;
+  height: auto;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  margin: calc(var(--openbot-space-1) * -1);
+  padding: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-md);
+  background: transparent;
+  font-weight: var(--openbot-weight-regular);
   text-align: start;
   white-space: normal;
 }
 
-.tickets-card[aria-pressed="true"] {
-  border-color: var(--openbot-accent);
+.tickets-card-body.ui-button:hover {
+  background: transparent;
 }
 
-.tickets-card-title {
-  color: var(--openbot-text-primary);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-medium);
-  line-height: var(--openbot-leading-sm);
+/* The top row: the type chip, the key, and the short meta at the end. */
+.tickets-card-top {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
 }
 
-.tickets-card-progress {
+.tickets-card-key {
   overflow: hidden;
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
+  min-width: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tickets-card-error {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-1);
-  margin: 0;
-  color: var(--openbot-danger-text);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
-}
-
-.tickets-card-error svg {
-  width: var(--openbot-icon-xs);
-  height: var(--openbot-icon-xs);
-  flex: 0 0 auto;
-}
-
 .tickets-card-meta {
+  overflow: hidden;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The title: 14px medium, at most two lines, broken anywhere it must so nothing is cut at 213px. */
+.tickets-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-sm);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* The four steps: a bar for each, the stage label and the live line. */
+.tickets-card-steps {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--openbot-space-2);
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.tickets-card-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--openbot-space-1);
+  margin-block-end: var(--openbot-space-1);
+}
+
+.tickets-card-bar {
+  height: 3px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-border);
+}
+
+.tickets-card-bar[data-reached] {
+  background: var(--openbot-accent);
+}
+
+.tickets-card-bar[data-current] {
+  background: var(--tickets-edge);
+}
+
+.tickets-card-steps[data-state="done"] .tickets-card-bar {
+  background: var(--openbot-success);
+}
+
+.tickets-card-stage {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+}
+
+.tickets-card-live {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* A failed turn: its reason in a red banner, tinted from the danger token. */
+.tickets-card-error {
+  margin: 0;
+  padding: var(--openbot-space-1-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-danger) 16%, transparent);
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+  overflow-wrap: anywhere;
+}
+
+/* The footer: the agent, and the live pill at the end. */
+.tickets-card-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
 }
 
 .tickets-card-agent {
   display: inline-flex;
   min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-card-agent-name {
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sparkle avatar of an unassigned ticket: Raven picks the agent. */
+.tickets-card-auto {
+  display: inline-flex;
+  width: var(--openbot-space-5);
+  height: var(--openbot-space-5);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 18%, transparent);
+  color: var(--openbot-accent-text);
+}
+
+.tickets-card-auto svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.tickets-card-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5) var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
 }
 
-.tickets-card-agent-none {
-  color: var(--openbot-text-dim);
+.tickets-card-pill[data-tone="running"] {
+  background: color-mix(in srgb, var(--openbot-accent) 16%, transparent);
+  color: var(--openbot-accent-text);
 }
 
-.tickets-card-key {
-  color: var(--openbot-text-dim);
+.tickets-card-pill-dot {
+  width: var(--openbot-space-1);
+  height: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: currentColor;
+}
+
+/* Approve and Changes: two equal buttons. They are not inside the card button. */
+.tickets-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-card-action.ui-button {
+  min-width: 0;
 }
 
 /* The type chip (Figma "Type chip"): a dot in the type's colour and its name, on the glass surface. */
@@ -252,14 +422,6 @@
 
 .tickets-type[data-type="unset"] {
   color: var(--openbot-text-muted);
-}
-
-/* The top row of a card: the type chip, then where the ticket comes from. */
-.tickets-card-top {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--openbot-space-2);
 }
 
 /* The ticket system and key above the title: where the ticket comes from. */
