@@ -140,7 +140,8 @@ export function TicketCard(props: TicketCardProps) {
     const view = steps();
     if (!view) return "";
     const total = TICKET_STEPS.length;
-    if (view.state === "done") return t("tickets.step.count", { step: t(TICKET_STATUS_LABEL.done), current: total, total });
+    if (view.state === "done")
+      return t("tickets.step.count", { step: t(TICKET_STATUS_LABEL.done), current: total, total });
     const step = t(TICKET_STEP_LABEL[TICKET_STEPS[view.index] ?? "build"]);
     return view.state === "blocked"
       ? t("tickets.step.blocked", { step })
@@ -167,7 +168,11 @@ export function TicketCard(props: TicketCardProps) {
   const reviewing = () => (props.review && steps()?.state === "waiting" ? props.review : undefined);
   return (
     <div class="tickets-card" data-status={props.ticket.status} data-edge={edge() ?? undefined}>
-      <TicketsPressable class="tickets-card-body" pressed={props.selected} onPress={() => props.onSelect(props.ticket.id)}>
+      <TicketsPressable
+        class="tickets-card-body"
+        pressed={props.selected}
+        onPress={() => props.onSelect(props.ticket.id)}
+      >
         <span class="tickets-card-top">
           <TicketTypeChip type={props.ticket.type} />
           <Show when={props.compact ? undefined : props.ticket.external}>
