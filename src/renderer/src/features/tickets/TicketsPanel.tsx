@@ -4,6 +4,8 @@ import type {
   BoardTicket,
   BoardTicketEvent,
   BoardTicketSyncState,
+  RavenAutopilotDecision,
+  RavenTeamJob,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { TicketsPage } from "@openbot/ui/features/tickets/TicketsPage";
@@ -70,6 +72,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
   const [syncState, setSyncState] = createSignal<BoardTicketSyncState | null>(null);
   /** The thread list of each agent that this page read. The task state wins once it has one. */
   const [listed, setListed] = createStore<Record<string, AgentTasksSnapshot>>({});
+  /** The team jobs of this computer, for the Autopilot decision on a job's ticket. */
+  const [teamJobs, setTeamJobs] = createSignal<RavenTeamJob[]>([]);
   let disposed = false;
   let listRequest = 0;
   let eventsRequest = 0;
@@ -179,6 +183,31 @@ export function TicketsPanel(props: TicketsPanelProps) {
     };
   });
 
+  /** Team jobs run on this computer only, so a joined server's board shows no decision. */
+  createEffect(
+    () => available() && local(),
+    (on) => {
+      if (!on) return;
+      const loadJobs = () => {
+        window.openbot.ravenTeam
+          .listJobs()
+          .then((jobs) => {
+            if (!disposed) setTeamJobs(jobs);
+          })
+          .catch(() => {
+            // The board works without decisions; the Raven team page reports its own errors.
+          });
+      };
+      loadJobs();
+      return window.openbot.ravenTeam.onChanged(loadJobs);
+    },
+  );
+  const decisions = createMemo(() => {
+    const byJob: Record<string, RavenAutopilotDecision> = {};
+    for (const job of teamJobs()) if (job.decision) byJob[job.id] = job.decision;
+    return byJob;
+  });
+
   createEffect(
     () => (available() && local() ? agentList().map((agent) => agent.id) : []),
     (agentIds) => {
@@ -233,6 +262,7 @@ export function TicketsPanel(props: TicketsPanelProps) {
       tickets={tickets()}
       snapshots={snapshots()}
       selectedTicketId={selectedTicketId()}
+      decisions={decisions()}
       onSelectTicket={setSelectedTicketId}
       events={events()}
       messages={messages()}
