@@ -284,6 +284,7 @@ export function TicketsPage(props: TicketsPageProps) {
                     selectedTicketId={props.selectedTicketId}
                     onSelectTicket={props.onSelectTicket}
                     now={now()}
+                    decisions={props.decisions}
                     review={review}
                     autopilot={autopilot()}
                     nextTicketId={nextTicketId()}
@@ -299,6 +300,7 @@ export function TicketsPage(props: TicketsPageProps) {
                   onSelectTicket={props.onSelectTicket}
                   onSelectAgent={selectAgent}
                   now={now()}
+                  decisions={props.decisions}
                   review={review}
                   autopilot={autopilot()}
                   nextTicketId={nextTicketId()}

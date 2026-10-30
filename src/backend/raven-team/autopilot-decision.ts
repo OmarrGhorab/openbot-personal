@@ -8,10 +8,12 @@ import {
   type RavenAutopilotChangeSize,
   type RavenAutopilotDecision,
   type RavenAutopilotModelTier,
+  type RavenAutopilotPresetId,
   type RavenAutopilotReasonCode,
   type RavenAutopilotSettings,
   type RavenAutopilotStack,
   ravenAutopilotPreset,
+  ravenPstackSkill,
 } from "@openbot/contracts/ipc";
 
 /**
@@ -19,11 +21,14 @@ import {
  *
  * - A Feature that touches many files runs the full Raven Stack team on strong models: it plans first and a
  *   second model reviews. A small Feature runs Autopilot lite.
- * - A Bug with a failing case runs a test-first team; a Bug with no failing case runs the full team, which
- *   investigates before it builds.
+ * - A Bug with a failing case runs pstack with the `tdd` playbook (#197): a Builder writes the failing test
+ *   first and fixes the root cause, and a Reviewer gives the verdict. A Bug with no failing case runs the full
+ *   team, which investigates before it builds.
  * - A Chore runs Autopilot lite on small models.
  *
- * A type override of the settings wins over the table. Everything here is pure: the engine passes the
+ * A type override of the settings wins over the table. A pstack choice whose playbook skill is not installed
+ * falls back to Autopilot lite, and the decision says why (`pstack-missing`), so a missing skill is never
+ * silent. Everything here is pure: the engine passes the
  * ticket, the models that the providers list and the settings, and stores the result on the job.
  */
 
@@ -43,6 +48,8 @@ export interface AutopilotDecisionInput {
   settings: Pick<RavenAutopilotSettings, "autoStack" | "overrides">;
   models: readonly AgentModelOption[];
   preferredProvider: AgentProviderId;
+  /** Whether the skill of a pstack playbook (`pstack-<playbook>`) is installed on this computer. */
+  pstackReady: (playbook: string) => boolean;
   /** The English sentence of a reason code, for the `reason` field. */
   reasonText: (code: RavenAutopilotReasonCode, files: number | null, type: BoardTicketType) => string;
   now: string;
@@ -53,6 +60,8 @@ export interface AutopilotChoice {
   decision: RavenAutopilotDecision;
   /** Role id to model id. The key `fallback` names the model the Builder moves to after a failed round. */
   models: Record<string, string>;
+  /** The pstack skill that the decision wanted and did not find, such as `pstack-tdd`. Null when none is missing. */
+  missingSkill: string | null;
 }
 
 const FALLBACK_KEY = "fallback";
@@ -165,6 +174,25 @@ interface StackChoice {
   reasonCode: RavenAutopilotReasonCode;
 }
 
+/**
+ * The choice of a preset. A preset with no Raven team template (pstack) runs the two roles of Autopilot
+ * lite: a Builder that follows the playbook and a Reviewer that gives the verdict.
+ */
+function presetChoice(
+  presetId: RavenAutopilotPresetId,
+  tier: RavenAutopilotModelTier,
+  reasonCode: RavenAutopilotReasonCode,
+): StackChoice {
+  const preset = ravenAutopilotPreset(presetId);
+  return {
+    stack: preset.stack,
+    templateId: preset.templateId ?? RAVEN_STACK_LITE_TEMPLATE_ID,
+    playbook: preset.playbook,
+    tier,
+    reasonCode,
+  };
+}
+
 /** The table of the issue: type and size give the stack, the template and the model class. */
 function tableChoice(type: BoardTicketType, size: RavenAutopilotChangeSize, failingCase: boolean): StackChoice {
   const raven = (templateId: string, tier: RavenAutopilotModelTier, reasonCode: RavenAutopilotReasonCode) => ({
@@ -181,7 +209,7 @@ function tableChoice(type: BoardTicketType, size: RavenAutopilotChangeSize, fail
         : raven(RAVEN_STACK_TEAM_TEMPLATE_ID, "strong", "feature-large");
     case "bug":
       return failingCase
-        ? raven(RAVEN_STACK_LITE_TEMPLATE_ID, "standard", "bug-failing-case")
+        ? presetChoice("pstack-tdd", "standard", "bug-failing-case")
         : raven(RAVEN_STACK_TEAM_TEMPLATE_ID, "strong", "bug-investigate");
     case "chore":
       return raven(RAVEN_STACK_LITE_TEMPLATE_ID, "small", "chore-small");
@@ -201,15 +229,7 @@ export function decideAutopilot(input: AutopilotDecisionInput): AutopilotChoice 
   const override = settings.overrides[type];
   let choice: StackChoice;
   if (override) {
-    const preset = ravenAutopilotPreset(override.preset);
-    choice = {
-      stack: preset.stack,
-      // A stack with no Raven team template (pstack) runs the two roles of Autopilot lite.
-      templateId: preset.templateId ?? RAVEN_STACK_LITE_TEMPLATE_ID,
-      playbook: preset.playbook,
-      tier: table.tier,
-      reasonCode: "override",
-    };
+    choice = presetChoice(override.preset, table.tier, "override");
   } else if (!settings.autoStack) {
     choice = {
       stack: "raven-stack",
@@ -220,6 +240,18 @@ export function decideAutopilot(input: AutopilotDecisionInput): AutopilotChoice 
     };
   } else {
     choice = table;
+  }
+  // A pstack playbook that is not installed: Autopilot lite runs the ticket, and the reason says so.
+  let missingSkill: string | null = null;
+  if (choice.stack === "pstack" && choice.playbook !== null && !input.pstackReady(choice.playbook)) {
+    missingSkill = ravenPstackSkill(choice.playbook);
+    choice = {
+      stack: "raven-stack",
+      templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+      playbook: null,
+      tier: choice.tier,
+      reasonCode: "pstack-missing",
+    };
   }
   const models = {
     ...autopilotModels(choice.templateId, choice.tier, input.models, input.preferredProvider),
@@ -246,5 +278,5 @@ export function decideAutopilot(input: AutopilotDecisionInput): AutopilotChoice 
     modelTier: choice.tier,
     switches: [],
   };
-  return { decision, models };
+  return { decision, models, missingSkill };
 }

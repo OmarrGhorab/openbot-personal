@@ -67,7 +67,7 @@ export function mockRavenTeam(
   // No seed: one running job, so the team page and the Monitor's "Live now" show a team at work.
   let jobs: RavenTeamJob[] = seed
     ? seed.map((job) => ({ ...job, roles: job.roles.map((role) => ({ ...role })) }))
-    : [previewRunningJob()];
+    : [previewRunningJob(), previewPstackJob()];
   const listeners = new Set<(payload: RavenTeamChanged) => void>();
   const emitChanged = (jobId: string | null) => {
     for (const listener of listeners) listener({ jobId });
@@ -268,6 +268,69 @@ export function mockRavenTeam(
       };
     },
     emitChanged,
+  };
+}
+
+/**
+ * A pstack job of the preview (#197): Autopilot chose pstack · tdd for a Bug with a failing case. It has a
+ * Builder and a Reviewer, not the four Raven roles, and the review passed, so it holds no slot.
+ */
+function previewPstackJob(): RavenTeamJob {
+  const at = new Date().toISOString();
+  const model = PREVIEW_MODELS[0]?.id ?? "";
+  const reviewModel = PREVIEW_MODELS[1]?.id ?? model;
+  const role = (roleId: "builder" | "reviewer"): RavenTeamRoleRun => ({
+    roleId,
+    label: roleId === "builder" ? "Builder" : "Reviewer",
+    agentId: null,
+    taskId: null,
+    threadId: null,
+    provider: PREVIEW_MODELS[0]?.provider ?? "codex",
+    model: roleId === "builder" ? model : reviewModel,
+    access: roleId === "builder" ? "write" : "read-only",
+    state: roleId === "builder" ? "reported" : "passed",
+    verdict: roleId === "builder" ? "DONE" : "PASS",
+    score: null,
+    commit: "3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f",
+    fails: 0,
+    updatedAt: at,
+  });
+  return {
+    id: "preview-job-pstack",
+    templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+    brief:
+      "PROJ-482: Checkout fails when the cart has a coupon\n\nSteps to reproduce: add a coupon. Expected: total. Actual: error.",
+    state: "done",
+    queued: false,
+    headCommit: "3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d5e6f",
+    fixRounds: 0,
+    roundCap: 3,
+    fallbackModel: null,
+    question: null,
+    decision: {
+      ticketId: null,
+      ticketTitle: "PROJ-482: Checkout fails when the cart has a coupon",
+      ticketType: "bug",
+      stack: "pstack",
+      templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+      playbook: "tdd",
+      roles: [
+        { roleId: "builder", label: "Builder", model },
+        { roleId: "reviewer", label: "Reviewer", model: reviewModel },
+      ],
+      reason: "The ticket has a failing case, so pstack · tdd writes the failing test first and fixes the root cause.",
+      source: "auto",
+      decidedAt: at,
+      reasonCode: "bug-failing-case",
+      changeSize: "small",
+      files: null,
+      repo: null,
+      modelTier: "standard",
+      switches: [],
+    },
+    roles: [role("builder"), role("reviewer")],
+    createdAt: at,
+    updatedAt: at,
   };
 }
 

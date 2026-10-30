@@ -50,6 +50,19 @@ export const RAVEN_AUTOPILOT_PRESETS: readonly RavenAutopilotPreset[] = [
   { id: "pstack-tdd", stack: "pstack", templateId: null, playbook: "tdd" },
 ];
 
+/**
+ * The skill folder of a pstack playbook. The marketplace pack `pstack` installs each pstack skill as
+ * `pstack-<name>`, so the `tdd` playbook is the skill `pstack-tdd`, called as `$pstack-tdd`.
+ */
+export function ravenPstackSkill(playbook: string): string {
+  return `pstack-${playbook}`;
+}
+
+/** The playbooks that a preset can name. Autopilot checks that each one is installed before it uses it. */
+export function ravenAutopilotPlaybooks(): string[] {
+  return [...new Set(RAVEN_AUTOPILOT_PRESETS.flatMap((preset) => (preset.playbook ? [preset.playbook] : [])))];
+}
+
 export function ravenAutopilotPreset(id: RavenAutopilotPresetId): RavenAutopilotPreset {
   const preset = RAVEN_AUTOPILOT_PRESETS.find((candidate) => candidate.id === id);
   if (!preset) throw new Error(`Unknown Autopilot preset ${id}.`);
@@ -297,6 +310,7 @@ export const RAVEN_AUTOPILOT_REASON_CODES = [
   "chore-small",
   "override",
   "manual-stack",
+  "pstack-missing",
 ] as const;
 export type RavenAutopilotReasonCode = (typeof RAVEN_AUTOPILOT_REASON_CODES)[number];
 

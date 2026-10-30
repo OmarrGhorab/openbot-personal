@@ -1,10 +1,16 @@
-import type { AgentTasksSnapshot, BoardTicket, BoardTicketStatus } from "@openbot/contracts/ipc";
+import type {
+  AgentTasksSnapshot,
+  BoardTicket,
+  BoardTicketStatus,
+  RavenAutopilotDecision,
+} from "@openbot/contracts/ipc";
 import { Button, IconButton, Plus, SlidingTabs, Sparkles, Zap } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
+import { TicketStackPill } from "./TicketAutopilotDecision";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
   autopilotRunning,
@@ -42,6 +48,8 @@ export interface TicketsBoardData {
   snapshots: Readonly<Record<string, AgentTasksSnapshot>>;
   /** The time that the cards count from. The page passes a clock that ticks each minute. */
   now?: Date | undefined;
+  /** The Autopilot decision of each team job, by job id. The card of the job's own ticket shows its stack (#197). */
+  decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
 }
 
 /** An agent with a running work thread looks busy: its avatar turns its rings. */
@@ -208,6 +216,11 @@ export function TicketCard(props: TicketCardProps) {
   const thread = () => ticketThread(props.ticket, snapshot());
   const progress = () => ticketProgress(props.ticket, thread());
   const error = () => ticketError(props.ticket, thread());
+  /** The stack of the job's own ticket, such as "pstack · tdd". A role's ticket shows none. */
+  const decision = () =>
+    props.ticket.teamJobId !== null && props.ticket.teamRoleId === null
+      ? props.decisions?.[props.ticket.teamJobId]
+      : undefined;
   const steps = () => ticketSteps(props.ticket, props.tickets, thread());
   const edge = () => ticketEdge(props.ticket, thread());
   const now = () => props.now ?? new Date();
@@ -261,6 +274,9 @@ export function TicketCard(props: TicketCardProps) {
                 {shortTicketKey(external().key)}
               </span>
             )}
+          </Show>
+          <Show when={decision()}>
+            {(chosen) => <TicketStackPill decision={chosen()} class="tickets-card-stack" />}
           </Show>
           <span class="tickets-card-meta">{meta()}</span>
         </span>
@@ -406,6 +422,7 @@ function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) 
                 tickets={props.tickets}
                 snapshots={props.snapshots}
                 now={props.now}
+                decisions={props.decisions}
                 ticket={ticket()}
                 selected={props.selectedTicketId === ticket().id}
                 onSelect={props.onSelectTicket}
@@ -516,6 +533,7 @@ function TicketsLane(props: TicketsGridProps & { label: string; children: JSX.El
                     tickets={props.tickets}
                     snapshots={props.snapshots}
                     now={props.now}
+                    decisions={props.decisions}
                     ticket={ticket()}
                     selected={props.selectedTicketId === ticket().id}
                     onSelect={props.onSelectTicket}

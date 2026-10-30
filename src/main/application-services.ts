@@ -298,6 +298,7 @@ import { toProviderRuntimeFailure } from "./provider-runtime-effects";
 import { ProviderRuntimeManager, providerRuntimeRoot, runtimeTarget } from "./provider-runtime-manager";
 import { ProviderUseSettingsStore } from "./provider-use-settings-store";
 import { RAVEN_AUTOPILOT_PREFERENCE_FILE, RavenAutopilotSettingsStore } from "./raven-autopilot-settings";
+import { pstackPlaybookInstalled } from "./raven-pstack-skills";
 import { RelayedMessagingInstalls } from "./relayed-messaging-installs";
 import { decodeQueuedMessageReceipt } from "./remote-agent-decoding";
 import { RemoteConnectTrace } from "./remote-connect-trace";
@@ -2049,6 +2050,12 @@ export async function createApplicationServices({
       listModels: () => service.listModels(),
       preferredProvider: () => service.preferredProvider(),
       listAgents: () => service.listAgents(),
+    },
+    // pstack (#197): a pstack choice needs its playbook skill. The skill service is made further down; the
+    // engine reads it at a pick-up, after the start of the app.
+    skills: {
+      pstackReady: (playbook) =>
+        pstackPlaybookInstalled(service.listAgents(), (agentId) => skills.listInstalledForChatTags(agentId), playbook),
     },
     settings: () => ravenAutopilot.current(),
     repo: () => boardTicketSync.state().target?.project ?? null,

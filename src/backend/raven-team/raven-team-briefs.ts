@@ -1,4 +1,4 @@
-import { RAVEN_TEAM_REPORT_PREFIX, type RavenTeamRoleAccess } from "@openbot/contracts/ipc";
+import { RAVEN_TEAM_REPORT_PREFIX, type RavenTeamRoleAccess, ravenPstackSkill } from "@openbot/contracts/ipc";
 
 /** The most text one handoff carries. A longer report is cut, and the cut is marked. */
 const HANDOFF_CHARACTERS = 12_000;
@@ -31,6 +31,11 @@ export interface RoleBriefInput {
   skills: readonly string[];
   access: RavenTeamRoleAccess;
   ticket: string;
+  /**
+   * The pstack playbook of the job (#197), such as `tdd`. Set on the Builder of a pstack job only: it
+   * follows `$pstack-<playbook>` instead of the Raven Stack build skills. Null or absent otherwise.
+   */
+  playbook?: string | null;
 }
 
 /** The first message of a role's work thread. It names the role, its skills, its access and the report line. */
@@ -40,10 +45,17 @@ export function roleBrief(input: RoleBriefInput): string {
       ? "write. You are the only role that commits and pushes the branch."
       : "read-only. Do not edit files, commit or push. Only the Builder writes to the branch.";
   const skills = input.skills.map((skill) => `$raven-stack-${skill}`).join(", ");
+  const playbook = input.playbook ? `$${ravenPstackSkill(input.playbook)}` : null;
+  const skillLines = playbook
+    ? [
+        `This job runs pstack with one playbook. Follow ${playbook} from start to end; do not chain another playbook.`,
+        `If ${playbook} is not installed, change nothing, name the missing skill and end with ${RAVEN_TEAM_REPORT_PREFIX} {"verdict":"BLOCKED"}.`,
+      ]
+    : [`Run these Raven Stack skills in order: ${skills || "none"}.`];
   return [
     `You are the ${input.label} of a Raven Stack team. Job ${input.jobId}.`,
     `Access: ${access}`,
-    `Run these Raven Stack skills in order: ${skills || "none"}.`,
+    ...skillLines,
     ROLE_STEPS[input.roleId] ?? "Do your step of the ticket and report.",
     "Your final message must end with one line, and nothing after it:",
     `${RAVEN_TEAM_REPORT_PREFIX} ${REPORT_LINES[input.roleId] ?? '{"verdict":"DONE"}'}`,

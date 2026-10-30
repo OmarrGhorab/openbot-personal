@@ -20,6 +20,11 @@
 //    second job for a ticket that has one, and does not write the same note again.
 // 5. Round limit: with a round limit of 1 and a Reviewer that always fails, the job ends not done and
 //    the ticket gets the round-limit note.
+// 6. pstack missing (#197): while `pstack-tdd` is not installed, the Bug with a failing case runs Autopilot
+//    lite, its decision has the `pstack-missing` reason, and the ticket has the note that names the skill.
+// 7. pstack · tdd (#197): with `pstack-tdd` installed, a Bug with a failing case starts a pstack job: stack
+//    `pstack`, playbook `tdd`, only a Builder and a Reviewer. The Builder's first message names
+//    `$pstack-tdd` and not the Raven Stack build skills, and the job passes the review.
 //
 // `bun scripts/autopilot-engine-e2e.ts`. Writes .openbot-build/autopilot/autopilot-engine-e2e.json.
 
@@ -246,6 +251,8 @@ function turnCount(): number {
 
 /** The Autopilot settings of the check. Read by the engine at each pick-up, so a change applies at once. */
 let settings: RavenAutopilotSettings = { ...defaultRavenAutopilotSettings(), enabled: true, ticketsAtOnce: 2 };
+/** Whether the `pstack-tdd` skill counts as installed. The engine reads it at each pick-up (#197). */
+let pstackInstalled = false;
 
 /**
  * One app runtime on the profile: the agent service, the team, the board, the follower and the engine,
@@ -293,6 +300,7 @@ async function startRuntime() {
       preferredProvider: () => agents.preferredProvider(),
       listAgents: () => agents.listAgents(),
     },
+    skills: { pstackReady: (playbook) => Effect.succeed(pstackInstalled && playbook === "tdd") },
     settings: () => settings,
     repo: () => "openbot/autopilot-e2e",
   });
@@ -382,6 +390,16 @@ try {
       1 && ticketOf(first, feature.id)?.teamJobId === featureJob?.id,
   );
 
+  // 6. pstack is not installed: the failing-case Bug runs Autopilot lite and says why.
+  const fallback = jobOf(first, bug.id)?.decision;
+  record("bug decision without pstack", fallback ?? {});
+  check("without pstack, the failing-case Bug runs Raven Stack", fallback?.stack === "raven-stack");
+  check("without pstack, the decision has the pstack-missing reason", fallback?.reasonCode === "pstack-missing");
+  check(
+    "without pstack, the ticket has the note that names pstack-tdd",
+    notes(first, bug.id).includes(sourceText("error.agent.autopilot.pstackMissing", { skill: "pstack-tdd" })),
+  );
+
   // 1. Backlog → Needs review with the passed note.
   await waitFor("the feature job done", () => jobOf(first, feature.id)?.state === "done");
   await waitFor("the feature ticket in Needs review", () => ticketOf(first, feature.id)?.status === "needs_review");
@@ -445,6 +463,45 @@ try {
     switches: jobOf(second, stuck.id)?.decision?.switches ?? [],
   });
   record("stuck ticket", { status: ticketOf(second, stuck.id)?.status, error: ticketOf(second, stuck.id)?.error });
+
+  // 7. pstack · tdd: with the skill installed, a failing-case Bug runs one pstack playbook.
+  settings = { ...settings, roundCap: 3 };
+  pstackInstalled = true;
+  const tdd = second.board.create({
+    title: "Checkout fails when the cart has a coupon",
+    body: "Steps to reproduce: add a coupon and open checkout. Expected: the total. Actual: TypeError.",
+    type: "bug",
+  });
+  await waitFor("the pstack job", () => jobOf(second, tdd.id));
+  const pstackJob = jobOf(second, tdd.id);
+  const pstackDecision = pstackJob?.decision;
+  record("pstack decision", pstackDecision ?? {});
+  check("the failing-case Bug runs pstack", pstackDecision?.stack === "pstack");
+  check("the pstack job runs the tdd playbook", pstackDecision?.playbook === "tdd");
+  check("the pstack decision keeps the failing-case reason", pstackDecision?.reasonCode === "bug-failing-case");
+  check(
+    "the pstack job has a Builder and a Reviewer only",
+    JSON.stringify(pstackJob?.roles.map((role) => role.roleId)) === JSON.stringify(["builder", "reviewer"]),
+  );
+  check(
+    "the pstack decision lists the roles the job has",
+    JSON.stringify(pstackDecision?.roles.map((role) => role.roleId)) === JSON.stringify(["builder", "reviewer"]),
+  );
+  const builderRole = await waitFor("the pstack Builder thread", () =>
+    jobOf(second, tdd.id)?.roles.find((role) => role.roleId === "builder" && role.agentId && role.taskId),
+  );
+  const builderBrief =
+    second.agents
+      .readTask(builderRole.agentId ?? "", builderRole.taskId ?? "")
+      .messages.find((message) => message.author === "user")?.text ?? "";
+  check("the pstack Builder follows $pstack-tdd", builderBrief.includes("$pstack-tdd"));
+  check("the pstack Builder gets no Raven Stack build skills", !builderBrief.includes("$raven-stack-build"));
+  await waitFor("the pstack job done", () => jobOf(second, tdd.id)?.state === "done", 120_000);
+  check("the pstack job passed the review", jobOf(second, tdd.id)?.state === "done");
+  check(
+    "the pstack ticket has no pstack-missing note",
+    !notes(second, tdd.id).includes(sourceText("error.agent.autopilot.pstackMissing", { skill: "pstack-tdd" })),
+  );
 
   report.passed = true;
 } catch (error) {

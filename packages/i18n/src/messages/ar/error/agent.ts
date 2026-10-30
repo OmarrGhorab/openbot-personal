@@ -162,11 +162,15 @@ export const messages = {
     "ميزة بتلمس {count} ملفات، علشان كده فريق Raven Stack الكامل بيخطّط الأول وموديل تاني بيراجع.",
   "error.agent.autopilot.reason.featureSmall": "ميزة صغيرة، علشان كده Autopilot lite بيبنيها وموديل تاني بيراجع.",
   "error.agent.autopilot.reason.bugFailingCase":
-    "باج ليه حالة بتفشل، علشان كده فريق بيبدأ بالاختبار بيكرّرها ويصلّحها ويتأكد إن الحالة عدّت.",
+    "التذكرة فيها حالة بتفشل، علشان كده pstack · tdd بيكتب الاختبار اللي بيفشل الأول ويصلّح أصل المشكلة.",
   "error.agent.autopilot.reason.bugInvestigate":
     "باج من غير حالة بتفشل، علشان كده فريق Raven Stack الكامل بيحقّق قبل ما يبني.",
   "error.agent.autopilot.reason.choreSmall": "مهمة روتينية، علشان كده Autopilot lite بيعملها على موديلات صغيرة.",
   "error.agent.autopilot.reason.override": "إعدادات الأوتوبايلوت بتاعتك محدّدة الستاك لنوع التذكرة ده.",
   "error.agent.autopilot.reason.manualStack":
     "الستاك التلقائي مقفول في إعدادات الأوتوبايلوت بتاعتك، علشان كده فريق Raven Stack الكامل هو اللي بيشتغل.",
+  "error.agent.autopilot.reason.pstackMissing":
+    "التذكرة تناسب pstack، بس مهارات pstack مش متثبّتة، علشان كده Autopilot lite هو اللي بيشتغل عليها. ثبّت pstack من Skills علشان تستخدمه المرة الجاية.",
+  "error.agent.autopilot.pstackMissing":
+    "مهارة {skill} مش متثبّتة، علشان كده Autopilot lite بيشتغل على التذكرة دي بدل pstack. ثبّت pstack من Skills، والتذكرة الجاية تقدر تستخدمه.",
 } as const satisfies PartialTranslation<typeof source>;

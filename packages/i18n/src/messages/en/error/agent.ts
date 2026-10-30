@@ -185,11 +185,16 @@ export const messages = defineMessages("error.agent", {
   "error.agent.autopilot.reason.featureSmall":
     "A small feature, so Autopilot lite builds it and a second model reviews.",
   "error.agent.autopilot.reason.bugFailingCase":
-    "A bug with a failing case, so a test-first team reproduces it, fixes it and checks the case passes.",
+    "The ticket has a failing case, so pstack · tdd writes the failing test first and fixes the root cause.",
   "error.agent.autopilot.reason.bugInvestigate":
     "A bug with no failing case, so the full Raven Stack team investigates before it builds.",
   "error.agent.autopilot.reason.choreSmall": "A chore, so Autopilot lite does it on small models.",
   "error.agent.autopilot.reason.override": "Your Autopilot settings fix the stack for this ticket type.",
   "error.agent.autopilot.reason.manualStack":
     "Auto stack is off in your Autopilot settings, so the full Raven Stack team runs.",
+  // pstack (#197): a pstack choice whose playbook skill is not installed runs Autopilot lite instead.
+  "error.agent.autopilot.reason.pstackMissing":
+    "The ticket fits pstack, but the pstack skills are not installed, so Autopilot lite runs it. Install pstack from Skills to use pstack next time.",
+  "error.agent.autopilot.pstackMissing":
+    "The {skill} skill is not installed, so Autopilot lite runs this ticket instead of pstack. Install pstack from Skills, and the next ticket can use it.",
 });

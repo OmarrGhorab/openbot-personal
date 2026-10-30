@@ -7,14 +7,12 @@ import { TicketTypeChip } from "./TicketTypeChip";
 const LITE_TEMPLATE_ID = "raven-stack-lite";
 
 /**
- * Why Autopilot (#196) started this ticket the way it did: the type, the stack and its team, the model of
- * each role, and the reason in one or two sentences. Each language shows the sentence of the reason code;
- * a decision from an older build has no code and shows the English sentence it kept. A change of model or
- * stack after a failed round is listed under it.
+ * The stack of a decision as one short label: "pstack · tdd" (#197), "Raven Stack · Autopilot lite" or
+ * "Raven Stack · Autopilot (full)". The ticket card's live pill and the drawer show it.
  */
-export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecision }) {
+export function TicketStackPill(props: { decision: RavenAutopilotDecision; class?: string }) {
   const { t } = useText();
-  const stack = () => {
+  const label = () => {
     const decision = props.decision;
     if (decision.stack === "pstack") {
       return decision.playbook ? t("tickets.autopilot.stackPlaybook", { playbook: decision.playbook }) : "pstack";
@@ -23,6 +21,22 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
       ? t("tickets.autopilot.stackLite")
       : t("tickets.autopilot.stackFull");
   };
+  return (
+    <span class={props.class ?? "tickets-decision-stack"}>
+      <Sparkles aria-hidden="true" />
+      {label()}
+    </span>
+  );
+}
+
+/**
+ * Why Autopilot (#196) started this ticket the way it did: the type, the stack and its team, the model of
+ * each role, and the reason in one or two sentences. Each language shows the sentence of the reason code;
+ * a decision from an older build has no code and shows the English sentence it kept. A change of model or
+ * stack after a failed round is listed under it.
+ */
+export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecision }) {
+  const { t } = useText();
   const reason = () => {
     const decision = props.decision;
     switch (decision.reasonCode) {
@@ -42,6 +56,8 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
         return t("error.agent.autopilot.reason.override");
       case "manual-stack":
         return t("error.agent.autopilot.reason.manualStack");
+      case "pstack-missing":
+        return t("error.agent.autopilot.reason.pstackMissing");
       default:
         return decision.reason;
     }
@@ -53,10 +69,7 @@ export function TicketAutopilotDecision(props: { decision: RavenAutopilotDecisio
       <div class="tickets-decision">
         <div class="tickets-decision-top">
           <TicketTypeChip type={props.decision.ticketType} />
-          <span class="tickets-decision-stack">
-            <Sparkles aria-hidden="true" />
-            {stack()}
-          </span>
+          <TicketStackPill decision={props.decision} />
           <Show when={props.decision.source === "override"}>
             <span class="tickets-decision-source">{t("tickets.autopilot.override")}</span>
           </Show>
