@@ -945,7 +945,7 @@ div.dynamic-island-surface-context-line span {
   }
 }
 
-/* A merged ticket (#199): the App icon the user set, the notice and a check. */
+/* A merged ticket: the App icon the user set, the notice and a check. */
 .dynamic-island-surface-app-icon {
   display: inline-grid;
   width: 20px;
