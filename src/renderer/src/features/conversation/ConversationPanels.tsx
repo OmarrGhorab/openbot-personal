@@ -5,6 +5,9 @@ import { SETTINGS_PANEL_DEFAULT, SETTINGS_PANEL_MAX } from "@openbot/ui/componen
 import type { AgentMessage } from "@openbot/ui/data";
 import { BROWSER_NEW_TAB_URL } from "@openbot/ui/features/browser/browser-suggestions";
 import { AgentTaskList, AgentTaskPanel } from "@openbot/ui/features/conversation/AgentTasks";
+import { ChangesPanel } from "@openbot/ui/features/conversation/ChangesPanel";
+import type { ChangesView } from "@openbot/ui/features/conversation/DiffView";
+import type { ChangesFile } from "@openbot/ui/features/conversation/FileRow";
 import { SidePanelHeader, SidePanelLauncher, type SidePanelPane } from "@openbot/ui/features/conversation/SidePanel";
 import { SideQuestionPanel } from "@openbot/ui/features/conversation/SideQuestionPanel";
 import { SubagentPanel } from "@openbot/ui/features/conversation/Subagents";
@@ -34,7 +37,19 @@ const CONVERSATION_PANEL_MIN = 96;
 const loadAgentSettingsPanel = () => import("./AgentSettingsPanel");
 
 import { Portal } from "@solidjs/web";
-import { createEffect, createMemo, createProjection, Loading, lazy, onSettled, Show, untrack } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createProjection,
+  createResource,
+  createSignal,
+  Loading,
+  lazy,
+  onSettled,
+  Show,
+  untrack,
+} from "solid-js";
+import { useTurns } from "../../turns";
 import { conversationPort } from "./conversation-port";
 
 /** The voice conversation with the agent that is open when the pane opens. */
@@ -132,8 +147,12 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     sendSideQuestionToThread,
     voiceConversationAvailable,
     panelSubagentId,
+    changesOpen,
+    changesMinimized,
+    setChangesMinimized,
     channel,
   } = useConversationViewScope();
+  const { activeTurns, turnLiveSteps } = useTurns();
   const { t, errorMessage } = useText();
   const publishAgent = createPublishAgent(
     (url) => void conversationRuntime(props).openUrl(url),
@@ -167,7 +186,57 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
     ...(props.tasks ? (["tasks"] as const) : []),
     ...(props.agent || channel ? (["settings"] as const) : []),
     ...(props.agent && voiceConversationAvailable() ? (["voice"] as const) : []),
+    // The Changes pane reads the local diff endpoint, so it stays on desktop chats with a thread.
+    ...(!props.runtime && props.agent?.threadId ? (["changes"] as const) : []),
   ]);
+  /**
+   * The files of the thread: the stored list from main, with the running turn's live steps on top,
+   * which the trace does not hold yet. Newest first, one row per path.
+   */
+  const [changesPath, setChangesPath] = createSignal<string | null>(null);
+  const [changesView, setChangesView] = createSignal<ChangesView>("diff");
+  const changesTraceCount = createMemo(() => props.messages.filter((message) => message.trace).length);
+  const [changesFilesResource] = createResource(
+    () => (changesOpen() && props.agent ? { agentId: props.agent.id, traces: changesTraceCount() } : null),
+    async (input) => conversationPort().agent.listTurnFiles({ agentId: input.agentId }).catch(() => null),
+  );
+  const changesActiveTurnId = createMemo(() => {
+    const agentId = props.agent?.id;
+    return agentId ? (activeTurns()[agentId] ?? null) : null;
+  });
+  const changesFiles = createMemo((): ChangesFile[] => {
+    const live = changesActiveTurnId() ? (turnLiveSteps()[changesActiveTurnId() ?? ""] ?? []) : [];
+    const files: ChangesFile[] = [];
+    const seen = new Set<string>();
+    for (const step of live) {
+      if (step.kind !== "file-change") continue;
+      for (const file of step.files ?? []) {
+        if (seen.has(file.path)) continue;
+        seen.add(file.path);
+        files.push({ path: file.path, status: file.status, additions: file.additions, deletions: file.deletions });
+      }
+    }
+    for (const file of changesFilesResource()?.files ?? []) {
+      if (seen.has(file.path)) continue;
+      seen.add(file.path);
+      files.push({ path: file.path, status: file.status, additions: file.additions, deletions: file.deletions });
+    }
+    return files;
+  });
+  const [changesDiff] = createResource(
+    () => (changesOpen() && props.agent && changesPath() ? { agentId: props.agent.id, path: changesPath() ?? "" } : null),
+    async (input) => conversationPort().agent.readTurnFileDiff(input).catch(() => null),
+  );
+  // A newly opened file starts on its diff.
+  createEffect(() => {
+    changesPath();
+    setChangesView("diff");
+  });
+  // A file that left the list closes the view.
+  createEffect(() => {
+    const path = changesPath();
+    if (path && !changesFiles().some((file) => file.path === path)) setChangesPath(null);
+  });
   /** The subagent in the Subagent pane, from the newest turn that has it. */
   const panelSubagent = createMemo(() => {
     const subagentId = panelSubagentId();
@@ -487,6 +556,22 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
           agentName={props.agent?.name ?? ""}
           onClosePanel={() => closeSidePanelPane("subagent")}
         />
+      </Show>
+
+      <Show when={changesOpen() && props.agent}>
+        {(agent) => (
+          <ChangesPanel
+            files={changesFiles()}
+            selectedPath={changesPath()}
+            diff={changesDiff() ?? null}
+            view={changesView()}
+            minimized={changesMinimized()}
+            onOpenFile={setChangesPath}
+            onBack={() => setChangesPath(null)}
+            onViewChange={setChangesView}
+            onToggleMinimized={() => setChangesMinimized(!changesMinimized())}
+          />
+        )}
       </Show>
 
       <Show when={browserSidebarOpen() || browserExpandedOpen()}>

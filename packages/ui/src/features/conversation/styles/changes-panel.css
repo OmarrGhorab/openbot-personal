@@ -1,0 +1,150 @@
+/* The Changes pane: the files of a turn, then the diff of the opened file. */
+
+.changes-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.changes-panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+}
+
+.changes-panel-title {
+  font-weight: 600;
+  color: var(--openbot-text-primary);
+}
+
+.changes-panel-count {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  margin-inline-end: auto;
+}
+
+.changes-minimized {
+  justify-content: space-between;
+}
+
+.changes-minimized-count {
+  color: var(--openbot-text-primary);
+}
+
+.changes-minimized-expand {
+  color: var(--openbot-text-muted);
+}
+
+.changes-empty,
+.changes-diff-empty {
+  color: var(--openbot-text-muted);
+  padding: var(--openbot-space-3);
+}
+
+.changes-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  padding: 0 var(--openbot-space-2);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.changes-file-row {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.changes-file-icon {
+  flex: 0 0 auto;
+}
+
+.changes-file-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-inline-end: auto;
+}
+
+.changes-file-counts {
+  display: flex;
+  gap: var(--openbot-space-1);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-text-xs);
+  flex: 0 0 auto;
+}
+
+.changes-file-additions {
+  color: var(--openbot-text-success);
+}
+
+.changes-file-deletions {
+  color: var(--openbot-text-danger);
+}
+
+.changes-file-status {
+  color: var(--openbot-text-muted);
+}
+
+.changes-diff {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.changes-diff-header {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+}
+
+.changes-diff-back-icon {
+  rotate: 180deg;
+}
+
+.changes-diff-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-inline-end: auto;
+  font-size: var(--openbot-text-xs);
+  color: var(--openbot-text-muted);
+}
+
+.changes-diff-views {
+  display: flex;
+  gap: var(--openbot-space-1);
+  flex: 0 0 auto;
+}
+
+.changes-diff-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.changes-diff-text,
+.changes-file-text {
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-text-xs);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.changes-diff-text [data-line="add"] {
+  color: var(--openbot-text-success);
+}
+
+.changes-diff-text [data-line="remove"] {
+  color: var(--openbot-text-danger);
+}
+
+.changes-diff-text [data-line="hunk"] {
+  color: var(--openbot-text-muted);
+}
