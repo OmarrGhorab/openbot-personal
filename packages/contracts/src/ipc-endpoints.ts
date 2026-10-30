@@ -1955,6 +1955,7 @@ export const IPC_GROUP_PATHS = {
   notifications: "notifications",
   agent: "agent",
   agentMemories: "agent",
+  agentTurnFiles: "agent",
   projectMemories: "agent",
   agentQuestions: "agent",
   sharedTables: "agent",
