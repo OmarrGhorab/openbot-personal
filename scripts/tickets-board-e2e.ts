@@ -164,12 +164,19 @@ try {
   const chiefLane = page.getByRole("region", { name: CHIEF, exact: true });
   await card(chiefLane, RUNNING).waitFor();
   await page.getByRole("region", { name: t("tickets.card.unassigned"), exact: true }).waitFor();
+  // The status names show once above the lanes, and an empty cell shows a "No tickets" slot (#190).
+  for (const status of ["tickets.status.backlog", "tickets.status.needsReview", "tickets.status.done"] as const) {
+    assert.equal(await page.getByText(t(status), { exact: true }).count(), 1);
+  }
+  await chiefLane.getByText(t("tickets.column.empty"), { exact: true }).first().waitFor();
   // The lane header is the first button of the lane; the cards follow it.
   await chiefLane.getByRole("button").first().click();
   const panel = page.getByRole("complementary", { name: CHIEF, exact: true });
   await panel.waitFor();
   await screenshot(page, "lanes");
-  report.steps.push("By agent shows a lane for each agent and the unassigned lane; a lane header opens the panel.");
+  report.steps.push(
+    "By agent shows the status names once, a lane for each agent and the unassigned lane, dashed slots for empty cells; a lane header opens the panel.",
+  );
 
   // The agent panel: its running thread with Pause, Resume and Stop.
   const thread = panel.getByRole("article", { name: RUNNING, exact: true });
