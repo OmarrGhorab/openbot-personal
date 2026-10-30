@@ -11,8 +11,8 @@ import {
   type RavenTeamRoleDefinition,
   type SaveRavenTeamTemplateInput,
   type SetRavenTeamRoleModelInput,
-  TICKET_TAKE_TEXT_LIMIT,
   type TakeRavenTicketInput,
+  TICKET_TAKE_TEXT_LIMIT,
 } from "@openbot/contracts/ipc";
 import { isObject, requireString } from "./validation";
 

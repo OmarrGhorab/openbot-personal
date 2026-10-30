@@ -150,11 +150,7 @@ export function TicketTakenCard(props: TicketTakenCardProps) {
           </For>
         </ol>
         <div class="ticket-taken-footer">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={(event) => props.onOpenBoard(event.currentTarget)}
-          >
+          <Button variant="secondary" size="sm" onClick={(event) => props.onOpenBoard(event.currentTarget)}>
             {t("tickets.taken.openBoard")}
           </Button>
           <Show when={live()}>

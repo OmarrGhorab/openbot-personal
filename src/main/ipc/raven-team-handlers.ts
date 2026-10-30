@@ -20,7 +20,10 @@ interface RavenTeamIpcDependencies {
   ticketTake: TicketTakeService;
 }
 
-export function ravenTeamIpcHandlers({ ravenTeam, ticketTake }: RavenTeamIpcDependencies): Pick<IpcGroupHandlers, "ravenTeam"> {
+export function ravenTeamIpcHandlers({
+  ravenTeam,
+  ticketTake,
+}: RavenTeamIpcDependencies): Pick<IpcGroupHandlers, "ravenTeam"> {
   return {
     ravenTeam: {
       listTemplates: handler(() => ravenTeam.templates()),

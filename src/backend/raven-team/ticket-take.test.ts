@@ -52,7 +52,10 @@ describe("detectTicketTakeRequest", () => {
   });
 
   it("reads an Arabic request", () => {
-    expect(detectTicketTakeRequest("خد التذكرة PROJ-9 من جيرا وصلحها")).toMatchObject({ provider: "jira", key: "PROJ-9" });
+    expect(detectTicketTakeRequest("خد التذكرة PROJ-9 من جيرا وصلحها")).toMatchObject({
+      provider: "jira",
+      key: "PROJ-9",
+    });
   });
 });
 
@@ -156,7 +159,9 @@ describe("TicketTakeService", () => {
   });
 
   it("uses the board ticket of the issue, also without a connection", async () => {
-    const onBoard = ticket({ external: { provider: "jira", key: "PROJ-482", url: "https://acme.atlassian.net/browse/PROJ-482" } });
+    const onBoard = ticket({
+      external: { provider: "jira", key: "PROJ-482", url: "https://acme.atlassian.net/browse/PROJ-482" },
+    });
     const { service, takes } = harness({ tickets: [onBoard] });
     const result = await run(service.take({ agentId: "agent-1", text: "fix proj-482 in jira" }));
     expect(result).toMatchObject({ outcome: "none" });
@@ -169,13 +174,20 @@ describe("TicketTakeService", () => {
       provider: "jira",
       already: false,
     });
-    expect(takes).toEqual([{ ticketId: onBoard.id, chat: { agentId: "agent-1", threadId: "thread-1", ticketKey: "PROJ-482" } }]);
+    expect(takes).toEqual([
+      { ticketId: onBoard.id, chat: { agentId: "agent-1", threadId: "thread-1", ticketKey: "PROJ-482" } },
+    ]);
   });
 
   it("imports the issue when its system is connected", async () => {
-    const imported = ticket({ id: "synced", external: { provider: "github", key: "acme/shop#12", url: "https://github.com/acme/shop/issues/12" } });
+    const imported = ticket({
+      id: "synced",
+      external: { provider: "github", key: "acme/shop#12", url: "https://github.com/acme/shop/issues/12" },
+    });
     const { service, created } = harness({ connected: ["github"], imported });
-    const result = await run(service.take({ agentId: "agent-1", text: "work on https://github.com/acme/shop/issues/12" }));
+    const result = await run(
+      service.take({ agentId: "agent-1", text: "work on https://github.com/acme/shop/issues/12" }),
+    );
     expect(result).toMatchObject({ outcome: "taken", ticketId: "synced" });
     expect(created).toEqual([]);
   });
@@ -184,7 +196,11 @@ describe("TicketTakeService", () => {
     const { service, created } = harness({ connected: ["github"], imported: null });
     const result = await run(service.take({ agentId: "agent-1", text: "fix acme/shop#3" }));
     expect(result).toMatchObject({ outcome: "taken", ticketId: "new-1", key: "acme/shop#3" });
-    expect(created[0]?.external).toEqual({ provider: "github", key: "acme/shop#3", url: "https://github.com/acme/shop/issues/3" });
+    expect(created[0]?.external).toEqual({
+      provider: "github",
+      key: "acme/shop#3",
+      url: "https://github.com/acme/shop/issues/3",
+    });
     expect(created[0]?.type).toBe("bug");
   });
 
@@ -223,7 +239,10 @@ describe("ticket taken card state", () => {
   it("follows the job from plan to review", () => {
     const working = job({ roles: [role("builder", { state: "working" }), role("reviewer")] });
     expect(ticketTakenSteps(working, false).map((step) => step.state)).toEqual(["done", "active", "pending"]);
-    const built = job({ headCommit: "abc1234", roles: [role("builder", { state: "reported" }), role("reviewer", { state: "working" })] });
+    const built = job({
+      headCommit: "abc1234",
+      roles: [role("builder", { state: "reported" }), role("reviewer", { state: "working" })],
+    });
     expect(ticketTakenSteps(built, false).map((step) => step.state)).toEqual(["done", "done", "active"]);
     expect(ticketTakenSteps(built, true).at(-1)).toEqual({ id: "merge", state: "pending" });
   });

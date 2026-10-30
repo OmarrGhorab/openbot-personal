@@ -67,12 +67,12 @@ const TAKE_INTENT =
 
 const GITHUB_URL = /https?:\/\/(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)\/(?:issues|pull)\/(\d{1,9})\b[^\s)>\]]*/iu;
 const GITHUB_SHORT = /(?:^|[^\w/.-])([A-Za-z0-9][\w.-]{0,38})\/([\w.-]{1,100})#(\d{1,9})\b/u;
-const JIRA_URL =
-  /https?:\/\/[\w.-]+\/(?:browse\/|[^\s]*[?&]selectedIssue=)([A-Z][A-Z0-9_]{1,19}-\d{1,9})\b[^\s)>\]]*/u;
+const JIRA_URL = /https?:\/\/[\w.-]+\/(?:browse\/|[^\s]*[?&]selectedIssue=)([A-Z][A-Z0-9_]{1,19}-\d{1,9})\b[^\s)>\]]*/u;
 const LINEAR_URL = /https?:\/\/linear\.app\/[\w.-]+\/issue\/([A-Z][A-Z0-9]{0,9}-\d{1,9})\b[^\s)>\]]*/iu;
 const BARE_KEY = /(?:^|[^\w-])([A-Z][A-Z0-9]{1,9}-\d{1,7})(?![\w-])/u;
 /** Upper-case words with a number that are not ticket keys. */
-const NOT_A_KEY = /^(?:UTF|ISO|SHA|RFC|HTTP|HTTPS|TLS|SSL|MD|CVE|GPT|ES|IPV|PEP|ECMA|AES|RSA|COVID|USB|WCAG|X|ARM|AMD)-/u;
+const NOT_A_KEY =
+  /^(?:UTF|ISO|SHA|RFC|HTTP|HTTPS|TLS|SSL|MD|CVE|GPT|ES|IPV|PEP|ECMA|AES|RSA|COVID|USB|WCAG|X|ARM|AMD)-/u;
 
 function trimUrl(url: string): string {
   return url.replace(/[.,;:!?'"]+$/u, "").slice(0, URL_LIMIT);
@@ -193,11 +193,22 @@ export function ticketTakenSteps(
     id,
     state: done ? "done" : current && running ? "active" : current && notDone ? "failed" : "pending",
   });
-  const steps = [step("plan", planned, !planned), step("build", built, planned && !built), step("review", reviewed, built && !reviewed)];
+  const steps = [
+    step("plan", planned, !planned),
+    step("build", built, planned && !built),
+    step("review", reviewed, built && !reviewed),
+  ];
   if (mayMerge || merge) {
     steps.push({
       id: "merge",
-      state: merge?.state === "merged" ? "done" : merge?.state === "blocked" ? "failed" : reviewed && passed ? "active" : "pending",
+      state:
+        merge?.state === "merged"
+          ? "done"
+          : merge?.state === "blocked"
+            ? "failed"
+            : reviewed && passed
+              ? "active"
+              : "pending",
     });
   }
   return steps;

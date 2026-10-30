@@ -133,7 +133,8 @@ export const messages = defineMessages("tickets", {
   // Chat (#200): the "Ticket taken" card and the agent's answer when it cannot take a ticket.
   "tickets.taken.label": "Ticket taken",
   "tickets.taken.intro": "Got it. I took {key} and picked the stack for you. I will work on it until it is done.",
-  "tickets.taken.introLocal": "Got it. I took the ticket and picked the stack for you. I will work on it until it is done.",
+  "tickets.taken.introLocal":
+    "Got it. I took the ticket and picked the stack for you. I will work on it until it is done.",
   "tickets.taken.steer": "You can keep chatting. Tell me to change the plan any time, and I will steer the work.",
   "tickets.taken.stackChosen": "Stack chosen",
   "tickets.taken.steps": "Progress",

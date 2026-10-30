@@ -1289,7 +1289,7 @@
   color: var(--openbot-danger-text);
 }
 
-.ticket-taken-mark svg {
+.ticket-taken-step .ticket-taken-mark svg {
   width: var(--openbot-space-3);
   height: var(--openbot-space-3);
 }

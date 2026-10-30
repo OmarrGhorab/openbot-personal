@@ -458,7 +458,8 @@ function previewTakenJob(key: string, agentId: string, index = 1): RavenTeamJob 
     agentId: null,
     taskId: null,
     threadId: null,
-    provider: roleId === "builder" ? (PREVIEW_MODELS[1]?.provider ?? "claude") : (PREVIEW_MODELS[0]?.provider ?? "codex"),
+    provider:
+      roleId === "builder" ? (PREVIEW_MODELS[1]?.provider ?? "claude") : (PREVIEW_MODELS[0]?.provider ?? "codex"),
     model: roleId === "builder" ? model : reviewModel,
     access: roleId === "builder" ? "write" : "read-only",
     state: roleId === "builder" ? "working" : "waiting",

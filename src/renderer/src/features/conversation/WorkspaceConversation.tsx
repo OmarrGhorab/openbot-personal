@@ -181,7 +181,13 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
   const windowPage = useWindowPage();
   // Chat (#200): a message to a local agent that names a ticket and asks to take it starts its job.
   const ticketTake = createChatTicketTake();
-  const sendMessageAndTake: typeof sendMessage = async (body, attachmentDraftIds, replyToMessageId, target, ...rest) => {
+  const sendMessageAndTake: typeof sendMessage = async (
+    body,
+    attachmentDraftIds,
+    replyToMessageId,
+    target,
+    ...rest
+  ) => {
     const result = await sendMessage(body, attachmentDraftIds, replyToMessageId, target, ...rest);
     const agentId = target?.agentId ?? activeAgent()?.id;
     if ("messageId" in result && agentId && activeServer()?.kind === "local") void ticketTake.afterSend(agentId, body);

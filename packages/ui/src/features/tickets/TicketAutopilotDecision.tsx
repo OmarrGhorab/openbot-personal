@@ -43,10 +43,7 @@ export function TicketStackPill(props: { decision: RavenAutopilotDecision; class
 }
 
 /** The sentence of a decision's reason in the person's language; a decision from an older build keeps its own. */
-export function autopilotReasonText(
-  decision: RavenAutopilotDecision,
-  t: AppTranslate,
-): string {
+export function autopilotReasonText(decision: RavenAutopilotDecision, t: AppTranslate): string {
   switch (decision.reasonCode) {
     case "feature-large":
       return typeof decision.files === "number" && decision.files > 0

@@ -34,7 +34,10 @@ import { AGENT_PROVIDERS } from "@openbot/contracts/agent-providers";
 import type { BoardTicketProvider, RavenAutopilotSettings, RavenTeamJob } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
-import type { BoardTicketSyncIssue, BoardTicketSyncSource } from "../src/backend/board-tickets/board-ticket-sync-source";
+import type {
+  BoardTicketSyncIssue,
+  BoardTicketSyncSource,
+} from "../src/backend/board-tickets/board-ticket-sync-source";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/autopilot");
 const root = await mkdtemp(join(tmpdir(), "openbot-chat-take-"));
@@ -202,7 +205,7 @@ const report: {
   ],
 };
 
-const record = (name: string, detail: object): void => {
+const record = (name: string, detail: unknown): void => {
   report.runs.push({ name, detail: JSON.stringify(detail) });
 };
 
@@ -380,7 +383,10 @@ try {
     first.take.take({ agentId: asker.id, text: "take this ticket in jira fix it PROJ-482" }),
   );
   record("not connected", notConnected);
-  check("a Jira key without Jira asks to connect Jira", notConnected.outcome === "connect" && notConnected.provider === "jira");
+  check(
+    "a Jira key without Jira asks to connect Jira",
+    notConnected.outcome === "connect" && notConnected.provider === "jira",
+  );
   check("the connect answer makes no ticket", first.board.list().length === ticketsBefore);
   check("the connect answer starts no job", first.team.listJobs().length === 0);
 
@@ -421,7 +427,10 @@ try {
     ticketTakenSteps(passed, false).every((step) => step.state === "done"),
     JSON.stringify(ticketTakenSteps(passed, false)),
   );
-  check("one board ticket for the job, roles aside", first.board.forTeamJob(taken.jobId).filter((t) => t.teamRoleId === null).length === 1);
+  check(
+    "one board ticket for the job, roles aside",
+    first.board.forTeamJob(taken.jobId).filter((t) => t.teamRoleId === null).length === 1,
+  );
 
   // 4 and 5. A slow second ticket: the same message again answers `already`; Stop leaves it in Needs you.
   const slowText = `work on https://github.com/${REPO}/issues/13`;
@@ -431,7 +440,10 @@ try {
   const jobsBefore = first.team.listJobs().length;
   const again = await runCauseEffect(first.take.take({ agentId: asker.id, text: slowText }));
   record("again", again);
-  check("the same message again answers already", again.outcome === "taken" && again.already && again.jobId === slow.jobId);
+  check(
+    "the same message again answers already",
+    again.outcome === "taken" && again.already && again.jobId === slow.jobId,
+  );
   check("the same message again starts no second job", first.team.listJobs().length === jobsBefore);
   await runCauseEffect(first.team.stop(slow.jobId));
   const stopped = await waitFor("the slow ticket in Needs review", () => {

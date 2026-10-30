@@ -88,7 +88,7 @@ export function createChatTicketTake() {
     afterSend,
     jobsFor,
     noticesFor: (agentId: string) => notices()[agentId] ?? [],
-        /** The issue key of a job's ticket, as the decision kept it, or from a title such as `PROJ-482: …`. */
+    /** The issue key of a job's ticket, as the decision kept it, or from a title such as `PROJ-482: …`. */
     keyOf: (job: RavenTeamJob) => job.decision?.chat?.ticketKey ?? keyFromTitle(job.decision?.ticketTitle ?? ""),
     mayMerge: (job: RavenTeamJob) => {
       const current = settings();

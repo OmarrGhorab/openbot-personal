@@ -436,7 +436,6 @@ import type {
   SaveRavenTeamTemplateInput,
   SetRavenTeamRoleModelInput,
 } from "./ipc-raven-team";
-import type { RavenTicketTakeResult, TakeRavenTicketInput } from "./ipc-ticket-take";
 import type {
   RemoteDesktopSetupAction,
   RemoteDesktopSetupStatus,
@@ -541,6 +540,7 @@ import type {
   UpdateHostIdentityInput,
   UpdateTeamMemberInput,
 } from "./ipc-team-host";
+import type { RavenTicketTakeResult, TakeRavenTicketInput } from "./ipc-ticket-take";
 import type { VaultImportResult, VaultSaveInput, VaultSecretRequest, VaultState } from "./ipc-vault";
 import type {
   SpeechAudio,

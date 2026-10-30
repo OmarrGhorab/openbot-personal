@@ -22,8 +22,8 @@ import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/s
 import { AutopilotEngine } from "../backend/raven-team/autopilot-engine";
 import { GitHubPullRequestMerger } from "../backend/raven-team/github-pull-request-merger";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
-import { TicketTakeService } from "../backend/raven-team/ticket-take";
 import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
+import { TicketTakeService } from "../backend/raven-team/ticket-take";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
 import { RoutineFlowStore } from "../backend/routine-flows/routine-flow-store";
 import { createRoutineFlows, type RoutineFlowsHandle } from "../backend/routine-flows/routine-flows";
