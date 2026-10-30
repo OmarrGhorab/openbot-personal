@@ -9,7 +9,6 @@ import {
   isBoardTicket,
   isBoardTicketEvent,
   isBoardTicketEventList,
-  isBoardTicketList,
 } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { BOARD_TICKETS_CAPABILITY, BOARD_TICKETS_ROUTES } from "@openbot/contracts/team-protocol/board-tickets-v1";
@@ -53,17 +52,18 @@ interface BoardTicketIpcDependencies {
 
 /**
  * The frozen board-tickets-v1 wire carries no ticket type, so a ticket from a joined server has the type
- * "not set yet". A field that the server did send stays as it is.
+ * "not set yet". A field that the server did send stays as it is. Returns null for a value that is not a
+ * ticket.
  */
-function withWireType(value: unknown): unknown {
-  if (!isDynamicRecord(value) || "type" in value) return value;
-  return { ...value, type: null, typeSource: null };
+function parseWireTicket(value: unknown): BoardTicket | null {
+  const candidate = isDynamicRecord(value) && !("type" in value) ? { ...value, type: null, typeSource: null } : value;
+  return isBoardTicket(candidate) ? candidate : null;
 }
 
 const decodeTicket: ResponseDecoder<BoardTicket> = (input) => {
-  const value = withWireType(input);
-  if (!isBoardTicket(value)) throw new Error("The server sent an invalid ticket.");
-  return value;
+  const ticket = parseWireTicket(input);
+  if (ticket === null) throw new Error("The server sent an invalid ticket.");
+  return ticket;
 };
 
 const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
@@ -72,8 +72,13 @@ const decodeEvent: ResponseDecoder<BoardTicketEvent> = (value) => {
 };
 
 const decodeTickets: ResponseDecoder<BoardTicket[]> = (value) => {
-  const tickets = isDynamicRecord(value) && Array.isArray(value.tickets) ? value.tickets.map(withWireType) : null;
-  if (!isBoardTicketList(tickets)) throw new Error("The server sent an invalid board.");
+  if (!isDynamicRecord(value) || !Array.isArray(value.tickets)) throw new Error("The server sent an invalid board.");
+  const tickets: BoardTicket[] = [];
+  for (const item of value.tickets) {
+    const ticket = parseWireTicket(item);
+    if (ticket === null) throw new Error("The server sent an invalid board.");
+    tickets.push(ticket);
+  }
   return tickets;
 };
 
