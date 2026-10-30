@@ -281,6 +281,15 @@ try {
     .waitFor();
   report.steps.push("Stop puts the thread's ticket back in Backlog with the failure line, with no click.");
 
+  // The filter chips need the panel closed (#189), so it opens again from Chief's lane header, and the
+  // board comes back behind it. The drawer steps below run with the panel open, as before.
+  await page.getByRole("tab", { name: t("tickets.view.agents"), exact: true }).click();
+  await chiefLane.getByRole("button").first().click();
+  await panel.waitFor();
+  await page.getByRole("tab", { name: t("tickets.view.board"), exact: true }).click();
+  await column(page, "tickets.status.backlog").waitFor();
+  await panel.waitFor();
+
   // Open ticket shows the drawer of the thread's ticket.
   await thread.getByRole("button", { name: t("tickets.panel.openTicket"), exact: true }).click();
   const drawer = page.getByRole("complementary", { name: RUNNING, exact: true });
