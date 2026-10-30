@@ -11,7 +11,6 @@ import {
   type RavenAutopilotReasonCode,
   type RavenAutopilotSettings,
   type RavenAutopilotStack,
-  ravenAutopilotOverride,
   ravenAutopilotPreset,
 } from "@openbot/contracts/ipc";
 
@@ -202,7 +201,7 @@ export function decideAutopilot(input: AutopilotDecisionInput): AutopilotChoice 
   if (type === null) return null;
   const { size, files } = estimateChangeSize(ticket.title, ticket.body);
   const table = tableChoice(type, size, hasFailingCase(ticket.title, ticket.body));
-  const override = ravenAutopilotOverride({ overrides: settings.overrides, ...OVERRIDE_ONLY }, type);
+  const override = settings.overrides[type];
   let choice: StackChoice;
   if (override) {
     const preset = ravenAutopilotPreset(override.preset);
@@ -252,15 +251,3 @@ export function decideAutopilot(input: AutopilotDecisionInput): AutopilotChoice 
   };
   return { decision, models };
 }
-
-/** `ravenAutopilotOverride` reads only `overrides`; the rest of the settings does not change its answer. */
-const OVERRIDE_ONLY = {
-  enabled: false,
-  autoStack: true,
-  pickUp: { column: "backlog", assignee: "raven-or-unassigned" },
-  ticketsAtOnce: 2,
-  roundCap: 3,
-  pauseOnUsageLimit: true,
-  reviewerMerge: { enabled: false, types: { feature: false, bug: false, chore: false }, method: "squash" },
-  notifyOnMerge: true,
-} as const satisfies Omit<RavenAutopilotSettings, "overrides">;
