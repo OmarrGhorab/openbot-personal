@@ -217,5 +217,13 @@ export const messages = {
   "tickets.sync.lastSynced": "آخر مزامنة: {time}",
   "tickets.sync.save": "احفظ وزامن",
   "tickets.sync.now": "زامن دلوقتي",
+  "tickets.autopilot.title": "قرار الأوتوبايلوت",
+  "tickets.autopilot.stackFull": "Raven Stack · Autopilot (كامل)",
+  "tickets.autopilot.stackLite": "Raven Stack · Autopilot lite",
+  "tickets.autopilot.stackPlaybook": "pstack · {playbook}",
+  "tickets.autopilot.override": "اختيارك الثابت",
+  "tickets.autopilot.models": "موديل كل دور",
+  "tickets.autopilot.switchModel": "بعد الجولة {round}، الـ {role} اتنقل من {from} لـ {to}.",
+  "tickets.autopilot.switchStack": "بعد الجولة {round}، الشغلانة اتنقلت من {from} لـ {to}.",
   "tickets.sync.stop": "وقّف المزامنة",
 } as const satisfies PartialTranslation<typeof source>;

@@ -7,6 +7,7 @@ import {
   type BoardTicketType,
   type ConversationMessage,
   isBoardTicketType,
+  type RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
 import {
   Button,
@@ -30,6 +31,7 @@ import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, onCleanup, Show } from "solid-js";
+import { TicketAutopilotDecision } from "./TicketAutopilotDecision";
 import { TICKET_TYPE_LABEL, TicketTypeChip } from "./TicketTypeChip";
 import {
   relativeTime,
@@ -83,6 +85,8 @@ export interface TicketDrawerProps {
   tickets: readonly BoardTicket[];
   /** Opens the drawer of another ticket. */
   onOpenTicket: (ticketId: string) => void;
+  /** Why Autopilot started the ticket's team job the way it did. Absent for work it did not start. */
+  decision?: RavenAutopilotDecision | null | undefined;
 }
 
 const UNASSIGNED = "";
@@ -301,6 +305,8 @@ export function TicketDrawer(props: TicketDrawerProps) {
         <Show when={!props.ticket.taskId && !props.ticket.agentId && props.ticket.teamJobId === null}>
           <p class="tickets-muted">{t("tickets.new.needsAgent")}</p>
         </Show>
+
+        <Show when={props.decision}>{(decision) => <TicketAutopilotDecision decision={decision()} />}</Show>
 
         <ol class="ticket-drawer-steps" aria-label={t("tickets.drawer.steps")}>
           <For each={TICKET_COLUMNS}>

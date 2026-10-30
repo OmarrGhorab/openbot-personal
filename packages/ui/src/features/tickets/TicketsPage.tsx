@@ -4,6 +4,7 @@ import type {
   BoardTicketStatus,
   BoardTicketType,
   ConversationMessage,
+  RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
 import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw, UsersRound } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
@@ -87,6 +88,8 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
    * `{ enabled, slots: ticketsAtOnce, autoMerge: reviewerMerge.enabled }` once feat/195-autopilot-tab merges.
    */
   autopilot?: TicketsAutopilot | undefined;
+  /** The Autopilot decision of each team job, by job id. The drawer of the job's own ticket shows it. */
+  decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
 }
 
 /**
@@ -359,6 +362,11 @@ export function TicketsPage(props: TicketsPageProps) {
                 }
                 tickets={props.tickets}
                 onOpenTicket={(ticketId) => props.onSelectTicket(ticketId)}
+                decision={
+                  ticket().teamJobId && ticket().teamRoleId === null
+                    ? props.decisions?.[ticket().teamJobId ?? ""]
+                    : undefined
+                }
               />
             )}
           </Show>

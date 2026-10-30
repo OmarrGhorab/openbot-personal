@@ -201,5 +201,13 @@ export const messages = defineMessages("tickets", {
   "tickets.sync.lastSynced": "Last sync: {time}",
   "tickets.sync.save": "Save and sync",
   "tickets.sync.now": "Sync now",
+  "tickets.autopilot.title": "Autopilot decision",
+  "tickets.autopilot.stackFull": "Raven Stack · Autopilot (full)",
+  "tickets.autopilot.stackLite": "Raven Stack · Autopilot lite",
+  "tickets.autopilot.stackPlaybook": "pstack · {playbook}",
+  "tickets.autopilot.override": "Your override",
+  "tickets.autopilot.models": "Model of each role",
+  "tickets.autopilot.switchModel": "After round {round}, the {role} moved from {from} to {to}.",
+  "tickets.autopilot.switchStack": "After round {round}, the job moved from {from} to {to}.",
   "tickets.sync.stop": "Stop sync",
 });

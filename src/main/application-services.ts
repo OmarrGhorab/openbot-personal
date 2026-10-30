@@ -19,6 +19,7 @@ import { GitHubBoardSyncSource } from "../backend/board-tickets/github-board-syn
 import { JiraBoardSyncSource } from "../backend/board-tickets/jira-board-sync-source";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
+import { AutopilotEngine } from "../backend/raven-team/autopilot-engine";
 import { RavenTeamService } from "../backend/raven-team/raven-team-service";
 import { RavenTeamStore } from "../backend/raven-team/raven-team-store";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -1762,9 +1763,14 @@ export async function createApplicationServices({
   // again on the change event, so no window polls. It is made before the agent service, whose
   // `update_ticket` tool writes to it.
   const boardTicketStore = new BoardTicketStore(store.database);
+  // Autopilot (#196) is made after the team service below; a board change before then has nothing to wake.
+  let autopilotEngine: AutopilotEngine | null = null;
   const boardTickets = new BoardTicketService({
     store: boardTicketStore,
-    changed: (ticketIds) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds }),
+    changed: (ticketIds) => {
+      sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.changed, { ticketIds });
+      autopilotEngine?.wake();
+    },
     // "Start now" starts one work thread of the agent, as the ticket intake does.
     startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
   });
@@ -1940,7 +1946,10 @@ export async function createApplicationServices({
       ...(githubConnector.status().state === "connected" ? (["github"] as const) : []),
       ...(atlassianConnected(atlassianTools) ? (["jira"] as const) : []),
     ],
-    changed: (state) => sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state),
+    changed: (state) => {
+      sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.boardTickets.syncChanged, state);
+      autopilotEngine?.wake();
+    },
   });
   const stopBoardSyncConnection = githubConnector.onChanged(() => boardTicketSync.connectionChanged());
   boardTicketSync.start();
@@ -1991,7 +2000,9 @@ export async function createApplicationServices({
   // Each agent moves the tickets of its work threads as their turns start, wait, end or fail.
   const boardTicketFollower = new BoardTicketWorkFollower(boardTickets);
   service.on("event", (event) => {
-    if (event.type === "agent-tasks-changed") boardTicketFollower.follow(event.snapshot);
+    if (event.type !== "agent-tasks-changed") return;
+    boardTicketFollower.follow(event.snapshot);
+    autopilotEngine?.noticeTasks(event.snapshot);
   });
   teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));
   // An agent routine's answer handed on from agent to agent; see `routine-flows.ts`.
@@ -2024,12 +2035,29 @@ export async function createApplicationServices({
     changed: (jobId) => {
       sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenTeam.changed, { jobId });
       const job = jobId === null ? null : ravenTeam.job(jobId);
-      if (job) boardTicketTeamFollower.follow(job);
+      if (job) {
+        boardTicketTeamFollower.follow(job);
+        autopilotEngine?.noticeJob(job);
+      }
     },
   });
-  const unsubscribeRavenAutopilot = ravenAutopilot.subscribe((settings) =>
-    sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenAutopilot.changed, settings),
-  );
+  // Autopilot takes Backlog tickets into team jobs. Its first pick-up waits for agent initialization below.
+  const autopilot = new AutopilotEngine({
+    board: boardTickets,
+    team: ravenTeam,
+    agents: {
+      listModels: () => service.listModels(),
+      preferredProvider: () => service.preferredProvider(),
+      listAgents: () => service.listAgents(),
+    },
+    settings: () => ravenAutopilot.current(),
+    repo: () => boardTicketSync.state().target?.project ?? null,
+  });
+  autopilotEngine = autopilot;
+  const unsubscribeRavenAutopilot = ravenAutopilot.subscribe((settings) => {
+    sendToRenderer(windows.getMainWindow(), IPC_ENDPOINTS.ravenAutopilot.changed, settings);
+    autopilot.wake();
+  });
   const ravenTeamListener = (event: AgentEvent) => {
     Effect.runFork(ravenTeam.notice(event));
   };
@@ -2043,6 +2071,7 @@ export async function createApplicationServices({
   };
   service.on("event", ravenTeamAgentListener);
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    autopilot.stop();
     unsubscribeRavenAutopilot();
     service.off("turn", ravenTeamListener);
     service.off("event", ravenTeamAgentListener);
@@ -3066,6 +3095,8 @@ export async function createApplicationServices({
       yield* routineFlowRuntime.sweep();
       // Marks the posts a restart cut off, and sends the answers that ended while OpenBot was closed.
       yield* routineResultRuntime.recover();
+      // Starts the team jobs that were queued at the restart, then the first Autopilot pick-up.
+      yield* autopilot.start();
     }),
   );
   const describeRestartReadiness = (): RestartReadiness =>

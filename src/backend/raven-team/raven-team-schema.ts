@@ -53,3 +53,14 @@ export const RAVEN_TEAM_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS raven_team_roles_thread ON raven_team_roles(thread_id);
   CREATE INDEX IF NOT EXISTS raven_team_jobs_updated ON raven_team_jobs(updated_at);
 `;
+
+// Migration 53 (Autopilot) and the tail of the latest schema. `decision_json` holds what Autopilot chose
+// for a job (`RavenAutopilotDecision`: stack, template, playbook, models, the reason and every later
+// switch); null for a job that the person started from the team page. `round_cap` is the round limit of
+// the Autopilot settings when the job started; null keeps the built-in limit of 3, which every job before
+// this version has. Both are nullable with no default, so ADD COLUMN rewrites no row and every stored job
+// keeps its data.
+export const RAVEN_TEAM_AUTOPILOT_SQL = `
+  ALTER TABLE raven_team_jobs ADD COLUMN decision_json TEXT CHECK(decision_json IS NULL OR JSON_VALID(decision_json));
+  ALTER TABLE raven_team_jobs ADD COLUMN round_cap INTEGER CHECK(round_cap IS NULL OR round_cap BETWEEN 1 AND 20);
+`;
