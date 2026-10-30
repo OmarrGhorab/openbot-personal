@@ -5,7 +5,9 @@ import {
   type BoardTicket,
   type BoardTicketProvider,
   detectBoardTicketType,
+  detectLocalTicketTake,
   detectTicketTakeRequest,
+  matchLocalTicket,
   type RavenAutopilotChat,
   type RavenTeamJob,
   type RavenTicketTakeResult,
@@ -23,7 +25,7 @@ const logger = createOpenBotLogger("ticket-take");
 const FIX_INTENT = /(?:^|[^\p{L}])(?:fix|repair|resolve|debug|صلح|صلّح|اصلح|أصلح)(?=$|[^\p{L}])/iu;
 
 /** The board operations a take uses. */
-type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create">;
+type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create" | "bindChat">;
 
 /** The sync operations a take uses: which systems are connected, and the import of one issue by key. */
 interface TicketTakeSync {
@@ -63,7 +65,7 @@ export class TicketTakeService {
   take(input: TakeRavenTicketInput): Effect.Effect<RavenTicketTakeResult> {
     return Effect.gen({ self: this }, function* () {
       const reference = detectTicketTakeRequest(input.text);
-      if (!reference) return { outcome: "none" } as const;
+      if (!reference) return yield* this.#takeLocal(input);
       const thread = this.#options.agentThread(input.agentId);
       if (thread === undefined) {
         return { outcome: "failed", key: reference.key, reason: sourceText("error.agent.ticketTake.noAgent") } as const;
@@ -93,6 +95,32 @@ export class TicketTakeService {
         }),
       ),
     );
+  }
+
+  /**
+   * A ticket of this board that the message names by its quoted title (#263). The chat that got the
+   * message does the work, so the ticket is linked to that chat's thread and moves to Running. A ticket
+   * that already has a run keeps it: nothing new starts, so the work is never done twice.
+   */
+  #takeLocal(input: TakeRavenTicketInput): Effect.Effect<RavenTicketTakeResult> {
+    return Effect.sync((): RavenTicketTakeResult => {
+      const take = detectLocalTicketTake(input.text);
+      if (!take) return { outcome: "none" } as const;
+      const ticket = matchLocalTicket(
+        this.#options.board.list().filter((candidate) => candidate.status !== "done"),
+        take,
+      );
+      if (!ticket) return { outcome: "none" } as const;
+      if (ticket.taskId || ticket.threadId || ticket.teamJobId) {
+        return { outcome: "linked", ticketId: ticket.id, already: true } as const;
+      }
+      const thread = this.#options.agentThread(input.agentId);
+      if (thread === undefined) return { outcome: "none" } as const;
+      const threadId = thread && thread.length <= INPUT_LIMITS.identifier ? thread : null;
+      if (!threadId) return { outcome: "none" } as const;
+      this.#options.board.bindChat(ticket.id, input.agentId, threadId);
+      return { outcome: "linked", ticketId: ticket.id, already: false } as const;
+    });
   }
 
   /** The board ticket of the reference: on the board, imported, or new in Backlog. */
