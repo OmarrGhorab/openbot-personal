@@ -27,7 +27,13 @@ import type { MailboxStore } from "../mailbox-store";
 import type { DynamicToolCallParams } from "../protocol";
 import type { AgentTaskOrigin, AgentTaskRecord, AgentTaskStore } from "./agent-task-store";
 import type { AgentWorkThreadRecord, AgentWorkThreadStore } from "./agent-work-thread-store";
-import type { AgentWorktrees } from "./agent-worktrees";
+import {
+  type AgentWorktrees,
+  repositoryRoot,
+  ticketBranchName,
+  ticketPathCandidates,
+  worktreeRepository,
+} from "./agent-worktrees";
 
 const logger = createOpenBotLogger("agent-tasks");
 
@@ -206,16 +212,56 @@ export class AgentTasks implements TaskLanes {
     const task = this.#store.taskForThread(threadId);
     if (!task || task.agentId !== agentId) return null;
     const record = this.#workThreads.find(task.taskId);
+    let repository = workspacePath;
+    let branch: string | undefined;
     if (record?.workspace.mode === "worktree") {
       // A worktree that the person removed is made again at the same path, on the same branch.
       if (existsSync(record.workspace.path)) return record.workspace.path;
+      // A ticket's worktree can sit in another repository than the agent workspace: its own.
+      repository = worktreeRepository(record.workspace.path) ?? workspacePath;
+      branch = record.workspace.branch;
     } else if (record) {
       return null;
     }
-    const workspace = yield* this.#worktrees.prepare(workspacePath, task.taskId);
+    const workspace = yield* this.#worktrees.prepare(repository, task.taskId, branch);
     this.#workThreads.setWorkspace(task.taskId, agentId, workspace);
     return workspace.mode === "worktree" ? workspace.path : null;
   });
+
+  /**
+   * Gives a ticket's work thread its own git worktree and branch before its first turn, so parallel
+   * ticket agents never share one checkout. The repository is the agent workspace when it is one,
+   * else the first repository that the ticket's text names by path. Null when none is a repository:
+   * the thread then shares the agent workspace, as before.
+   */
+  readonly prepareTicketWorkspace = Effect.fn("AgentTasks.prepareTicketWorkspace")(function* (
+    this: AgentTasks,
+    task: AgentTaskRecord,
+    workspacePath: string,
+    ticketText: string,
+    title: string,
+  ): Effect.fn.Return<{ path: string; branch: string } | null> {
+    const candidates = [workspacePath, ...ticketPathCandidates(ticketText)];
+    const branch = ticketBranchName(title, task.taskId);
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      const root = yield* Effect.promise(() => repositoryRoot(candidate));
+      if (root === null || seen.has(root)) continue;
+      seen.add(root);
+      const workspace = yield* this.#worktrees.prepare(root, task.taskId, branch);
+      if (workspace.mode === "worktree") {
+        this.#workThreads.setWorkspace(task.taskId, task.agentId, workspace);
+        return { path: workspace.path, branch: workspace.branch };
+      }
+    }
+    return null;
+  });
+
+  /** The worktree path and branch of a task, or null when it shares the agent workspace. */
+  worktreeOf(taskId: string): { path: string; branch: string } | null {
+    const workspace = this.#workThreads.find(taskId)?.workspace;
+    return workspace?.mode === "worktree" ? { path: workspace.path, branch: workspace.branch } : null;
+  }
 
   /** The error of a task turn, redacted by the caller. The panel shows it until the next turn starts. */
   failed(taskId: string, message: string): void {

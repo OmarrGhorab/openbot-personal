@@ -1041,6 +1041,13 @@
   white-space: nowrap;
 }
 
+.ticket-drawer-row dd.ticket-drawer-code {
+  font-family: var(--openbot-font-mono, ui-monospace, monospace);
+  font-size: var(--openbot-text-sm);
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
 .ticket-drawer-agent {
   display: inline-flex;
   align-items: center;

@@ -55,10 +55,11 @@ export class AgentWorktrees {
     this: AgentWorktrees,
     workspacePath: string,
     taskId: string,
+    branchName?: string,
   ): Effect.fn.Return<AgentWorkThreadWorkspace> {
     const name = worktreeName(taskId);
     const path = join(workspacePath, WORKTREE_FOLDER, name);
-    const branch = `openbot/${name}`;
+    const branch = branchName ?? `openbot/${name}`;
     const result = yield* Effect.result(
       worktreeIo(async () => {
         const [top, workspace] = await Promise.all([
@@ -121,6 +122,52 @@ export class AgentWorktrees {
     }
     return result.success;
   });
+}
+
+/**
+ * The top folder of the git repository that holds this path, or null when it is in none. A ticket names
+ * its repository by a path in its text; the worktree of the ticket goes into that repository.
+ */
+export async function repositoryRoot(path: string): Promise<string | null> {
+  try {
+    return await realpath(await git(path, ["rev-parse", "--show-toplevel"]));
+  } catch {
+    return null;
+  }
+}
+
+/** The repository that a managed worktree path belongs to, or null for any other path. */
+export function worktreeRepository(worktreePath: string): string | null {
+  const marker = `/${WORKTREE_FOLDER}/`;
+  const index = worktreePath.replaceAll("\\", "/").lastIndexOf(marker);
+  return index > 0 ? worktreePath.slice(0, index) : null;
+}
+
+/** The absolute paths that a ticket's text names, `Repo: /x` lines first, without trailing punctuation. */
+export function ticketPathCandidates(text: string): string[] {
+  const labelled: string[] = [];
+  const other: string[] = [];
+  for (const match of text.matchAll(/(?:^|[\s(`"'=:])(\/[^\s`"'()<>]+)/gmu)) {
+    const raw = match[1] ?? "";
+    const path = raw.replace(/[.,;:!?]+$/u, "");
+    if (path.length < 2) continue;
+    const before = text.slice(Math.max(0, (match.index ?? 0) - 16), match.index ?? 0);
+    (/\b(?:repo|repository|project|checkout)\s*:?\s*$/iu.test(before) ? labelled : other).push(path);
+  }
+  return [...new Set([...labelled, ...other])];
+}
+
+/** The branch of a ticket's worktree: `ticket/<title-slug>-<short id>`, a valid git branch name. */
+export function ticketBranchName(title: string, taskId: string): string {
+  const slug = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 40)
+    .replace(/-+$/u, "");
+  const id = worktreeName(taskId).slice(-6);
+  return `ticket/${slug.length > 0 ? `${slug}-` : ""}${id}`;
 }
 
 /** The longest changed-files summary that a side chat reads. */

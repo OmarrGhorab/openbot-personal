@@ -1777,7 +1777,9 @@ export async function createApplicationServices({
       autopilotEngine?.wake();
     },
     // "Start now" starts one work thread of the agent, as the ticket intake does.
-    startWorkThread: (agentId, text) => runCauseEffect(service.startTask({ agentId, text })),
+    startWorkThread: (agentId, text, ticket) =>
+      runCauseEffect(service.startTask({ agentId, text }, undefined, undefined, ticket)),
+    worktreeOf: (taskId) => service.taskWorktree(taskId),
   });
   const service: AgentService = new AgentService({
     ticketPulls: new TicketPullRegistry(ticketStore),

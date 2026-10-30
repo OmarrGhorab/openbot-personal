@@ -10,6 +10,7 @@ import {
   type BoardTicketEvent,
   type BoardTicketStatus,
   type BoardTicketTypeSource,
+  type BoardTicketWorktree,
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
   detectBoardTicketType,
@@ -26,10 +27,16 @@ export interface BoardTicketServiceOptions {
   changed: (ticketIds: string[]) => void;
   /** Starts a work thread of the agent with this first message. Without it, `start` refuses. */
   startWorkThread?: StartWorkThread;
+  /** The worktree path and branch of a work thread, shown on its ticket. */
+  worktreeOf?: (taskId: string) => BoardTicketWorktree | null;
 }
 
 /** Starts one work thread (agent task) of an agent, as the ticket intake does. */
-export type StartWorkThread = (agentId: string, text: string) => Promise<Pick<AgentTask, "id" | "threadId" | "state">>;
+export type StartWorkThread = (
+  agentId: string,
+  text: string,
+  ticket?: { title: string },
+) => Promise<Pick<AgentTask, "id" | "threadId" | "state">>;
 
 /** The agent's own update of the ticket of its work thread. The `update_ticket` tool checks it first. */
 export interface BoardTicketAgentUpdate {
@@ -54,20 +61,30 @@ export class BoardTicketService {
   readonly #store: BoardTicketStore;
   readonly #changed: (ticketIds: string[]) => void;
   readonly #startWorkThread: StartWorkThread | undefined;
+  readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
   readonly #activity = new Set<(activity: BoardTicketActivity) => void>();
 
   constructor(options: BoardTicketServiceOptions) {
     this.#store = options.store;
     this.#changed = options.changed;
     this.#startWorkThread = options.startWorkThread;
+    this.#worktreeOf = options.worktreeOf;
   }
 
   list(): BoardTicket[] {
-    return this.#store.list();
+    return this.#store.list().map((ticket) => this.#withWorktree(ticket));
   }
 
   get(ticketId: string): BoardTicket | null {
-    return this.#store.get(ticketId);
+    const ticket = this.#store.get(ticketId);
+    return ticket ? this.#withWorktree(ticket) : null;
+  }
+
+  /** The ticket with the worktree of its work thread, when it has one. */
+  #withWorktree(ticket: BoardTicket): BoardTicket {
+    if (!ticket.taskId || !this.#worktreeOf) return ticket;
+    const worktree = this.#worktreeOf(ticket.taskId);
+    return worktree ? { ...ticket, worktree } : ticket;
   }
 
   /** The ticket that a work thread does, or null. */
@@ -236,13 +253,13 @@ export class BoardTicketService {
     if (existing?.taskId) throw new Error(sourceText("error.agent.boardTickets.alreadyStarted"));
     const title = cleanTitle(existing?.title ?? input.title ?? "");
     const body = (existing ? existing.body : (input.body ?? "")).slice(0, BOARD_TICKET_BODY_LIMIT);
-    const task = await startWorkThread(input.agentId, workThreadText(title, body));
+    const task = await startWorkThread(input.agentId, workThreadText(title, body), { title });
     const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
     const links = { taskId: task.id, threadId: task.threadId };
     if (!existing) return this.create({ title, body, status, agentId: input.agentId }, actor, links);
     this.patch(existing.id, { ...links, agentId: input.agentId }, actor);
     this.moveIfNeeded(existing.id, status, actor);
-    return this.#require(existing.id);
+    return this.get(existing.id) ?? this.#require(existing.id);
   }
 
   delete(ticketId: string): void {
