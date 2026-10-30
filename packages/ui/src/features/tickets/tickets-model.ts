@@ -219,7 +219,7 @@ export function ticketSteps(
   }
 }
 
-/** The colour of the left edge of a card: blue running, amber waiting, red blocked, green done. */
+/** The state that the left edge of a card shows: running, waiting for review, blocked or done. */
 export type TicketEdge = "running" | "waiting" | "blocked" | "done";
 
 export function ticketEdge(ticket: BoardTicket, thread: AgentTask | undefined): TicketEdge | null {
