@@ -155,7 +155,7 @@
   border-color: var(--openbot-accent);
 }
 
-/* The left edge: blue running, amber waiting for review, red blocked, green done. */
+/* The left edge: accent running, warning waiting for review, danger blocked, success done. */
 .tickets-card[data-edge="running"] {
   --tickets-edge: var(--openbot-accent);
 }
@@ -294,7 +294,7 @@
   line-clamp: 2;
 }
 
-/* A failed turn: its reason in a red banner, tinted from the danger token. */
+/* A failed turn: its reason in a banner tinted from the danger token. */
 .tickets-card-error {
   margin: 0;
   padding: var(--openbot-space-1-5) var(--openbot-space-2);
