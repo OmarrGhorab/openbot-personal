@@ -9,8 +9,10 @@ import {
   type BoardTicketActor,
   type BoardTicketEvent,
   type BoardTicketStatus,
+  type BoardTicketTypeSource,
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
+  detectBoardTicketType,
   type MoveBoardTicketInput,
   type StartBoardTicketInput,
   type UpdateBoardTicketInput,
@@ -107,14 +109,29 @@ export class BoardTicketService {
     return this.#store.events(ticketId);
   }
 
-  create(input: CreateBoardTicketInput, actor: BoardTicketActor = "user", links: BoardTicketLinks = {}): BoardTicket {
+  /**
+   * Adds a ticket. A type in the input is the creator's choice; without one, the board detects the type
+   * from the labels of the linked issue, then from the title and the text.
+   */
+  create(
+    input: CreateBoardTicketInput,
+    actor: BoardTicketActor = "user",
+    links: BoardTicketLinks = {},
+    labels: readonly string[] = [],
+  ): BoardTicket {
+    const title = cleanTitle(input.title);
+    const body = input.body?.slice(0, BOARD_TICKET_BODY_LIMIT) ?? "";
+    const chosen = input.type !== undefined;
+    const type = chosen ? input.type : detectBoardTicketType({ labels, title, body });
     const ticket = this.#store.create(
       {
         ...links,
-        title: cleanTitle(input.title),
-        body: input.body?.slice(0, BOARD_TICKET_BODY_LIMIT) ?? "",
+        title,
+        body,
         status: input.status ?? "backlog",
         agentId: input.agentId ?? null,
+        type: type ?? null,
+        typeSource: chosen ? choiceSource(actor) : type ? "detected" : null,
       },
       actor,
     );
@@ -128,6 +145,10 @@ export class BoardTicketService {
     if (input.title !== undefined) patch.title = cleanTitle(input.title);
     if (input.body !== undefined) patch.body = input.body.slice(0, BOARD_TICKET_BODY_LIMIT);
     if (input.agentId !== undefined) patch.agentId = input.agentId;
+    if (input.type !== undefined) {
+      patch.type = input.type;
+      patch.typeSource = choiceSource(actor);
+    }
     if (input.progress !== undefined) patch.progress = nullableLine(input.progress, BOARD_TICKET_PROGRESS_LIMIT);
     if (input.error !== undefined) patch.error = nullableLine(input.error, BOARD_TICKET_ERROR_LIMIT);
     return this.patch(input.ticketId, patch, actor);
@@ -140,11 +161,31 @@ export class BoardTicketService {
     if (patch.agentId !== undefined && patch.agentId !== current.agentId) {
       this.#store.addEvent(ticketId, "assigned", actor, { text: patch.agentId });
     }
+    if (patch.type !== undefined && patch.type !== current.type) {
+      this.#store.addEvent(ticketId, "type_changed", actor, { text: patch.type });
+    }
     if (patch.progress && patch.progress !== current.progress) {
       this.#store.addEvent(ticketId, "progress", actor, { text: patch.progress });
     }
     this.#changed([ticketId]);
     return this.#require(ticketId);
+  }
+
+  /**
+   * Detects the type of a ticket again after its issue changed, such as a new label at a sync. A type that
+   * a person or an agent chose stays: detection changes only a type that detection set or that is not set,
+   * and it never clears one.
+   */
+  redetectType(
+    ticketId: string,
+    signs: { labels?: readonly string[]; title: string; body?: string },
+    actor: BoardTicketActor,
+  ): BoardTicket {
+    const current = this.#require(ticketId);
+    if (current.typeSource === "user" || current.typeSource === "agent") return current;
+    const type = detectBoardTicketType(signs);
+    if (type === null || type === current.type) return current;
+    return this.patch(ticketId, { type, typeSource: "detected" }, actor);
   }
 
   move(input: MoveBoardTicketInput, actor: BoardTicketActor = "user", note: string | null = null): BoardTicket {
@@ -218,6 +259,11 @@ export class BoardTicketService {
     if (!ticket) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     return ticket;
   }
+}
+
+/** Who chose a type: an agent's choice is the agent's; any other choice is the person's. */
+function choiceSource(actor: BoardTicketActor): BoardTicketTypeSource {
+  return actor === "agent" ? "agent" : "user";
 }
 
 function cleanTitle(title: string): string {

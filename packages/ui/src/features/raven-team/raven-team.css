@@ -1,36 +1,81 @@
 /*
- * The Raven Stack team page in RavenTeamPage.tsx. The left column is the flow: the ticket, then the team
- * with one card for each role, then the start bar. The right column holds the team jobs. Each column
- * scrolls on its own. A narrow page shows one column, and the page scrolls as a whole.
+ * The Raven Stack team page in RavenTeamPage.tsx: a header with the tabs, then the open tab.
+ *
+ * Set up is a grid. The left column (the ticket and the team) scrolls on its own. The right column is
+ * the fixed "Your team" panel and, under it, the start block, so "Start team" stays in view. A narrow
+ * page shows one column: the page scrolls as a whole and the start block sticks to its bottom.
+ * Team jobs and Autopilot scroll as one column.
+ *
+ * Tints that the design draws as fixed translucent colours are mixed from the status tokens.
  */
 .raven-team-page {
   container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: var(--openbot-space-4);
   box-sizing: border-box;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--openbot-space-6);
   overflow: hidden;
   color: var(--openbot-text-primary);
 }
 
 .raven-team-header {
   flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--openbot-space-3) var(--openbot-space-6);
+  padding: var(--openbot-space-4) var(--openbot-space-6);
+  border-bottom: 1px solid var(--openbot-border);
+}
+
+.raven-team-header-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.raven-team-back.ui-button {
+  margin-inline-start: calc(-1 * var(--openbot-space-2));
+  color: var(--openbot-text-secondary);
 }
 
 .raven-team-title {
-  margin: 0;
+  margin: var(--openbot-space-1) 0 0;
   font-size: var(--openbot-text-2xl);
   font-weight: 600;
 }
 
 .raven-team-intro,
 .raven-team-empty {
-  margin: var(--openbot-space-1) 0 0;
+  margin: var(--openbot-space-0-5) 0 0;
   color: var(--openbot-text-secondary);
+}
+
+.raven-team-tabs {
+  flex: none;
+}
+
+.raven-team-tab-pill.z-badge {
+  margin-inline-start: var(--openbot-space-1-5);
+}
+
+.raven-team-tab-count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: var(--openbot-space-1-5);
+  padding: 0 var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-accent);
+  color: var(--openbot-text-on-accent);
+  font-size: var(--openbot-text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .raven-team-subtitle {
@@ -39,33 +84,66 @@
   font-weight: 600;
 }
 
-.raven-team-columns {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
-  align-items: start;
-  gap: var(--openbot-space-6);
-  min-height: 0;
+.raven-team-eyebrow {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.raven-team-column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-4);
-  max-height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+.raven-team-hint,
+.raven-team-job-queued {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-lg);
 }
 
-.raven-team-warnings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-3);
+.raven-team-hint-small {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-md);
 }
 
 .raven-team-label {
   font-weight: 500;
+}
+
+/* A small dot in a pill, in the pill's own colour. */
+.raven-team-dot {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: none;
+  margin-inline-end: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: currentColor;
+}
+
+/* ---------- Set up ---------- */
+
+.raven-team-setup {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+  grid-template-rows: minmax(0, max-content) auto 1fr;
+  grid-template-areas:
+    "main team"
+    "main start"
+    "main .";
+  gap: 0 var(--openbot-space-6);
+  min-height: 0;
+  padding: var(--openbot-space-6);
+}
+
+.raven-team-setup-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* One step of the flow: a numbered head, then its controls. */
@@ -73,7 +151,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--openbot-space-3);
-  padding: var(--openbot-space-4);
+  padding: var(--openbot-space-4) var(--openbot-space-4);
   border: 1px solid var(--openbot-glass-border);
   border-radius: var(--openbot-radius-lg);
   background: var(--openbot-bg-surface);
@@ -91,27 +169,17 @@
 
 .raven-team-step {
   display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  margin-top: var(--openbot-space-0-5);
   border-radius: var(--openbot-radius-pill);
   background: var(--openbot-hover);
-  color: var(--openbot-text-secondary);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
   font-weight: 600;
-}
-
-.raven-team-panel-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--openbot-space-2);
-}
-
-.raven-team-panel-foot .raven-team-hint {
-  flex: 1 1 14rem;
 }
 
 .raven-team-ticket::placeholder {
@@ -132,17 +200,37 @@
   gap: var(--openbot-space-2);
 }
 
-.raven-team-hint,
-.raven-team-job-queued {
-  margin: 0;
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-lg);
-}
-
-.raven-team-actions {
+/* The detected ticket and the model that the ticket sets, then "Add ticket" at the end. */
+.raven-team-ticket-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--openbot-space-2);
+}
+
+.raven-team-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-chip-muted {
+  color: var(--openbot-text-secondary);
+}
+
+.raven-team-chip-icon {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-team-add-ticket.ui-button {
+  margin-inline-start: auto;
+  color: var(--openbot-accent-text);
 }
 
 /* The templates as presets: a name and one line about when to pick it. */
@@ -156,6 +244,7 @@
   height: auto;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: flex-start;
   gap: var(--openbot-space-1);
   padding: var(--openbot-space-3);
   border-radius: var(--openbot-radius-lg);
@@ -164,11 +253,15 @@
 }
 
 .raven-team-preset[aria-pressed="true"] {
-  border-color: var(--openbot-border-focus);
-  background: var(--openbot-hover);
+  border-color: var(--openbot-accent);
+  box-shadow: 0 0 0 1px var(--openbot-accent);
 }
 
 .raven-team-preset-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
   font-weight: 600;
 }
 
@@ -176,168 +269,6 @@
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-md);
   font-weight: 400;
-}
-
-/* One card for each role of the template. A left-out role is dimmed and says what that costs. */
-.raven-team-roles,
-.raven-team-job-roles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.raven-team-role-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-3) var(--openbot-space-4);
-  border: 1px solid var(--openbot-glass-border);
-  border-radius: var(--openbot-radius-lg);
-}
-
-.raven-team-role-card[data-off] {
-  border-style: dashed;
-  background: transparent;
-}
-
-.raven-team-role-card[data-off] .raven-team-role-label,
-.raven-team-role-card[data-off] .raven-team-role-hint {
-  color: var(--openbot-text-dim);
-}
-
-.raven-team-role-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--openbot-space-3);
-}
-
-.raven-team-role-title {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--openbot-space-2);
-}
-
-.raven-team-role-locked,
-.raven-team-role-hint,
-.raven-team-role-skipnote {
-  margin: 0;
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-md);
-}
-
-.raven-team-role-skipnote {
-  color: var(--openbot-warning-text, var(--openbot-text-secondary));
-}
-
-/* The start bar stays in view while the roles scroll. */
-.raven-team-startbar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--openbot-space-3);
-  padding: var(--openbot-space-3) var(--openbot-space-4);
-  border: 1px solid var(--openbot-glass-border);
-  border-radius: var(--openbot-radius-lg);
-  background: var(--openbot-bg-sidebar);
-}
-
-.raven-team-summary {
-  min-width: 0;
-  margin: 0;
-  color: var(--openbot-text-secondary);
-  overflow-wrap: anywhere;
-}
-
-/* The job's roles as a row of steps, coloured by state. */
-.raven-team-pipeline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--openbot-space-1-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.raven-team-pipeline-step {
-  padding: var(--openbot-space-0-5) var(--openbot-space-2);
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-hover);
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-md);
-}
-
-.raven-team-pipeline-step[data-state="working"] {
-  color: var(--openbot-accent-text);
-}
-
-.raven-team-pipeline-step[data-state="passed"],
-.raven-team-pipeline-step[data-state="reported"] {
-  color: var(--openbot-success-text);
-}
-
-.raven-team-pipeline-step[data-state="failed"],
-.raven-team-pipeline-step[data-state="blocked"] {
-  color: var(--openbot-danger-text);
-}
-
-.raven-team-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-3);
-  padding: var(--openbot-space-4);
-  border: 1px solid var(--openbot-glass-border);
-  border-radius: var(--openbot-radius-lg);
-  background: var(--openbot-bg-surface);
-}
-
-.raven-team-job-role {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-2);
-}
-
-.raven-team-role-head,
-.raven-team-job-head,
-.raven-team-job-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--openbot-space-2);
-}
-
-.raven-team-job-head {
-  justify-content: space-between;
-}
-
-.raven-team-role-label,
-.raven-team-job-brief {
-  font-weight: 600;
-}
-
-.raven-team-job-brief {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.raven-team-role-state,
-.raven-team-role-score,
-.raven-team-job-rounds,
-.raven-team-role-verdict {
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-lg);
-}
-
-.raven-team-role-commit {
-  font-size: var(--openbot-text-md);
 }
 
 /* The provider, model and effort of a role, in one row. */
@@ -356,22 +287,768 @@
   min-width: 0;
 }
 
-/* The access question has no icon. Its text takes the free width and its button stays at the end;
-   the alert's own icon column would leave the text under the button. */
-.raven-team-access-question {
-  grid-template-columns: minmax(0, 1fr) auto;
+.raven-team-role-label {
+  font-weight: 600;
 }
 
-/* A narrow page: one column, the flow first. The page scrolls, not each column. */
+.raven-team-role-locked,
+.raven-team-role-hint,
+.raven-team-role-skipnote {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+/* One row for each role: the agent shape, the name, access and hint, then the model and the switch. */
+.raven-team-roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-team-role-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-team-role-card[data-off] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.raven-team-role-card[data-off] .raven-team-role-label,
+.raven-team-role-card[data-off] .raven-team-role-hint,
+.raven-team-role-card[data-off] .raven-team-role-icon {
+  color: var(--openbot-text-dim);
+  opacity: 0.6;
+}
+
+.raven-team-role-icon.agent-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.raven-team-role-info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+}
+
+.raven-team-role-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-role-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--openbot-space-3);
+}
+
+.raven-team-role-controls .raven-team-picker {
+  width: min(26rem, 100%);
+}
+
+.raven-team-role-locked {
+  color: var(--openbot-text-dim);
+  white-space: nowrap;
+}
+
+.raven-team-role-skipnote {
+  color: var(--openbot-warning-text, var(--openbot-text-secondary));
+}
+
+/* "Your team": fixed at the right. It scrolls on its own when the team is long. */
+.raven-team-yourteam {
+  grid-area: team;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  min-height: 0;
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-3);
+  overflow-y: auto;
+  border: 1px solid var(--openbot-glass-border);
+  border-bottom: none;
+  border-radius: var(--openbot-radius-lg) var(--openbot-radius-lg) 0 0;
+  background: var(--openbot-bg-surface);
+}
+
+.raven-team-yourteam-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-yourteam-count {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+/* The roles of the plan in order, joined by a line. */
+.raven-team-lineup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  margin: 0;
+  padding: 0 0 var(--openbot-space-3);
+  border-bottom: 1px solid var(--openbot-border);
+  list-style: none;
+}
+
+.raven-team-lineup-role {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+}
+
+.raven-team-lineup-role:not(:last-child)::after {
+  position: absolute;
+  top: 32px;
+  bottom: calc(-1 * var(--openbot-space-3) + 4px);
+  inset-inline-start: 13px;
+  width: 1px;
+  background: var(--openbot-border-strong);
+  content: "";
+}
+
+.raven-team-lineup-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.raven-team-lineup-hint {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-lineup-model {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+.raven-team-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-warnings .ui-alert[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--openbot-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--openbot-warning) 12%, transparent);
+}
+
+/* The start block closes the "Your team" panel. */
+.raven-team-start {
+  grid-area: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-1) var(--openbot-space-4) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-top: none;
+  border-radius: 0 0 var(--openbot-radius-lg) var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.raven-team-start-button.ui-button {
+  width: 100%;
+}
+
+/* ---------- Team jobs and Autopilot ---------- */
+
+.raven-team-tab-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  min-height: 0;
+  padding: var(--openbot-space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.raven-team-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-4) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.raven-team-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2) var(--openbot-space-4);
+}
+
+.raven-team-job-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-job-brief {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.raven-team-job-meta {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-role-state {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+/* Four steps, one per role: a bar coloured by the role's state, the agent shape, the name and state. */
+.raven-team-pipeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--openbot-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-team-pipeline-step {
+  --raven-team-step-color: var(--openbot-border-strong);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-pipeline-step[data-state="working"] {
+  --raven-team-step-color: var(--openbot-accent);
+}
+
+.raven-team-pipeline-step[data-state="passed"],
+.raven-team-pipeline-step[data-state="reported"] {
+  --raven-team-step-color: var(--openbot-success);
+}
+
+.raven-team-pipeline-step[data-state="failed"],
+.raven-team-pipeline-step[data-state="blocked"] {
+  --raven-team-step-color: var(--openbot-danger);
+}
+
+.raven-team-pipeline-bar {
+  height: 3px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--raven-team-step-color);
+}
+
+.raven-team-pipeline-body {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-pipeline-body .raven-team-role-icon.agent-avatar {
+  width: 22px;
+  height: 22px;
+}
+
+.raven-team-pipeline-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: var(--openbot-leading-sm);
+}
+
+/* The access question: a danger-toned banner with its title, its text and the one-click answer. */
+.raven-team-access-banner.ui-alert {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  border-color: color-mix(in srgb, var(--openbot-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--openbot-danger) 16%, transparent);
+}
+
+.raven-team-access-banner .ui-alert-icon {
+  color: var(--openbot-danger-text);
+}
+
+.raven-team-job-roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-3);
+  margin: 0;
+  padding: var(--openbot-space-3) 0 0;
+  border-top: 1px solid var(--openbot-border);
+  list-style: none;
+}
+
+.raven-team-job-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-team-job-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2) var(--openbot-space-4);
+}
+
+.raven-team-job-foot:empty {
+  display: none;
+}
+
+.raven-team-actions,
+.raven-team-job-foot-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-team-job-foot-end {
+  margin-inline-start: auto;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-team-job-head-commit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-team-job-head-commit svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-team-job-head-commit code {
+  font-family: inherit;
+}
+
+/* ---------- Autopilot (RavenAutopilotPanel.tsx) ----------
+ * Two columns: the switch, the stack and the overrides on the left, the guardrails on the right.
+ * A narrow page shows one column, the guardrails last. */
+.raven-autopilot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+  align-items: start;
+  gap: var(--openbot-space-6);
+}
+
+.raven-autopilot-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+}
+
+.raven-autopilot-master {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--openbot-space-4);
+}
+
+.raven-autopilot-master-text .raven-team-hint {
+  margin-top: var(--openbot-space-0-5);
+}
+
+.raven-autopilot-counts {
+  display: flex;
+  gap: var(--openbot-space-2);
+  margin: 0;
+}
+
+.raven-autopilot-count {
+  --raven-autopilot-count-color: var(--openbot-text-dim);
+  display: flex;
+  min-width: 4.5rem;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+}
+
+.raven-autopilot-count[data-kind="running"] {
+  --raven-autopilot-count-color: var(--openbot-accent);
+}
+
+.raven-autopilot-count[data-kind="waiting"] {
+  --raven-autopilot-count-color: var(--openbot-warning);
+}
+
+.raven-autopilot-count dt {
+  display: inline-flex;
+  align-items: center;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.raven-autopilot-count dt .raven-team-dot {
+  color: var(--raven-autopilot-count-color);
+}
+
+.raven-autopilot-count dd {
+  margin: 0;
+  font-size: var(--openbot-text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.raven-autopilot-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--openbot-space-3);
+}
+
+.raven-autopilot-accent-icon {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  margin-top: var(--openbot-space-0-5);
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-title {
+  margin: 0;
+  font-size: var(--openbot-text-lg);
+  font-weight: 600;
+}
+
+.raven-autopilot-note {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-autopilot-note svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: none;
+}
+
+.raven-autopilot-decisions,
+.raven-autopilot-overrides,
+.raven-autopilot-decision-roles,
+.raven-autopilot-rules ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.raven-autopilot-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-autopilot-decision-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.raven-autopilot-decision-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.raven-autopilot-decision-arrow {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  color: var(--openbot-text-dim);
+}
+
+.raven-autopilot-decision-roles {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.raven-autopilot-type-chip,
+.raven-autopilot-model-chip,
+.raven-autopilot-stack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-hover);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.raven-autopilot-model-chip .raven-team-role-icon.agent-avatar {
+  width: 16px;
+  height: 16px;
+}
+
+.raven-autopilot-stack-chip {
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-stack-chip svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-autopilot-type-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.raven-autopilot-type-dot[data-type="feature"] {
+  background: var(--openbot-accent);
+}
+
+.raven-autopilot-type-dot[data-type="bug"] {
+  background: var(--openbot-danger);
+}
+
+.raven-autopilot-override {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-2) var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.raven-autopilot-override-type {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-weight: 500;
+}
+
+.raven-autopilot-override-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-autopilot-override-value[data-auto] {
+  color: var(--openbot-accent-text);
+}
+
+.raven-autopilot-override-value svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.raven-autopilot-automerge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+}
+
+/* The guardrails stay in view while the left column scrolls. */
+.raven-autopilot-guardrails {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.raven-autopilot-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+.raven-autopilot-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-3);
+}
+
+.raven-autopilot-setting-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-weight: 500;
+}
+
+.raven-autopilot-setting-title svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  color: var(--openbot-text-secondary);
+}
+
+.raven-autopilot-wide {
+  width: 100%;
+}
+
+.raven-autopilot-muted {
+  color: var(--openbot-text-secondary);
+}
+
+.raven-autopilot-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5);
+  border: 1px solid var(--openbot-border);
+  border-radius: var(--openbot-radius-md);
+}
+
+.raven-autopilot-stepper-value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.raven-autopilot-divider {
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--openbot-border);
+}
+
+.raven-autopilot-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-hover);
+}
+
+.raven-autopilot-rules li {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  font-size: var(--openbot-text-md);
+}
+
+.raven-autopilot-rules svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: none;
+  color: var(--openbot-success);
+}
+
 @container (max-width: 52rem) {
-  .raven-team-columns {
+  .raven-autopilot {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .raven-autopilot-guardrails {
+    position: static;
+  }
+
+  .raven-autopilot-master {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .raven-autopilot-counts {
+    grid-column: 1 / -1;
+  }
+
+  .raven-autopilot-override {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .raven-autopilot-override-choice {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* A narrow page: one column, the flow first. The page scrolls, and "Start team" sticks to its bottom. */
+@container (max-width: 52rem) {
+  .raven-team-setup {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+      "main"
+      "team"
+      "start";
+    gap: 0;
     overflow-y: auto;
   }
 
-  .raven-team-column {
-    max-height: none;
+  .raven-team-setup-main {
+    margin-bottom: var(--openbot-space-4);
     overflow: visible;
+  }
+
+  .raven-team-yourteam {
+    overflow: visible;
+  }
+
+  .raven-team-start {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+  }
+
+  .raven-team-role-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .raven-team-role-controls {
+    grid-column: 1 / -1;
+    justify-content: space-between;
   }
 }
 
@@ -379,6 +1056,12 @@
   .raven-team-picker,
   .raven-team-picker[data-effort="hidden"] {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .raven-team-header,
+  .raven-team-setup,
+  .raven-team-tab-body {
+    padding-inline: var(--openbot-space-4);
   }
 }
 

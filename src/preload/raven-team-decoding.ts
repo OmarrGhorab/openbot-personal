@@ -1,8 +1,10 @@
 import {
+  isRavenAutopilotSettings,
   isRavenTeamChanged,
   isRavenTeamJob,
   isRavenTeamPlan,
   isRavenTeamTemplate,
+  type RavenAutopilotSettings,
   type RavenTeamChanged,
   type RavenTeamJob,
   type RavenTeamPlan,
@@ -31,5 +33,10 @@ export function decodeRavenJobs(value: unknown): RavenTeamJob[] {
 
 export function decodeRavenChanged(value: unknown): RavenTeamChanged {
   if (!isRavenTeamChanged(value)) throw new Error("Invalid team change event.");
+  return value;
+}
+
+export function decodeRavenAutopilotSettings(value: unknown): RavenAutopilotSettings {
+  if (!isRavenAutopilotSettings(value)) throw new Error("Invalid Autopilot settings response.");
   return value;
 }
