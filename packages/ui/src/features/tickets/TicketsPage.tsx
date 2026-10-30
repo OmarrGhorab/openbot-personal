@@ -28,10 +28,9 @@ import { createMemo, createSignal, createUniqueId, For, onCleanup, onSettled, Sh
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
+  type TicketReviewActions,
   TicketsAgentStrip,
   type TicketsBoardData,
-  type
-  TicketReviewActions,
   TicketsColumns,
   TicketsLanes,
   TicketsViewSwitch,
