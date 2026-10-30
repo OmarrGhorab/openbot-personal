@@ -155,7 +155,7 @@ export const TICKET_STEP_LABEL = {
  * How the current step goes: `active` while an agent works on it, `waiting` while it waits for the
  * person's review, `blocked` while it needs a decision or its last turn failed, `done` when every step is.
  */
-export type TicketStepState = "active" | "waiting" | "blocked" | "done";
+type TicketStepState = "active" | "waiting" | "blocked" | "done";
 
 /** The current step of a ticket, as an index into `TICKET_STEPS`, and how it goes. */
 export interface TicketStepsView {
@@ -191,7 +191,7 @@ function inReview(ticket: BoardTicket, tickets: readonly BoardTicket[]): boolean
  * thread asks a question, or its team job waits for a decision. A plain ticket in Needs review after a
  * completed turn only waits for the review.
  */
-export function ticketBlocked(ticket: BoardTicket, thread: AgentTask | undefined): boolean {
+function ticketBlocked(ticket: BoardTicket, thread: AgentTask | undefined): boolean {
   if (ticketError(ticket, thread) !== null) return true;
   if (ticket.status !== "needs_review") return false;
   return Boolean(thread?.question) || ticket.teamJobId !== null;
