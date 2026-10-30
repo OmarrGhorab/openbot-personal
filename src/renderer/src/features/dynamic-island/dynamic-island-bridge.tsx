@@ -125,6 +125,8 @@ export function DynamicIslandBridge() {
   async function handleDynamicIslandAction(action: DynamicIslandAction): Promise<void> {
     // Main runs a reply and a stop against the agent. They must not move the main window.
     if (action.type === "open-app" || action.type === "send-message" || action.type === "stop-agent") return;
+    // Main opens a merged ticket or its pull request, and tells the window through the merge bridge.
+    if (action.type === "open-merged-ticket" || action.type === "open-merged-pull-request") return;
     if (action.type === "answer-prompt") {
       dynamicIslandCoordinator.resolveAction(action);
       const prompt = pendingPrompts()[action.agentId];

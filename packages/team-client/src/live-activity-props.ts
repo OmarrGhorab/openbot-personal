@@ -209,6 +209,8 @@ function liveActivityContent(
 ): Omit<AgentLiveActivityProps, keyof LiveActivityExtras | LiveActivityTexts> | null {
   switch (presentation.mode) {
     case "idle":
+    // A merge is a desktop notice that main shows for a few seconds. The phone has no Live Activity for it.
+    case "merged":
       return null;
     case "working": {
       const rows = presentation.working.slice(0, WORKING_ROWS).map((item) => ({
@@ -470,6 +472,8 @@ export function liveActivityAgent(presentation: DynamicIslandPresentation): Dyna
       return presentation.working[0]?.agent ?? null;
     case "message":
       return presentation.message.agent;
+    case "merged":
+      return null;
     default:
       return presentation.item.agent;
   }

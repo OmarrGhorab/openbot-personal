@@ -13,17 +13,6 @@ import {
 import { createSignal, onSettled } from "solid-js";
 import { appPort } from "./app-port";
 
-const MASCOT_THUMBNAILS: Record<string, string> = import.meta.glob("./assets/mascots/*.png", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-
-/** The Settings picture of a mascot in a logo color. */
-export function mascotThumbnailUrl(shape: AppLogoShape, color: AppLogoColor): string {
-  return MASCOT_THUMBNAILS[`./assets/mascots/${shape}-${color}.png`] ?? "";
-}
-
 /** Sets the release logo color and its eye color in this window. */
 function applyLogoColor(color: AppLogoColor): void {
   document.documentElement.style.setProperty("--openbot-logo-production", APP_LOGO_COLOR_HEX[color]);

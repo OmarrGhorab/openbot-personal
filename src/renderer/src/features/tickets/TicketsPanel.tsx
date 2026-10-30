@@ -20,6 +20,7 @@ import { useAgents } from "../agents/agents-context";
 import { serverCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useUsage } from "../usage/usage-context";
+import { clearTicketFocus, ticketFocusRequest } from "./ticket-merge-focus";
 
 export interface TicketsPanelProps {
   serverId: string;
@@ -215,6 +216,16 @@ export function TicketsPanel(props: TicketsPanelProps) {
     },
   );
 
+  // "View ticket" on a merge notice opens that ticket. The board of a merge is on this computer.
+  createEffect(
+    () => (local() ? ticketFocusRequest() : null),
+    (request) => {
+      if (!request) return;
+      setSelectedTicketId(request.ticketId);
+      clearTicketFocus(request);
+    },
+  );
+
   createEffect(selectedTicketId, (ticketId) => {
     setEvents(null);
     if (ticketId) loadEvents(ticketId);
@@ -335,6 +346,29 @@ export function TicketsPanel(props: TicketsPanelProps) {
           changedOnServer(ticket.id);
         } catch (error) {
           fail(error, "tickets.error.steer");
+        }
+        return true;
+      }}
+      // `newTicketAutopilot` stays out until the Autopilot settings of #195 (`window.openbot.ravenAutopilot`) are on
+      // main: the New ticket dialog then shows "Let autopilot work on it" while its switch is on.
+      // Approve moves the ticket to Done. The Reviewer merge (auto-merge on for the type) hooks in here.
+      onApprove={(ticket) => {
+        boardTickets()
+          .move({ ticketId: ticket.id, status: "done" }, props.serverId)
+          .then(() => changedOnServer(ticket.id))
+          .catch((error) => fail(error, "tickets.error.move"));
+      }}
+      // Request changes sends the comment to the work thread, keeps a copy in the activity and moves the
+      // ticket back to Running. The thread's next turn then moves it on as usual.
+      onRequestChanges={async (ticket, text) => {
+        if (!ticket.agentId || !ticket.taskId) return false;
+        if (!(await agentTasks.sendToTask(ticket.agentId, ticket.taskId, text))) return false;
+        try {
+          await boardTickets().comment({ ticketId: ticket.id, text }, props.serverId);
+          await boardTickets().move({ ticketId: ticket.id, status: "running" }, props.serverId);
+          changedOnServer(ticket.id);
+        } catch (error) {
+          fail(error, "tickets.error.requestChanges");
         }
         return true;
       }}

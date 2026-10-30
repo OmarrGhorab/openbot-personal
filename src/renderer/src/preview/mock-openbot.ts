@@ -11,6 +11,8 @@ import type {
   McpSignInAppState,
   RavenAutopilotSettings,
   RavenTeamJob,
+  TicketMergeNotice,
+  TicketMergeOpenedEvent,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
@@ -190,7 +192,7 @@ import { createMockAuth, type MockAuthOptions } from "./mock-auth";
 import { createMockAutonomy } from "./mock-autonomy";
 import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
-import { mockBoardTickets, type PreviewBoardTicketSync } from "./mock-board-tickets";
+import { mockBoardTickets, type PreviewBoardTicketSync, withFirstListDelay } from "./mock-board-tickets";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
 import { createMockEvents } from "./mock-events";
@@ -253,6 +255,8 @@ export interface MockOpenBotOptions
   boardTickets?: BoardTicket[];
   /** The ticket systems that the Tickets board can sync with. None by default: the board shows no sync. */
   boardTicketSync?: PreviewBoardTicketSync;
+  /** Holds the first ticket list for this long, so a story shows the board while it loads. None by default. */
+  boardTicketsFirstListDelayMs?: number;
   /** The Raven Stack team jobs when the preview starts, newest first. None by default. */
   ravenTeamJobs?: RavenTeamJob[];
   /** The Raven Autopilot settings when the preview starts. The defaults when not given: Autopilot is off. */
@@ -363,6 +367,8 @@ export interface MockOpenBotControls {
   emitInvite: (inviteUrl: string) => void;
   emitHostStatus: (status: HostStatus) => void;
   emitRemoteDesktopSessions: (sessions: RemoteDesktopSession[]) => void;
+  /** Sends a merge notice to the window, as main does when the Reviewer merges a ticket (#199). */
+  emitTicketMerged: (notice: TicketMergeNotice) => void;
   dispose: () => void;
 }
 
@@ -648,6 +654,10 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   const latestConversationListeners = new Set<Listener<string>>();
   const messageSentListeners = new Set<(message: MockSentMessage) => boolean>();
   const promptResponseListeners = new Set<Listener<RespondToPromptInput>>();
+  const ticketMergedListeners = new Set<Listener<TicketMergeNotice>>();
+  const ticketMergeOpenedListeners = new Set<Listener<TicketMergeOpenedEvent>>();
+  /** The notices sent, so "View ticket" finds its merge as main does. */
+  const ticketMergeNotices = new Map<string, TicketMergeNotice>();
   const conversationReads = new Map(Object.entries(clone(options.conversationReads ?? {})));
   let runtimeSnapshot = options.runtimeSnapshot ? clone(options.runtimeSnapshot) : null;
   const storyForeignServerId = options.storyForeignAgent === false ? null : STORY_FOREIGN_SERVER_ID;
@@ -1343,28 +1353,31 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     voice: mockVoice.voice,
     ravenTeam,
     ravenAutopilot: mockRavenAutopilot(options.ravenAutopilot),
-    boardTickets: mockBoardTickets(
-      options.boardTickets,
-      (agentId, text) => {
-        const task = createTask(agentId, text);
-        runTaskTurn(task, text);
-        return { taskId: task.id, threadId: task.threadId };
-      },
-      (listener) => {
-        boardTaskListeners.add(listener);
-      },
-      options.boardTicketSync,
-      // Each team job's tickets follow the job, as the desktop's team follower does.
-      (listener) => {
-        const followJob = async (jobId: string) => {
-          const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
-          if (job) listener(clone(job));
-        };
-        ravenTeam.onChanged(({ jobId }) => {
-          if (jobId) void followJob(jobId);
-        });
-        for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
-      },
+    boardTickets: withFirstListDelay(
+      mockBoardTickets(
+        options.boardTickets,
+        (agentId, text) => {
+          const task = createTask(agentId, text);
+          runTaskTurn(task, text);
+          return { taskId: task.id, threadId: task.threadId };
+        },
+        (listener) => {
+          boardTaskListeners.add(listener);
+        },
+        options.boardTicketSync,
+        // Each team job's tickets follow the job, as the desktop's team follower does.
+        (listener) => {
+          const followJob = async (jobId: string) => {
+            const job = (await ravenTeam.listJobs()).find((candidate) => candidate.id === jobId);
+            if (job) listener(clone(job));
+          };
+          ravenTeam.onChanged(({ jobId }) => {
+            if (jobId) void followJob(jobId);
+          });
+          for (const job of options.ravenTeamJobs ?? []) void followJob(job.id);
+        },
+      ),
+      options.boardTicketsFirstListDelayMs,
     ),
     routineFlows: mockRoutineFlows(
       { routines, routineRuns, links: options.routineFlowLinks, steps: options.routineFlowSteps },
@@ -2962,6 +2975,21 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       test: async () => undefined,
       openSettings: async () => undefined,
       onOpened: () => () => undefined,
+      onTicketMerged: (listener) => {
+        ticketMergedListeners.add(listener);
+        return () => ticketMergedListeners.delete(listener);
+      },
+      // The preview opens no browser, so "View PR" ends here. "View ticket" goes back to the window.
+      openTicketMerge: async (request) => {
+        const notice = ticketMergeNotices.get(request.noticeId);
+        if (notice && request.target === "ticket" && notice.ticketId !== null) {
+          emit(ticketMergeOpenedListeners, { notice });
+        }
+      },
+      onTicketMergeOpened: (listener) => {
+        ticketMergeOpenedListeners.add(listener);
+        return () => ticketMergeOpenedListeners.delete(listener);
+      },
     },
     maintenance: {
       exportData: async () => ({ saved: true }),
@@ -3189,6 +3217,10 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     emitInvite: mockTeam.emitInvite,
     emitHostStatus: mockTeam.emitHostStatus,
     emitRemoteDesktopSessions: mockTeam.emitRemoteDesktopSessions,
+    emitTicketMerged: (notice) => {
+      ticketMergeNotices.set(notice.id, clone(notice));
+      emit(ticketMergedListeners, notice);
+    },
     dispose: () => {
       for (const timer of timers) clearTimeout(timer);
       timers.clear();
@@ -3202,6 +3234,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       latestConversationListeners.clear();
       messageSentListeners.clear();
       promptResponseListeners.clear();
+      ticketMergedListeners.clear();
+      ticketMergeOpenedListeners.clear();
+      ticketMergeNotices.clear();
       void appInfo;
     },
   };
