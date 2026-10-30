@@ -46,8 +46,10 @@ const page: Page = session.page;
 mkdirSync(OUT, { recursive: true });
 
 const agents = await page.evaluate(() => window.openbot.agent.listAgents());
-const target = agents[0];
-assert.ok(target, "The dev app needs at least one agent.");
+const first = agents[0];
+assert.ok(first, "The dev app needs at least one agent.");
+// A const of the narrowed type: the hoisted functions below read it, and they lose the narrowing of `first`.
+const target: NonNullable<typeof first> = first;
 const others = agents.slice(1).map((agent) => ({ id: agent.id, avatarSeed: agent.avatarSeed }));
 const original = { avatarSeed: target.avatarSeed, provider: target.provider, model: target.model };
 const seed = agentMascotSeed(MASCOT);
