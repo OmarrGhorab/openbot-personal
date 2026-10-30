@@ -20,6 +20,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import { type AvatarMotion, bloubAvatarProfile, type SupportedAvatarSilhouetteId } from "../../bloub-avatar";
 import type { AgentProfile } from "../../data";
+import { mascotAvatarImageUrl } from "../../mascot-avatar";
 import { createPointerGaze } from "./avatar-pointer-gaze";
 
 // Cap avatar animation at 30fps: uncapped bloub clocks measured 30% renderer / 24% GPU
@@ -98,23 +99,47 @@ export function AgentAvatar(props: AgentAvatarProps) {
     const amount = breathe();
     return amount ? { ...props.style, "--agent-avatar-breathe": amount } : { ...props.style };
   };
+  // A mascot avatar is a seed too (`mascot:<shape>:<color>`), so an uploaded image still wins over it.
+  const mascotUrl = createMemo(() => mascotAvatarImageUrl(seed()));
   return (
     <Show
       when={url() && !imageFailed()}
       fallback={
-        <GeneratedAvatar
-          seed={seed()}
-          hue={hue()}
-          motion={motion()}
-          mood={mood()}
-          cycleOffset={props.cycleOffset}
-          animationOffset={props.animationOffset}
-          shape={props.shape}
-          followPointer={props.followPointer === true}
-          breathe={breathe()}
-          class={className()}
-          style={style()}
-        />
+        <Show
+          when={mascotUrl()}
+          fallback={
+            <GeneratedAvatar
+              seed={seed()}
+              hue={hue()}
+              motion={motion()}
+              mood={mood()}
+              cycleOffset={props.cycleOffset}
+              animationOffset={props.animationOffset}
+              shape={props.shape}
+              followPointer={props.followPointer === true}
+              breathe={breathe()}
+              class={className()}
+              style={style()}
+            />
+          }
+        >
+          {(mascot) => (
+            <span
+              class={`${className()} agent-avatar-mascot`}
+              style={style()}
+              data-avatar="mascot"
+              data-mood={mood()}
+              data-breathe={breathe()}
+              aria-hidden="true"
+            >
+              {/* A mascot is a picture, like an upload: the mood rides on the rings, the glow and the
+                  breathing scale, and reduced motion stops all three as it does for a shape. */}
+              <AvatarRings when={presentation().rings}>
+                <img src={mascot()} alt="" draggable={false} />
+              </AvatarRings>
+            </span>
+          )}
+        </Show>
       }
     >
       <span

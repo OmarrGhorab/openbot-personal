@@ -1,0 +1,44 @@
+/* The avatar picker of an agent: Shapes and Mascots tabs (Figma 169-2673). */
+.agent-avatar-kind {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: var(--openbot-space-3);
+}
+
+.agent-avatar-kind-slot {
+  width: 100%;
+  container-type: inline-size;
+}
+
+.agent-avatar-kind-panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--openbot-space-3);
+}
+
+.agent-avatar-kind-hint {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  line-height: var(--openbot-leading-sm);
+  text-align: center;
+}
+
+.logo-shape-grid.agent-avatar-mascot-grid {
+  grid-template-columns: repeat(10, 40px);
+  justify-content: center;
+}
+
+.logo-color-grid.agent-avatar-mascot-colors {
+  grid-template-columns: repeat(10, 32px);
+  justify-content: center;
+}
+
+/* A narrow surface, such as the avatar popover, takes two rows of five. */
+@container (width < 440px) {
+  .logo-shape-grid.agent-avatar-mascot-grid,
+  .logo-color-grid.agent-avatar-mascot-colors {
+    grid-template-columns: repeat(5, auto);
+  }
+}
