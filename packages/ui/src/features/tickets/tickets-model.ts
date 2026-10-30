@@ -257,3 +257,78 @@ export function shortTicketKey(key: string): string {
   const issue = /#(\d+)$/u.exec(key);
   return issue ? `#${issue[1]}` : key;
 }
+
+/** A filter chip above the board: the tickets of one agent, or the unassigned ones. No filter: every ticket. */
+export type TicketsFilter = { kind: "agent"; agentId: string } | { kind: "unassigned" };
+
+export function sameTicketsFilter(left: TicketsFilter | null, right: TicketsFilter | null): boolean {
+  if (left === null || right === null) return left === right;
+  if (left.kind === "unassigned" || right.kind === "unassigned") return left.kind === right.kind;
+  return left.agentId === right.agentId;
+}
+
+export function filterTickets(tickets: readonly BoardTicket[], filter: TicketsFilter | null): readonly BoardTicket[] {
+  if (filter === null) return tickets;
+  const agentId = filter.kind === "agent" ? filter.agentId : null;
+  return tickets.filter((ticket) => ticket.agentId === agentId);
+}
+
+/** The counts of the header line: every ticket, the running ones and the ones that wait for the person. */
+export interface TicketsSummary {
+  total: number;
+  running: number;
+  review: number;
+}
+
+export function ticketsSummary(tickets: readonly BoardTicket[]): TicketsSummary {
+  return {
+    total: tickets.length,
+    running: tickets.filter((ticket) => ticket.status === "running").length,
+    review: tickets.filter((ticket) => ticket.status === "needs_review").length,
+  };
+}
+
+/** The running work threads of every agent, and how many can run at the same time. */
+export function boardThreads(
+  agents: readonly { id: string }[],
+  snapshots: Readonly<Record<string, AgentTasksSnapshot>>,
+): { running: number; limit: number } {
+  let running = 0;
+  let limit = 0;
+  for (const agent of agents) {
+    const snapshot = snapshots[agent.id];
+    running += runningThreads(snapshot);
+    limit += snapshot?.limit ?? 1;
+  }
+  return { running, limit };
+}
+
+/**
+ * What the board shows of Raven Autopilot: whether it is on, how many tickets it runs at once and
+ * whether the Reviewer merges. The board reads it from the Autopilot settings (#195); off by default.
+ */
+export interface TicketsAutopilot {
+  enabled: boolean;
+  /** Tickets at once: the slots of the header pill. */
+  slots: number;
+  /** The Reviewer merges a passed ticket: the Done column says "Auto-merge on". */
+  autoMerge: boolean;
+}
+
+export const TICKETS_AUTOPILOT_OFF: TicketsAutopilot = { enabled: false, slots: 0, autoMerge: false };
+
+/** The Raven team jobs that run now: each job has one job ticket (no role) in Running. */
+export function autopilotRunning(tickets: readonly BoardTicket[]): number {
+  return tickets.filter((ticket) => ticket.teamJobId !== null && ticket.teamRoleId === null && ticket.status === "running")
+    .length;
+}
+
+/** The ticket that Raven picks next: the first ticket of Backlog. */
+export function autopilotNext(tickets: readonly BoardTicket[]): BoardTicket | undefined {
+  return columnTickets(tickets, "backlog")[0];
+}
+
+/** The columns with a quick add button in their header. */
+export function hasQuickAdd(status: BoardTicketStatus): boolean {
+  return status === "backlog" || status === "queued";
+}
