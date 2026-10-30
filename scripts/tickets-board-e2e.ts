@@ -2,7 +2,7 @@
 // Storybook, on the `App/Tickets Board` story, and clicks every button that the page shows: the Board
 // and By agent switch, a lane, the agent strip, Pause, Resume and Stop of a work thread, Open ticket,
 // the drawer's Move to menu, the agent picker, Start now, the issue link, the steer box, Delete and its
-// confirmation, the review banner with Request changes and Approve (#191), Auto-detect of the type (#192), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
+// confirmation, the review banner with Request changes and Approve (#191), Auto-detect of the type (#192), the empty board with its example tickets (#193), New ticket with Cancel, Add to backlog and Start now, and Open thread. It also checks
 // that agents move their own tickets (#156): Stop puts a ticket back in Backlog with the failure line,
 // and a started ticket moves from Running to Needs review when its turn ends, with no click. With GitHub
 // connected, Sync imports the open issues of a repository into Backlog with their issue link (#158).
@@ -519,6 +519,51 @@ try {
   await page.getByRole("group", { name: t("tickets.filter.label"), exact: true }).waitFor({ state: "detached" });
   await screenshot(page, "thread");
   report.steps.push("Open thread opens the agent's chat.");
+
+  // The empty board (#193), on the `App/Tickets Board Empty` story: Linear is connected and the first
+  // ticket list takes 1.5 s. The empty state must not show while the list loads, it offers Sync from
+  // Linear, and one example adds exactly one ticket to Backlog.
+  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty&viewMode=story`);
+  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
+  await page.getByRole("heading", { level: 2, name: new RegExp(`^${t("tickets.title")}`, "u") }).waitFor();
+  const emptyState = page.getByRole("region", { name: t("tickets.emptyState.title"), exact: true });
+  assert.equal(await emptyState.count(), 0, "The empty state showed while the first ticket list was loading.");
+  await emptyState.waitFor();
+  await emptyState
+    .getByRole("button", {
+      name: t("tickets.emptyState.syncFrom", { provider: t("tickets.sync.provider.linear") }),
+      exact: true,
+    })
+    .waitFor();
+  await emptyState.getByRole("button", { name: t("tickets.new"), exact: true }).waitFor();
+  await screenshot(page, "empty-board");
+  const exampleTitle = t("tickets.emptyState.example.bug.title");
+  await emptyState
+    .getByRole("button", { name: t("tickets.emptyState.addLabel", { title: exampleTitle }), exact: true })
+    .click();
+  await card(column(page, "tickets.status.backlog"), exampleTitle).waitFor();
+  await emptyState.waitFor({ state: "detached" });
+  assert.equal(await card(page, exampleTitle).count(), 1, "An example added more than one ticket.");
+  assert.equal(
+    await column(page, "tickets.status.backlog").getByRole("button").filter({ hasText: exampleTitle }).count(),
+    1,
+  );
+  await screenshot(page, "empty-board-example-added");
+  report.steps.push(
+    "The empty board shows no empty state while the list loads, offers Sync from Linear, and an example adds one Backlog ticket.",
+  );
+
+  // With no ticket system connected, the empty state has New ticket and the three examples, and no Sync.
+  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty-no-sync&viewMode=story`);
+  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
+  await emptyState.waitFor();
+  assert.equal(
+    await emptyState.getByRole("button").count(),
+    4,
+    "The empty state shows a Sync button with no ticket system.",
+  );
+  assert.equal(await page.getByRole("button", { name: t("tickets.sync.open"), exact: true }).count(), 0);
+  report.steps.push("With no ticket system connected, the empty board shows no Sync button.");
 
   assert.deepEqual(report.errors, [], "The page threw an error.");
   assert.deepEqual(report.appErrors, [], "The app showed an error toast after an action that worked.");

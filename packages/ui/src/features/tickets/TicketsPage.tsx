@@ -21,8 +21,9 @@ import {
   TicketsViewSwitch,
 } from "./TicketsBoard";
 import { TicketsChangesDialog } from "./TicketsChangesDialog";
+import { TicketsEmptyState } from "./TicketsEmptyState";
 import { type TicketNew, type TicketsAutopilot as TicketsNewAutopilot, TicketsNewDialog } from "./TicketsNewDialog";
-import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
+import { PROVIDER_LABEL, type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
 import {
   autopilotNext,
   filterTickets,
@@ -132,6 +133,18 @@ export function TicketsPage(props: TicketsPageProps) {
   /** Raven picks the first Backlog ticket of the whole board, whatever the filter shows. */
   const nextTicketId = () => (autopilot().enabled ? autopilotNext(props.tickets)?.id : undefined);
   const canSync = () => (props.sync?.state?.providers.length ?? 0) > 0;
+  /**
+   * The empty board's Sync button names the ticket system: the one the board syncs with, or the only one
+   * connected. With several connected and none chosen yet it is plain "Sync". Null: nothing is connected.
+   */
+  const emptySyncLabel = () => {
+    const state = props.sync?.state;
+    if (!state || state.providers.length === 0) return null;
+    const provider = state.target?.provider ?? (state.providers.length === 1 ? state.providers[0] : undefined);
+    return provider
+      ? t("tickets.emptyState.syncFrom", { provider: t(PROVIDER_LABEL[provider]) })
+      : t("tickets.sync.open");
+  };
   const agentsLabel = () =>
     t(props.agentsOpen ? "conversation.tasks.page.hideAgents" : "conversation.tasks.page.showAgents");
   const empty = () => props.loaded && props.tickets.length === 0;
@@ -196,6 +209,9 @@ export function TicketsPage(props: TicketsPageProps) {
             <Show when={props.available && props.loaded}>
               <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
             </Show>
+            <Show when={props.available && empty()}>
+              <p class="tickets-page-subtitle tickets-muted">{t("tickets.empty.title")}</p>
+            </Show>
           </div>
           <Show when={props.available}>
             <div class="tickets-page-tools">
@@ -240,42 +256,52 @@ export function TicketsPage(props: TicketsPageProps) {
             onFilter={setFilter}
           />
           <div class="tickets-page-scroll">
-            <Show when={empty()}>
-              <TicketsNotice title={t("tickets.empty.title")} body={t("tickets.empty.body")} />
-            </Show>
             <Show when={!empty() && query().trim() !== "" && found().length === 0}>
               <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
             </Show>
+            {/* While the first list loads the board shows its empty columns, never the empty state. */}
             <Show
-              when={view() === "agents"}
+              when={!empty()}
               fallback={
-                <TicketsColumns
+                <TicketsEmptyState
+                  syncLabel={emptySyncLabel()}
+                  onNewTicket={() => setCreating(true)}
+                  onSync={() => setSyncOpen(true)}
+                  onCreate={props.onCreate}
+                />
+              }
+            >
+              <Show
+                when={view() === "agents"}
+                fallback={
+                  <TicketsColumns
+                    agents={props.agents}
+                    tickets={shown()}
+                    snapshots={props.snapshots}
+                    selectedTicketId={props.selectedTicketId}
+                    onSelectTicket={props.onSelectTicket}
+                    now={now()}
+                    review={review}
+                    autopilot={autopilot()}
+                    nextTicketId={nextTicketId()}
+                    onQuickAdd={() => setCreating(true)}
+                  />
+                }
+              >
+                <TicketsLanes
                   agents={props.agents}
                   tickets={shown()}
                   snapshots={props.snapshots}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
+                  onSelectAgent={selectAgent}
                   now={now()}
                   review={review}
                   autopilot={autopilot()}
                   nextTicketId={nextTicketId()}
                   onQuickAdd={() => setCreating(true)}
                 />
-              }
-            >
-              <TicketsLanes
-                agents={props.agents}
-                tickets={shown()}
-                snapshots={props.snapshots}
-                selectedTicketId={props.selectedTicketId}
-                onSelectTicket={props.onSelectTicket}
-                onSelectAgent={selectAgent}
-                now={now()}
-                review={review}
-                autopilot={autopilot()}
-                nextTicketId={nextTicketId()}
-                onQuickAdd={() => setCreating(true)}
-              />
+              </Show>
             </Show>
           </div>
         </Show>
