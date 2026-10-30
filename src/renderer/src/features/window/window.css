@@ -507,7 +507,7 @@
   .app-window
     > .app-frame-edge.app-frame-sidebar-hidden
     > .app-frame-panes
-    :is(.tickets-page-header, .tickets-strip, .tickets-page-scroll, .tickets-notice, .tickets-side) {
+    :is(.tickets-page-header, .tickets-filters, .tickets-page-scroll, .tickets-notice, .tickets-side) {
     pointer-events: auto;
   }
 

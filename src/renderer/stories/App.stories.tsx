@@ -510,3 +510,25 @@ const TICKETS_STORY_OPTIONS: MockOpenBotOptions = {
 export const TicketsBoard: Story = {
   render: () => <OpenBotPlayground options={TICKETS_STORY_OPTIONS} />,
 };
+
+/**
+ * The Tickets page with an empty board. Linear is connected, so the empty state offers "Sync from
+ * Linear". The first ticket list takes a moment, as a slow disk does: the board shows no empty state until
+ * it arrives. `scripts/tickets-board-e2e.ts` drives this story.
+ */
+export const TicketsBoardEmpty: Story = {
+  render: () => (
+    <OpenBotPlayground
+      options={{
+        boardTickets: [],
+        boardTicketsFirstListDelayMs: 1500,
+        boardTicketSync: { providers: ["linear"], projects: { linear: ["Product"] }, issues: { Product: [] } },
+      }}
+    />
+  ),
+};
+
+/** The empty board with no ticket system connected: the empty state has no Sync button. */
+export const TicketsBoardEmptyNoSync: Story = {
+  render: () => <OpenBotPlayground options={{ boardTickets: [] }} />,
+};
