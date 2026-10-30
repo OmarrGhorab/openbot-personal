@@ -6,6 +6,8 @@ import {
   SHAPES,
   type ShapeId,
 } from "@norbert_bodziony/bloub";
+import { parseAgentMascotSeed } from "@openbot/contracts/agent-mascot-avatar";
+import { APP_LOGO_COLOR_HEX } from "@openbot/contracts/app-logo-color";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 
 export type SupportedAvatarSilhouetteId = Exclude<ShapeId, "goutte">;
@@ -79,11 +81,16 @@ export function avatarHueSwatch(hue: AvatarHue): string {
   return colorHex(HUE_COLORS[hue]);
 }
 
+/** The accent of an avatar: the shape's color, or the logo color of a mascot avatar. */
 export function avatarHeadColor(seed: string, hue: AvatarHue | null): string {
+  const mascot = parseAgentMascotSeed(seed);
+  if (mascot) return APP_LOGO_COLOR_HEX[mascot.color];
   return colorHex(bloubAvatarProfile(seed, hue).color);
 }
 
-export function avatarCandidateSeeds(agentId: string, currentSeed: string, batch: number): string[] {
+export function avatarCandidateSeeds(agentId: string, seed: string, batch: number): string[] {
+  // A mascot avatar is not a shape, so the shape choices start from the agent's own id instead.
+  const currentSeed = parseAgentMascotSeed(seed) ? agentId : seed;
   const candidates = [currentSeed];
   const firstProfile = bloubAvatarProfile(currentSeed, null);
   const unseenSilhouetteIds = new Set<SupportedAvatarSilhouetteId>(SUPPORTED_AVATAR_SILHOUETTES);

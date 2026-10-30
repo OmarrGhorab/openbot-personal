@@ -21,34 +21,117 @@
   --tickets-status: var(--openbot-success);
 }
 
-/* The strip of agents. */
-.tickets-strip {
+/* The filter chips above the board, and the running threads of every agent at their end. */
+.tickets-filters {
   display: flex;
-  gap: var(--openbot-space-2);
-  overflow-x: auto;
+  align-items: center;
+  gap: var(--openbot-space-3);
   padding: 0 var(--openbot-space-6) var(--openbot-space-3);
 }
 
-.tickets-strip-agent.ui-button {
+.tickets-chips {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: var(--openbot-space-2);
+  overflow-x: auto;
+}
+
+.tickets-chip.ui-button {
   height: auto;
   flex: 0 0 auto;
-  justify-content: flex-start;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-1-5) var(--openbot-space-3) var(--openbot-space-1-5) var(--openbot-space-2);
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-3);
   border: 1px solid var(--openbot-glass-border);
   border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-bg-surface);
+  background: transparent;
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
 }
 
-.tickets-strip-agent[aria-pressed="true"] {
-  border-color: var(--openbot-accent);
+.tickets-chip[aria-pressed="true"] {
+  border-color: var(--openbot-glass-border);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-primary);
 }
 
-.tickets-strip-agent[data-busy] .tickets-strip-count {
+.tickets-chip-count {
+  color: var(--openbot-text-dim);
+}
+
+.tickets-chip-avatar.agent-avatar {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+}
+
+.tickets-threads {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  white-space: nowrap;
+}
+
+.tickets-threads-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.tickets-threads[data-busy] .tickets-threads-dot {
+  background: var(--openbot-accent);
+}
+
+/* The title, the Autopilot pill and the summary line under them. */
+.tickets-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+}
+
+.tickets-heading-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-summary {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-autopilot-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border: 1px solid color-mix(in srgb, var(--openbot-accent) 40%, transparent);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
   color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
 }
 
-.tickets-strip-avatar.agent-avatar,
+.tickets-autopilot-pill svg,
+.tickets-next svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  flex: 0 0 auto;
+}
+
 .tickets-lane-avatar.agent-avatar {
   width: 28px;
   height: 28px;
@@ -59,25 +142,6 @@
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-}
-
-.tickets-strip-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: var(--openbot-leading-sm);
-}
-
-.tickets-strip-name {
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-medium);
-}
-
-.tickets-strip-count {
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
 }
 
 /* The columns. */
@@ -98,11 +162,14 @@
   background: var(--openbot-hover);
 }
 
+/* Every column header has the same height, with or without its quick add button or note. */
 .tickets-column-header {
   display: flex;
+  height: var(--openbot-space-8);
+  flex: 0 0 auto;
   align-items: center;
-  gap: var(--openbot-space-1-5);
-  padding: var(--openbot-space-1);
+  gap: var(--openbot-space-2);
+  padding: 0 var(--openbot-space-1);
   font-size: var(--openbot-text-sm);
   font-weight: var(--openbot-weight-medium);
 }
@@ -115,7 +182,48 @@
 }
 
 .tickets-column-name {
-  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-column-note {
+  overflow: hidden;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-column-add.ui-button {
+  margin-inline-start: auto;
+}
+
+.tickets-column-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+}
+
+/* The marker above the ticket that Raven picks next, and that card's border. */
+.tickets-next {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-accent) 14%, transparent);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+}
+
+.tickets-column-item[data-next] .tickets-card {
+  border-color: color-mix(in srgb, var(--openbot-accent) 60%, transparent);
 }
 
 .tickets-column-count {
@@ -137,80 +245,250 @@
   font-size: var(--openbot-text-sm);
 }
 
-/* A card. */
-.tickets-card.ui-button {
-  height: auto;
+/* A card (Figma "Ticket card v2"). The body is one button; Approve and Changes sit below it. */
+.tickets-card {
+  --tickets-edge: transparent;
+  position: relative;
+  display: flex;
+  min-width: 0;
   flex-direction: column;
-  align-items: stretch;
-  gap: var(--openbot-space-1-5);
-  padding: var(--openbot-space-2) var(--openbot-space-3);
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
   border: 1px solid var(--openbot-glass-border);
-  border-inline-start: 2px solid var(--tickets-status);
   border-radius: var(--openbot-radius-lg);
   background: var(--openbot-bg-surface);
+}
+
+.tickets-card:has(.tickets-card-body[aria-pressed="true"]) {
+  border-color: var(--openbot-accent);
+}
+
+/* The left edge: accent running, warning waiting for review, danger blocked, success done. */
+.tickets-card[data-edge="running"] {
+  --tickets-edge: var(--openbot-accent);
+}
+
+.tickets-card[data-edge="waiting"] {
+  --tickets-edge: var(--openbot-warning);
+}
+
+.tickets-card[data-edge="blocked"] {
+  --tickets-edge: var(--openbot-danger);
+}
+
+.tickets-card[data-edge="done"] {
+  --tickets-edge: var(--openbot-success);
+}
+
+.tickets-card[data-edge]::before {
+  position: absolute;
+  inset-block-start: var(--openbot-space-3);
+  inset-inline-start: -1px;
+  width: 2px;
+  height: var(--openbot-icon-lg);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--tickets-edge);
+  content: "";
+}
+
+.tickets-card-body.ui-button {
+  display: flex;
+  height: auto;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  margin: calc(var(--openbot-space-1) * -1);
+  padding: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-md);
+  background: transparent;
+  font-weight: var(--openbot-weight-regular);
   text-align: start;
   white-space: normal;
 }
 
-.tickets-card[aria-pressed="true"] {
-  border-color: var(--openbot-accent);
+.tickets-card-body.ui-button:hover {
+  background: transparent;
 }
 
-.tickets-card-title {
-  color: var(--openbot-text-primary);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-medium);
-  line-height: var(--openbot-leading-sm);
+/* The top row: the type chip, the key, and the short meta at the end. */
+.tickets-card-top {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
 }
 
-.tickets-card-progress {
+.tickets-card-key {
   overflow: hidden;
-  color: var(--openbot-text-secondary);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
+  min-width: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tickets-card-error {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-1);
-  margin: 0;
-  color: var(--openbot-danger-text);
-  font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
-}
-
-.tickets-card-error svg {
-  width: var(--openbot-icon-xs);
-  height: var(--openbot-icon-xs);
-  flex: 0 0 auto;
-}
-
 .tickets-card-meta {
+  overflow: hidden;
+  min-width: 0;
+  margin-inline-start: auto;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The title: 14px medium, at most two lines, broken anywhere it must so nothing is cut at 213px. */
+.tickets-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-sm);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* The four steps: a bar for each, the stage label and the live line. */
+.tickets-card-steps {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--openbot-space-2);
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.tickets-card-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--openbot-space-1);
+  margin-block-end: var(--openbot-space-1);
+}
+
+.tickets-card-bar {
+  height: 3px;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-border);
+}
+
+.tickets-card-bar[data-reached] {
+  background: var(--openbot-accent);
+}
+
+.tickets-card-bar[data-current] {
+  background: var(--tickets-edge);
+}
+
+.tickets-card-steps[data-state="done"] .tickets-card-bar {
+  background: var(--openbot-success);
+}
+
+.tickets-card-stage {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+}
+
+.tickets-card-live {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--openbot-text-muted);
   font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* A failed turn: its reason in a banner tinted from the danger token. */
+.tickets-card-error {
+  margin: 0;
+  padding: var(--openbot-space-1-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-danger) 16%, transparent);
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+  overflow-wrap: anywhere;
+}
+
+/* The footer: the agent, and the live pill at the end. */
+.tickets-card-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
 }
 
 .tickets-card-agent {
   display: inline-flex;
   min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-card-agent-name {
+  overflow: hidden;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sparkle avatar of an unassigned ticket: Raven picks the agent. */
+.tickets-card-auto {
+  display: inline-flex;
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 18%, transparent);
+  color: var(--openbot-accent-text);
+}
+
+.tickets-card-auto svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.tickets-card-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--openbot-space-1);
+  padding: var(--openbot-space-0-5) var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+  white-space: nowrap;
 }
 
-.tickets-card-agent-none {
-  color: var(--openbot-text-dim);
+.tickets-card-pill[data-tone="running"] {
+  background: color-mix(in srgb, var(--openbot-accent) 16%, transparent);
+  color: var(--openbot-accent-text);
 }
 
-.tickets-card-key {
-  color: var(--openbot-text-dim);
+.tickets-card-pill-dot {
+  width: var(--openbot-space-1);
+  height: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: currentColor;
+}
+
+/* Approve and Changes: two equal buttons. They are not inside the card button. */
+.tickets-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-card-action.ui-button {
+  min-width: 0;
 }
 
 /* The type chip (Figma "Type chip"): a dot in the type's colour and its name, on the glass surface. */
@@ -254,65 +532,118 @@
   color: var(--openbot-text-muted);
 }
 
-/* The top row of a card: the type chip, then where the ticket comes from. */
-.tickets-card-top {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--openbot-space-2);
+/* The lanes (Figma 153-635): one grid, so every lane lines up its cells with the status names on top. */
+.tickets-lanes {
+  display: grid;
+  min-width: calc(12rem + 5 * 13.3125rem + 6 * var(--openbot-space-3));
+  grid-template-columns: minmax(10rem, 12rem) repeat(5, minmax(13.3125rem, 1fr));
+  column-gap: var(--openbot-space-3);
+  row-gap: var(--openbot-space-3);
 }
 
-/* The ticket system and key above the title: where the ticket comes from. */
-.tickets-card-source {
+.tickets-lanes-head,
+.tickets-lane {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  padding-inline: var(--openbot-space-3);
+  border: 1px solid transparent;
+}
+
+.tickets-lanes-status {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: var(--openbot-space-1);
-  color: var(--openbot-text-dim);
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1) var(--openbot-space-1);
+  color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
-}
-
-.tickets-card-source-mark {
-  width: var(--openbot-icon-sm);
-  height: var(--openbot-icon-sm);
-  flex: 0 0 auto;
-}
-
-/* The lanes. */
-.tickets-lanes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-5);
+  font-weight: var(--openbot-weight-medium);
 }
 
 .tickets-lane {
+  align-items: start;
+  padding-block: var(--openbot-space-3);
+  border-color: var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-hover);
+}
+
+.tickets-lane-side {
+  min-width: 0;
+}
+
+.tickets-lane-header.ui-button,
+.tickets-lane-header {
   display: flex;
+  height: auto;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-1);
+  text-align: start;
+  white-space: normal;
+}
+
+.tickets-lane-who {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-lane-name {
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-lane-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-regular);
+}
+
+.tickets-lane-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.tickets-lane-count[data-busy] .tickets-lane-dot {
+  background: var(--openbot-accent);
+}
+
+.tickets-lane-auto.tickets-card-auto {
+  width: 28px;
+  height: 28px;
+}
+
+.tickets-lane-cell {
+  display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: var(--openbot-space-2);
 }
 
-.tickets-lane-header.ui-button,
-.tickets-lane-header-static {
-  display: flex;
-  height: auto;
-  align-items: center;
-  align-self: flex-start;
-  justify-content: flex-start;
-  gap: var(--openbot-space-2);
-  padding: var(--openbot-space-1) var(--openbot-space-2);
-}
-
-.tickets-lane-name {
+/* An empty cell: a dashed slot. */
+.tickets-lane-empty {
   margin: 0;
-  font-size: var(--openbot-text-md);
-  font-weight: var(--openbot-weight-semibold);
-}
-
-.tickets-lane-count {
-  color: var(--openbot-text-muted);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px dashed var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-md);
+  color: var(--openbot-text-dim);
   font-size: var(--openbot-text-sm);
-  font-weight: var(--openbot-weight-regular);
 }
 
 /* The side region: the agent panel or the ticket drawer. */
@@ -438,81 +769,6 @@
 }
 
 /* The ticket drawer. */
-[data-status="backlog"].tickets-step {
-  --tickets-status: var(--openbot-text-dim);
-}
-
-[data-status="queued"].tickets-step {
-  --tickets-status: var(--openbot-warning);
-}
-
-[data-status="running"].tickets-step {
-  --tickets-status: var(--openbot-accent);
-}
-
-[data-status="needs_review"].tickets-step {
-  --tickets-status: var(--openbot-danger);
-}
-
-[data-status="done"].tickets-step {
-  --tickets-status: var(--openbot-success);
-}
-
-.tickets-stepper {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--openbot-space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tickets-step {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--openbot-space-1);
-  color: var(--openbot-text-dim);
-  font-size: var(--openbot-text-sm);
-}
-
-.tickets-step::before {
-  height: 3px;
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-hover);
-  content: "";
-}
-
-.tickets-step[data-reached]::before {
-  background: var(--tickets-status);
-}
-
-.tickets-step[data-current] {
-  color: var(--openbot-text-primary);
-  font-weight: var(--openbot-weight-medium);
-}
-
-.tickets-step-time {
-  color: var(--openbot-text-dim);
-  font-weight: var(--openbot-weight-regular);
-}
-
-.tickets-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--openbot-space-2);
-}
-
-.tickets-stat {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--openbot-space-0-5);
-  padding: var(--openbot-space-2) var(--openbot-space-3);
-  border-radius: var(--openbot-radius-lg);
-  background: var(--openbot-hover);
-}
-
 .tickets-stat-label {
   margin: 0;
   color: var(--openbot-text-muted);
@@ -520,40 +776,11 @@
   font-weight: var(--openbot-weight-medium);
 }
 
-.tickets-stat-value {
-  overflow: hidden;
-  font-size: var(--openbot-text-md);
-  font-weight: var(--openbot-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .tickets-body {
   margin: 0;
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
   white-space: pre-wrap;
-}
-
-.tickets-live {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-1-5);
-  margin: 0;
-  color: var(--openbot-accent-text);
-  font-size: var(--openbot-text-sm);
-}
-
-.tickets-live svg {
-  width: var(--openbot-icon-xs);
-  height: var(--openbot-icon-xs);
-  animation: tickets-spin 1.2s linear infinite;
-}
-
-@keyframes tickets-spin {
-  to {
-    transform: rotate(1turn);
-  }
 }
 
 .tickets-list {
@@ -564,89 +791,6 @@
   padding: 0;
   list-style: none;
   font-size: var(--openbot-text-sm);
-}
-
-.tickets-event {
-  display: flex;
-  gap: var(--openbot-space-2);
-}
-
-.tickets-event-actor {
-  flex: 0 0 auto;
-  color: var(--openbot-text-muted);
-}
-
-.tickets-event-text {
-  min-width: 0;
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-
-.tickets-event-time {
-  flex: 0 0 auto;
-  color: var(--openbot-text-dim);
-}
-
-.tickets-plan-step {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--openbot-space-1-5);
-}
-
-.tickets-plan-step svg {
-  width: var(--openbot-icon-xs);
-  height: var(--openbot-icon-xs);
-  flex: 0 0 auto;
-  margin-top: var(--openbot-space-0-5);
-  color: var(--openbot-text-dim);
-}
-
-.tickets-plan-step[data-status="completed"] svg {
-  color: var(--openbot-success-text);
-}
-
-.tickets-plan-step[data-status="inProgress"] svg {
-  color: var(--openbot-accent-text);
-}
-
-.tickets-file {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-1-5);
-  overflow-wrap: anywhere;
-}
-
-.tickets-file svg {
-  width: var(--openbot-icon-xs);
-  height: var(--openbot-icon-xs);
-  flex: 0 0 auto;
-  color: var(--openbot-text-dim);
-}
-
-.tickets-tokens {
-  display: flex;
-  height: 4rem;
-  align-items: flex-end;
-  gap: var(--openbot-space-0-5);
-}
-
-.tickets-tokens-bar {
-  min-width: var(--openbot-space-1);
-  flex: 1;
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-accent);
-}
-
-.tickets-steer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--openbot-space-2);
-}
-
-.tickets-steer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--openbot-space-2);
 }
 
 .tickets-drawer-agent {
@@ -683,6 +827,449 @@
   flex: 0 0 auto;
 }
 
+/* The redesigned ticket drawer: a fixed header, a body that scrolls and a steer box that does not. */
+.ticket-drawer {
+  --ticket-drawer-inline: calc(var(--openbot-space-4) + var(--openbot-space-1));
+
+  width: min(27.5rem, 46%);
+}
+
+[data-status="backlog"]:is(.ticket-drawer-pill, .ticket-drawer-step) {
+  --tickets-status: var(--openbot-text-dim);
+}
+
+[data-status="queued"]:is(.ticket-drawer-pill, .ticket-drawer-step) {
+  --tickets-status: var(--openbot-warning);
+}
+
+[data-status="running"]:is(.ticket-drawer-pill, .ticket-drawer-step) {
+  --tickets-status: var(--openbot-accent);
+}
+
+[data-status="needs_review"]:is(.ticket-drawer-pill, .ticket-drawer-step) {
+  --tickets-status: var(--openbot-danger);
+}
+
+[data-status="done"]:is(.ticket-drawer-pill, .ticket-drawer-step) {
+  --tickets-status: var(--openbot-success);
+}
+
+.ticket-drawer-header {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-4) var(--openbot-space-4) var(--openbot-space-3) var(--ticket-drawer-inline);
+  border-bottom: 1px solid var(--openbot-glass-border);
+}
+
+.ticket-drawer-meta {
+  display: flex;
+  min-height: var(--openbot-control-sm);
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-drawer-key {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-drawer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-drawer-pill-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--tickets-status);
+}
+
+.ticket-drawer-spacer {
+  flex: 1;
+}
+
+.ticket-drawer-title {
+  margin: 0;
+  font-size: var(--openbot-text-2xl);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-xl);
+  overflow-wrap: anywhere;
+}
+
+.ticket-drawer-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--openbot-space-4) + var(--openbot-space-1-5));
+  overflow-y: auto;
+  padding: calc(var(--openbot-space-4) + var(--openbot-space-0-5)) var(--ticket-drawer-inline);
+}
+
+/* The review banner: the danger tint of Needs review, mixed from the token. */
+.ticket-drawer-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+  border: 1px solid color-mix(in srgb, var(--openbot-danger) 40%, var(--openbot-transparent));
+  border-radius: var(--openbot-radius-lg);
+  background: color-mix(in srgb, var(--openbot-danger) 10%, var(--openbot-transparent));
+}
+
+.ticket-drawer-review-title {
+  margin: 0;
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.ticket-drawer-review-text {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.ticket-drawer-review-actions,
+.ticket-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-drawer-review-actions > :first-child,
+.ticket-drawer-primary {
+  flex: 1 1 auto;
+}
+
+/* The five status steps: a bar and a name each. Passed steps take the accent, the current one its own colour. */
+.ticket-drawer-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--openbot-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-drawer-step {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1-5);
+  overflow: hidden;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-drawer-step::before {
+  height: var(--openbot-space-1);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-surface);
+  content: "";
+}
+
+.ticket-drawer-step[data-reached]::before {
+  background: var(--openbot-accent);
+}
+
+.ticket-drawer-step[data-current]::before {
+  background: var(--tickets-status);
+}
+
+.ticket-drawer-step[data-current] {
+  color: var(--openbot-text-primary);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.ticket-drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-drawer-heading {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ticket-drawer-details {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.ticket-drawer-row {
+  display: grid;
+  min-height: var(--openbot-control-xs);
+  grid-template-columns: 6rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-1) 0;
+}
+
+.ticket-drawer-row dt {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+}
+
+.ticket-drawer-row dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-drawer-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin-inline-start: calc(-1 * var(--openbot-space-1-5));
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-drawer-avatar.agent-avatar {
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+  flex: 0 0 auto;
+}
+
+.ticket-drawer-agent .ticket-drawer-chevron {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+  color: var(--openbot-text-muted);
+}
+
+.ticket-drawer-link.ui-button-variant-link {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-regular);
+}
+
+/* The live line: the accent tint of Running, mixed from the token. */
+.ticket-drawer-live {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid color-mix(in srgb, var(--openbot-accent) 35%, var(--openbot-transparent));
+  border-radius: var(--openbot-radius-lg);
+  background: color-mix(in srgb, var(--openbot-accent) 10%, var(--openbot-transparent));
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+}
+
+.ticket-drawer-live svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  flex: 0 0 auto;
+  color: var(--openbot-accent-text);
+  animation: tickets-spin 1.2s linear infinite;
+}
+
+@keyframes tickets-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.ticket-drawer-error {
+  margin: 0;
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border-radius: var(--openbot-radius-lg);
+  background: color-mix(in srgb, var(--openbot-danger) 10%, var(--openbot-transparent));
+  color: var(--openbot-danger-text);
+  font-size: var(--openbot-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.ticket-drawer-plan,
+.ticket-drawer-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-drawer-plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+}
+
+.ticket-drawer-plan-step[data-status="completed"] {
+  color: var(--openbot-text-muted);
+}
+
+.ticket-drawer-plan-box {
+  display: inline-flex;
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--openbot-space-0-5);
+  border: 1px solid var(--openbot-text-dim);
+  border-radius: var(--openbot-radius-pill);
+}
+
+.ticket-drawer-plan-step[data-status="inProgress"] .ticket-drawer-plan-box {
+  border-color: var(--openbot-accent-text);
+}
+
+.ticket-drawer-plan-step[data-status="completed"] .ticket-drawer-plan-box {
+  border-color: var(--openbot-success);
+  background: var(--openbot-success);
+  color: var(--openbot-text-on-status);
+}
+
+.ticket-drawer-plan-box svg {
+  width: var(--openbot-icon-xs);
+  height: var(--openbot-icon-xs);
+}
+
+.ticket-drawer-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-drawer-file {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-md);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.ticket-drawer-file span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-drawer-file svg {
+  width: var(--openbot-icon-sm);
+  height: var(--openbot-icon-sm);
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+}
+
+.ticket-drawer-event {
+  display: flex;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-drawer-event-dot {
+  width: var(--openbot-space-1-5);
+  height: var(--openbot-space-1-5);
+  flex: 0 0 auto;
+  margin-top: var(--openbot-space-1-5);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.ticket-drawer-event-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-0-5);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.ticket-drawer-event-meta {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+}
+
+/* The steer box stays under the body. */
+.ticket-drawer-composer {
+  flex: 0 0 auto;
+  padding: var(--openbot-space-3) var(--ticket-drawer-inline) var(--openbot-space-4);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+.ticket-drawer-composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-2) var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+}
+
+.ticket-drawer-composer-box:focus-within {
+  border-color: var(--openbot-border-focus);
+}
+
+.ticket-drawer-composer-input.ui-textarea {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: var(--openbot-transparent);
+  box-shadow: none;
+  resize: none;
+}
+
+.ticket-drawer-composer-input.ui-textarea:focus-visible {
+  box-shadow: none;
+  outline: 0;
+}
+
+.ticket-drawer-composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.ticket-drawer-composer-hint {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+}
+
 /* The page: the header, the strip and the board, with the drawer or the agent panel beside them. */
 .tickets-page {
   display: flex;
@@ -711,7 +1298,6 @@
 
 .tickets-page-header h2 {
   min-width: 0;
-  flex: 1;
   margin: 0;
   font-size: var(--openbot-text-lg);
   font-weight: var(--openbot-weight-semibold);
@@ -790,12 +1376,6 @@
   gap: var(--openbot-space-3);
 }
 
-.tickets-new-agent {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-2);
-}
-
 /* The menu opens from a dialog, so it takes the layer above the dialog instead of the popover layer under it. */
 .tickets-new-menu.ui-action-menu {
   z-index: var(--openbot-layer-dialog-host);
@@ -806,6 +1386,143 @@
   justify-content: flex-end;
   gap: var(--openbot-space-2);
   padding-top: var(--openbot-space-2);
+}
+
+/* The New ticket dialog (issue 192): a header, a body with the fields and the Autopilot option, and a footer. */
+.tickets-new.tickets-new-ticket.ui-dialog-content {
+  width: min(32.5rem, 100%);
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-xl);
+  background: var(--openbot-bg-surface-raised);
+}
+
+.tickets-new-ticket .tickets-new-header {
+  padding: calc(var(--openbot-space-4) + var(--openbot-space-1)) var(--openbot-space-6) var(--openbot-space-1);
+}
+
+.tickets-new-ticket .tickets-new-title {
+  font-size: var(--openbot-text-xl);
+}
+
+.tickets-new-description {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+}
+
+.tickets-new-ticket .tickets-new-form {
+  gap: 0;
+}
+
+.tickets-new-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-4);
+  padding: var(--openbot-space-4) var(--openbot-space-6) calc(var(--openbot-space-4) + var(--openbot-space-1));
+}
+
+.tickets-new-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--openbot-space-1-5);
+}
+
+.tickets-new-label {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-medium);
+}
+
+.tickets-new-hint {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+/* In the Type tabs, a type is its dot and its name; the tab draws the pill. */
+.tickets-new-types .tickets-type {
+  border: 0;
+  background: var(--openbot-transparent);
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* The Autopilot option: the accent tint, mixed from the token. */
+.tickets-new-autopilot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--openbot-space-3);
+  padding: var(--openbot-space-3) calc(var(--openbot-space-3) + var(--openbot-space-0-5));
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+}
+
+.tickets-new-autopilot[data-on] {
+  border-color: color-mix(in srgb, var(--openbot-accent) 35%, var(--openbot-transparent));
+  background: color-mix(in srgb, var(--openbot-accent) 8%, var(--openbot-transparent));
+}
+
+.tickets-new-autopilot-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  cursor: pointer;
+}
+
+.tickets-new-autopilot-title {
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.tickets-new-autopilot-body {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-autopilot-rule {
+  display: flex;
+  min-width: 0;
+  gap: var(--openbot-space-1-5);
+  padding-top: var(--openbot-space-1);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-autopilot-rule-label {
+  flex: 0 0 auto;
+  color: var(--openbot-text-muted);
+}
+
+.tickets-new-autopilot-rule-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  font-weight: var(--openbot-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-new-agent-name {
+  flex: 1 1 auto;
+}
+
+.tickets-new-agent-free {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-sm);
+}
+
+.tickets-new-ticket .tickets-new-actions {
+  align-items: center;
+  padding: calc(var(--openbot-space-3) + var(--openbot-space-0-5)) var(--openbot-space-6);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+
+.tickets-new-spacer {
+  flex: 1;
 }
 
 /* The Sync tickets dialog: the ticket systems as marks, then the repository or project as a list. */
@@ -965,10 +1682,136 @@
   margin-inline-end: auto;
 }
 
-/* The type picker of the drawer: the chip is the button's content, so the button keeps no extra padding. */
-.tickets-drawer-type.ui-button {
-  gap: 0;
-  padding-inline: var(--openbot-space-1);
+/* The empty board: a hero with New ticket and Sync, then three example tickets to add. */
+.tickets-page-subtitle {
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--openbot-space-8);
+  padding: calc(var(--openbot-space-8) + var(--openbot-space-6)) 0 var(--openbot-space-6);
+}
+
+.tickets-empty-hero {
+  display: flex;
+  max-width: 29rem;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  text-align: center;
+}
+
+.tickets-empty-icon {
+  display: inline-flex;
+  width: calc(var(--openbot-space-8) + var(--openbot-space-6) - var(--openbot-space-1));
+  height: calc(var(--openbot-space-8) + var(--openbot-space-6) - var(--openbot-space-1));
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-card);
+  background: var(--openbot-bg-surface-raised);
+  color: var(--openbot-text-secondary);
+}
+
+.tickets-empty-icon svg {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+}
+
+.tickets-empty-hero h3 {
+  margin: 0;
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-2xl);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-2xl);
+}
+
+.tickets-empty-body {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-md);
+  line-height: var(--openbot-leading-md);
+}
+
+.tickets-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-empty-examples {
+  display: flex;
+  width: min(47.5rem, 100%);
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+}
+
+.tickets-empty-examples-title {
+  margin: 0;
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: var(--openbot-leading-sm);
+  text-transform: uppercase;
+}
+
+.tickets-empty-example-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--openbot-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  list-style: none;
+}
+
+.tickets-empty-example {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--openbot-space-2);
+  padding: var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface-raised);
+}
+
+.tickets-empty-example-role {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-empty-example-role svg {
+  width: var(--openbot-icon-md);
+  height: var(--openbot-icon-md);
+}
+
+.tickets-empty-example-title {
+  color: var(--openbot-text-primary);
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-medium);
+  line-height: var(--openbot-leading-md);
+}
+
+.tickets-empty-example-body {
+  flex: 1;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  line-height: var(--openbot-leading-sm);
+}
+
+.tickets-empty-example-add.ui-button {
+  padding-inline: 0;
+  color: var(--openbot-accent-text);
 }
 
 /* Autopilot's decision on the drawer (issue 196): the decision row of Figma 160-1506 on the ticket board style of 159-1003. */

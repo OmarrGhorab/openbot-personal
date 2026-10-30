@@ -1,5 +1,6 @@
 // The desktop notification switch and the test notification Settings offers.
 
+import { isTicketMergeOpenRequest, type TicketMergeOpenRequest } from "@openbot/contracts/ipc";
 import type { AppTranslate } from "@openbot/i18n";
 import { sourceText } from "@openbot/i18n/source";
 import { Notification } from "electron";
@@ -15,6 +16,8 @@ export interface NotificationIpcDependencies {
   /** Asks the operating system for permission if OpenBot has not asked yet. */
   requestPermission: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
+  /** "View ticket" and "View PR" on the merge toast. Main looks the merge up; the window sends only its id. */
+  ticketMerge: { open: (request: TicketMergeOpenRequest) => Promise<void> };
 }
 
 export function notificationIpcHandlers({
@@ -22,6 +25,7 @@ export function notificationIpcHandlers({
   translate,
   requestPermission,
   openExternal,
+  ticketMerge,
 }: NotificationIpcDependencies): Pick<IpcGroupHandlers, "notifications"> {
   return {
     notifications: {
@@ -43,6 +47,12 @@ export function notificationIpcHandlers({
         if (!url) throw new Error(sourceText("error.app.notificationSettingsMissing"));
         await openExternal(url);
       }),
+      openTicketMerge: payloadHandler(parseTicketMergeOpenRequest, (request) => ticketMerge.open(request)),
     },
   };
+}
+
+function parseTicketMergeOpenRequest(input: unknown): TicketMergeOpenRequest {
+  if (!isTicketMergeOpenRequest(input)) throw new Error("A merge notice and a target are required.");
+  return { noticeId: input.noticeId, target: input.target };
 }

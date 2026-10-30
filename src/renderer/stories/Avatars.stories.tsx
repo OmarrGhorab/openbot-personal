@@ -1,5 +1,6 @@
 import { BloubBot, POSES } from "@norbert_bodziony/bloub";
 import { type AvatarMood, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
+import { APP_LOGO_COLORS, APP_LOGO_SHAPES, agentMascotSeed } from "@openbot/contracts/ipc";
 import { Button } from "@openbot/ui";
 import { bloubAvatarProfile } from "@openbot/ui/bloub-avatar";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
@@ -86,6 +87,23 @@ export const IndependentMotion: AgentStory = {
       </div>
     );
   },
+};
+
+/** Mascot avatars: the App icon mascots in each logo color, saved as `mascot:<shape>:<color>` seeds. */
+export const Mascots: AgentStory = {
+  render: () => (
+    <div class="grid gap-3 p-8">
+      <For each={APP_LOGO_COLORS}>
+        {(color) => (
+          <div class="flex gap-3">
+            <For each={APP_LOGO_SHAPES}>
+              {(shape) => <AgentAvatar seed={agentMascotSeed({ shape, color })} hue={null} motion="hover" />}
+            </For>
+          </div>
+        )}
+      </For>
+    </div>
+  ),
 };
 
 export const CustomImageFallback: AgentStory = {

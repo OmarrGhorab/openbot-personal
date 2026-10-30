@@ -18,6 +18,7 @@ import { ProviderModelPicker } from "../../components/ProviderModelPicker";
 import { currentText, useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
 import { AgentAvatar } from "./AgentAvatar";
+import { AgentAvatarKindTabs } from "./AgentAvatarKindTabs";
 import { AVATAR_HUE_LABEL } from "./avatar-hue-label";
 import { InstructionsLimit, instructionsTooLong } from "./InstructionsLimit";
 
@@ -363,69 +364,79 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
             />
           </div>
 
-          <fieldset class="first-agent-avatar-fieldset first-agent-color-fieldset" disabled={props.submitting}>
-            <legend class="sr-only">{t("agent.setup.color")}</legend>
-            <div class="first-agent-color-options">
-              <Button
-                variant="ghost"
-                type="button"
-                size="sm"
-                class="first-agent-color-choice"
-                aria-label={t("agent.setup.colorAutomatic")}
-                aria-pressed={props.value.avatarHue === null ? "true" : "false"}
-                data-cuelume-tap="select"
-                onClick={() => updateDraft({ avatarHue: null })}
-              >
-                <span
-                  class="first-agent-color-swatch"
-                  style={{ background: avatarHeadColor(props.value.avatarSeed, null) }}
-                />
-              </Button>
-              <For each={AVATAR_HUE_CHOICES}>
-                {(option) => (
-                  <Button
-                    variant="ghost"
-                    type="button"
-                    size="sm"
-                    class="first-agent-color-choice"
-                    aria-label={t("agent.setup.colorOption", { color: t(AVATAR_HUE_LABEL[option.hue]) })}
-                    aria-pressed={props.value.avatarHue === option.hue ? "true" : "false"}
-                    data-cuelume-tap="select"
-                    onClick={() => updateDraft({ avatarHue: option.hue })}
-                  >
-                    <span class="first-agent-color-swatch" style={{ background: avatarHueSwatch(option.hue) }} />
-                  </Button>
-                )}
-              </For>
-            </div>
-          </fieldset>
+          <AgentAvatarKindTabs
+            class="first-agent-avatar-kind"
+            seed={props.value.avatarSeed}
+            disabled={props.submitting}
+            onMascot={(avatarSeed) => updateDraft({ avatarSeed })}
+            shapes={
+              <>
+                <fieldset class="first-agent-avatar-fieldset first-agent-color-fieldset" disabled={props.submitting}>
+                  <legend class="sr-only">{t("agent.setup.color")}</legend>
+                  <div class="first-agent-color-options">
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      size="sm"
+                      class="first-agent-color-choice"
+                      aria-label={t("agent.setup.colorAutomatic")}
+                      aria-pressed={props.value.avatarHue === null ? "true" : "false"}
+                      data-cuelume-tap="select"
+                      onClick={() => updateDraft({ avatarHue: null })}
+                    >
+                      <span
+                        class="first-agent-color-swatch"
+                        style={{ background: avatarHeadColor(props.value.avatarSeed, null) }}
+                      />
+                    </Button>
+                    <For each={AVATAR_HUE_CHOICES}>
+                      {(option) => (
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          size="sm"
+                          class="first-agent-color-choice"
+                          aria-label={t("agent.setup.colorOption", { color: t(AVATAR_HUE_LABEL[option.hue]) })}
+                          aria-pressed={props.value.avatarHue === option.hue ? "true" : "false"}
+                          data-cuelume-tap="select"
+                          onClick={() => updateDraft({ avatarHue: option.hue })}
+                        >
+                          <span class="first-agent-color-swatch" style={{ background: avatarHueSwatch(option.hue) }} />
+                        </Button>
+                      )}
+                    </For>
+                  </div>
+                </fieldset>
 
-          <fieldset class="first-agent-avatar-fieldset first-agent-face-fieldset" disabled={props.submitting}>
-            <legend class="sr-only">{t("agent.setup.face")}</legend>
-            <div class="first-agent-face-options">
-              <For each={FIRST_AGENT_AVATAR_SEEDS}>
-                {(seed, index) => (
-                  <Button
-                    variant="ghost"
-                    type="button"
-                    size="sm"
-                    class="first-agent-face-choice"
-                    aria-label={t("agent.setup.faceOption", { number: index() + 1 })}
-                    aria-pressed={props.value.avatarSeed === seed ? "true" : "false"}
-                    data-cuelume-tap="select"
-                    onClick={() => updateDraft({ avatarSeed: seed })}
-                  >
-                    <AgentAvatar
-                      seed={seed}
-                      hue={props.value.avatarHue}
-                      motion="idle"
-                      animationOffset={index() * 0.16}
-                    />
-                  </Button>
-                )}
-              </For>
-            </div>
-          </fieldset>
+                <fieldset class="first-agent-avatar-fieldset first-agent-face-fieldset" disabled={props.submitting}>
+                  <legend class="sr-only">{t("agent.setup.face")}</legend>
+                  <div class="first-agent-face-options">
+                    <For each={FIRST_AGENT_AVATAR_SEEDS}>
+                      {(seed, index) => (
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          size="sm"
+                          class="first-agent-face-choice"
+                          aria-label={t("agent.setup.faceOption", { number: index() + 1 })}
+                          aria-pressed={props.value.avatarSeed === seed ? "true" : "false"}
+                          data-cuelume-tap="select"
+                          onClick={() => updateDraft({ avatarSeed: seed })}
+                        >
+                          <AgentAvatar
+                            seed={seed}
+                            hue={props.value.avatarHue}
+                            motion="idle"
+                            animationOffset={index() * 0.16}
+                          />
+                        </Button>
+                      )}
+                    </For>
+                  </div>
+                </fieldset>
+              </>
+            }
+          />
 
           <div class="first-agent-fields">
             <Field label={t("agent.setup.name")} required>

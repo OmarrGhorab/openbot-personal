@@ -6,11 +6,14 @@ import type {
   DynamicIslandAgentIdentity,
   DynamicIslandApprovalItem,
   DynamicIslandFailureItem,
+  DynamicIslandMergedItem,
   DynamicIslandPresentation,
   DynamicIslandPromptItem,
   DynamicIslandTakeoverItem,
 } from "@openbot/contracts/ipc";
 import {
+  APP_LOGO_COLOR_HEX,
+  APP_LOGO_TILE_HEX,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
   DYNAMIC_ISLAND_DEFAULT_COMPACT_HEIGHT,
   DYNAMIC_ISLAND_SIZE_LIMITS,
@@ -55,6 +58,7 @@ import {
   Switch,
   untrack,
 } from "solid-js";
+import { mascotImageUrl } from "../../mascot-avatar";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { StopIcon } from "../conversation/ConversationIcons";
 import { playIdleGreetingMotion } from "./idle-greeting-motion";
@@ -175,7 +179,7 @@ interface IslandModeSwapProps {
 
 type StatusMode = Extract<
   DynamicIslandPresentation["mode"],
-  "working" | "message" | "question" | "approval" | "takeover" | "failed"
+  "working" | "message" | "question" | "approval" | "takeover" | "failed" | "merged"
 >;
 
 interface OpenBotIslandModeConfig {
@@ -285,6 +289,18 @@ const OPENBOT_ISLAND_MODE_CONFIG: Record<DynamicIslandPresentation["mode"], Open
         <OctagonX data-icon="inline-start" class="dynamic-island-surface-status-badge-icon" aria-hidden="true" />
       ),
       className: "dynamic-island-surface-failed-badge",
+    },
+  },
+  merged: {
+    label: "island.label.merged",
+    ariaLive: "polite",
+    badge: {
+      label: "island.badge.merged",
+      variant: "success-light",
+      icon: () => (
+        <Check data-icon="inline-start" class="dynamic-island-surface-status-badge-icon" aria-hidden="true" />
+      ),
+      className: "dynamic-island-surface-merged-badge",
     },
   },
 };
@@ -791,6 +807,17 @@ function CompactLeading(props: {
             </Show>
           </span>
         </Match>
+        <Match when={props.presentation.mode === "merged" ? props.presentation.item : undefined}>
+          {(item) => (
+            <span
+              class="dynamic-island-surface-leading-anchor dynamic-island-surface-compact-identity"
+              data-island-spatial-anchor="center"
+            >
+              <MergedAppIcon appIcon={item().appIcon} />
+              <CompactAgentName name={item().ticketTitle} displayMode={props.displayMode} />
+            </span>
+          )}
+        </Match>
         <Match when={statusAgent()}>
           {(agent) => <CompactAgentIdentity agent={agent()} displayMode={props.displayMode} />}
         </Match>
@@ -1097,6 +1124,9 @@ function ExpandedContent(props: {
           />
         )}
       </Match>
+      <Match when={props.presentation.mode === "merged" ? props.presentation.item : undefined}>
+        {(item) => <MergedContent item={item()} actionError={props.actionError} onAction={props.onAction} />}
+      </Match>
       <Match when={props.presentation.mode === "failed" ? props.presentation.item : undefined}>
         {(item) => (
           <FailureContent
@@ -1182,6 +1212,80 @@ function FailureContent(props: {
         </>
       }
     />
+  );
+}
+
+/**
+ * A ticket the Reviewer merged: the App icon from Settings › Appearance, "Merged by Reviewer", the
+ * ticket and its PR number, a check, and "View ticket" / "View PR".
+ */
+function MergedContent(props: {
+  item: DynamicIslandMergedItem;
+  actionError?: UserErrorDetails | undefined;
+  onAction: (action: DynamicIslandAction) => Promise<boolean> | undefined;
+}): JSX.Element {
+  const { t } = useText();
+  const detail = () =>
+    props.item.prNumber === null
+      ? props.item.ticketTitle
+      : t("island.merged.detail", { ticket: props.item.ticketTitle, number: String(props.item.prNumber) });
+  return (
+    <div class="dynamic-island-surface-panel dynamic-island-surface-attention-panel">
+      <IslandContentSwap contentKey={props.item.noticeId} block>
+        <div class="dynamic-island-surface-merged">
+          <MergedAppIcon appIcon={props.item.appIcon} large />
+          <span class="dynamic-island-surface-merged-text">
+            <span class="dynamic-island-surface-merged-title">{t("island.merged.title")}</span>
+            <span class="dynamic-island-surface-merged-detail">{detail()}</span>
+          </span>
+          <span class="dynamic-island-surface-merged-check" aria-hidden="true">
+            <Check />
+          </span>
+        </div>
+      </IslandContentSwap>
+      <div class="dynamic-island-surface-actions" data-island-motion-content>
+        <IslandActionError message={props.actionError} />
+        <Show when={props.item.canOpenTicket}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => props.onAction({ type: "open-merged-ticket", noticeId: props.item.noticeId })}
+          >
+            {t("island.merged.viewTicket")}
+          </Button>
+        </Show>
+        <Show when={props.item.canOpenPullRequest}>
+          <Button
+            size="sm"
+            onClick={() => props.onAction({ type: "open-merged-pull-request", noticeId: props.item.noticeId })}
+          >
+            <ExternalLink aria-hidden="true" /> {t("island.merged.viewPullRequest")}
+          </Button>
+        </Show>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The App icon as the user set it: the mascot in its logo color on the chosen tile. The tile color
+ * is the user's own setting, the same one the Dock icon and the Settings picker draw.
+ */
+function MergedAppIcon(props: { appIcon: DynamicIslandMergedItem["appIcon"]; large?: boolean }): JSX.Element {
+  const tile = () =>
+    props.appIcon.tile === "tint"
+      ? `color-mix(in srgb, ${APP_LOGO_COLOR_HEX[props.appIcon.color]} 40%, white)`
+      : APP_LOGO_TILE_HEX[props.appIcon.tile];
+  return (
+    <span
+      class={["dynamic-island-surface-app-icon", props.large ? "dynamic-island-surface-app-icon-large" : undefined]
+        .filter(Boolean)
+        .join(" ")}
+      style={{ background: tile() }}
+      aria-hidden="true"
+    >
+      <img src={mascotImageUrl(props.appIcon.shape, props.appIcon.color)} alt="" draggable={false} />
+    </span>
   );
 }
 
@@ -1819,6 +1923,17 @@ function compactStatusAgent(presentation: DynamicIslandPresentation): DynamicIsl
   if (presentation.mode === "working")
     return presentation.working.length === 1 ? presentation.working[0]?.agent : undefined;
   if (presentation.mode === "message") return presentation.message.agent;
+  if (presentation.mode === "merged") {
+    // Only the name is read, to size the compact island; the App icon is drawn in its place.
+    const { appIcon } = presentation.item;
+    return {
+      id: presentation.item.noticeId,
+      name: presentation.item.ticketTitle,
+      avatarSeed: `mascot:${appIcon.shape}:${appIcon.color}`,
+      avatarHue: null,
+      avatarUrl: null,
+    };
+  }
   return presentation.item.agent;
 }
 

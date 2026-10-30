@@ -108,6 +108,7 @@ export { default as RotateCcw } from "lucide-solid/icons/rotate-ccw";
 export { default as Scan } from "lucide-solid/icons/scan";
 export { default as ScanLine } from "lucide-solid/icons/scan-line";
 export { default as Search } from "lucide-solid/icons/search";
+export { default as Send } from "lucide-solid/icons/send";
 export { default as Server } from "lucide-solid/icons/server";
 export { default as Settings } from "lucide-solid/icons/settings";
 export { default as ShieldCheck } from "lucide-solid/icons/shield-check";
@@ -115,6 +116,7 @@ export { default as SlidersHorizontal } from "lucide-solid/icons/sliders-horizon
 export { default as Smartphone } from "lucide-solid/icons/smartphone";
 export { default as Sparkles } from "lucide-solid/icons/sparkles";
 export { default as Square } from "lucide-solid/icons/square";
+export { default as SquareCheck } from "lucide-solid/icons/square-check";
 export { default as Store } from "lucide-solid/icons/store";
 export { default as Table2 } from "lucide-solid/icons/table-2";
 export { default as Terminal } from "lucide-solid/icons/terminal";

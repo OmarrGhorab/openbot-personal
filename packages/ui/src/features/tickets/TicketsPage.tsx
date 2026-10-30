@@ -6,44 +6,34 @@ import type {
   ConversationMessage,
   RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
-import {
-  ArrowLeft,
-  Button,
-  buttonVariants,
-  Dialog,
-  DropdownMenu,
-  Field,
-  IconButton,
-  Input,
-  PanelLeft,
-  Play,
-  Plus,
-  RefreshCw,
-  Textarea,
-  UsersRound,
-} from "@openbot/ui";
-import type { AgentProfile } from "@openbot/ui/data";
-import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
+import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw, UsersRound } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
-  TicketsAgentStrip,
+  type TicketReviewActions,
+  TicketsAutopilotPill,
   type TicketsBoardData,
   TicketsColumns,
+  TicketsFilterChips,
   TicketsLanes,
+  TicketsSummaryLine,
   TicketsViewSwitch,
 } from "./TicketsBoard";
-import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
-import type { TicketStart, TicketsView } from "./tickets-model";
-
-/** A ticket that the New ticket dialog adds to the backlog. */
-export interface TicketNew {
-  title: string;
-  body: string;
-  agentId: string | null;
-}
+import { TicketsChangesDialog } from "./TicketsChangesDialog";
+import { TicketsEmptyState } from "./TicketsEmptyState";
+import { type TicketNew, type TicketsAutopilot as TicketsNewAutopilot, TicketsNewDialog } from "./TicketsNewDialog";
+import { PROVIDER_LABEL, type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
+import {
+  autopilotNext,
+  filterTickets,
+  TICKETS_AUTOPILOT_OFF,
+  type TicketStart,
+  type TicketsAutopilot,
+  type TicketsFilter,
+  type TicketsView,
+} from "./tickets-model";
 
 export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControls {
   /** The board lives on this computer. False on a joined server: the page then shows a notice. */
@@ -75,10 +65,29 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (ticket: BoardTicket, text: string) => Promise<boolean>;
+  /**
+   * Approves a ticket in Needs review. Without it, Approve moves the ticket to Done. A consumer where the
+   * Reviewer merges (auto-merge on for the ticket's type) does the merge here.
+   */
+  onApprove?: ((ticket: BoardTicket) => void) | undefined;
+  /** Sends the text to the ticket's work thread and moves the ticket back to Running. True when it went out. */
+  onRequestChanges?: ((ticket: BoardTicket, text: string) => Promise<boolean>) | undefined;
   /** The sync with a connected ticket system. With no connected system, the page shows no sync control. */
   sync?: TicketsSyncControls | undefined;
+  /**
+   * Autopilot for the New ticket dialog while its switch is on. Absent: the dialog hides "Let autopilot
+   * work on it". (Named apart from the board's `autopilot` below, which #189 added.)
+   */
+  newTicketAutopilot?: TicketsNewAutopilot | undefined;
   /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
   onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
+  /**
+   * Raven Autopilot as the board shows it: the header pill, the "Raven picks this next" marker and
+   * "Auto-merge on" in Done. Absent: off.
+   * WIRING POINT (#195): the consumer maps `window.openbot.ravenAutopilot.get()` / `onChanged` to
+   * `{ enabled, slots: ticketsAtOnce, autoMerge: reviewerMerge.enabled }` once feat/195-autopilot-tab merges.
+   */
+  autopilot?: TicketsAutopilot | undefined;
   /** The Autopilot decision of each team job, by job id. The drawer of the job's own ticket shows it. */
   decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
 }
@@ -97,15 +106,48 @@ export function TicketsPage(props: TicketsPageProps) {
   const [creating, setCreating] = createSignal(false);
   const [syncOpen, setSyncOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
-  /** The board shows the tickets that match the search in their title, key or text. */
-  const shown = createMemo(() => {
+  /** The ticket whose Changes dialog is open. */
+  const [changesId, setChangesId] = createSignal<string | null>(null);
+  /** The cards count their times from this clock, which ticks each minute. */
+  const [now, setNow] = createSignal(new Date());
+  const clock = window.setInterval(() => setNow(new Date()), CLOCK_MS);
+  onCleanup(() => window.clearInterval(clock));
+  /** Approve moves the ticket to Done. Changes asks what to change and sends it to the work thread. */
+  const review: TicketReviewActions = {
+    onApprove: (ticketId) => props.onMove(ticketId, "done"),
+    onRequestChanges: (ticketId) => setChangesId(ticketId),
+  };
+  const changesTicket = () => {
+    const id = changesId();
+    return id ? props.tickets.find((ticket) => ticket.id === id && ticket.taskId !== null) : undefined;
+  };
+  const [filter, setFilter] = createSignal<TicketsFilter | null>(null);
+  const autopilot = () => props.autopilot ?? TICKETS_AUTOPILOT_OFF;
+  /** The tickets that match the search in their title, key or text. */
+  const found = createMemo(() => {
     const needle = query().trim().toLowerCase();
     if (!needle) return props.tickets;
     return props.tickets.filter((ticket) =>
       [ticket.title, ticket.body, ticket.external?.key ?? ""].some((text) => text.toLowerCase().includes(needle)),
     );
   });
+  /** The board shows the found tickets of the chosen filter chip. */
+  const shown = createMemo(() => filterTickets(found(), filter()));
+  /** Raven picks the first Backlog ticket of the whole board, whatever the filter shows. */
+  const nextTicketId = () => (autopilot().enabled ? autopilotNext(props.tickets)?.id : undefined);
   const canSync = () => (props.sync?.state?.providers.length ?? 0) > 0;
+  /**
+   * The empty board's Sync button names the ticket system: the one the board syncs with, or the only one
+   * connected. With several connected and none chosen yet it is plain "Sync". Null: nothing is connected.
+   */
+  const emptySyncLabel = () => {
+    const state = props.sync?.state;
+    if (!state || state.providers.length === 0) return null;
+    const provider = state.target?.provider ?? (state.providers.length === 1 ? state.providers[0] : undefined);
+    return provider
+      ? t("tickets.emptyState.syncFrom", { provider: t(PROVIDER_LABEL[provider]) })
+      : t("tickets.sync.open");
+  };
   const agentsLabel = () =>
     t(props.agentsOpen ? "conversation.tasks.page.hideAgents" : "conversation.tasks.page.showAgents");
   const empty = () => props.loaded && props.tickets.length === 0;
@@ -150,17 +192,30 @@ export function TicketsPage(props: TicketsPageProps) {
               </Button>
             )}
           </Show>
-          <h2 id={headingId} ref={heading} tabindex={-1}>
-            {t("tickets.title")}
-            <Show when={props.hostName}>
-              {(host) => (
-                <>
-                  {" "}
-                  <span aria-hidden="true">/</span> <span>{host()}</span>
-                </>
-              )}
+          <div class="tickets-heading">
+            <div class="tickets-heading-title">
+              <h2 id={headingId} ref={heading} tabindex={-1}>
+                {t("tickets.title")}
+                <Show when={props.hostName}>
+                  {(host) => (
+                    <>
+                      {" "}
+                      <span aria-hidden="true">/</span> <span>{host()}</span>
+                    </>
+                  )}
+                </Show>
+              </h2>
+              <Show when={props.available}>
+                <TicketsAutopilotPill tickets={props.tickets} autopilot={autopilot()} />
+              </Show>
+            </div>
+            <Show when={props.available && props.loaded}>
+              <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
             </Show>
-          </h2>
+            <Show when={props.available && empty()}>
+              <p class="tickets-page-subtitle tickets-muted">{t("tickets.empty.title")}</p>
+            </Show>
+          </div>
           <Show when={props.available}>
             <div class="tickets-page-tools">
               <Input
@@ -196,42 +251,62 @@ export function TicketsPage(props: TicketsPageProps) {
           when={props.available}
           fallback={<TicketsNotice title={t("tickets.unavailable.title")} body={t("tickets.unavailable.body")} />}
         >
-          <TicketsAgentStrip
+          <TicketsFilterChips
             agents={props.agents}
             tickets={props.tickets}
             snapshots={props.snapshots}
-            selectedAgentId={agentId()}
-            onSelectAgent={selectAgent}
+            filter={filter()}
+            onFilter={setFilter}
           />
           <div class="tickets-page-scroll">
-            <Show when={empty()}>
-              <TicketsNotice title={t("tickets.empty.title")} body={t("tickets.empty.body")} />
-            </Show>
-            <Show when={!empty() && query().trim() !== "" && shown().length === 0}>
+            <Show when={!empty() && query().trim() !== "" && found().length === 0}>
               <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
             </Show>
+            {/* While the first list loads the board shows its empty columns, never the empty state. */}
             <Show
-              when={view() === "agents"}
+              when={!empty()}
               fallback={
-                <TicketsColumns
-                  agents={props.agents}
-                  tickets={shown()}
-                  snapshots={props.snapshots}
-                  decisions={props.decisions}
-                  selectedTicketId={props.selectedTicketId}
-                  onSelectTicket={props.onSelectTicket}
+                <TicketsEmptyState
+                  syncLabel={emptySyncLabel()}
+                  onNewTicket={() => setCreating(true)}
+                  onSync={() => setSyncOpen(true)}
+                  onCreate={props.onCreate}
                 />
               }
             >
-              <TicketsLanes
-                agents={props.agents}
-                tickets={shown()}
-                snapshots={props.snapshots}
-                decisions={props.decisions}
-                selectedTicketId={props.selectedTicketId}
-                onSelectTicket={props.onSelectTicket}
-                onSelectAgent={selectAgent}
-              />
+              <Show
+                when={view() === "agents"}
+                fallback={
+                  <TicketsColumns
+                    agents={props.agents}
+                    tickets={shown()}
+                    snapshots={props.snapshots}
+                    selectedTicketId={props.selectedTicketId}
+                    onSelectTicket={props.onSelectTicket}
+                    now={now()}
+                    decisions={props.decisions}
+                    review={review}
+                    autopilot={autopilot()}
+                    nextTicketId={nextTicketId()}
+                    onQuickAdd={() => setCreating(true)}
+                  />
+                }
+              >
+                <TicketsLanes
+                  agents={props.agents}
+                  tickets={shown()}
+                  snapshots={props.snapshots}
+                  selectedTicketId={props.selectedTicketId}
+                  onSelectTicket={props.onSelectTicket}
+                  onSelectAgent={selectAgent}
+                  now={now()}
+                  decisions={props.decisions}
+                  review={review}
+                  autopilot={autopilot()}
+                  nextTicketId={nextTicketId()}
+                  onQuickAdd={() => setCreating(true)}
+                />
+              </Show>
             </Show>
           </div>
         </Show>
@@ -281,6 +356,12 @@ export function TicketsPage(props: TicketsPageProps) {
                 onRunTeam={props.onOpenTeam ? () => props.onOpenTeam?.(ticket()) : undefined}
                 onOpenLink={props.onOpenLink}
                 onSteer={(text) => props.onSteer(ticket(), text)}
+                onApprove={() => (props.onApprove ? props.onApprove(ticket()) : props.onMove(ticket().id, "done"))}
+                onRequestChanges={
+                  props.onRequestChanges
+                    ? (text) => props.onRequestChanges?.(ticket(), text) ?? Promise.resolve(false)
+                    : undefined
+                }
                 tickets={props.tickets}
                 onOpenTicket={(ticketId) => props.onSelectTicket(ticketId)}
                 decision={
@@ -296,10 +377,21 @@ export function TicketsPage(props: TicketsPageProps) {
       <Show when={syncOpen() && canSync() ? props.sync : undefined}>
         {(sync) => <TicketsSyncDialog sync={sync()} onClose={() => setSyncOpen(false)} />}
       </Show>
+      <Show when={changesTicket()} keyed>
+        {(ticket) => (
+          <TicketsChangesDialog
+            ticket={ticket}
+            onClose={() => setChangesId(null)}
+            onSend={(text) => props.onSteer(ticket, text)}
+          />
+        )}
+      </Show>
       <Show when={creating()}>
         <TicketsNewDialog
           agents={props.agents}
+          snapshots={props.snapshots}
           agentId={agentId()}
+          autopilot={props.newTicketAutopilot}
           onClose={() => setCreating(false)}
           onCreate={props.onCreate}
           onStart={props.onStart}
@@ -318,143 +410,5 @@ function TicketsNotice(props: { title: string; body: string }) {
   );
 }
 
-const UNASSIGNED = "";
-
-/**
- * The New ticket dialog: a title, details and an agent. Add to backlog keeps the ticket for later;
- * Start now starts its work thread with the agent. The agent of an open agent panel is chosen first.
- */
-function TicketsNewDialog(props: {
-  agents: readonly AgentProfile[];
-  agentId: string | null;
-  onClose: () => void;
-  onCreate: (ticket: TicketNew) => Promise<boolean>;
-  onStart: (start: TicketStart) => Promise<boolean>;
-}) {
-  const { t } = useText();
-  const [title, setTitle] = createSignal("");
-  const [body, setBody] = createSignal("");
-  const [agentId, setAgentId] = createSignal<string | null>(untrack(() => props.agentId));
-  const [busy, setBusy] = createSignal<"add" | "start" | null>(null);
-  const agent = () => props.agents.find((candidate) => candidate.id === agentId());
-  const trimmed = () => title().trim();
-
-  async function submit(start: boolean): Promise<void> {
-    const name = trimmed();
-    const owner = agentId();
-    if (!name || busy() || (start && !owner)) return;
-    setBusy(start ? "start" : "add");
-    const done =
-      start && owner
-        ? await props.onStart({ agentId: owner, title: name, body: body().trim() })
-        : await props.onCreate({ title: name, body: body().trim(), agentId: owner });
-    setBusy(null);
-    if (done) props.onClose();
-  }
-
-  return (
-    <Dialog.Root
-      open={true}
-      onOpenChange={(open) => {
-        if (!open && !busy()) props.onClose();
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay>
-          <Dialog.Content class="tickets-new" as="section">
-            <header class="tickets-new-header">
-              <Dialog.Title as="h2" class="tickets-new-title">
-                {t("tickets.new")}
-              </Dialog.Title>
-              <Dialog.Description class="tickets-muted">{t("tickets.new.description")}</Dialog.Description>
-            </header>
-            <form
-              class="tickets-new-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit(false);
-              }}
-            >
-              <Field label={t("tickets.new.name")} required>
-                <Input value={title()} disabled={busy() !== null} onValueChange={setTitle} />
-              </Field>
-              <Field label={t("tickets.new.details")}>
-                <Textarea
-                  value={body()}
-                  rows={4}
-                  disabled={busy() !== null}
-                  placeholder={t("tickets.new.detailsPlaceholder")}
-                  onValueChange={setBody}
-                />
-              </Field>
-              <div class="tickets-new-agent">
-                <span class="tickets-stat-label">{t("tickets.new.agent")}</span>
-                <DropdownMenu.Root placement="bottom-start" gutter={4}>
-                  <DropdownMenu.Trigger
-                    class={`${buttonVariants({ variant: "outline", size: "sm" })} tickets-drawer-agent`}
-                    aria-label={t("tickets.new.agent")}
-                    disabled={busy() !== null}
-                  >
-                    <Show when={agent()} fallback={t("tickets.card.unassigned")}>
-                      {(owner) => (
-                        <>
-                          <AgentAvatar agent={owner()} class="tickets-drawer-avatar" />
-                          {owner().name}
-                        </>
-                      )}
-                    </Show>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content class="tickets-new-menu">
-                      <DropdownMenu.RadioGroup
-                        value={agentId() ?? UNASSIGNED}
-                        onChange={(value: string) => setAgentId(value === UNASSIGNED ? null : value)}
-                      >
-                        <DropdownMenu.RadioItem value={UNASSIGNED} closeOnSelect>
-                          {t("tickets.card.unassigned")}
-                        </DropdownMenu.RadioItem>
-                        <For each={props.agents} keyed={(option) => option.id}>
-                          {(option) => (
-                            <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tickets-drawer-agent">
-                              <AgentAvatar agent={option()} class="tickets-drawer-avatar" />
-                              {option().name}
-                            </DropdownMenu.RadioItem>
-                          )}
-                        </For>
-                      </DropdownMenu.RadioGroup>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
-              </div>
-              <Show when={!agentId()}>
-                <p class="tickets-muted">{t("tickets.new.needsAgent")}</p>
-              </Show>
-              <footer class="tickets-new-actions">
-                <Button type="button" variant="ghost" disabled={busy() !== null} onClick={props.onClose}>
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  loading={busy() === "add"}
-                  disabled={!trimmed() || busy() !== null}
-                >
-                  {t("tickets.new.add")}
-                </Button>
-                <Button
-                  type="button"
-                  loading={busy() === "start"}
-                  disabled={!trimmed() || !agentId() || busy() !== null}
-                  onClick={() => void submit(true)}
-                >
-                  <Play aria-hidden="true" />
-                  {t("tickets.new.start")}
-                </Button>
-              </footer>
-            </form>
-          </Dialog.Content>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
+/** How often the cards' times ("14m", "2h ago") count up. */
+const CLOCK_MS = 60_000;
