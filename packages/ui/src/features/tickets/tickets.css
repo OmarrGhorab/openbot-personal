@@ -375,15 +375,15 @@
 }
 
 .tickets-card-bar[data-reached] {
-  background: var(--openbot-accent);
+  background: var(--openbot-text-dim);
 }
 
 .tickets-card-bar[data-current] {
-  background: var(--tickets-edge);
+  background: var(--openbot-text-primary);
 }
 
 .tickets-card-steps[data-state="done"] .tickets-card-bar {
-  background: var(--openbot-success);
+  background: var(--openbot-text-secondary);
 }
 
 .tickets-card-stage {
@@ -954,7 +954,7 @@
   flex: 1 1 auto;
 }
 
-/* The five status steps: a bar and a name each. Passed steps take the accent, the current one its own colour. */
+/* The five status steps: a bar and a name each. Passed steps are dim, the current one is the brightest. */
 .ticket-drawer-steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -984,11 +984,12 @@
 }
 
 .ticket-drawer-step[data-reached]::before {
-  background: var(--openbot-accent);
+  background: var(--openbot-text-dim);
 }
 
+/* Monochrome: the current step is the brightest bar, whatever its status. */
 .ticket-drawer-step[data-current]::before {
-  background: var(--tickets-status);
+  background: var(--openbot-text-primary);
 }
 
 .ticket-drawer-step[data-current] {

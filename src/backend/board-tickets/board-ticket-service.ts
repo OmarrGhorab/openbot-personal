@@ -211,7 +211,24 @@ export class BoardTicketService {
     }
     if (input.progress !== undefined) patch.progress = nullableLine(input.progress, BOARD_TICKET_PROGRESS_LIMIT);
     if (input.error !== undefined) patch.error = nullableLine(input.error, BOARD_TICKET_ERROR_LIMIT);
-    return this.patch(input.ticketId, patch, actor);
+    const current = this.#require(input.ticketId);
+    const reassigned = patch.agentId !== undefined && patch.agentId !== current.agentId;
+    // A reassign (ticket 247) ends the old agent's link: its run stays in the activity under its own agent, and
+    // the new agent gets its own run. An active ticket starts the new agent now; any other waits for Start.
+    if (reassigned && (current.taskId || current.threadId)) {
+      patch.taskId = null;
+      patch.threadId = null;
+      patch.progress = null;
+    }
+    const updated = this.patch(input.ticketId, patch, actor);
+    if (reassigned && patch.agentId && (current.taskId || current.threadId) && isActive(current.status)) {
+      const agentId = patch.agentId;
+      const previous = current.threadId;
+      void this.#startNew({ ticketId: current.id, agentId }, updated, actor, previous).catch((error: unknown) => {
+        this.patch(current.id, { error: nullableLine(String(error), BOARD_TICKET_ERROR_LIMIT) }, "agent");
+      });
+    }
+    return updated;
   }
 
   /** Writes a validated patch. The work-thread module and the sync use it for their links. */
@@ -322,12 +339,16 @@ export class BoardTicketService {
     input: StartBoardTicketInput,
     existing: BoardTicket | null,
     actor: BoardTicketActor,
+    previousThreadId: string | null = null,
   ): Promise<BoardTicket> {
     const startWorkThread = this.#startWorkThread;
     if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
     const title = cleanTitle(existing?.title ?? input.title ?? "");
     const body = (existing ? existing.body : (input.body ?? "")).slice(0, BOARD_TICKET_BODY_LIMIT);
-    const task = await startWorkThread(input.agentId, workThreadText(title, body), { title });
+    const note = previousThreadId
+      ? `\n\nThis ticket was reassigned to you. Earlier work is in thread ${previousThreadId}; read it for context.`
+      : "";
+    const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}`, { title });
     const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
     const links = { taskId: task.id, threadId: task.threadId };
     if (!existing) return this.create({ title, body, status, agentId: input.agentId }, actor, links);
@@ -351,6 +372,11 @@ export class BoardTicketService {
     if (!ticket) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     return ticket;
   }
+}
+
+/** A ticket whose work is under way, so a reassign starts the new agent at once. */
+function isActive(status: BoardTicketStatus): boolean {
+  return status === "running" || status === "queued";
 }
 
 /** Who chose a type: an agent's choice is the agent's; any other choice is the person's. */

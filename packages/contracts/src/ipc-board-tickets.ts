@@ -547,3 +547,17 @@ export function isBoardTicketsChanged(value: unknown): value is BoardTicketsChan
     value.ticketIds.every(isIdentifier)
   );
 }
+
+/**
+ * The agent of a ticket at the time of each event (ticket 247), oldest event first: the last `assigned` event
+ * at or before it. A reassign then never credits an earlier run to the new agent.
+ */
+export function boardTicketEventAgents(events: readonly BoardTicketEvent[]): Map<string, string | null> {
+  const agents = new Map<string, string | null>();
+  let agentId: string | null = null;
+  for (const event of events) {
+    if (event.kind === "assigned") agentId = event.text;
+    agents.set(event.id, agentId);
+  }
+  return agents;
+}
