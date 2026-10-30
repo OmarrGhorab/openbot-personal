@@ -191,4 +191,8 @@ export const messages = {
     "التذكرة تناسب pstack، بس مهارات pstack مش متثبّتة، علشان كده Autopilot lite هو اللي بيشتغل عليها. ثبّت pstack من Skills علشان تستخدمه المرة الجاية.",
   "error.agent.autopilot.pstackMissing":
     "مهارة {skill} مش متثبّتة، علشان كده Autopilot lite بيشتغل على التذكرة دي بدل pstack. ثبّت pstack من Skills، والتذكرة الجاية تقدر تستخدمه.",
+  // Chat (#200): why a ticket from a chat message did not start.
+  "error.agent.ticketTake.notFound": "التذكرة مش موجودة على اللوحة.",
+  "error.agent.ticketTake.noAgent": "الإيجنت بتاع الشات ده مش على الجهاز ده.",
+  "error.agent.ticketTake.failed": "معرفتش آخد التذكرة. ابعت الرسالة تاني.",
 } as const satisfies PartialTranslation<typeof source>;

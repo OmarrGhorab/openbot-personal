@@ -216,4 +216,8 @@ export const messages = defineMessages("error.agent", {
     "The ticket fits pstack, but the pstack skills are not installed, so Autopilot lite runs it. Install pstack from Skills to use pstack next time.",
   "error.agent.autopilot.pstackMissing":
     "The {skill} skill is not installed, so Autopilot lite runs this ticket instead of pstack. Install pstack from Skills, and the next ticket can use it.",
+  // Chat (#200): why a ticket from a chat message did not start.
+  "error.agent.ticketTake.notFound": "The ticket is not on the board.",
+  "error.agent.ticketTake.noAgent": "The agent of this chat is not on this computer.",
+  "error.agent.ticketTake.failed": "The ticket could not be taken. Send the message again.",
 });
