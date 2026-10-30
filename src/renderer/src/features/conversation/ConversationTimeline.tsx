@@ -1393,6 +1393,8 @@ export function ConversationTimeline() {
               </Show>
             </Show>
           </div>
+          {/* Chat (#200): the "Ticket taken" cards of this chat follow its messages. */}
+          {props.afterTimeline}
           <Show when={props.tasks}>
             {(tasks) => (
               <AgentTaskChips

@@ -129,6 +129,8 @@ export interface ConversationProps {
   contextState?: AgentContextState | undefined;
   runtime?: ConversationRuntime | undefined;
   notice?: JSX.Element | undefined;
+  /** Shows after the messages of the chat, such as the "Ticket taken" cards of an agent (#200). */
+  afterTimeline?: JSX.Element | undefined;
   onOpenUsage?: ((trigger: HTMLButtonElement) => void) | undefined;
   onOpenMarketplace?: (() => void) | undefined;
   /**

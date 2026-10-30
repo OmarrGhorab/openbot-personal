@@ -7,7 +7,7 @@ import {
   ravenAutopilotMayMerge,
 } from "@openbot/contracts/ipc";
 import { TicketTakeNotice, TicketTakenCard } from "@openbot/ui/features/tickets/TicketTakenCard";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, Show } from "solid-js";
 
 /** How many "Ticket taken" cards one chat shows: the newest ones. */
 const CARD_LIMIT = 3;
@@ -18,15 +18,14 @@ type TicketTakeNoticeItem =
   | { kind: "failed"; key: string; reason: string };
 
 /**
- * Chat (#200): the take requests of this computer's agents and the jobs they started. One instance serves
- * the workspace: it reads the team jobs and the Autopilot settings once, and again at each change event,
+ * Chat (#200): the take requests of this computer's agents and the jobs they started. Make it in the
+ * component that owns the chat. It reads the team jobs and the Autopilot settings once, and again at each change event,
  * so every card follows its job live. Main reads each message again; this only asks.
  */
 export function createChatTicketTake() {
   const [jobs, setJobs] = createSignal<RavenTeamJob[]>([]);
   const [settings, setSettings] = createSignal<RavenAutopilotSettings | null>(null);
   const [notices, setNotices] = createSignal<Record<string, TicketTakeNoticeItem[]>>({});
-  let started = false;
 
   const loadJobs = () =>
     window.openbot.ravenTeam
@@ -34,23 +33,18 @@ export function createChatTicketTake() {
       .then(setJobs)
       .catch(() => undefined);
 
-  /** Starts the reads. Call it from a component; the subscriptions end with it. */
-  function connect() {
-    if (started) return;
-    started = true;
-    void loadJobs();
-    window.openbot.ravenAutopilot
-      .get()
-      .then(setSettings)
-      .catch(() => undefined);
-    const stopJobs = window.openbot.ravenTeam.onChanged(() => void loadJobs());
-    const stopSettings = window.openbot.ravenAutopilot.onChanged(setSettings);
-    onCleanup(() => {
-      stopJobs();
-      stopSettings();
-      started = false;
-    });
-  }
+  // The reads start with the owner and end with it.
+  void loadJobs();
+  window.openbot.ravenAutopilot
+    .get()
+    .then(setSettings)
+    .catch(() => undefined);
+  const stopJobs = window.openbot.ravenTeam.onChanged(() => void loadJobs());
+  const stopSettings = window.openbot.ravenAutopilot.onChanged(setSettings);
+  onCleanup(() => {
+    stopJobs();
+    stopSettings();
+  });
 
   function addNotice(agentId: string, notice: TicketTakeNoticeItem) {
     setNotices((current) => ({ ...current, [agentId]: [...(current[agentId] ?? []), notice].slice(-CARD_LIMIT) }));
@@ -91,7 +85,6 @@ export function createChatTicketTake() {
       .slice(-CARD_LIMIT);
 
   return {
-    connect,
     afterSend,
     jobsFor,
     noticesFor: (agentId: string) => notices()[agentId] ?? [],
@@ -123,7 +116,6 @@ export function ConversationTicketTake(props: {
   onOpenBoard: (trigger: HTMLElement) => void;
   onConnect?: ((provider: BoardTicketProvider) => void) | undefined;
 }) {
-  onMount(() => props.take.connect());
   return (
     <Show when={props.take.jobsFor(props.agentId).length > 0 || props.take.noticesFor(props.agentId).length > 0}>
       <div class="ticket-taken-list">
