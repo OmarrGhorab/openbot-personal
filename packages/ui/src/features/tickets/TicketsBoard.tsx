@@ -1,10 +1,16 @@
-import type { AgentTasksSnapshot, BoardTicket, BoardTicketStatus } from "@openbot/contracts/ipc";
+import type {
+  AgentTasksSnapshot,
+  BoardTicket,
+  BoardTicketStatus,
+  RavenAutopilotDecision,
+} from "@openbot/contracts/ipc";
 import { Button, SlidingTabs, TriangleAlert } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
+import { TicketStackPill } from "./TicketAutopilotDecision";
 import { TicketsProviderMark } from "./TicketsProviderMark";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
@@ -26,6 +32,8 @@ export interface TicketsBoardData {
   tickets: readonly BoardTicket[];
   /** The work threads of each agent, by agent id. */
   snapshots: Readonly<Record<string, AgentTasksSnapshot>>;
+  /** The Autopilot decision of each team job, by job id. The card of the job's own ticket shows its stack (#197). */
+  decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
 }
 
 /** An agent with a running work thread looks busy: its avatar turns its rings. */
@@ -101,6 +109,11 @@ export function TicketCard(
   const thread = () => ticketThread(props.ticket, snapshot());
   const progress = () => ticketProgress(props.ticket, thread());
   const error = () => ticketError(props.ticket, thread());
+  /** The stack of the job's own ticket, such as "pstack · tdd". A role's ticket shows none. */
+  const decision = () =>
+    props.ticket.teamJobId !== null && props.ticket.teamRoleId === null
+      ? props.decisions?.[props.ticket.teamJobId]
+      : undefined;
   return (
     <TicketsPressable
       class="tickets-card"
@@ -108,7 +121,7 @@ export function TicketCard(
       pressed={props.selected}
       onPress={() => props.onSelect(props.ticket.id)}
     >
-      <Show when={props.ticket.type !== null || props.ticket.external !== null}>
+      <Show when={props.ticket.type !== null || props.ticket.external !== null || decision()}>
         <span class="tickets-card-top">
           <TicketTypeChip type={props.ticket.type} />
           <Show when={props.ticket.external}>
@@ -118,6 +131,9 @@ export function TicketCard(
                 <span class="tickets-card-key">{external().key}</span>
               </span>
             )}
+          </Show>
+          <Show when={decision()}>
+            {(chosen) => <TicketStackPill decision={chosen()} class="tickets-card-stack" />}
           </Show>
         </span>
       </Show>
@@ -176,6 +192,7 @@ function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) 
               agents={props.agents}
               tickets={props.tickets}
               snapshots={props.snapshots}
+              decisions={props.decisions}
               ticket={ticket()}
               selected={props.selectedTicketId === ticket().id}
               onSelect={props.onSelectTicket}
@@ -215,6 +232,7 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
               <TicketsColumns
                 agents={props.agents}
                 snapshots={props.snapshots}
+                decisions={props.decisions}
                 tickets={laneTickets(props.tickets, agent().id)}
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
@@ -231,6 +249,7 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
           <TicketsColumns
             agents={props.agents}
             snapshots={props.snapshots}
+            decisions={props.decisions}
             tickets={unassigned()}
             selectedTicketId={props.selectedTicketId}
             onSelectTicket={props.onSelectTicket}

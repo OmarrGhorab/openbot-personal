@@ -217,6 +217,7 @@ export function TicketsPage(props: TicketsPageProps) {
                   agents={props.agents}
                   tickets={shown()}
                   snapshots={props.snapshots}
+                  decisions={props.decisions}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
                 />
@@ -226,6 +227,7 @@ export function TicketsPage(props: TicketsPageProps) {
                 agents={props.agents}
                 tickets={shown()}
                 snapshots={props.snapshots}
+                decisions={props.decisions}
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
                 onSelectAgent={selectAgent}

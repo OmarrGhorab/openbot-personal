@@ -1002,6 +1002,27 @@
   font-weight: var(--openbot-weight-medium);
 }
 
+/* The live pill of an Autopilot job's card (#197): its stack, such as "pstack · tdd". */
+.tickets-card-stack {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  margin-inline-start: auto;
+  padding: var(--openbot-space-0-5) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: color-mix(in srgb, var(--openbot-accent) 12%, transparent);
+  color: var(--openbot-accent-text);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-medium);
+  white-space: nowrap;
+}
+
+.tickets-card-stack svg {
+  width: var(--openbot-space-3);
+  height: var(--openbot-space-3);
+}
+
 .tickets-decision .tickets-decision-stack svg {
   width: var(--openbot-space-3);
   height: var(--openbot-space-3);
