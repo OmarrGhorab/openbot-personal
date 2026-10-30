@@ -586,7 +586,7 @@
   line-height: var(--openbot-leading-sm);
 }
 
-/* The access question: a red banner with its title, its text and the one-click answer. */
+/* The access question: a danger-toned banner with its title, its text and the one-click answer. */
 .raven-team-access-banner.ui-alert {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
