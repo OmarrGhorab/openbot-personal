@@ -1,14 +1,5 @@
 import type { RavenTeamJob, RavenTeamRoleRun } from "@openbot/contracts/ipc";
-import {
-  Alert,
-  AlertActions,
-  AlertContent,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
-  Badge,
-  Button,
-} from "@openbot/ui";
+import { Alert, AlertActions, AlertContent, AlertDescription, AlertIcon, AlertTitle, Badge, Button } from "@openbot/ui";
 import { GitCommitHorizontal, Play, Square, TriangleAlert } from "@openbot/ui/icons";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
@@ -104,7 +95,9 @@ export function RavenTeamJobCard(props: RavenTeamJobCardProps) {
     const builderAtWork =
       role.roleId === "builder" && (role.state === "working" || role.state === "blocked" || role.state === "failed");
     if (builderAtWork && !isTerminalJob(job()))
-      parts.push(t("agent.team.job.round", { round: Math.min(job().fixRounds + 1, job().roundCap), cap: job().roundCap }));
+      parts.push(
+        t("agent.team.job.round", { round: Math.min(job().fixRounds + 1, job().roundCap), cap: job().roundCap }),
+      );
     if (role.verdict && role.verdict !== "DONE") parts.push(role.verdict);
     if (role.score !== null) parts.push(t("agent.team.role.score", { score: role.score }));
     else if (role.commit && (!role.verdict || role.verdict === "DONE")) parts.push(shortCommit(role.commit));

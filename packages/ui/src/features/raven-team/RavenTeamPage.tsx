@@ -410,7 +410,9 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
   };
   /** The roles whose model the ticket names: the ticket wins for those roles. */
   const modelsInTicket = () =>
-    (plan()?.roles ?? []).filter((role) => role.named && !Object.hasOwn(overrides(), role.roleId)).map((role) => role.label);
+    (plan()?.roles ?? [])
+      .filter((role) => role.named && !Object.hasOwn(overrides(), role.roleId))
+      .map((role) => role.label);
 
   /** The one line of a role in the "Your team" panel. */
   const roleShort = (roleId: string): string | null => {
@@ -788,7 +790,9 @@ export function RavenTeamPage(props: RavenTeamPageProps) {
                       {(roleId) => (
                         <Alert tone="warning" role="alert">
                           <AlertContent>
-                            <AlertDescription>{t("agent.team.question.unknownRole", { role: roleId })}</AlertDescription>
+                            <AlertDescription>
+                              {t("agent.team.question.unknownRole", { role: roleId })}
+                            </AlertDescription>
                           </AlertContent>
                         </Alert>
                       )}
