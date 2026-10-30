@@ -41,6 +41,7 @@ import { useServers } from "./features/servers/servers-context";
 import { WorkspaceServerRail } from "./features/servers/WorkspaceServerRail";
 import { useSettings } from "./features/settings/settings-context";
 import { WorkspaceSidebar } from "./features/sidebar/WorkspaceSidebar";
+import { TicketMergeBridge } from "./features/tickets/TicketMergeBridge";
 import { TicketsPanel } from "./features/tickets/TicketsPanel";
 import { createHostRestartToasts, type HostRestartView } from "./features/updates/host-restart-toast";
 import { useUsage } from "./features/usage/usage-context";
@@ -336,6 +337,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
                 <WorkspaceOverlays account={props.account} />
                 <Show when={!chatWindow}>
                   <ServerUpdateDialogHost hosts={remoteHosts()} />
+                  <TicketMergeBridge />
                 </Show>
               </>
             }

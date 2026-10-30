@@ -20,12 +20,13 @@ import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-set
 import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
 import { LogoColorPicker, LogoShapePicker, LogoTilePicker } from "@openbot/ui/features/settings/LogoColorPicker";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
+import { mascotImageUrl } from "@openbot/ui/mascot-avatar";
 import { useText } from "@openbot/ui/text";
 import { Show } from "solid-js";
 import { useAppearanceChoice } from "../../appearance-choice";
 import { useI18n } from "../../i18n-context";
 import { useInterfaceSizeChoice } from "../../interface-size";
-import { mascotThumbnailUrl, useLogoColorChoice } from "../../logo-color";
+import { useLogoColorChoice } from "../../logo-color";
 
 const interfaceSizeOptions = [...APP_INTERFACE_SIZES];
 const linkTargetOptions: GeneralSettingsValue["externalLinkTarget"][] = [...APP_LINK_BROWSERS];
@@ -143,7 +144,7 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
             </ItemContent>
             <LogoShapePicker
               value={logoColor.shape()}
-              imageUrl={(shape) => mascotThumbnailUrl(shape, logoColor.color())}
+              imageUrl={(shape) => mascotImageUrl(shape, logoColor.color())}
               onChange={logoColor.changeShape}
             />
           </Item>

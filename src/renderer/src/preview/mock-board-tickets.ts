@@ -405,3 +405,22 @@ export function mockBoardTickets(
   });
   return api;
 }
+
+/**
+ * Holds the first `list` of the board for `delayMs`, as a slow disk or a joined server does, so a story
+ * shows the page while the board loads. The empty board must not show its empty state in that time.
+ */
+export function withFirstListDelay(api: BoardTicketsApi, delayMs = 0): BoardTicketsApi {
+  if (delayMs <= 0) return api;
+  let first = true;
+  return {
+    ...api,
+    list: async (...args: Parameters<BoardTicketsApi["list"]>) => {
+      if (first) {
+        first = false;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return api.list(...args);
+    },
+  };
+}

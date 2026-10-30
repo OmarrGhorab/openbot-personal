@@ -11,6 +11,7 @@ export const messages = defineMessages("island", {
   "island.label.approval": "OpenBot approval request",
   "island.label.takeover": "OpenBot browser takeover",
   "island.label.failed": "OpenBot task failed",
+  "island.label.merged": "OpenBot ticket merged",
   "island.label.externalDisplay": "{label} on external display",
   "island.badge.working": "Working",
   "island.badge.message": "Message",
@@ -69,4 +70,10 @@ export const messages = defineMessages("island", {
   "island.task.working": "Working on your request",
   "island.error.openRemoteTitle": "Could not open this remote item",
   "island.error.openRemote": "Could not open this item. Try again.",
+  // A ticket the Reviewer merged, shown on the island for a few seconds.
+  "island.badge.merged": "Merged",
+  "island.merged.title": "Merged by Reviewer",
+  "island.merged.detail": "{ticket} · PR #{number}",
+  "island.merged.viewTicket": "View ticket",
+  "island.merged.viewPullRequest": "View PR",
 });

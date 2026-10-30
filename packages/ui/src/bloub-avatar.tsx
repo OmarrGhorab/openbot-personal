@@ -3,6 +3,7 @@ import { bloubAvatarProfile } from "@openbot/brand/bloub-avatar";
 import type { AvatarHue } from "@openbot/contracts/ipc";
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
+import { mascotAvatarImageUrl } from "./mascot-avatar";
 
 /**
  * When an avatar animates, which is a performance decision and not a state one: `hover` and `idle`
@@ -29,6 +30,8 @@ export {
 } from "@openbot/brand/bloub-avatar-motion";
 
 export function createStaticAvatarSvg(seed: string, hue: AvatarHue | null): SVGSVGElement {
+  const mascot = mascotAvatarImageUrl(seed);
+  if (mascot) return createMascotAvatarSvg(mascot);
   const host = document.createElement("span");
   const dispose = mountStaticAvatar(host, seed, hue);
   const svg = host.querySelector("svg");
@@ -71,4 +74,23 @@ function mountStaticAvatar(host: HTMLElement, seed: string, hue: AvatarHue | nul
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
   return dispose;
+}
+
+/** A mascot avatar as an SVG, so the places that take a static avatar SVG draw it the same way. */
+function createMascotAvatarSvg(url: string): SVGSVGElement {
+  const namespace = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(namespace, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const image = document.createElementNS(namespace, "image");
+  image.setAttribute("href", url);
+  image.setAttribute("x", "0");
+  image.setAttribute("y", "0");
+  image.setAttribute("width", "100");
+  image.setAttribute("height", "100");
+  image.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  // `appendChild`: the Worker types of the public web give `append` a different signature.
+  svg.appendChild(image);
+  return svg;
 }

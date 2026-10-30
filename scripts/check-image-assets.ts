@@ -9,6 +9,8 @@ const ALLOWED_DIRECTORIES = [
   // Images that the renderer bundles, and Storybook fixtures.
   "src/renderer/src/assets/",
   "src/renderer/stories/assets/",
+  // Images that the shared UI bundles: the App icon mascots for agent avatars and Settings.
+  "packages/ui/src/assets/",
   // Expo icons and splash screens.
   "apps/mobile/assets/",
   // Public site files, news and guide art, and guide images.

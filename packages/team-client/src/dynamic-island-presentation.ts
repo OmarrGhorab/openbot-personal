@@ -330,14 +330,17 @@ function approvalTitle(approval: AgentApproval, text: DynamicIslandText) {
   return text.approvalPermissions;
 }
 
-function presentationPriority(mode: DynamicIslandPresentation["mode"]): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+function presentationPriority(mode: DynamicIslandPresentation["mode"]): 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 {
   if (mode === "question") return 0;
   if (mode === "approval") return 1;
   if (mode === "takeover") return 2;
   if (mode === "failed") return 3;
   if (mode === "working") return 4;
   if (mode === "message") return 5;
-  return 6;
+  // Main shows a merge for a few seconds over the published presentation, so a window never
+  // publishes one. It ranks after everything that needs the user.
+  if (mode === "merged") return 6;
+  return 7;
 }
 
 function presentationAttentionCount(presentation: DynamicIslandPresentation): number {

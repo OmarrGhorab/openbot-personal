@@ -312,6 +312,7 @@ import {
   decodeTeamPresenceSnapshot,
   decodeTeamSessions,
 } from "./team-decoding";
+import { decodeTicketMergeNotice, decodeTicketMergeOpenedEvent } from "./ticket-merge-decoding";
 import { decodeAgentTicketWatch, decodeAgentTicketWatchOrNull } from "./ticket-watch-decoding";
 import { decodeVaultImportResult, decodeVaultSecret, decodeVaultState } from "./vault-decoding";
 
@@ -1271,6 +1272,9 @@ const openbotApi: OpenBotDesktopApi = {
     test: decodeVoid,
     openSettings: decodeVoid,
     opened: decodeNotificationOpenedEvent,
+    ticketMerged: decodeTicketMergeNotice,
+    openTicketMerge: decodeVoid,
+    ticketMergeOpened: decodeTicketMergeOpenedEvent,
   }),
   maintenance: bridgeGroup(IPC_ENDPOINTS.maintenance, {
     exportData: decodeExportResult,
