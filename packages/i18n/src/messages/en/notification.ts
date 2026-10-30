@@ -40,4 +40,5 @@ export const messages = defineMessages("notification", {
   "notification.ticketMerged.viewTicket": "View ticket",
   "notification.ticketMerged.viewPullRequest": "View PR",
   "notification.ticketMerged.dismiss": "Dismiss",
+  "notification.ticketMerged.openFailed": "Could not open the pull request.",
 });

@@ -18,6 +18,7 @@ import { useAgents } from "../agents/agents-context";
 import { serverCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useUsage } from "../usage/usage-context";
+import { clearTicketFocus, ticketFocusRequest } from "./ticket-merge-focus";
 
 export interface TicketsPanelProps {
   serverId: string;
@@ -183,6 +184,16 @@ export function TicketsPanel(props: TicketsPanelProps) {
     () => (available() && local() ? agentList().map((agent) => agent.id) : []),
     (agentIds) => {
       for (const agentId of agentIds) if (!listed[agentId]) loadThreads(agentId);
+    },
+  );
+
+  // "View ticket" on a merge notice opens that ticket. The board of a merge is on this computer.
+  createEffect(
+    () => (local() ? ticketFocusRequest() : null),
+    (request) => {
+      if (!request) return;
+      setSelectedTicketId(request.ticketId);
+      clearTicketFocus(request);
     },
   );
 
