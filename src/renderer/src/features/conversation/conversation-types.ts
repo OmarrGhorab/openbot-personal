@@ -43,6 +43,7 @@ import type { SidebarAgentWait } from "@openbot/ui/features/sidebar/sidebar-agen
 import type { JSX } from "@solidjs/web";
 import type { ConnectorRegistry } from "../connectors/connector-registry";
 import type { ConversationRuntime } from "./conversation-runtime";
+import type { TurnLiveSteps } from "./turn-live-steps";
 import type { TurnStepLines } from "./turn-step-lines";
 
 /**
@@ -214,6 +215,8 @@ export interface ConversationProps {
   activityDetail?: string | undefined;
   /** The host's progress lines of the newest turns, by turn, for the steps of each turn. */
   turnStepLines?: TurnStepLines | undefined;
+  /** The host's live steps of the newest turns, by turn, for the same steps. */
+  turnLiveSteps?: TurnLiveSteps | undefined;
   skillsMarketplaceOpen?: boolean | undefined;
   /**
    * True while a surface that can add or remove one of the host's MCP servers is open: the server

@@ -21,6 +21,7 @@ import { useConversation } from "../conversation/conversation-context";
 import { useConversationController } from "../conversation/conversation-controller-context";
 import { agentConversationKey, composerDraftKey, promptRequestKey } from "../conversation/conversation-keys";
 import { latestIncomingConversationMessage } from "../conversation/conversation-read-state";
+import { type TurnLiveStep, upsertTurnLiveSteps } from "../conversation/turn-live-steps";
 import { appendTurnStepLine } from "../conversation/turn-step-lines";
 import { useServers } from "../servers/servers-context";
 import { useSidebar } from "../sidebar/sidebar-context";
@@ -72,6 +73,7 @@ export function AgentEventBridge() {
     setActiveTurns,
     setTurnProgress,
     setTurnStepLines,
+    setTurnLiveSteps,
     setFailedTurns,
     setUsageLimits,
     setUsageLimitedModels,
@@ -175,6 +177,30 @@ export function AgentEventBridge() {
         }));
         setTurnStepLines((current) => appendTurnStepLine(current, event.turnId, cleanAgentMessageText(event.detail)));
         return;
+      case "turn-step": {
+        const step: TurnLiveStep = {
+          id: event.stepId,
+          kind: event.kind,
+          status: event.status,
+          text: cleanAgentMessageText(event.text),
+          ...(event.command === undefined ? {} : { command: event.command }),
+          ...(event.exitCode === undefined ? {} : { exitCode: event.exitCode }),
+          ...(event.files === undefined
+            ? {}
+            : {
+                files: event.files.map((file) => ({
+                  path: file.path,
+                  status: file.status,
+                  ...(file.additions === undefined ? {} : { additions: file.additions }),
+                  ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
+                })),
+              }),
+          at: Date.parse(event.endedAt ?? event.startedAt),
+        };
+        if (!Number.isFinite(step.at)) step.at = Date.now();
+        setTurnLiveSteps((current) => upsertTurnLiveSteps(current, event.turnId, step));
+        return;
+      }
       case "queue-changed":
         queueSnapshotRequests.set(event.snapshot.agentId, (queueSnapshotRequests.get(event.snapshot.agentId) ?? 0) + 1);
         setQueues((current) => ({

@@ -479,6 +479,7 @@ export function ConversationTimeline() {
   const turnSteps = createTurnSteps({
     messages: () => props.messages,
     lines: () => props.turnStepLines,
+    live: () => props.turnLiveSteps,
     activeTurnId: () => props.activeTurnId,
   });
   const showAgentSteps = useShowAgentSteps();

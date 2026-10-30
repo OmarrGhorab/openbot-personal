@@ -15,6 +15,7 @@ import { seededAttentionPrompts } from "./features/agents/agent-runtime-snapshot
 import { useAgents } from "./features/agents/agents-context";
 import { agentConversationKey, promptRequestKey } from "./features/conversation/conversation-keys";
 import type { PromptAnswerOptions } from "./features/conversation/conversation-types";
+import type { TurnLiveSteps } from "./features/conversation/turn-live-steps";
 import type { TurnStepLines } from "./features/conversation/turn-step-lines";
 import { useDynamicIsland } from "./features/dynamic-island/dynamic-island-context";
 import { useServers } from "./features/servers/servers-context";
@@ -83,6 +84,9 @@ const Turns = createSimpleContext({
     >(seed?.turnProgress ?? {});
     // Every progress line of the newest turns, by turn, for the steps under the activity line.
     const [turnStepLines, setTurnStepLines] = createSignal<TurnStepLines>({});
+    // Every live step of the newest turns, by turn, for the same list. The host sends each step
+    // twice - running, then done or failed - and drops none, so the caps bound them like the lines.
+    const [turnLiveSteps, setTurnLiveSteps] = createSignal<TurnLiveSteps>({});
     const [failedTurns, setFailedTurns] = createSignal<Record<string, string | undefined>>(seed?.failedTurns ?? {});
     // The agents whose queue waits for a provider plan to reset, in epoch seconds. Only a runtime snapshot of the local host carries it.
     const [contextStates, setContextStates] = createSignal<Record<string, AgentContextState>>({});
@@ -459,6 +463,8 @@ const Turns = createSimpleContext({
       setTurnProgress,
       turnStepLines,
       setTurnStepLines,
+      turnLiveSteps,
+      setTurnLiveSteps,
       failedTurns,
       setFailedTurns,
       contextStates,
