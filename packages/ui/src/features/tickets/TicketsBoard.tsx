@@ -1,22 +1,28 @@
 import type { AgentTasksSnapshot, BoardTicket, BoardTicketStatus } from "@openbot/contracts/ipc";
-import { Button, SlidingTabs, TriangleAlert } from "@openbot/ui";
+import { Button, SlidingTabs, Sparkles } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
-import { TicketsProviderMark } from "./TicketsProviderMark";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
   columnTickets,
   isTicketsView,
   laneTickets,
   runningThreads,
+  shortTicketKey,
   TICKET_COLUMNS,
   TICKET_STATUS_LABEL,
+  TICKET_STEP_LABEL,
+  TICKET_STEPS,
   type TicketsView,
+  ticketAgo,
+  ticketEdge,
+  ticketElapsed,
   ticketError,
   ticketProgress,
+  ticketSteps,
   ticketThread,
 } from "./tickets-model";
 
@@ -26,6 +32,8 @@ export interface TicketsBoardData {
   tickets: readonly BoardTicket[];
   /** The work threads of each agent, by agent id. */
   snapshots: Readonly<Record<string, AgentTasksSnapshot>>;
+  /** The time that the cards count from. The page passes a clock that ticks each minute. */
+  now?: Date | undefined;
 }
 
 /** An agent with a running work thread looks busy: its avatar turns its rings. */
@@ -91,68 +99,178 @@ export function TicketsAgentStrip(
   );
 }
 
-/** One ticket on the board: its title, its agent, its live line and its failure. A click opens the drawer. */
-export function TicketCard(
-  props: TicketsBoardData & { ticket: BoardTicket; selected: boolean; onSelect: (ticketId: string) => void },
-) {
+/** What the card of a ticket that waits for review does with its two buttons. Absent: the card shows none. */
+export interface TicketReviewActions {
+  onApprove: (ticketId: string) => void;
+  /** Opens the request for changes. Only a ticket with a work thread offers it. */
+  onRequestChanges: (ticketId: string) => void;
+}
+
+export interface TicketCardProps extends TicketsBoardData {
+  ticket: BoardTicket;
+  selected: boolean;
+  onSelect: (ticketId: string) => void;
+  /** The compact card of the lanes: no key in the top row. */
+  compact?: boolean | undefined;
+  review?: TicketReviewActions | undefined;
+}
+
+/**
+ * One ticket on the board (Figma "Ticket card v2"): the type chip, the key and a short meta; the title;
+ * the four steps with the stage and the live line; a failure banner; the agent and its live pill; and on
+ * a ticket that waits for review, Approve and Changes. The card body is one button that opens the
+ * drawer. The review buttons sit outside it, so they never open the drawer.
+ */
+export function TicketCard(props: TicketCardProps) {
   const { t } = useText();
   const agent = () => props.agents.find((candidate) => candidate.id === props.ticket.agentId);
   const snapshot = () => (props.ticket.agentId ? props.snapshots[props.ticket.agentId] : undefined);
   const thread = () => ticketThread(props.ticket, snapshot());
   const progress = () => ticketProgress(props.ticket, thread());
   const error = () => ticketError(props.ticket, thread());
+  const steps = () => ticketSteps(props.ticket, props.tickets, thread());
+  const edge = () => ticketEdge(props.ticket, thread());
+  const now = () => props.now ?? new Date();
+  const enteredStatus = () => props.ticket.statusTimes[props.ticket.status] ?? props.ticket.statusChangedAt;
+  const meta = () =>
+    props.ticket.status === "queued" && !props.ticket.taskId
+      ? t("tickets.card.noThread")
+      : ticketAgo(enteredStatus(), now(), t);
+  const stage = () => {
+    const view = steps();
+    if (!view) return "";
+    const total = TICKET_STEPS.length;
+    if (view.state === "done")
+      return t("tickets.step.count", { step: t(TICKET_STATUS_LABEL.done), current: total, total });
+    const step = t(TICKET_STEP_LABEL[TICKET_STEPS[view.index] ?? "build"]);
+    return view.state === "blocked"
+      ? t("tickets.step.blocked", { step })
+      : t("tickets.step.count", { step, current: view.index + 1, total });
+  };
+  /** The line under the stage: the live progress, the question, or what the ticket waits for. */
+  const line = () => {
+    const view = steps();
+    if (view?.state === "waiting") return t("tickets.step.waiting");
+    if (view?.state === "blocked" && props.ticket.status === "needs_review") {
+      const question = thread()?.question?.text;
+      if (question) return question;
+      return error() === null ? t("tickets.step.teamDecision") : progress();
+    }
+    return progress();
+  };
+  /** The live pill: the stack and the time while it runs ("Raven · 14m"), or "Queued". */
+  const live = (): { tone: "running" | "queued"; text: string } | null => {
+    if (props.ticket.status === "queued") return { tone: "queued", text: t(TICKET_STATUS_LABEL.queued) };
+    if (props.ticket.status !== "running") return null;
+    const stack = props.ticket.teamJobId === null ? t(TICKET_STATUS_LABEL.running) : t("tickets.card.stackRaven");
+    return { tone: "running", text: t("tickets.card.live", { stack, time: ticketElapsed(enteredStatus(), now(), t) }) };
+  };
+  const reviewing = () => (props.review && steps()?.state === "waiting" ? props.review : undefined);
   return (
-    <TicketsPressable
-      class="tickets-card"
-      status={props.ticket.status}
-      pressed={props.selected}
-      onPress={() => props.onSelect(props.ticket.id)}
-    >
-      <Show when={props.ticket.type !== null || props.ticket.external !== null}>
+    <div class="tickets-card" data-status={props.ticket.status} data-edge={edge() ?? undefined}>
+      <TicketsPressable
+        class="tickets-card-body"
+        pressed={props.selected}
+        onPress={() => props.onSelect(props.ticket.id)}
+      >
         <span class="tickets-card-top">
           <TicketTypeChip type={props.ticket.type} />
-          <Show when={props.ticket.external}>
+          <Show when={props.compact ? undefined : props.ticket.external}>
             {(external) => (
-              <span class="tickets-card-source">
-                <TicketsProviderMark provider={external().provider} class="tickets-card-source-mark" />
-                <span class="tickets-card-key">{external().key}</span>
+              <span class="tickets-card-key" title={external().key}>
+                {shortTicketKey(external().key)}
+              </span>
+            )}
+          </Show>
+          <span class="tickets-card-meta">{meta()}</span>
+        </span>
+        <span class="tickets-card-title">{props.ticket.title}</span>
+        <Show when={steps()}>
+          {(view) => (
+            <span class="tickets-card-steps" data-state={view().state}>
+              <span class="tickets-card-bars" aria-hidden="true">
+                <For each={TICKET_STEPS}>
+                  {(step) => {
+                    const index = TICKET_STEPS.indexOf(step);
+                    return (
+                      <span
+                        class="tickets-card-bar"
+                        data-reached={index < view().index || view().state === "done" ? "" : undefined}
+                        data-current={index === view().index && view().state !== "done" ? "" : undefined}
+                      />
+                    );
+                  }}
+                </For>
+              </span>
+              <span class="tickets-card-stage">{stage()}</span>
+              <Show when={line()}>{(text) => <span class="tickets-card-live">{text()}</span>}</Show>
+            </span>
+          )}
+        </Show>
+        <Show when={steps() ? null : progress()}>{(text) => <span class="tickets-card-live">{text()}</span>}</Show>
+        <Show when={error() !== null}>
+          <span class="tickets-card-error">{error() || t("tickets.card.turnFailed")}</span>
+        </Show>
+        <span class="tickets-card-footer">
+          <Show
+            when={agent()}
+            fallback={
+              <span class="tickets-card-agent">
+                <span class="tickets-card-auto" aria-hidden="true">
+                  <Sparkles />
+                </span>
+                <span class="tickets-card-agent-name">{t("tickets.card.ravenPicks")}</span>
+              </span>
+            }
+          >
+            {(owner) => (
+              <span class="tickets-card-agent">
+                <AgentAvatar
+                  agent={owner()}
+                  mood={thread()?.state === "running" ? "working" : "idle"}
+                  class="tickets-card-avatar"
+                />
+                <span class="tickets-card-agent-name">{owner().name}</span>
+              </span>
+            )}
+          </Show>
+          <Show when={live()}>
+            {(pill) => (
+              <span class="tickets-card-pill" data-tone={pill().tone}>
+                <span class="tickets-card-pill-dot" aria-hidden="true" />
+                {pill().text}
               </span>
             )}
           </Show>
         </span>
+      </TicketsPressable>
+      <Show when={reviewing()}>
+        {(actions) => (
+          <div class="tickets-card-actions">
+            <Button size="sm" class="tickets-card-action" onClick={() => actions().onApprove(props.ticket.id)}>
+              {t("tickets.card.approve")}
+            </Button>
+            <Show when={props.ticket.taskId}>
+              <Button
+                size="sm"
+                variant="outline"
+                class="tickets-card-action"
+                onClick={() => actions().onRequestChanges(props.ticket.id)}
+              >
+                {t("tickets.card.changes")}
+              </Button>
+            </Show>
+          </div>
+        )}
       </Show>
-      <span class="tickets-card-title">{props.ticket.title}</span>
-      <Show when={progress()}>{(line) => <span class="tickets-card-progress">{line()}</span>}</Show>
-      <Show when={error() !== null}>
-        <span class="tickets-card-error">
-          <TriangleAlert aria-hidden="true" />
-          {error() || t("tickets.card.turnFailed")}
-        </span>
-      </Show>
-      <span class="tickets-card-meta">
-        <Show
-          when={agent()}
-          fallback={<span class="tickets-card-agent tickets-card-agent-none">{t("tickets.card.unassigned")}</span>}
-        >
-          {(owner) => (
-            <span class="tickets-card-agent">
-              <AgentAvatar
-                agent={owner()}
-                mood={thread()?.state === "running" ? "working" : "idle"}
-                class="tickets-card-avatar"
-              />
-              <span>{owner().name}</span>
-            </span>
-          )}
-        </Show>
-      </span>
-    </TicketsPressable>
+    </div>
   );
 }
 
 interface TicketsGridProps extends TicketsBoardData {
   selectedTicketId: string | null;
   onSelectTicket: (ticketId: string) => void;
+  review?: TicketReviewActions | undefined;
 }
 
 function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) {
@@ -176,9 +294,11 @@ function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) 
               agents={props.agents}
               tickets={props.tickets}
               snapshots={props.snapshots}
+              now={props.now}
               ticket={ticket()}
               selected={props.selectedTicketId === ticket().id}
               onSelect={props.onSelectTicket}
+              review={props.review}
             />
           )}
         </For>
@@ -218,6 +338,8 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
                 tickets={laneTickets(props.tickets, agent().id)}
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
+                now={props.now}
+                review={props.review}
               />
             </section>
           );
@@ -234,6 +356,8 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
             tickets={unassigned()}
             selectedTicketId={props.selectedTicketId}
             onSelectTicket={props.onSelectTicket}
+            now={props.now}
+            review={props.review}
           />
         </section>
       </Show>
@@ -251,7 +375,6 @@ function TicketsPressable(props: {
   onPress: () => void;
   pressed?: boolean;
   busy?: boolean;
-  status?: BoardTicketStatus;
 }) {
   return (
     <Button
@@ -260,7 +383,6 @@ function TicketsPressable(props: {
       class={props.class}
       aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
       data-busy={props.busy ? "" : undefined}
-      data-status={props.status}
       onClick={props.onPress}
     >
       {props.children}

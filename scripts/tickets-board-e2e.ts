@@ -36,6 +36,8 @@ const STEER = "Keep the old session API for one release.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
+/** The card shows the short key of a GitHub issue (#188); the full key is its tooltip. */
+const IMPORTED_SHORT_KEY = "#158";
 /** The seeded Autopilot lite team jobs: one runs, one waits in Queued. */
 const TEAM_JOB = "Add a retry to the upload";
 const TEAM_JOB_ID = "story-team-job-1";
@@ -44,15 +46,22 @@ const QUEUED_JOB = "Show the sync time on the board";
 interface Report {
   steps: string[];
   errors: string[];
+  /** Error toasts the app showed after an action that worked. Each one fails the run. */
+  appErrors: string[];
   passed: boolean;
   failure?: string;
 }
 
-const report: Report = { steps: [], errors: [], passed: false };
+const report: Report = { steps: [], errors: [], appErrors: [], passed: false };
 
 function column(
   page: Page,
-  status: "tickets.status.backlog" | "tickets.status.queued" | "tickets.status.running" | "tickets.status.needsReview",
+  status:
+    | "tickets.status.backlog"
+    | "tickets.status.queued"
+    | "tickets.status.running"
+    | "tickets.status.needsReview"
+    | "tickets.status.done",
 ): Locator {
   return page.getByRole("region", { name: t(status), exact: true });
 }
@@ -84,6 +93,65 @@ async function assertTakesClicks(target: Locator, name: string): Promise<void> {
     hit.takesClicks && hit.pointerEvents !== "none",
     `${name} takes no clicks: pointer-events is ${hit.pointerEvents}, and ${hit.top} is on top of it.`,
   );
+}
+
+/**
+ * The status line of the Sync dialog: "Not synced yet." for a board that never synced, or the time of
+ * the last sync when the story opens the dialog with a target that synced before.
+ */
+function syncStatus(dialog: Locator): Locator {
+  const [before = "", after = ""] = t("tickets.sync.lastSynced", { time: "\u0000" }).split("\u0000");
+  const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return dialog
+    .getByText(t("tickets.sync.never"), { exact: true })
+    .or(dialog.getByText(new RegExp(`^${literal(before)}.+${literal(after)}$`, "u")));
+}
+
+/**
+ * Chooses a repository in the Sync dialog. The repositories are toggle buttons in the "Repository or
+ * project" group, and each button's name also holds its provider mark, so the button is found by its
+ * text inside that group. The dialog may open with the repository already chosen (a saved target);
+ * then it is pressed already and is not clicked again.
+ */
+async function chooseSyncProject(dialog: Locator, project: string): Promise<void> {
+  const group = dialog.getByRole("region", { name: t("tickets.sync.project"), exact: true });
+  const option = group.getByRole("button").filter({ hasText: project });
+  await option.waitFor();
+  if ((await option.getAttribute("aria-pressed")) !== "true") await option.click();
+  assert.equal(await option.getAttribute("aria-pressed"), "true", `${project} is chosen in the Sync dialog.`);
+}
+
+/**
+ * Saves the target and imports its issues. With a new or changed target the dialog offers Save and sync,
+ * which closes it. With the saved target unchanged it offers Sync now instead, which keeps it open.
+ */
+async function saveAndSync(dialog: Locator): Promise<void> {
+  const save = dialog.getByRole("button", { name: t("tickets.sync.save"), exact: true });
+  const syncNow = dialog.getByRole("button", { name: t("tickets.sync.now"), exact: true });
+  await save.or(syncNow).first().waitFor();
+  if (await save.isVisible()) {
+    await save.click();
+  } else {
+    await syncNow.click();
+    await dialog.getByRole("button", { name: t("common.close"), exact: true }).click();
+  }
+  await dialog.waitFor({ state: "detached" });
+}
+
+/**
+ * Records each error toast on the page as a failure of `action`, then closes it. The toast sits on top
+ * of the page header and would take the next click, so closing it lets the later steps still run; the
+ * run still fails at the end with the toast's text.
+ */
+async function recordErrorToasts(page: Page, action: string): Promise<void> {
+  await page.waitForTimeout(500);
+  const toasts = page.locator('[data-sonner-toast][data-type="error"]');
+  for (const text of await toasts.allTextContents()) report.appErrors.push(`${action}: ${text.trim()}`);
+  // The close button sits under the toast's own content in its corner, so it is pressed directly.
+  for (const close of await toasts.getByRole("button", { name: t("notification.toast.close"), exact: true }).all()) {
+    await close.dispatchEvent("click").catch(() => undefined);
+  }
+  await toasts.first().waitFor({ state: "detached" });
 }
 
 async function screenshot(page: Page, name: string): Promise<void> {
@@ -128,14 +196,14 @@ try {
   const syncDialog = page.getByRole("dialog", { name: t("tickets.sync.title"), exact: true });
   await syncButton.click();
   await syncDialog.waitFor();
-  await syncDialog.getByText(t("tickets.sync.never"), { exact: true }).waitFor();
-  await syncDialog.getByRole("button", { name: t("tickets.sync.project"), exact: true }).click();
-  await page.getByRole("menuitemradio").filter({ hasText: SYNC_REPOSITORY }).click();
+  await syncStatus(syncDialog).waitFor();
+  await chooseSyncProject(syncDialog, SYNC_REPOSITORY);
   await screenshot(page, "sync");
-  await syncDialog.getByRole("button", { name: t("tickets.sync.save"), exact: true }).click();
-  await syncDialog.waitFor({ state: "detached" });
+  await saveAndSync(syncDialog);
   const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
-  await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
+  const importedKey = imported.getByText(IMPORTED_SHORT_KEY, { exact: true });
+  await importedKey.waitFor();
+  assert.equal(await importedKey.getAttribute("title"), IMPORTED_KEY);
   await imported.click();
   const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
   await importedDrawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).waitFor();
@@ -242,6 +310,7 @@ try {
   await confirm.getByRole("button", { name: t("common.delete"), exact: true }).click();
   await unassignedDrawer.waitFor({ state: "detached" });
   await card(page, UNASSIGNED).waitFor({ state: "detached" });
+  await recordErrorToasts(page, "Delete");
   report.steps.push("Delete asks for a confirmation and removes the ticket.");
 
   // With no drawer open, the agent panel shows again. Closing it leaves New ticket with no agent.
@@ -278,6 +347,20 @@ try {
   report.steps.push(
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
   );
+
+  // A card that waits for review has Approve and Changes (#188). Neither opens the drawer.
+  const reviewCard = column(page, "tickets.status.needsReview").locator(".tickets-card").filter({ hasText: STARTED });
+  await reviewCard.getByText(t("tickets.step.waiting"), { exact: true }).waitFor();
+  await reviewCard.getByRole("button", { name: t("tickets.card.changes"), exact: true }).click();
+  const changesDialog = page.getByRole("dialog", { name: t("tickets.changes.title"), exact: true });
+  await changesDialog.waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  await changesDialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
+  await changesDialog.waitFor({ state: "detached" });
+  await reviewCard.getByRole("button", { name: t("tickets.card.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  report.steps.push("Changes opens its dialog and Approve moves the ticket to Done; neither opens the drawer.");
 
   // Raven team jobs: each job has its own ticket and one ticket per role, assigned to the role's agent.
   // The running job's Builder works and its Reviewer waits; the queued job's tickets wait in Queued.
@@ -342,6 +425,7 @@ try {
   report.steps.push("Open thread opens the agent's chat.");
 
   assert.deepEqual(report.errors, [], "The page threw an error.");
+  assert.deepEqual(report.appErrors, [], "The app showed an error toast after an action that worked.");
   report.passed = true;
 } catch (error) {
   report.failure = error instanceof Error ? error.message : String(error);

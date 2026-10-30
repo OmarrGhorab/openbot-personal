@@ -24,16 +24,18 @@ import {
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
+  type TicketReviewActions,
   TicketsAgentStrip,
   type TicketsBoardData,
   TicketsColumns,
   TicketsLanes,
   TicketsViewSwitch,
 } from "./TicketsBoard";
+import { TicketsChangesDialog } from "./TicketsChangesDialog";
 import { type TicketsSyncControls, TicketsSyncDialog } from "./TicketsSyncDialog";
 import type { TicketStart, TicketsView } from "./tickets-model";
 
@@ -94,6 +96,21 @@ export function TicketsPage(props: TicketsPageProps) {
   const [creating, setCreating] = createSignal(false);
   const [syncOpen, setSyncOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
+  /** The ticket whose Changes dialog is open. */
+  const [changesId, setChangesId] = createSignal<string | null>(null);
+  /** The cards count their times from this clock, which ticks each minute. */
+  const [now, setNow] = createSignal(new Date());
+  const clock = window.setInterval(() => setNow(new Date()), CLOCK_MS);
+  onCleanup(() => window.clearInterval(clock));
+  /** Approve moves the ticket to Done. Changes asks what to change and sends it to the work thread. */
+  const review: TicketReviewActions = {
+    onApprove: (ticketId) => props.onMove(ticketId, "done"),
+    onRequestChanges: (ticketId) => setChangesId(ticketId),
+  };
+  const changesTicket = () => {
+    const id = changesId();
+    return id ? props.tickets.find((ticket) => ticket.id === id && ticket.taskId !== null) : undefined;
+  };
   /** The board shows the tickets that match the search in their title, key or text. */
   const shown = createMemo(() => {
     const needle = query().trim().toLowerCase();
@@ -216,6 +233,8 @@ export function TicketsPage(props: TicketsPageProps) {
                   snapshots={props.snapshots}
                   selectedTicketId={props.selectedTicketId}
                   onSelectTicket={props.onSelectTicket}
+                  now={now()}
+                  review={review}
                 />
               }
             >
@@ -226,6 +245,8 @@ export function TicketsPage(props: TicketsPageProps) {
                 selectedTicketId={props.selectedTicketId}
                 onSelectTicket={props.onSelectTicket}
                 onSelectAgent={selectAgent}
+                now={now()}
+                review={review}
               />
             </Show>
           </div>
@@ -286,6 +307,15 @@ export function TicketsPage(props: TicketsPageProps) {
       <Show when={syncOpen() && canSync() ? props.sync : undefined}>
         {(sync) => <TicketsSyncDialog sync={sync()} onClose={() => setSyncOpen(false)} />}
       </Show>
+      <Show when={changesTicket()} keyed>
+        {(ticket) => (
+          <TicketsChangesDialog
+            ticket={ticket}
+            onClose={() => setChangesId(null)}
+            onSend={(text) => props.onSteer(ticket, text)}
+          />
+        )}
+      </Show>
       <Show when={creating()}>
         <TicketsNewDialog
           agents={props.agents}
@@ -309,6 +339,9 @@ function TicketsNotice(props: { title: string; body: string }) {
 }
 
 const UNASSIGNED = "";
+
+/** How often the cards' times ("14m", "2h ago") count up. */
+const CLOCK_MS = 60_000;
 
 /**
  * The New ticket dialog: a title, details and an agent. Add to backlog keeps the ticket for later;

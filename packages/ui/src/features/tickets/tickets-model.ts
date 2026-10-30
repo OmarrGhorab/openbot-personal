@@ -8,7 +8,7 @@ import {
   type ConversationMessage,
   type ConversationPlan,
 } from "@openbot/contracts/ipc";
-import type { AppTextKey } from "@openbot/i18n";
+import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 
 /** The columns of the board, from left to right. */
 export const TICKET_COLUMNS: readonly BoardTicketStatus[] = BOARD_TICKET_STATUSES;
@@ -138,4 +138,122 @@ export function turnTokens(messages: readonly ConversationMessage[]): TurnTokens
 /** How many turns of the thread finished: each finished turn carries one trace. */
 export function finishedTurns(messages: readonly ConversationMessage[]): number {
   return messages.filter((message) => message.trace !== undefined).length;
+}
+
+/** The four work steps that a card shows for a ticket in Running, Needs review or Done. */
+export const TICKET_STEPS = ["plan", "build", "review", "merge"] as const;
+type TicketStep = (typeof TICKET_STEPS)[number];
+
+export const TICKET_STEP_LABEL = {
+  plan: "tickets.step.plan",
+  build: "tickets.step.build",
+  review: "tickets.step.review",
+  merge: "tickets.step.merge",
+} as const satisfies Record<TicketStep, AppTextKey>;
+
+/**
+ * How the current step goes: `active` while an agent works on it, `waiting` while it waits for the
+ * person's review, `blocked` while it needs a decision or its last turn failed, `done` when every step is.
+ */
+type TicketStepState = "active" | "waiting" | "blocked" | "done";
+
+/** The current step of a ticket, as an index into `TICKET_STEPS`, and how it goes. */
+export interface TicketStepsView {
+  index: number;
+  state: TicketStepState;
+}
+
+/** A Raven Stack role whose work is a review, such as `reviewer` or `qa`. */
+const REVIEW_ROLE = /review|qa|test|verif/iu;
+
+function isReviewRole(roleId: string | null): boolean {
+  return roleId !== null && REVIEW_ROLE.test(roleId);
+}
+
+/**
+ * Whether a review role of the ticket's team job works now. A role ticket answers for its own role. The
+ * role states come from the role tickets, which move with the roles of the job.
+ */
+function inReview(ticket: BoardTicket, tickets: readonly BoardTicket[]): boolean {
+  if (ticket.teamRoleId !== null) return isReviewRole(ticket.teamRoleId);
+  const jobId = ticket.teamJobId;
+  if (jobId === null) return false;
+  return tickets.some(
+    (candidate) =>
+      candidate.teamJobId === jobId &&
+      isReviewRole(candidate.teamRoleId) &&
+      (candidate.status === "running" || candidate.status === "needs_review"),
+  );
+}
+
+/**
+ * Whether the ticket needs the person for something other than a review: its last turn failed, its
+ * thread asks a question, or its team job waits for a decision. A plain ticket in Needs review after a
+ * completed turn only waits for the review.
+ */
+function ticketBlocked(ticket: BoardTicket, thread: AgentTask | undefined): boolean {
+  if (ticketError(ticket, thread) !== null) return true;
+  if (ticket.status !== "needs_review") return false;
+  return Boolean(thread?.question) || ticket.teamJobId !== null;
+}
+
+/**
+ * The steps of a ticket from its column and the role tickets of its team job, with no stored data of
+ * their own: Build while it runs (Review while a review role runs), Review in Needs review, and every
+ * step in Done. Null for Backlog and Queued, which show no steps.
+ */
+export function ticketSteps(
+  ticket: BoardTicket,
+  tickets: readonly BoardTicket[],
+  thread: AgentTask | undefined,
+): TicketStepsView | null {
+  switch (ticket.status) {
+    case "done":
+      return { index: TICKET_STEPS.length - 1, state: "done" };
+    case "running":
+      return { index: inReview(ticket, tickets) ? 2 : 1, state: ticketBlocked(ticket, thread) ? "blocked" : "active" };
+    case "needs_review":
+      return { index: 2, state: ticketBlocked(ticket, thread) ? "blocked" : "waiting" };
+    default:
+      return null;
+  }
+}
+
+/** The state that the left edge of a card shows: running, waiting for review, blocked or done. */
+export type TicketEdge = "running" | "waiting" | "blocked" | "done";
+
+export function ticketEdge(ticket: BoardTicket, thread: AgentTask | undefined): TicketEdge | null {
+  if (ticket.status === "done") return "done";
+  if (ticketBlocked(ticket, thread)) return "blocked";
+  if (ticket.status === "running") return "running";
+  if (ticket.status === "needs_review") return "waiting";
+  return null;
+}
+
+const MINUTE_MS = 60_000;
+
+/** How long ago a time was, such as "12m ago", "3h ago", "Yesterday" or "4d ago". */
+export function ticketAgo(iso: string, now: Date, t: AppTranslate): string {
+  const minutes = Math.floor((now.getTime() - Date.parse(iso)) / MINUTE_MS);
+  if (!Number.isFinite(minutes) || minutes < 1) return t("tickets.time.justNow");
+  if (minutes < 60) return t("tickets.time.minutesAgo", { minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("tickets.time.hoursAgo", { hours });
+  const days = Math.floor(hours / 24);
+  return days === 1 ? t("tickets.time.yesterday") : t("tickets.time.daysAgo", { days });
+}
+
+/** How long something has run, such as "14m" or "3h". Less than a minute counts as 1m. */
+export function ticketElapsed(iso: string, now: Date, t: AppTranslate): string {
+  const counted = Math.floor((now.getTime() - Date.parse(iso)) / MINUTE_MS);
+  const minutes = Number.isFinite(counted) ? Math.max(1, counted) : 1;
+  return minutes < 60
+    ? t("tickets.time.minutes", { minutes })
+    : t("tickets.time.hours", { hours: Math.floor(minutes / 60) });
+}
+
+/** A short key for the card: `#12` for a GitHub issue, the key itself for Jira and Linear. */
+export function shortTicketKey(key: string): string {
+  const issue = /#(\d+)$/u.exec(key);
+  return issue ? `#${issue[1]}` : key;
 }
