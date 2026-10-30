@@ -174,21 +174,27 @@ export const messages = defineMessages("agent", {
   "agent.team.job.round": "round {round} of {cap}",
   "agent.team.job.changeModels": "Change models",
   "agent.team.job.hideModels": "Hide models",
-  "agent.team.autopilot.intro": "Raven takes tickets from the board, picks the best stack itself, and works until the ticket is done.",
+  "agent.team.autopilot.intro":
+    "Raven takes tickets from the board, picks the best stack itself, and works until the ticket is done.",
   "agent.team.autopilot.master.label": "Autopilot",
   "agent.team.autopilot.master.on": "Autopilot is on",
   "agent.team.autopilot.master.off": "Autopilot is off",
-  "agent.team.autopilot.master.hint": "When a slot is free, Raven starts the next ticket in Backlog and keeps going until it is done. It merges only if auto-merge is on.",
+  "agent.team.autopilot.master.hint":
+    "When a slot is free, Raven starts the next ticket in Backlog and keeps going until it is done. It merges only if auto-merge is on.",
   "agent.team.autopilot.count.running": "Running",
   "agent.team.autopilot.count.waiting": "Waiting",
   "agent.team.autopilot.count.slots": "Slots",
   "agent.team.autopilot.count.slotsValue": "{used} of {total}",
   "agent.team.autopilot.autoStack.title": "Raven picks the stack for every ticket",
-  "agent.team.autopilot.autoStack.hint": "It reads the ticket and the repo, then chooses Raven Stack or pstack, the team and a model for each role. You do not set anything per ticket.",
-  "agent.team.autopilot.autoStack.offHint": "Raven uses your override for each ticket type. A type set to Auto uses Autopilot (full).",
-  "agent.team.autopilot.autoStack.retry": "If a round fails, Raven can switch stack or model and try again until the ticket is done or the round limit stops it.",
+  "agent.team.autopilot.autoStack.hint":
+    "It reads the ticket and the repo, then chooses Raven Stack or pstack, the team and a model for each role. You do not set anything per ticket.",
+  "agent.team.autopilot.autoStack.offHint":
+    "Raven uses your override for each ticket type. A type set to Auto uses Autopilot (full).",
+  "agent.team.autopilot.autoStack.retry":
+    "If a round fails, Raven can switch stack or model and try again until the ticket is done or the round limit stops it.",
   "agent.team.autopilot.decisions.title": "Recent decisions",
-  "agent.team.autopilot.decisions.empty": "No decision yet. When Autopilot starts a ticket, its stack, models and reason show here.",
+  "agent.team.autopilot.decisions.empty":
+    "No decision yet. When Autopilot starts a ticket, its stack, models and reason show here.",
   "agent.team.autopilot.decision.override": "Your override",
   "agent.team.autopilot.type.feature": "Feature",
   "agent.team.autopilot.type.bug": "Bug",
@@ -221,7 +227,8 @@ export const messages = defineMessages("agent", {
   "agent.team.autopilot.pause.title": "Pause on a usage limit",
   "agent.team.autopilot.pause.hint": "Resume when the provider allows it again.",
   "agent.team.autopilot.merge.title": "Reviewer can merge",
-  "agent.team.autopilot.merge.hint": "When a type has auto-merge on, the Reviewer merges the pull request itself. Otherwise the ticket waits in Needs review for you.",
+  "agent.team.autopilot.merge.hint":
+    "When a type has auto-merge on, the Reviewer merges the pull request itself. Otherwise the ticket waits in Needs review for you.",
   "agent.team.autopilot.merge.noType": "No ticket type has auto-merge on. Turn it on for a type under Overrides.",
   "agent.team.autopilot.merge.when": "It merges only when",
   "agent.team.autopilot.merge.rule.pass": "The Reviewer says PASS on the head commit",

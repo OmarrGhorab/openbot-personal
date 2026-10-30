@@ -137,17 +137,22 @@ export const messages = {
   "agent.team.autopilot.master.label": "Autopilot",
   "agent.team.autopilot.master.on": "Autopilot شغّال",
   "agent.team.autopilot.master.off": "Autopilot مقفول",
-  "agent.team.autopilot.master.hint": "لما يفضى مكان، Raven بيبدأ التذكرة اللي بعدها في Backlog ويكمّل لحد ما تخلص. بيعمل merge بس لو الـ auto-merge شغّال.",
+  "agent.team.autopilot.master.hint":
+    "لما يفضى مكان، Raven بيبدأ التذكرة اللي بعدها في Backlog ويكمّل لحد ما تخلص. بيعمل merge بس لو الـ auto-merge شغّال.",
   "agent.team.autopilot.count.running": "شغّالة",
   "agent.team.autopilot.count.waiting": "مستنية",
   "agent.team.autopilot.count.slots": "الأماكن",
   "agent.team.autopilot.count.slotsValue": "{used} من {total}",
   "agent.team.autopilot.autoStack.title": "Raven بيختار الـ stack لكل تذكرة",
-  "agent.team.autopilot.autoStack.hint": "بيقرا التذكرة والريبو، وبعدين يختار Raven Stack أو pstack، والفريق، وموديل لكل دور. إنت مش محتاج تظبط حاجة لكل تذكرة.",
-  "agent.team.autopilot.autoStack.offHint": "Raven بيستخدم الاختيار اللي حددته لكل نوع تذكرة. النوع اللي على تلقائي بيستخدم Autopilot (كامل).",
-  "agent.team.autopilot.autoStack.retry": "لو جولة فشلت، Raven ممكن يغيّر الـ stack أو الموديل ويحاول تاني لحد ما التذكرة تخلص أو حد الجولات يوقفه.",
+  "agent.team.autopilot.autoStack.hint":
+    "بيقرا التذكرة والريبو، وبعدين يختار Raven Stack أو pstack، والفريق، وموديل لكل دور. إنت مش محتاج تظبط حاجة لكل تذكرة.",
+  "agent.team.autopilot.autoStack.offHint":
+    "Raven بيستخدم الاختيار اللي حددته لكل نوع تذكرة. النوع اللي على تلقائي بيستخدم Autopilot (كامل).",
+  "agent.team.autopilot.autoStack.retry":
+    "لو جولة فشلت، Raven ممكن يغيّر الـ stack أو الموديل ويحاول تاني لحد ما التذكرة تخلص أو حد الجولات يوقفه.",
   "agent.team.autopilot.decisions.title": "آخر القرارات",
-  "agent.team.autopilot.decisions.empty": "مفيش قرار لسه. لما Autopilot يبدأ تذكرة، الـ stack والموديلات والسبب هيظهروا هنا.",
+  "agent.team.autopilot.decisions.empty":
+    "مفيش قرار لسه. لما Autopilot يبدأ تذكرة، الـ stack والموديلات والسبب هيظهروا هنا.",
   "agent.team.autopilot.decision.override": "اختيارك",
   "agent.team.autopilot.type.feature": "ميزة",
   "agent.team.autopilot.type.bug": "باج",
@@ -162,7 +167,8 @@ export const messages = {
   "agent.team.autopilot.overrides.choice": "الـ stack لـ {type}",
   "agent.team.autopilot.overrides.autoMerge": "Auto-merge",
   "agent.team.autopilot.overrides.autoMergeFor": "Auto-merge لـ {type}",
-  "agent.team.autopilot.overrides.newOnly": "التغيير بيتطبق على التذاكر الجديدة. الشغلانات اللي شغّالة بتفضل على اختيارها.",
+  "agent.team.autopilot.overrides.newOnly":
+    "التغيير بيتطبق على التذاكر الجديدة. الشغلانات اللي شغّالة بتفضل على اختيارها.",
   "agent.team.autopilot.guardrails.title": "الحدود",
   "agent.team.autopilot.pickUp.title": "ياخد من",
   "agent.team.autopilot.pickUp.hint": "تذاكر في Backlog، متعيّنة لـ Raven أو مش متعيّنة لحد.",
@@ -180,7 +186,8 @@ export const messages = {
   "agent.team.autopilot.pause.title": "وقّف عند حد الاستخدام",
   "agent.team.autopilot.pause.hint": "يكمّل لما المزوّد يسمح تاني.",
   "agent.team.autopilot.merge.title": "الـ Reviewer يقدر يعمل merge",
-  "agent.team.autopilot.merge.hint": "لما نوع يكون الـ auto-merge بتاعه شغّال، الـ Reviewer بيعمل merge للـ pull request بنفسه. غير كده التذكرة بتستناك في Needs review.",
+  "agent.team.autopilot.merge.hint":
+    "لما نوع يكون الـ auto-merge بتاعه شغّال، الـ Reviewer بيعمل merge للـ pull request بنفسه. غير كده التذكرة بتستناك في Needs review.",
   "agent.team.autopilot.merge.noType": "مفيش نوع تذكرة الـ auto-merge بتاعه شغّال. شغّله لنوع تحت الاختيارات الثابتة.",
   "agent.team.autopilot.merge.when": "بيعمل merge بس لما",
   "agent.team.autopilot.merge.rule.pass": "الـ Reviewer يقول PASS على آخر كوميت",
