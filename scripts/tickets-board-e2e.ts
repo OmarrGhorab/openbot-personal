@@ -446,51 +446,6 @@ try {
   assert.equal(await page.getByRole("button", { name: t("tickets.sync.open"), exact: true }).count(), 0);
   report.steps.push("With no ticket system connected, the empty board shows no Sync button.");
 
-  // The empty board (#193), on the `App/Tickets Board Empty` story: Linear is connected and the first
-  // ticket list takes 1.5 s. The empty state must not show while the list loads, it offers Sync from
-  // Linear, and one example adds exactly one ticket to Backlog.
-  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty&viewMode=story`);
-  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
-  await page.getByRole("heading", { level: 2, name: new RegExp(`^${t("tickets.title")}`, "u") }).waitFor();
-  const emptyState = page.getByRole("region", { name: t("tickets.emptyState.title"), exact: true });
-  assert.equal(await emptyState.count(), 0, "The empty state showed while the first ticket list was loading.");
-  await emptyState.waitFor();
-  await emptyState
-    .getByRole("button", {
-      name: t("tickets.emptyState.syncFrom", { provider: t("tickets.sync.provider.linear") }),
-      exact: true,
-    })
-    .waitFor();
-  await emptyState.getByRole("button", { name: t("tickets.new"), exact: true }).waitFor();
-  await screenshot(page, "empty-board");
-  const exampleTitle = t("tickets.emptyState.example.bug.title");
-  await emptyState
-    .getByRole("button", { name: t("tickets.emptyState.addLabel", { title: exampleTitle }), exact: true })
-    .click();
-  await card(column(page, "tickets.status.backlog"), exampleTitle).waitFor();
-  await emptyState.waitFor({ state: "detached" });
-  assert.equal(await card(page, exampleTitle).count(), 1, "An example added more than one ticket.");
-  assert.equal(
-    await column(page, "tickets.status.backlog").getByRole("button").filter({ hasText: exampleTitle }).count(),
-    1,
-  );
-  await screenshot(page, "empty-board-example-added");
-  report.steps.push(
-    "The empty board shows no empty state while the list loads, offers Sync from Linear, and an example adds one Backlog ticket.",
-  );
-
-  // With no ticket system connected, the empty state has New ticket and the three examples, and no Sync.
-  await page.goto(`${storybook}/iframe.html?id=app--tickets-board-empty-no-sync&viewMode=story`);
-  await page.getByRole("button", { name: t("app.rail.tickets"), exact: true }).click();
-  await emptyState.waitFor();
-  assert.equal(
-    await emptyState.getByRole("button").count(),
-    4,
-    "The empty state shows a Sync button with no ticket system.",
-  );
-  assert.equal(await page.getByRole("button", { name: t("tickets.sync.open"), exact: true }).count(), 0);
-  report.steps.push("With no ticket system connected, the empty board shows no Sync button.");
-
   assert.deepEqual(report.errors, [], "The page threw an error.");
   report.passed = true;
 } catch (error) {
