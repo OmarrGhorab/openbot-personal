@@ -436,6 +436,7 @@ import type {
   SaveRavenTeamTemplateInput,
   SetRavenTeamRoleModelInput,
 } from "./ipc-raven-team";
+import type { RavenTicketTakeResult, TakeRavenTicketInput } from "./ipc-ticket-take";
 import type {
   RemoteDesktopSetupAction,
   RemoteDesktopSetupStatus,
@@ -1460,6 +1461,8 @@ export const IPC_ENDPOINTS = {
     giveRoleFullAccess: request<GiveRavenTeamRoleFullAccessInput, RavenTeamJob>()("raven-team:give-role-full-access"),
     stop: request<string, RavenTeamJob>()("raven-team:stop"),
     resume: request<string, RavenTeamJob>()("raven-team:resume"),
+    // Chat (#200): an agent takes the ticket that a message names. Main reads the message again.
+    takeTicket: request<TakeRavenTicketInput, RavenTicketTakeResult>()("raven-team:take-ticket"),
     changed: event<RavenTeamChanged>()("raven-team:changed"),
   },
   // The Autopilot settings of the Raven team. They stay on this computer in one preference file. `set`

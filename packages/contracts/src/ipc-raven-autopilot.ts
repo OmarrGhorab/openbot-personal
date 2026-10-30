@@ -1,4 +1,5 @@
 import { integerInRange, isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
+import { isRavenAutopilotChat, type RavenAutopilotChat } from "./ipc-ticket-take";
 import { type DynamicRecord, isDynamicRecord, isOneOf, isString } from "./runtime-values";
 
 /**
@@ -300,6 +301,11 @@ export interface RavenAutopilotDecision {
    * nothing was tried: the setting is off, the type's switch is off, or the review has not passed.
    */
   merge?: RavenAutopilotMerge | null;
+  /**
+   * The agent and the conversation thread that took the ticket from a chat message (#200). The chat shows the
+   * "Ticket taken" card of the job there. Absent or null for a job that Autopilot took from the board.
+   */
+  chat?: RavenAutopilotChat | null;
 }
 
 /**
@@ -440,7 +446,8 @@ function hasValidEngineFields(value: DynamicRecord): boolean {
         value.switches.length <= RAVEN_AUTOPILOT_SWITCH_LIMIT &&
         value.switches.every(isDecisionSwitch))) &&
     (value.pullRequest === undefined || isNullableBoundedString(value.pullRequest, 2_048)) &&
-    (value.merge === undefined || value.merge === null || isMerge(value.merge))
+    (value.merge === undefined || value.merge === null || isMerge(value.merge)) &&
+    (value.chat === undefined || value.chat === null || isRavenAutopilotChat(value.chat))
   );
 }
 

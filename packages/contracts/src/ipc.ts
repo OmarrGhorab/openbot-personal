@@ -75,6 +75,7 @@ export * from "./ipc-provider-admin";
 export * from "./ipc-provider-detection";
 export * from "./ipc-queue";
 export * from "./ipc-raven-autopilot";
+export * from "./ipc-ticket-take";
 export * from "./ipc-raven-team";
 export * from "./ipc-remote-desktop-setup";
 export * from "./ipc-remote-sessions";
