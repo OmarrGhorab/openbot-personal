@@ -36,6 +36,8 @@ const STEER = "Keep the old session API for one release.";
 const SYNC_REPOSITORY = "OmarrGhorab/openbot-personal";
 const IMPORTED = "Show the issue link on each card";
 const IMPORTED_KEY = "omarrghorab/openbot-personal#158";
+/** The card shows the short key of a GitHub issue (#188); the full key is its tooltip. */
+const IMPORTED_SHORT_KEY = "#158";
 /** The seeded Autopilot lite team jobs: one runs, one waits in Queued. */
 const TEAM_JOB = "Add a retry to the upload";
 const TEAM_JOB_ID = "story-team-job-1";
@@ -135,7 +137,9 @@ try {
   await syncDialog.getByRole("button", { name: t("tickets.sync.save"), exact: true }).click();
   await syncDialog.waitFor({ state: "detached" });
   const imported = card(column(page, "tickets.status.backlog"), IMPORTED);
-  await imported.getByText(IMPORTED_KEY, { exact: true }).waitFor();
+  const importedKey = imported.getByText(IMPORTED_SHORT_KEY, { exact: true });
+  await importedKey.waitFor();
+  assert.equal(await importedKey.getAttribute("title"), IMPORTED_KEY);
   await imported.click();
   const importedDrawer = page.getByRole("complementary", { name: IMPORTED, exact: true });
   await importedDrawer.getByRole("button", { name: t("tickets.drawer.openIssue"), exact: true }).waitFor();
@@ -278,6 +282,20 @@ try {
   report.steps.push(
     "New ticket cancels, adds a ticket to the backlog, and starts a ticket with an agent, which moves it from Running to Needs review.",
   );
+
+  // A card that waits for review has Approve and Changes (#188). Neither opens the drawer.
+  const reviewCard = column(page, "tickets.status.needsReview").locator(".tickets-card").filter({ hasText: STARTED });
+  await reviewCard.getByText(t("tickets.step.waiting"), { exact: true }).waitFor();
+  await reviewCard.getByRole("button", { name: t("tickets.card.changes"), exact: true }).click();
+  const changesDialog = page.getByRole("dialog", { name: t("tickets.changes.title"), exact: true });
+  await changesDialog.waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  await changesDialog.getByRole("button", { name: t("common.cancel"), exact: true }).click();
+  await changesDialog.waitFor({ state: "detached" });
+  await reviewCard.getByRole("button", { name: t("tickets.card.approve"), exact: true }).click();
+  await card(column(page, "tickets.status.done"), STARTED).waitFor();
+  assert.equal(await page.getByRole("complementary", { name: STARTED, exact: true }).count(), 0);
+  report.steps.push("Changes opens its dialog and Approve moves the ticket to Done; neither opens the drawer.");
 
   // Raven team jobs: each job has its own ticket and one ticket per role, assigned to the role's agent.
   // The running job's Builder works and its Reviewer waits; the queued job's tickets wait in Queued.
