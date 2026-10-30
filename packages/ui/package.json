@@ -337,6 +337,7 @@
     "./features/raven-team/RavenTeamPage": "./src/features/raven-team/RavenTeamPage.tsx",
     "./features/tasks/TasksPage": "./src/features/tasks/TasksPage.tsx",
     "./features/team/TeamPersonAvatar": "./src/features/team/TeamPersonAvatar.tsx",
+    "./features/tickets/TicketsBoard": "./src/features/tickets/TicketsBoard.tsx",
     "./features/tickets/TicketsPage": "./src/features/tickets/TicketsPage.tsx",
     "./features/updates/HelpMenu": "./src/features/updates/HelpMenu.tsx",
     "./features/updates/restart-reasons": "./src/features/updates/restart-reasons.ts",
