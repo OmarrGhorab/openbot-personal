@@ -177,7 +177,7 @@
   inset-block-start: var(--openbot-space-3);
   inset-inline-start: -1px;
   width: 2px;
-  height: var(--openbot-space-5);
+  height: var(--openbot-icon-lg);
   border-radius: var(--openbot-radius-pill);
   background: var(--tickets-edge);
   content: "";
@@ -332,8 +332,8 @@
 /* The sparkle avatar of an unassigned ticket: Raven picks the agent. */
 .tickets-card-auto {
   display: inline-flex;
-  width: var(--openbot-space-5);
-  height: var(--openbot-space-5);
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -445,7 +445,7 @@
 .tickets-lanes {
   display: flex;
   flex-direction: column;
-  gap: var(--openbot-space-5);
+  gap: var(--openbot-icon-lg);
 }
 
 .tickets-lane {
