@@ -283,7 +283,13 @@ export class DynamicIslandCoordinator {
   }
 
   resolveAction(action: DynamicIslandAction): void {
-    if (action.type === "open-app") return;
+    // A merged ticket is main's notice: it names no server and holds no coordinator state.
+    if (
+      action.type === "open-app" ||
+      action.type === "open-merged-ticket" ||
+      action.type === "open-merged-pull-request"
+    )
+      return;
     const runtime = this.#servers.get(action.serverId);
     if (!runtime) return;
     if (action.type === "answer-prompt") {

@@ -11,6 +11,8 @@ import type {
   McpSignInAppState,
   RavenAutopilotSettings,
   RavenTeamJob,
+  TicketMergeNotice,
+  TicketMergeOpenedEvent,
 } from "@openbot/contracts/ipc";
 import {
   type AccountUsage,
@@ -365,6 +367,8 @@ export interface MockOpenBotControls {
   emitInvite: (inviteUrl: string) => void;
   emitHostStatus: (status: HostStatus) => void;
   emitRemoteDesktopSessions: (sessions: RemoteDesktopSession[]) => void;
+  /** Sends a merge notice to the window, as main does when the Reviewer merges a ticket (#199). */
+  emitTicketMerged: (notice: TicketMergeNotice) => void;
   dispose: () => void;
 }
 
@@ -650,6 +654,10 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   const latestConversationListeners = new Set<Listener<string>>();
   const messageSentListeners = new Set<(message: MockSentMessage) => boolean>();
   const promptResponseListeners = new Set<Listener<RespondToPromptInput>>();
+  const ticketMergedListeners = new Set<Listener<TicketMergeNotice>>();
+  const ticketMergeOpenedListeners = new Set<Listener<TicketMergeOpenedEvent>>();
+  /** The notices sent, so "View ticket" finds its merge as main does. */
+  const ticketMergeNotices = new Map<string, TicketMergeNotice>();
   const conversationReads = new Map(Object.entries(clone(options.conversationReads ?? {})));
   let runtimeSnapshot = options.runtimeSnapshot ? clone(options.runtimeSnapshot) : null;
   const storyForeignServerId = options.storyForeignAgent === false ? null : STORY_FOREIGN_SERVER_ID;
@@ -2967,6 +2975,21 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       test: async () => undefined,
       openSettings: async () => undefined,
       onOpened: () => () => undefined,
+      onTicketMerged: (listener) => {
+        ticketMergedListeners.add(listener);
+        return () => ticketMergedListeners.delete(listener);
+      },
+      // The preview opens no browser, so "View PR" ends here. "View ticket" goes back to the window.
+      openTicketMerge: async (request) => {
+        const notice = ticketMergeNotices.get(request.noticeId);
+        if (notice && request.target === "ticket" && notice.ticketId !== null) {
+          emit(ticketMergeOpenedListeners, { notice });
+        }
+      },
+      onTicketMergeOpened: (listener) => {
+        ticketMergeOpenedListeners.add(listener);
+        return () => ticketMergeOpenedListeners.delete(listener);
+      },
     },
     maintenance: {
       exportData: async () => ({ saved: true }),
@@ -3194,6 +3217,10 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     emitInvite: mockTeam.emitInvite,
     emitHostStatus: mockTeam.emitHostStatus,
     emitRemoteDesktopSessions: mockTeam.emitRemoteDesktopSessions,
+    emitTicketMerged: (notice) => {
+      ticketMergeNotices.set(notice.id, clone(notice));
+      emit(ticketMergedListeners, notice);
+    },
     dispose: () => {
       for (const timer of timers) clearTimeout(timer);
       timers.clear();
@@ -3207,6 +3234,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       latestConversationListeners.clear();
       messageSentListeners.clear();
       promptResponseListeners.clear();
+      ticketMergedListeners.clear();
+      ticketMergeOpenedListeners.clear();
+      ticketMergeNotices.clear();
       void appInfo;
     },
   };
