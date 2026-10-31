@@ -1004,6 +1004,11 @@
   font-weight: var(--openbot-weight-semibold);
 }
 
+/* Ticket 239: a FAIL verdict is an error, so its word takes the danger token; PASS stays monochrome. */
+.ticket-drawer-verdict[data-verdict="FAIL"] strong {
+  color: var(--openbot-danger);
+}
+
 .ticket-drawer-section {
   display: flex;
   flex-direction: column;

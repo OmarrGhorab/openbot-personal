@@ -38,9 +38,13 @@ import {
   ATTACH_TICKET_EVIDENCE_TOOL,
   attachTicketEvidenceToolSchema,
   REGISTER_PULL_REQUEST_TOOL,
+  REQUEST_TICKET_REVIEW_TOOL,
   registerPullRequestToolSchema,
+  requestTicketReviewToolSchema,
   START_TASK_TOOL,
+  SUBMIT_TICKET_VERDICT_TOOL,
   startTaskToolSchema,
+  submitTicketVerdictToolSchema,
   UPDATE_TICKET_TOOL,
   updateTicketToolSchema,
 } from "./agent-tasks/agent-tasks";
@@ -589,6 +593,18 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Give phase for the step you are in: take, triage, reproduce (bugs only), implement, verify, review, merge, done; set it each time you move on, the ticket detail shows it. Give type (feature, bug or chore) when the ticket has the wrong kind; a kind the user chose stays. Give error for a short line when something failed. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
     shape: updateTicketToolSchema.shape,
+  },
+  {
+    name: REQUEST_TICKET_REVIEW_TOOL,
+    description:
+      "Ask for an independent review of the pull request of the Tickets board ticket that this thread does. OpenBot starts a review thread on another agent that runs another model, with the pull request, the issue and the ticket's evidence. Call it after you open the pull request and attach your evidence. Only a verdict from that reviewer counts for the merge; a FAIL comes back to this thread with the notes.",
+    shape: requestTicketReviewToolSchema.shape,
+  },
+  {
+    name: SUBMIT_TICKET_VERDICT_TOOL,
+    description:
+      "Give your review verdict on the ticket that this review thread was started for: PASS, PASS+NOTES or FAIL, the head commit SHA you reviewed, and your notes. Only the review thread can call it, once. A verdict counts only for that head commit.",
+    shape: submitTicketVerdictToolSchema.shape,
   },
   {
     name: ATTACH_TICKET_EVIDENCE_TOOL,
