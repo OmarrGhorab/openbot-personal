@@ -955,3 +955,14 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* ticket 252: the first-run composer links to Server settings > Providers. Monochrome. */
+.composer-setup-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: var(--openbot-text-sm);
+  color: var(--openbot-text-muted);
+}

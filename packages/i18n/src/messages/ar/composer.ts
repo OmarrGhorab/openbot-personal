@@ -65,6 +65,8 @@ export const messages = {
   "composer.placeholder.hostSleeping": "السيرفر ده نايم. دوس على أي زرار أو اضغط علشان تصحّيه",
   "composer.placeholder.hostWaking": "جارٍ تصحية السيرفر…",
   "composer.placeholder.cliSetup": "كمّل إعداد CLI الإيجنت علشان تبدأ",
+  "composer.setup.hint": "لسه مفيش مزوّد موديلات متظبط.",
+  "composer.setup.action": "ظبّط مزوّد",
   "composer.placeholder.reply": "رد…",
   "composer.placeholder.message": "ابعت رسالة لـ {name}",
   "composer.placeholder.messageAgent": "ابعت رسالة للإيجنت",
