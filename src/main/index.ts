@@ -202,6 +202,10 @@ const analyticsCaptureUrl = !app.isPackaged ? readAnalyticsCaptureUrl(process.en
 // Electron exposes FedCM without an account chooser, so every request fails with a NetworkError.
 // Sites such as Google Sign-In use FedCM when it exists and fall back to their popup when it does not.
 app.commandLine.appendSwitch("disable-features", "FedCm");
+// Ticket 246: the window renderer grew to about 3 GB in a long turn and the kernel killed it. Its live heap
+// stays small (under 100 MB after a collection), so a V8 old-space cap makes it collect before the system
+// runs out instead of letting garbage pile up. A renderer that still dies is reloaded by renderer-recovery.
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=1536");
 if (developmentRemoteDebuggingPort) {
   app.commandLine.appendSwitch("remote-debugging-port", developmentRemoteDebuggingPort);
   app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");

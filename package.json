@@ -162,6 +162,7 @@
     "pin:cua-driver": "bun scripts/pin-cua-driver.ts",
     "verify:remote-desktop-runtime": "bun scripts/verify-remote-desktop-runtime.ts",
     "perf:web": "bun scripts/web-client-perf-e2e.ts",
+    "perf:renderer-memory": "bun scripts/renderer-memory-budget.ts",
     "preview": "bun scripts/preview.ts",
     "storybook": "bun scripts/dev-storybook.ts",
     "build-storybook": "storybook build",
