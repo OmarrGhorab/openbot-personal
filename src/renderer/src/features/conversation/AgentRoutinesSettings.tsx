@@ -132,6 +132,12 @@ interface AgentRoutinesSettingsProps {
   onOpenRun?: ((messageId: string) => void) | undefined;
 }
 
+/**
+ * ticket 256: an unsaved routine draft outlives its editor. Leaving the panel keeps it here by owner,
+ * and the panel opens it again, still unsaved, so nothing typed is lost without Save.
+ */
+export const unsavedRoutineDrafts = new Map<string, RoutineDraft>();
+
 export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   const text = useText();
   const { t, errorMessage } = text;
@@ -170,6 +176,12 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   let draftBase: RoutineEditorRecord | null = null;
 
   onCleanup(scrollFades.stop);
+  onCleanup(() => {
+    const current = draft();
+    if (current && dirty()) unsavedRoutineDrafts.set(props.port.ownerId, current);
+    else unsavedRoutineDrafts.delete(props.port.ownerId);
+  });
+  let restoredDraft = false;
 
   // Only the newest list applies: an older response can arrive after a save and undo it.
   let listRequest = 0;
@@ -182,6 +194,17 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       setRoutines(next);
       setRoutinesLoaded(true);
       props.onCountChange(next.length);
+      const kept = restoredDraft ? undefined : unsavedRoutineDrafts.get(props.port.ownerId);
+      restoredDraft = true;
+      if (kept && !draft()) {
+        const base = kept.id ? next.find((routine) => routine.id === kept.id) : undefined;
+        if (!kept.id || base) {
+          draftBase = base ?? null;
+          setDraft(kept);
+          draftRevision = 1;
+          setDirty(true);
+        }
+      }
       const selectedId = draft()?.id;
       const selected = selectedId ? next.find((routine) => routine.id === selectedId) : undefined;
       if (selectedId && !selected) closeEditor();

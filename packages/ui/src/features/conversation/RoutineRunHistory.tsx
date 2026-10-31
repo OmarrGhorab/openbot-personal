@@ -205,7 +205,7 @@ function RunRow(props: { run: RoutineRunFields; onOpenRun?: ((messageId: string)
           </Show>
           <Show when={failure()}>
             {(reason) => (
-              <span id={reasonId} class="agent-routine-run-note" title={reason()}>
+              <span id={reasonId} class="agent-routine-run-note agent-routine-run-reason" title={reason()}>
                 {reason()}
               </span>
             )}
