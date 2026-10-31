@@ -126,7 +126,8 @@ async function harness(extra: { now?: () => string } = {}) {
     workspaceOnlySupported: supported,
     ...extra,
   });
-  const agentOf = (label: string) => agents.find((agent) => agent.name.startsWith(`Raven ${label} `));
+  const agentOf = (label: string) =>
+    agents.find((agent) => agent.name === `Raven ${label}` || agent.name.startsWith(`Raven ${label} `));
   const job = (jobId: string) => {
     const found = team.listJobs().find((candidate) => candidate.id === jobId);
     if (!found) throw new Error("no job");
@@ -271,17 +272,18 @@ describe("RavenTeamService: the reasoning effort of a role", () => {
       team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: CODEX_BRIEF, efforts: { builder: "high" } }),
     );
     const builder = agentOf("Builder");
-    expect(builder?.name).toBe("Raven Builder (gpt-6-sol, high)");
+    // ticket 251: one agent per role.
+    expect(builder?.name).toBe("Raven Builder");
     expect(builder?.reasoningEffort).toBe("high");
     // A role on its model's default effort keeps the plain name, so earlier agents are reused.
-    expect(agentOf("Reviewer")?.name).toBe("Raven Reviewer (gpt-6-luna)");
-    // A second job on another effort does not change the effort of the first job's agent.
+    expect(agentOf("Reviewer")?.name).toBe("Raven Reviewer");
+    // A second job on another effort while the first works does not change the first job's agent.
     await runCauseEffect(
       team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: CODEX_BRIEF, efforts: { builder: "low" } }),
     );
-    const builders = agents.filter((agent) => agent.name.startsWith("Raven Builder "));
+    const builders = agents.filter((agent) => agent.name.startsWith("Raven Builder"));
     expect(builders.map((agent) => [agent.name, agent.reasoningEffort])).toEqual([
-      ["Raven Builder (gpt-6-sol, high)", "high"],
+      ["Raven Builder", "high"],
       ["Raven Builder (gpt-6-sol, low)", "low"],
     ]);
   });
@@ -311,7 +313,7 @@ describe("RavenTeamService: Autopilot lite", () => {
     const { team, agents, sent, agentOf, job, reply } = await harness();
     const started = await runCauseEffect(team.start({ templateId: RAVEN_STACK_LITE_TEMPLATE_ID, brief: LITE_BRIEF }));
     expect(agentOf("Architect")).toBeUndefined();
-    expect(agents.map((agent) => agent.name)).toEqual(["Raven Builder (gpt-6-sol)", "Raven Reviewer (gpt-6-luna)"]);
+    expect(agents.map((agent) => agent.name)).toEqual(["Raven Builder", "Raven Reviewer"]);
     expect(sent).toHaveLength(1);
     expect(sent[0]?.agentId).toBe(agentOf("Builder")?.id);
     expect(sent[0]?.text).toContain("You are the Builder of a Raven Stack team");
@@ -367,5 +369,28 @@ describe("ticket 249: harness errors", () => {
       "invalid tool discovery arguments",
     );
     expect(readableHarnessError("rate limited")).toBe("rate limited");
+  });
+});
+
+describe("ticket 251: one agent per role", () => {
+  it("reuses the role's agent on a new model once its job ended", async () => {
+    const { team, agents } = await harness();
+    const first = await runCauseEffect(
+      team.start({
+        templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+        brief: "Ticket 1: a. Builder: gpt-6-sol. Reviewer: gpt-6-luna.",
+      }),
+    );
+    await runCauseEffect(team.stop(first.id));
+    await runCauseEffect(
+      team.start({
+        templateId: RAVEN_STACK_LITE_TEMPLATE_ID,
+        brief: "Ticket 2: b. Builder: gpt-6-luna. Reviewer: gpt-6-sol.",
+      }),
+    );
+    expect(agents.map((agent) => [agent.name, agent.model])).toEqual([
+      ["Raven Builder", "gpt-6-luna"],
+      ["Raven Reviewer", "gpt-6-sol"],
+    ]);
   });
 });
