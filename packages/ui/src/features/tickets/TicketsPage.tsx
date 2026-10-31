@@ -269,7 +269,6 @@ export function TicketsPage(props: TicketsPageProps) {
               fallback={
                 <TicketsEmptyState
                   syncLabel={emptySyncLabel()}
-                  onNewTicket={() => setCreating(true)}
                   onSync={() => setSyncOpen(true)}
                   onCreate={props.onCreate}
                 />

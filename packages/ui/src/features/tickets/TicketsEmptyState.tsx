@@ -35,14 +35,13 @@ const TICKET_EXAMPLES = [
 ] as const satisfies readonly TicketExample[];
 
 /**
- * The empty board: what a ticket is in two lines, New ticket and Sync, and three example tickets. Each
+ * The empty board: what a ticket is in two lines, Sync (New ticket is in the page header, once), and three example tickets. Each
  * example's Add to backlog adds that one ticket to Backlog with no agent, and the board takes over. The
  * page shows it only once the first ticket list has arrived empty, so it does not flash while the board
  * loads. `syncLabel` is null while no ticket system is connected: there is no Sync button then.
  */
 export function TicketsEmptyState(props: {
   syncLabel: string | null;
-  onNewTicket: () => void;
   onSync: () => void;
   onCreate: (ticket: TicketNew) => Promise<boolean>;
 }) {
@@ -75,10 +74,6 @@ export function TicketsEmptyState(props: {
           {t("tickets.emptyState.bodyMore")}
         </p>
         <div class="tickets-empty-actions">
-          <Button onClick={() => props.onNewTicket()}>
-            <Plus aria-hidden="true" />
-            {t("tickets.new")}
-          </Button>
           <Show when={props.syncLabel}>
             {(label) => (
               <Button variant="outline" onClick={() => props.onSync()}>

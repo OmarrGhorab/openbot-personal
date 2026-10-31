@@ -5,6 +5,7 @@ import {
   BOARD_TICKET_STATUSES,
   type BoardTicket,
   type BoardTicketStatus,
+  type BoardTicketType,
   type ConversationMessage,
   type ConversationPlan,
 } from "@openbot/contracts/ipc";
@@ -35,6 +36,8 @@ export interface TicketStart {
   ticketId?: string;
   title?: string;
   body?: string;
+  /** The person's choice of type for a new ticket. Absent: the board detects it. */
+  type?: BoardTicketType;
 }
 
 /** The tickets of one column, in board order. */

@@ -18,7 +18,7 @@ export const messages = {
   "agent.avatar.mascotColor": "لون الشخصية",
   "agent.setup.name": "الاسم",
   "agent.setup.purpose": "الإيجنت ده يساعد في إيه؟",
-  "agent.setup.purposePlaceholder": "يخطط رحلات، يقارن بين الخيارات، أو يساعد في شغلك اليومي.",
+  "agent.setup.purposePlaceholder": "صلّح أخطاء في ريبو وشغّل التستات، راجع pull requests، أو ساعد في الشغل اليومي.",
   "agent.instructions.length": "{length} / {limit}",
   "agent.instructions.tooLong": "قصّر التعليمات لحد {limit} حرف. التعليمات الأطول مش بتتحفظ.",
   "agent.setup.model": "موديل الإيجنت",
@@ -45,6 +45,14 @@ export const messages = {
   "agent.setup.suggestion.writingPartner.name": "شريك الكتابة",
   "agent.setup.suggestion.writingPartner.description": "بيكتب مسودات الرسايل والمستندات بأسلوب طبيعي.",
   "agent.setup.suggestion.writingPartner.purpose": "ساعدني أكتب وأحسّن الرسايل والمستندات وخلّي الكتابة واضحة وطبيعية.",
+  "agent.setup.suggestion.developer.name": "مطوّر",
+  "agent.setup.suggestion.developer.description": "بيعدّل الكود في الريبو، بيشغّل التستات، وبيعرض الفرق.",
+  "agent.setup.suggestion.developer.purpose":
+    "نفّذ تعديلات الكود في ريبو git على فرع، شغّل التستات قبل وبعد، واعرض الفرق ونتيجة التستات.",
+  "agent.setup.suggestion.reviewer.name": "مراجع",
+  "agent.setup.suggestion.reviewer.description": "بيراجع فرع أو pull request وبيدّي حكم.",
+  "agent.setup.suggestion.reviewer.purpose":
+    "راجع فرع أو pull request: اقرأ الفرق، شغّل التستات، ورد بـ PASS أو FAIL مع الأسباب. ما تعدّلش أي ملفات.",
   "agent.setup.suggestion.learningCoach.name": "مدرّب التعلّم",
   "agent.setup.suggestion.learningCoach.description": "بيشرح المواضيع الصعبة وبيعمل خطط مذاكرة.",
   "agent.setup.suggestion.learningCoach.purpose": "اشرح المواضيع الصعبة بوضوح واعمل خطط مذاكرة تناسب سرعتي وأهدافي.",

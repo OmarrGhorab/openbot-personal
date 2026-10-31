@@ -334,6 +334,8 @@ export interface StartBoardTicketInput {
   ticketId?: string;
   title?: string;
   body?: string;
+  /** The person's choice of type for a new ticket (ticket 259). Absent: the board detects it. */
+  type?: BoardTicketType;
   /**
    * Request changes on a ticket in review (ticket 248): the text goes to the ticket's own run, or starts
    * a new run of its agent when that run is gone, and the ticket goes back to Running.

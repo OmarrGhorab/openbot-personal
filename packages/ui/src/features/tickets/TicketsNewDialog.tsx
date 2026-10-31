@@ -126,7 +126,12 @@ export function TicketsNewDialog(props: {
     setBusy(start ? "start" : "add");
     const done =
       start && owner
-        ? await props.onStart({ agentId: owner, title: name, body: body().trim() })
+        ? await props.onStart({
+            agentId: owner,
+            title: name,
+            body: body().trim(),
+            ...(choice === "auto" ? {} : { type: choice }),
+          })
         : await props.onCreate({
             title: name,
             body: body().trim(),

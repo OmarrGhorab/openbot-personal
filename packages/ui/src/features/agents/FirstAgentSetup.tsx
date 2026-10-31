@@ -97,6 +97,27 @@ export function createFirstAgentDraft(random: () => number = Math.random): First
 }
 
 export const FIRST_AGENT_SUGGESTIONS: FirstAgentSuggestion[] = [
+  // Developer and Reviewer first (ticket 259): the app is used to build software.
+  {
+    id: "developer",
+    nameKey: "agent.setup.suggestion.developer.name",
+    descriptionKey: "agent.setup.suggestion.developer.description",
+    purposeKey: "agent.setup.suggestion.developer.purpose",
+    avatarSeed: FIRST_AGENT_AVATAR_SEEDS[4] ?? "first-bot:developer",
+    avatarHue: 215,
+    animationCycleOffset: 0,
+    animationOffset: 0.05,
+  },
+  {
+    id: "reviewer",
+    nameKey: "agent.setup.suggestion.reviewer.name",
+    descriptionKey: "agent.setup.suggestion.reviewer.description",
+    purposeKey: "agent.setup.suggestion.reviewer.purpose",
+    avatarSeed: FIRST_AGENT_AVATAR_SEEDS[5] ?? "first-bot:reviewer",
+    avatarHue: 30,
+    animationCycleOffset: 0,
+    animationOffset: 0.1,
+  },
   {
     id: "inbox-helper",
     nameKey: "agent.setup.suggestion.inboxHelper.name",
