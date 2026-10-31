@@ -131,3 +131,9 @@
 - [x] i18n keys in English and Arabic.
 - [x] Tests: new work folder test, and migration tests updated to version 57.
 - [x] Screenshots in English and Arabic.
+
+## Ticket #258 (rest): model picker in RTL
+
+- [x] The model list uses logical padding, so in Arabic the check circle does not cover the name.
+- [x] Model names are isolated with `dir="auto"`.
+- [x] Before/after screenshots in English and Arabic.

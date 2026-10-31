@@ -719,8 +719,9 @@
   border: 0;
   border-radius: var(--ui-menu-item-radius);
   background: transparent;
-  padding: var(--openbot-space-1-5) var(--ui-menu-inset) var(--openbot-space-1-5)
-    calc(var(--ui-menu-inset) + var(--openbot-icon-md) + var(--openbot-space-2));
+  /* Logical sides: in RTL the circle is on the right, so the name keeps clear of it there (ticket 258). */
+  padding-block: var(--openbot-space-1-5);
+  padding-inline: calc(var(--ui-menu-inset) + var(--openbot-icon-md) + var(--openbot-space-2)) var(--ui-menu-inset);
   color: var(--openbot-text-primary);
   cursor: pointer;
   text-align: start;
