@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { type AgentSummary, workspaceAccessEnforced } from "@openbot/contracts/ipc";
 
@@ -20,8 +21,23 @@ export function codexSandboxMode(agent: SandboxedAgent): "read-only" | "workspac
 }
 
 /** The folders a Workspace only agent may write, besides the temporary folders. */
-export function workspaceWritableRoots(agent: Pick<AgentSummary, "workspacePath">, sharedRoot: string) {
-  return [agent.workspacePath, sharedRoot];
+export function workspaceWritableRoots(agent: Pick<AgentSummary, "workspacePath" | "workFolder">, sharedRoot: string) {
+  const folder = agentWorkFolder(agent);
+  return folder === agent.workspacePath ? [agent.workspacePath, sharedRoot] : [agent.workspacePath, folder, sharedRoot];
+}
+
+/**
+ * The folder where the agent's turns run (#257): its work folder when the user chose one and it is a
+ * folder on this computer, else the agent workspace. A removed or moved folder never stops a turn.
+ */
+export function agentWorkFolder(agent: Pick<AgentSummary, "workspacePath" | "workFolder">): string {
+  const folder = agent.workFolder;
+  if (!folder) return agent.workspacePath;
+  try {
+    return statSync(folder).isDirectory() ? folder : agent.workspacePath;
+  } catch {
+    return agent.workspacePath;
+  }
 }
 
 export type CodexSandboxPolicy =

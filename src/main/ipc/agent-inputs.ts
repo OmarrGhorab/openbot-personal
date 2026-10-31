@@ -39,6 +39,7 @@ import {
   isProviderAccountId,
   isReasoningEffort,
   isRoutineSchedule,
+  isWorkFolder,
   type ListChannelRoutineRunsInput,
   type ListRoutineRunsInput,
   type MarkConversationReadInput,
@@ -750,6 +751,10 @@ export function parseUpdateAgent(value: unknown): UpdateAgentInput {
     if (value.reviewerAgentId !== null && !isAgentReviewerAgentId(value.reviewerAgentId))
       throw new Error("Invalid reviewer agent.");
     result.reviewerAgentId = value.reviewerAgentId;
+  }
+  if (value.workFolder !== undefined) {
+    if (value.workFolder !== null && !isWorkFolder(value.workFolder)) throw new Error("Invalid work folder.");
+    result.workFolder = value.workFolder;
   }
   if (value.leaveUsageLimit !== undefined) {
     if (!isBoolean(value.leaveUsageLimit)) throw new Error("Invalid usage limit switch.");

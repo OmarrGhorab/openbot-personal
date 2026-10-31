@@ -47,6 +47,7 @@ export interface NewBoardTicket {
   teamJobId?: string | null;
   teamRoleId?: string | null;
   external?: BoardTicketExternal | null;
+  workFolder?: string | null;
 }
 
 /** The fields that an update changes. An absent key keeps the stored value. */
@@ -66,6 +67,8 @@ export interface BoardTicketPatch {
   error?: string | null;
   /** The work phase that the agent reports (ticket 237). */
   phase?: BoardTicketPhase | null;
+  /** The repository or folder for the ticket's work (ticket 257). */
+  workFolder?: string | null;
 }
 
 /** The sync target of the board. Null provider: the board does not sync. */
@@ -156,8 +159,8 @@ export class BoardTicketStore {
       .prepare(
         `INSERT INTO board_tickets (ticket_id, title, body, status, type, type_source, agent_id, sort_order, task_id,
            thread_id, team_job_id, team_role_id, external_provider, external_key, external_url, progress, error,
-           status_changed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
+           work_folder, status_changed_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`,
       )
       .run(
         ticketId,
@@ -175,6 +178,7 @@ export class BoardTicketStore {
         external?.provider ?? null,
         external?.key ?? null,
         external?.url ?? null,
+        input.workFolder ?? null,
         now,
         now,
         now,
@@ -199,6 +203,7 @@ export class BoardTicketStore {
       ["progress", patch.progress, "progress" in patch],
       ["error", patch.error, "error" in patch],
       ["phase", patch.phase, "phase" in patch],
+      ["work_folder", patch.workFolder, "workFolder" in patch],
     ];
     const sets: string[] = [];
     const values: (string | null)[] = [];
@@ -455,6 +460,7 @@ function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicke
   }
   const phase = optionalStringColumn(row, "phase");
   if (phase !== null && !isOneOf(BOARD_TICKET_PHASES, phase)) throw new Error(`Unknown board ticket phase: ${phase}`);
+  const workFolder = optionalStringColumn(row, "work_folder");
   const provider = optionalStringColumn(row, "external_provider");
   const key = optionalStringColumn(row, "external_key");
   const url = optionalStringColumn(row, "external_url");
@@ -480,6 +486,7 @@ function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicke
     progress: optionalStringColumn(row, "progress"),
     error: optionalStringColumn(row, "error"),
     ...(phase === null ? {} : { phase }),
+    ...(workFolder === null ? {} : { workFolder }),
     statusTimes,
     statusChangedAt: requiredStringColumn(row, "status_changed_at"),
     createdAt: requiredStringColumn(row, "created_at"),

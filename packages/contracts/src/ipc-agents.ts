@@ -1,6 +1,6 @@
 import { type AgentProviderRef, isAgentProviderRef } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
-import { isAgentDefinitionOfDone, isAgentReviewerAgentId } from "./ipc-agent-done-checks";
+import { isAgentDefinitionOfDone, isAgentReviewerAgentId, isWorkFolder } from "./ipc-agent-done-checks";
 import {
   type AgentModelId,
   type AgentReasoningEffort,
@@ -272,6 +272,11 @@ export interface AgentSummary {
   definitionOfDone?: string[];
   /** The agent that reviews this agent's change before it is done. Local-only. Absent means none. */
   reviewerAgentId?: string;
+  /**
+   * The repository or folder where the agent's turns run (#257). Local-only, like `access`. Absent means
+   * the agent workspace.
+   */
+  workFolder?: string;
   threadId: string | null;
   workspacePath: string;
   preview: string;
@@ -330,6 +335,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.hiddenAt === undefined || isHiddenAt(value.hiddenAt)) &&
     (value.definitionOfDone === undefined || isAgentDefinitionOfDone(value.definitionOfDone)) &&
     (value.reviewerAgentId === undefined || isAgentReviewerAgentId(value.reviewerAgentId)) &&
+    (value.workFolder === undefined || isWorkFolder(value.workFolder)) &&
     (value.threadId === null || isIdentifier(value.threadId)) &&
     isBoundedString(value.workspacePath, INPUT_LIMITS.path) &&
     isBoundedString(value.preview, INPUT_LIMITS.messageText) &&
@@ -387,6 +393,8 @@ export interface UpdateAgentInput {
   definitionOfDone?: string[] | null;
   /** `null` clears the reviewer. Local-only. */
   reviewerAgentId?: string | null;
+  /** `null` returns the agent to its workspace (#257). Local-only. */
+  workFolder?: string | null;
   /**
    * The provider, model or account change moves held work away from a usage limit. The agent goes
    * back to its current model when that limit ends. Ignored when no limit holds the agent.

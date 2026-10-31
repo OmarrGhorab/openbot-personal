@@ -274,6 +274,8 @@ export interface AgentProfile {
   definitionOfDone?: string[] | undefined;
   /** The agent that reviews this agent's change. Absent means none, and on a remote host too. */
   reviewerAgentId?: string | undefined;
+  /** The repository or folder where the agent's turns run (#257). Absent means its workspace. */
+  workFolder?: string | undefined;
   /** Set while the agent works on a backup model for a usage limit: the model it goes back to. */
   usageLimitReturn?: ClientAgentSummary["usageLimitReturn"];
   threadId: string | null;

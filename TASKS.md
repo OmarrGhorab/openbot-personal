@@ -120,3 +120,14 @@
 
 ### #76 Version negotiation and size preflight (not started)
 - [ ] Negotiate compatible transfer capabilities and estimate size before copying
+
+## Ticket #257: Working folder for agents and tickets
+
+- [x] Add `workFolder` to the agent contract, the agent store and the IPC inputs.
+- [x] Use the work folder as the run folder (cwd). If the folder is missing, use the workspace.
+- [x] Add `work_folder` to board tickets (migration 57, schema history entry 57).
+- [x] Send the ticket folder to Start. Prepare the ticket worktree from the ticket folder, then the agent folder, then the workspace.
+- [x] UI: agent settings "Folder" page, New ticket "Folder" field, read-only row in the ticket drawer.
+- [x] i18n keys in English and Arabic.
+- [x] Tests: new work folder test, and migration tests updated to version 57.
+- [x] Screenshots in English and Arabic.

@@ -17,6 +17,7 @@ import {
   V52_BOARD_TICKET_TYPE_MIGRATION_SQL,
   V55_BOARD_TICKET_PHASE_MIGRATION_SQL,
   V56_BOARD_TICKET_VERDICT_MIGRATION_SQL,
+  V57_BOARD_TICKET_WORK_FOLDER_MIGRATION_SQL,
 } from "./board-tickets/board-ticket-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
@@ -959,6 +960,11 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Rebuilds the events table for the `verdict` event kind (ticket 239). Every event keeps its row.
     disableForeignKeys: true,
     up: (db) => db.exec(V56_BOARD_TICKET_VERDICT_MIGRATION_SQL),
+  },
+  {
+    version: 57,
+    // Adds the nullable `work_folder` column (ticket 257). Every ticket keeps its row and the agent's folder.
+    up: (db) => db.exec(V57_BOARD_TICKET_WORK_FOLDER_MIGRATION_SQL),
   },
 ];
 

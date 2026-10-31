@@ -65,7 +65,7 @@ import { decodeCapturedSteps, readCapturedSteps } from "./handoff-tool-steps";
 import { sessionSettingsIdentity } from "./session-settings";
 import { isArchivedThreadError, isMissingProviderSessionError, providerForAgent } from "./thread-items";
 import { VISIBLE_DYNAMIC_TOOLS } from "./tool-catalog";
-import { codexSandboxConfig, codexSandboxMode, workspaceWritableRoots } from "./workspace-sandbox";
+import { agentWorkFolder, codexSandboxConfig, codexSandboxMode, workspaceWritableRoots } from "./workspace-sandbox";
 
 const logger = createOpenBotLogger("thread-lifecycle");
 
@@ -510,9 +510,8 @@ export class ThreadLifecycle {
 
   /** The folder that the sessions and turns of this thread run in: a work-thread worktree, or the agent workspace. */
   sessionCwd(agent: AgentSummary, publicThreadId: string): Effect.Effect<string> {
-    return this.#sessionFolder(agent.id, publicThreadId, agent.workspacePath).pipe(
-      Effect.map((folder) => folder ?? agent.workspacePath),
-    );
+    const folder = agentWorkFolder(agent);
+    return this.#sessionFolder(agent.id, publicThreadId, folder).pipe(Effect.map((worktree) => worktree ?? folder));
   }
 
   /**

@@ -2216,6 +2216,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           quickAcknowledgement,
           definitionOfDone,
           reviewerAgentId,
+          workFolder,
           ...updates
         } = input;
         const updated: ClientAgentSummary = { ...current, ...updates };
@@ -2224,6 +2225,8 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         else if (definitionOfDone !== undefined) updated.definitionOfDone = definitionOfDone;
         if (reviewerAgentId === null) delete updated.reviewerAgentId;
         else if (reviewerAgentId !== undefined) updated.reviewerAgentId = reviewerAgentId;
+        if (workFolder === null) delete updated.workFolder;
+        else if (workFolder !== undefined) updated.workFolder = workFolder;
         // `null` returns the agent to the account default, which an agent records by having no value.
         const flags = { allowAutomation, allowNewChat, quickAcknowledgement };
         for (const key of AGENT_DEFAULT_KEYS) {

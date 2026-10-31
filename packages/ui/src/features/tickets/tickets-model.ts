@@ -38,6 +38,8 @@ export interface TicketStart {
   body?: string;
   /** The person's choice of type for a new ticket. Absent: the board detects it. */
   type?: BoardTicketType;
+  /** The repository or folder for a new ticket's work (#257). */
+  workFolder?: string;
 }
 
 /** The tickets of one column, in board order. */

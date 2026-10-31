@@ -3775,7 +3775,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     input: StartAgentTaskInput,
     sender?: ConversationMessageSender,
     timezone?: string,
-    ticket?: { title: string },
+    ticket?: { title: string; workFolder?: string | undefined },
   ): Effect.fn.Return<AgentTask, AgentLifecycleFailed> {
     const task = yield* lifecycleStep("start task", () => {
       if (!this.listAgents().some((agent) => agent.id === input.agentId))
@@ -3786,10 +3786,14 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     let text = input.text;
     if (ticket) {
       // A ticket always runs in its own worktree and branch, so parallel tickets never share a checkout.
-      const workspacePath = this.#store.list().find((agent) => agent.id === task.agentId)?.workspacePath;
-      const worktree = workspacePath
-        ? yield* this.#tasks.prepareTicketWorkspace(task, workspacePath, input.text, ticket.title)
-        : null;
+      const agent = this.#store.list().find((candidate) => candidate.id === task.agentId);
+      const folders = agent
+        ? [ticket.workFolder, agent.workFolder, agent.workspacePath].filter(
+            (folder): folder is string => typeof folder === "string" && folder.length > 0,
+          )
+        : [];
+      const worktree =
+        folders.length > 0 ? yield* this.#tasks.prepareTicketWorkspace(task, folders, input.text, ticket.title) : null;
       if (worktree) text = `${input.text}\n\n${ticketWorktreeNote(worktree)}`;
     }
     this.#tasks.changed(task.agentId);

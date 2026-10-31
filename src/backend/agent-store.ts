@@ -57,6 +57,7 @@ import {
   isProviderAccountId,
   isReasoningEffort,
   isSidebarLayoutSnapshot,
+  isWorkFolder,
   providerForLegacyModel,
   type SaveAgentProfileResult,
   type SidebarLayoutSnapshot,
@@ -115,6 +116,8 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   definitionOfDone?: string[];
   // The agent that reviews this agent's change. Absent means none.
   reviewerAgentId?: string;
+  // The repository or folder where the agent's turns run (#257). Absent means the agent workspace.
+  workFolder?: string;
 };
 type StoredAgentBase = Omit<PersistedStoredAgent, "avatarSeed" | "avatarHue"> & DynamicRecord;
 
@@ -413,6 +416,7 @@ export class AgentStore {
       if (source.backupModels) record.backupModels = structuredClone(source.backupModels);
       // The reviewer is a link to one agent, so a copy starts without it.
       if (source.definitionOfDone) record.definitionOfDone = [...source.definitionOfDone];
+      if (source.workFolder) record.workFolder = source.workFolder;
       record.avatarSeed = source.avatarSeed;
       record.avatarHue = source.avatarHue;
 
@@ -795,6 +799,11 @@ export class AgentStore {
           throw new Error("Invalid reviewer agent.");
         next.reviewerAgentId = input.reviewerAgentId;
       }
+      if (input.workFolder === null) delete next.workFolder;
+      else if (input.workFolder !== undefined) {
+        if (!isWorkFolder(input.workFolder)) throw new Error("Invalid work folder.");
+        next.workFolder = input.workFolder;
+      }
       if (input.avatarSeed !== undefined) {
         if (!isAvatarSeed(input.avatarSeed)) throw new Error("Invalid avatar seed.");
         next.avatarSeed = input.avatarSeed;
@@ -845,6 +854,7 @@ export class AgentStore {
       if (next.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
       if (next.definitionOfDone === undefined) delete agent.definitionOfDone;
       if (next.reviewerAgentId === undefined) delete agent.reviewerAgentId;
+      if (next.workFolder === undefined) delete agent.workFolder;
       if (next.planOnly === undefined) delete agent.planOnly;
       try {
         this.#persist(modelChange ? "agent.model-changed" : "agent.updated", modelChange);
@@ -862,6 +872,7 @@ export class AgentStore {
         if (previous.planOnly === undefined) delete agent.planOnly;
         if (previous.definitionOfDone === undefined) delete agent.definitionOfDone;
         if (previous.reviewerAgentId === undefined) delete agent.reviewerAgentId;
+        if (previous.workFolder === undefined) delete agent.workFolder;
         throw error;
       }
       return { ...agent };
@@ -1879,6 +1890,7 @@ function isStoredAgent(value: unknown): value is PersistedStoredAgent {
     (record.hiddenAt === undefined || isHiddenAt(record.hiddenAt)) &&
     (record.definitionOfDone === undefined || isAgentDefinitionOfDone(record.definitionOfDone)) &&
     (record.reviewerAgentId === undefined || isAgentReviewerAgentId(record.reviewerAgentId)) &&
+    (record.workFolder === undefined || isWorkFolder(record.workFolder)) &&
     isAvatarSeed(record.avatarSeed) &&
     (record.avatarHue === null || isAvatarHue(record.avatarHue)) &&
     isMarketplaceSource(record.marketplaceSource)
@@ -1994,6 +2006,11 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     value.reviewerAgentId === undefined || isAgentReviewerAgentId(value.reviewerAgentId)
       ? value.reviewerAgentId
       : reset("reviewerAgentId", undefined);
+  // A folder this build cannot read is dropped: the agent runs in its own workspace again.
+  const workFolder =
+    value.workFolder === undefined || isWorkFolder(value.workFolder)
+      ? value.workFolder
+      : reset("workFolder", undefined);
   let marketplaceSource: StoredAgent["marketplaceSource"];
   if (value.marketplaceSource !== undefined) {
     if (isMarketplaceSource(value.marketplaceSource)) {
@@ -2048,6 +2065,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     ...(hiddenAt === undefined ? {} : { hiddenAt }),
     ...(definitionOfDone === undefined ? {} : { definitionOfDone }),
     ...(reviewerAgentId === undefined ? {} : { reviewerAgentId }),
+    ...(workFolder === undefined ? {} : { workFolder }),
     ...(sessionSettingOverrides === undefined ? {} : { sessionSettingOverrides }),
     ...(sessionSettingResets === undefined ? {} : { sessionSettingResets }),
     ...(marketplaceSource === undefined ? {} : { marketplaceSource }),
