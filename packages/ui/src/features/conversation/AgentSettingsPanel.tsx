@@ -262,6 +262,7 @@ interface AgentSettingsDraft {
   notifications: boolean;
   permission: AgentPermissionLevel;
   computerUse: boolean;
+  planOnly: boolean;
   allowAutomation: boolean;
   allowNewChat: boolean;
   quickAcknowledgement: boolean;
@@ -309,6 +310,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     notifications: true,
     permission: untrack(() => currentPermission()),
     computerUse: true,
+    planOnly: false,
     allowAutomation: false,
     allowNewChat: false,
     quickAcknowledgement: false,
@@ -433,6 +435,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           String(agent.notifications),
           currentPermission(),
           String(agentComputerUseEnabled(agent)),
+          String(agent.planOnly === true),
           String(agentAutomationAllowed(agent, agentDefaults())),
           String(agentNewChatAllowed(agent, agentDefaults())),
           String(agentQuickAcknowledgementEnabled(agent, agentDefaults())),
@@ -480,6 +483,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           state.notifications = agent.notifications;
           state.permission = currentPermission();
           state.computerUse = agentComputerUseEnabled(agent);
+          state.planOnly = agent.planOnly === true;
           state.allowAutomation = agentAutomationAllowed(agent, agentDefaults());
           state.allowNewChat = agentNewChatAllowed(agent, agentDefaults());
           state.quickAcknowledgement = agentQuickAcknowledgementEnabled(agent, agentDefaults());
@@ -923,6 +927,19 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     if (!disposed && props.agent.id === agentId && draft.computerUse === next) {
       setDraft((state) => {
         state.computerUse = !next;
+      });
+    }
+  }
+
+  async function savePlanOnly(next: boolean): Promise<void> {
+    const agentId = props.agent.id;
+    setDraft((state) => {
+      state.planOnly = next;
+    });
+    if (await saveAgentPatch({ planOnly: next }, agentId)) return;
+    if (!disposed && props.agent.id === agentId && draft.planOnly === next) {
+      setDraft((state) => {
+        state.planOnly = !next;
       });
     }
   }
@@ -1455,6 +1472,20 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     aria-label={t("agentSettings.computerUse.title")}
                     checked={draft.computerUse}
                     onChange={(next) => void saveComputerUse(next)}
+                  />
+                </div>
+              </Show>
+              <Show when={props.computerUseEditable}>
+                <div class="agent-settings-notifications">
+                  <div>
+                    <strong>{t("agentSettings.planOnly.title")}</strong>
+                    <span>{t("agentSettings.planOnly.description")}</span>
+                  </div>
+                  <Switch
+                    size="sm"
+                    aria-label={t("agentSettings.planOnly.title")}
+                    checked={draft.planOnly}
+                    onChange={(next) => void savePlanOnly(next)}
                   />
                 </div>
               </Show>

@@ -845,6 +845,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         const agent = store.list().find((candidate) => candidate.id === agentId);
         return agent !== undefined && workspaceAccessEnforced(agent);
       },
+      planOnly: (agentId) => store.list().find((candidate) => candidate.id === agentId)?.planOnly === true,
       messagingThread: (threadId) => this.messaging.store.linkForThread(threadId) !== null,
       emit: (event) => this.#emit(event),
       emitError: (code, error, agentId) => this.#emitError(code, error, agentId),

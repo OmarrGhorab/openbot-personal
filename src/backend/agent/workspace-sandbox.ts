@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { type AgentSummary, workspaceAccessEnforced } from "@openbot/contracts/ipc";
 
-type SandboxedAgent = Pick<AgentSummary, "access" | "provider" | "workspacePath">;
+type SandboxedAgent = Pick<AgentSummary, "access" | "provider" | "workspacePath" | "planOnly">;
 
 /**
  * The sandbox mode sent with each thread. A `workspace` agent can write only in its workspace, the
@@ -13,7 +13,9 @@ type SandboxedAgent = Pick<AgentSummary, "access" | "provider" | "workspacePath"
  * `confined-process` ignores it: `ProviderRuntime` runs such an agent in a sandboxed process of its
  * own (`process-confinement.ts`).
  */
-export function codexSandboxMode(agent: SandboxedAgent): "workspace-write" | "danger-full-access" {
+export function codexSandboxMode(agent: SandboxedAgent): "read-only" | "workspace-write" | "danger-full-access" {
+  // ticket 265: a Plan only agent reads; Codex refuses every write in its own sandbox.
+  if (agent.planOnly === true) return "read-only";
   return workspaceAccessEnforced(agent) ? "workspace-write" : "danger-full-access";
 }
 

@@ -160,6 +160,9 @@ export const messages = {
     "استخدام الكمبيوتر ومتصفح OpenBot مش محدودين؛ تقدر توقّف استخدام الكمبيوتر من تحت.",
   "agentSettings.computerUse.title": "استخدام الكمبيوتر",
   "agentSettings.computerUse.description": "خلّي الإيجنت ده يتحكم في التطبيقات على الكمبيوتر ده",
+  "agentSettings.planOnly.title": "تخطيط بس",
+  "agentSettings.planOnly.description":
+    "يقرا ويكتب خطط بس. OpenBot بيرفض تعديل الملفات والأوامر اللي بتغيّر الملفات أو git",
   "agentSettings.automation.title": "سكريبتات محلية",
   "agentSettings.automation.description":
     "خلّي السكريبتات على الجهاز المضيف تبعت رسائل وتشغّل روتينات وترد على الأسئلة وتقبل الموافقات أو ترفضها",

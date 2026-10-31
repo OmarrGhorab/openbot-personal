@@ -97,6 +97,8 @@ type PersistedStoredAgent = Omit<StoredAgent, "avatarUrl" | "provider" | "access
   browserProfileId?: string;
   // Absent on every agent stored before the setting existed, which leaves the service tier to Codex.
   fastMode?: boolean;
+  // Absent on every agent stored before ticket 265, which leaves the agent free to write.
+  planOnly?: boolean;
   // Absent means the app default, as for every agent stored before the setting existed.
   busyMessageMode?: BusyMessageMode;
   // Absent means the default task limit, as for every agent stored before tasks existed.
@@ -746,6 +748,11 @@ export class AgentStore {
         if (!isBoolean(input.fastMode)) throw new Error("Invalid fast mode value.");
         next.fastMode = input.fastMode;
       }
+      if (input.planOnly !== undefined) {
+        if (!isBoolean(input.planOnly)) throw new Error("Invalid plan only value.");
+        if (input.planOnly) next.planOnly = true;
+        else delete next.planOnly;
+      }
       // A provider change without an account returns the agent to the new provider's own sign-in.
       if (
         input.providerAccountId === null ||
@@ -838,6 +845,7 @@ export class AgentStore {
       if (next.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
       if (next.definitionOfDone === undefined) delete agent.definitionOfDone;
       if (next.reviewerAgentId === undefined) delete agent.reviewerAgentId;
+      if (next.planOnly === undefined) delete agent.planOnly;
       try {
         this.#persist(modelChange ? "agent.model-changed" : "agent.updated", modelChange);
       } catch (error) {
@@ -851,6 +859,7 @@ export class AgentStore {
         if (previous.allowAutomation === undefined) delete agent.allowAutomation;
         if (previous.allowNewChat === undefined) delete agent.allowNewChat;
         if (previous.quickAcknowledgement === undefined) delete agent.quickAcknowledgement;
+        if (previous.planOnly === undefined) delete agent.planOnly;
         if (previous.definitionOfDone === undefined) delete agent.definitionOfDone;
         if (previous.reviewerAgentId === undefined) delete agent.reviewerAgentId;
         throw error;
@@ -1861,6 +1870,7 @@ function isStoredAgent(value: unknown): value is PersistedStoredAgent {
     (record.ownBrowserSession === undefined || isBoolean(record.ownBrowserSession)) &&
     (record.browserProfileId === undefined || isBrowserProfileId(record.browserProfileId)) &&
     (record.fastMode === undefined || isBoolean(record.fastMode)) &&
+    (record.planOnly === undefined || isBoolean(record.planOnly)) &&
     (record.busyMessageMode === undefined || isBusyMessageMode(record.busyMessageMode)) &&
     (record.taskLimit === undefined || isAgentTaskLimit(record.taskLimit)) &&
     (record.providerAccountId === undefined || isProviderAccountId(record.providerAccountId)) &&
@@ -1947,6 +1957,8 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
       : reset("browserProfileId", undefined);
   const fastMode =
     value.fastMode === undefined || isBoolean(value.fastMode) ? value.fastMode : reset("fastMode", undefined);
+  const planOnly =
+    value.planOnly === undefined || isBoolean(value.planOnly) ? value.planOnly : reset("planOnly", undefined);
   const busyMessageMode =
     value.busyMessageMode === undefined || isBusyMessageMode(value.busyMessageMode)
       ? value.busyMessageMode
@@ -2027,6 +2039,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
     ...(ownBrowserSession === undefined ? {} : { ownBrowserSession }),
     ...(browserProfileId === undefined ? {} : { browserProfileId }),
     ...(fastMode === undefined ? {} : { fastMode }),
+    ...(planOnly === undefined ? {} : { planOnly }),
     ...(busyMessageMode === undefined ? {} : { busyMessageMode }),
     ...(taskLimit === undefined ? {} : { taskLimit }),
     ...(providerAccountId === undefined ? {} : { providerAccountId }),
