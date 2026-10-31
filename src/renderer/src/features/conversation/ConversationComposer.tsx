@@ -691,6 +691,16 @@ export function ConversationComposer() {
               }
             />
           </div>
+          <Show when={!agentReady() && !props.agentsConnecting && !props.runtime && props.onSetUpProvider}>
+            {(open) => (
+              <div class="composer-setup-link">
+                <span>{t("composer.setup.hint")}</span>
+                <Button size="sm" onClick={() => open()()}>
+                  {t("composer.setup.action")}
+                </Button>
+              </div>
+            )}
+          </Show>
           <div class="composer-toolbar">
             <Input
               ref={setAttachmentPickerElement}

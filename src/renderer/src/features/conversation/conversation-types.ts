@@ -153,6 +153,8 @@ export interface ConversationProps {
   agentStatus: AgentStatus;
   /** A joined server's agents are still on their way, so the composer says that it connects. */
   agentsConnecting?: boolean | undefined;
+  /** ticket 252: opens Server settings > Providers from the disabled first-run composer. */
+  onSetUpProvider?: (() => void) | undefined;
   /**
    * The plan windows for the active agent's provider and model, when the account usage has them.
    * The composer reads them for one thing only: a window at 100% means the next send is refused by

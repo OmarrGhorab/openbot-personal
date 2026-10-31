@@ -64,6 +64,8 @@ export const messages = defineMessages("composer", {
   "composer.placeholder.hostSleeping": "This server is asleep. Press a key or click to wake it",
   "composer.placeholder.hostWaking": "Waking the server…",
   "composer.placeholder.cliSetup": "Complete agent CLI setup to start",
+  "composer.setup.hint": "No model provider is set up yet.",
+  "composer.setup.action": "Set up a provider",
   "composer.placeholder.reply": "Reply…",
   "composer.placeholder.message": "Message {name}",
   "composer.placeholder.messageAgent": "Message agent",

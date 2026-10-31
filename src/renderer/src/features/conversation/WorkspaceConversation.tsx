@@ -525,6 +525,10 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
         onOpenUsage={(trigger) => usage.openUsage(activeServer()?.id ?? "local", trigger, activeAgent()?.id)}
         agentStatus={conversationAgentStatus()}
         agentsConnecting={agentListConnecting()}
+        onSetUpProvider={() => {
+          const server = activeServer();
+          if (server) openServerSettings(server.id, null, "providers");
+        }}
         accountUsage={withHostAccountUsage(auth.accountUsage(), hostAccountLimits())}
         providerRuntimeStatuses={providerDownloads() ? providerRuntimeStatuses() : undefined}
         customProviders={customProviders()}
