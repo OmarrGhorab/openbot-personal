@@ -16,6 +16,7 @@ import {
   BOARD_TICKET_SCHEMA_SQL,
   V52_BOARD_TICKET_TYPE_MIGRATION_SQL,
   V55_BOARD_TICKET_PHASE_MIGRATION_SQL,
+  V56_BOARD_TICKET_VERDICT_MIGRATION_SQL,
 } from "./board-tickets/board-ticket-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
@@ -952,6 +953,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // 237). Evidence references tickets, not events, but foreign keys pause while the events table swaps.
     disableForeignKeys: true,
     up: (db) => db.exec(V55_BOARD_TICKET_PHASE_MIGRATION_SQL),
+  },
+  {
+    version: 56,
+    // Rebuilds the events table for the `verdict` event kind (ticket 239). Every event keeps its row.
+    disableForeignKeys: true,
+    up: (db) => db.exec(V56_BOARD_TICKET_VERDICT_MIGRATION_SQL),
   },
 ];
 

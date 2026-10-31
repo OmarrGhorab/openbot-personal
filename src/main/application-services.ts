@@ -1788,6 +1788,8 @@ export async function createApplicationServices({
       );
     },
     taskOwner: (taskId) => service.taskOwner(taskId),
+    // Ticket 239: any agent of this computer can review; the board picks one not on the author's model.
+    reviewers: () => service.listAgents().map((agent) => ({ id: agent.id, name: agent.name, model: agent.model })),
     evidence: new BoardTicketEvidenceStore(boardTicketStore, join(app.getPath("userData"), "ticket-evidence")),
   });
   const service: AgentService = new AgentService({

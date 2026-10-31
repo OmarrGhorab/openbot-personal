@@ -21,6 +21,7 @@ import {
   BOARD_TICKET_PHASES,
   BOARD_TICKET_PROGRESS_LIMIT,
   BOARD_TICKET_TYPES,
+  BOARD_TICKET_VERDICTS,
   type BoardTicketStatus,
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
@@ -96,12 +97,47 @@ export const attachTicketEvidenceToolSchema = z.strictObject({
   caption: z.string().trim().max(BOARD_TICKET_EVIDENCE_CAPTION_LIMIT).optional(),
 });
 
+/** Ticket 239: the author thread asks another agent on another model to review its pull request. */
+export const REQUEST_TICKET_REVIEW_TOOL = "request_ticket_review";
+
+export const requestTicketReviewToolSchema = z.strictObject({
+  pullRequest: z.number().int().positive(),
+  notes: z.string().trim().max(BOARD_TICKET_COMMENT_LIMIT).optional(),
+});
+
+/** Ticket 239: the reviewer thread saves its verdict on the ticket. */
+export const SUBMIT_TICKET_VERDICT_TOOL = "submit_ticket_verdict";
+
+export const submitTicketVerdictToolSchema = z.strictObject({
+  verdict: z.enum(BOARD_TICKET_VERDICTS),
+  headSha: z
+    .string()
+    .trim()
+    .regex(/^[0-9a-f]{7,64}$/iu),
+  notes: z
+    .string()
+    .trim()
+    .max(BOARD_TICKET_COMMENT_LIMIT - 200)
+    .default(""),
+});
+
 /** The Tickets board, for the `update_ticket` tool. The composition root gives `BoardTicketService`. */
 export interface AgentTaskBoard {
   /** Updates the ticket of the work thread. Null when the work thread does no ticket. */
   updateForTask(taskId: string, update: AgentTicketUpdate): { id: string; status: BoardTicketStatus } | null;
   /** The ticket of a work thread, or of a chat that took one (#263). */
   forThread?(taskId: string | null, threadId: string | null): { id: string } | null;
+  /** Ticket 239: starts the reviewer thread of a ticket. */
+  requestReview?(
+    ticketId: string,
+    input: z.infer<typeof requestTicketReviewToolSchema>,
+  ): Promise<{ reviewerId: string; taskId: string }>;
+  /** Ticket 239: saves the verdict of a review thread. */
+  submitVerdict?(
+    reviewTaskId: string,
+    callerAgentId: string,
+    input: z.infer<typeof submitTicketVerdictToolSchema>,
+  ): Promise<{ ticketId: string; fails: number; paused: boolean }>;
   /** Attaches evidence to a ticket as the agent. */
   attachEvidence?(
     input: z.infer<typeof attachTicketEvidenceToolSchema> & { ticketId: string },
@@ -456,6 +492,8 @@ export class AgentTasks implements TaskLanes {
     if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
     if (params.tool === UPDATE_TICKET_TOOL) return this.#updateTicket(params, caller.agentId);
     if (params.tool === ATTACH_TICKET_EVIDENCE_TOOL) return yield* this.#attachEvidence(params, caller.agentId);
+    if (params.tool === REQUEST_TICKET_REVIEW_TOOL) return yield* this.#requestReview(params, caller.agentId);
+    if (params.tool === SUBMIT_TICKET_VERDICT_TOOL) return yield* this.#submitVerdict(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -641,6 +679,58 @@ export class AgentTasks implements TaskLanes {
       return openBotToolFailure(cause instanceof Error ? cause.message : String(cause));
     }
     return openBotToolResult({ ticketId: ticket.id, evidenceId: result.success.id, kind: result.success.kind });
+  });
+
+  /** Answers `request_ticket_review` from the thread that does the ticket (ticket 239). */
+  readonly #requestReview = Effect.fn("AgentTasks.requestReview")(function* (
+    this: AgentTasks,
+    params: DynamicToolCallParams,
+    agentId: string,
+  ): Effect.fn.Return<OpenBotToolResponse> {
+    const parsed = requestTicketReviewToolSchema.safeParse(params.arguments);
+    if (!parsed.success) return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
+    const board = this.#board;
+    if (!board?.forThread || !board.requestReview) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    }
+    const threadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const ticket = board.forThread(this.#taskOf(threadId)?.taskId ?? null, threadId);
+    if (!ticket) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    const request = board.requestReview.bind(board);
+    const result = yield* Effect.tryPromise({
+      try: () => request(ticket.id, parsed.data),
+      catch: (cause) => cause,
+    }).pipe(Effect.result);
+    if (Result.isFailure(result)) {
+      const cause = result.failure;
+      return openBotToolFailure(cause instanceof Error ? cause.message : String(cause));
+    }
+    return openBotToolResult({ ticketId: ticket.id, reviewerId: result.success.reviewerId });
+  });
+
+  /** Answers `submit_ticket_verdict` from the review thread that the board started (ticket 239). */
+  readonly #submitVerdict = Effect.fn("AgentTasks.submitVerdict")(function* (
+    this: AgentTasks,
+    params: DynamicToolCallParams,
+    agentId: string,
+  ): Effect.fn.Return<OpenBotToolResponse> {
+    const parsed = submitTicketVerdictToolSchema.safeParse(params.arguments);
+    if (!parsed.success) return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    const board = this.#board;
+    if (!task || !board?.submitVerdict) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.notReviewThread"));
+    }
+    const submit = board.submitVerdict.bind(board);
+    const result = yield* Effect.tryPromise({
+      try: () => submit(task.taskId, agentId, parsed.data),
+      catch: (cause) => cause,
+    }).pipe(Effect.result);
+    if (Result.isFailure(result)) {
+      const cause = result.failure;
+      return openBotToolFailure(cause instanceof Error ? cause.message : String(cause));
+    }
+    return openBotToolResult(result.success);
   });
 
   #taskOf(threadId: string | null): AgentTaskRecord | null {

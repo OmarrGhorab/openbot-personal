@@ -185,10 +185,24 @@ export const V55_BOARD_TICKET_PHASE_MIGRATION_SQL = `
   ${BOARD_TICKET_EVENTS_INDEX_SQL}
 `;
 
-/** The board tables of a new database, as migration 55 leaves them. */
+// Migration 56 (ticket 239): the `verdict` event kind, a reviewer's PASS, PASS+NOTES or FAIL on a head
+// commit, kept as JSON in `text`. The events table is rebuilt again; every row and its rowid stay.
+const V56_EVENT_KINDS = `${V55_EVENT_KINDS}, 'verdict'`;
+
+/** Migration 56. It runs with foreign keys off, inside the migration's transaction. */
+export const V56_BOARD_TICKET_VERDICT_MIGRATION_SQL = `
+  ${boardTicketEventsTableSql("board_ticket_events_v56", V56_EVENT_KINDS)}
+  INSERT INTO board_ticket_events_v56 (rowid, ${V51_EVENT_COLUMNS})
+    SELECT rowid, ${V51_EVENT_COLUMNS} FROM board_ticket_events;
+  DROP TABLE board_ticket_events;
+  ALTER TABLE board_ticket_events_v56 RENAME TO board_ticket_events;
+  ${BOARD_TICKET_EVENTS_INDEX_SQL}
+`;
+
+/** The board tables of a new database, as migration 56 leaves them. */
 export const BOARD_TICKET_LATEST_SCHEMA_SQL = `
   ${boardTicketsTableSql("IF NOT EXISTS board_tickets", `\n    ${V55_PHASE_COLUMN},`)}
-  ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events", V55_EVENT_KINDS)}
+  ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events", V56_EVENT_KINDS)}
   ${V52_BOARD_TICKET_INDEXES_SQL}
 ${V51_BOARD_SETTINGS_SQL}
 ${BOARD_TICKET_EVIDENCE_SCHEMA_SQL}`;

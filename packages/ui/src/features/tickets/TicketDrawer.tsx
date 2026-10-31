@@ -11,6 +11,7 @@ import {
   type BoardTicketType,
   boardTicketEventAgents,
   boardTicketPhaseSteps,
+  boardTicketVerdicts,
   type ConversationMessage,
   isBoardTicketType,
   type RavenAutopilotDecision,
@@ -159,6 +160,8 @@ export function TicketDrawer(props: TicketDrawerProps) {
   const agentName = (agentId: string) => props.agents.find((candidate) => candidate.id === agentId)?.name ?? agentId;
   const eventAgents = createMemo(() => boardTicketEventAgents(props.events ?? []));
   const newestFirst = () => [...(props.events ?? [])].reverse();
+  /** The newest review verdict (ticket 239), or undefined. */
+  const lastVerdict = createMemo(() => boardTicketVerdicts(props.events ?? []).at(-1));
   const agentOf = (agentId: string | null) => props.agents.find((candidate) => candidate.id === agentId);
   /** The role tickets of a team job's ticket, one for each role. Empty for any other ticket. */
   const roleTickets = () => {
@@ -201,6 +204,12 @@ export function TicketDrawer(props: TicketDrawerProps) {
         return event.text
           ? t("tickets.event.assigned", { name: agentName(event.text) })
           : t("tickets.event.unassigned");
+      case "verdict": {
+        const verdict = boardTicketVerdicts([event])[0];
+        return verdict
+          ? t("tickets.event.verdict", { verdict: verdict.verdict, sha: verdict.headSha.slice(0, 7) })
+          : "";
+      }
       case "phase":
         return isPhase(event.text) ? t("tickets.event.phase", { phase: t(PHASE_LABEL[event.text]) }) : "";
       case "type_changed":
@@ -393,6 +402,26 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </ol>
             );
           }}
+        </Show>
+
+        <Show when={lastVerdict()}>
+          {(verdict) => (
+            <section class="ticket-drawer-section ticket-drawer-verdict" data-verdict={verdict().verdict}>
+              <h4 class="ticket-drawer-heading">{t("tickets.drawer.verdict")}</h4>
+              <p>
+                <strong>{verdict().verdict}</strong>{" "}
+                {t("tickets.drawer.verdictBy", {
+                  name: agentOf(verdict().reviewerId)?.name ?? t("tickets.actor.agent"),
+                  sha: verdict().headSha.slice(0, 7),
+                })}
+              </p>
+              <Show when={verdict().notes}>
+                <p class="tickets-muted" dir="auto">
+                  {verdict().notes}
+                </p>
+              </Show>
+            </section>
+          )}
         </Show>
 
         <Show when={roleTickets().length > 0}>

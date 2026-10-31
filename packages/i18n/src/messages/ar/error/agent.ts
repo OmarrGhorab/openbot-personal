@@ -5,6 +5,8 @@ export const messages = {
   "error.agent.historyUnavailable":
     "التاريخ مش متاح للطلب ده. اقرا التاريخ الأخير تاني، أو استخدم channel_history لشغل القناة.",
   "error.agent.toolRequestInvalid": "arguments اكتشاف الأداة مش صالحة. استخدم الـ schema المعلن واسم أداة مؤهّل أصلي.",
+  "error.agent.boardTickets.noReviewer": "مفيش إيجنت تاني على موديل تاني يقدر يراجع التذكرة دي. ضيف واحد واطلب تاني.",
+  "error.agent.boardTickets.notReviewThread": "بس تريد المراجعة اللي اتطلب للتذكرة دي يقدر يدي الحكم.",
   "error.agent.boardTickets.notFound": "التذكرة مش موجودة. ممكن تكون اتمسحت.",
   "error.agent.boardTickets.emptyTitle": "اكتب عنوان للتذكرة.",
   "error.agent.boardTickets.emptyComment": "اكتب تعليق قبل ما تبعته.",

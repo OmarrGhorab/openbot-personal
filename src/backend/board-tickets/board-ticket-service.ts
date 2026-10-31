@@ -13,7 +13,9 @@ import {
   type BoardTicketStatus,
   type BoardTicketType,
   type BoardTicketTypeSource,
+  type BoardTicketVerdict,
   type BoardTicketWorktree,
+  boardTicketVerdicts,
   type CommentBoardTicketInput,
   type CreateBoardTicketInput,
   detectBoardTicketType,
@@ -23,6 +25,13 @@ import {
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { BoardTicketEvidenceInput, BoardTicketEvidenceStore } from "./board-ticket-evidence";
+import {
+  pickTicketReviewer,
+  type ReviewCandidate,
+  TICKET_REVIEW_FAIL_LIMIT,
+  ticketReviewBrief,
+  verdictEventText,
+} from "./board-ticket-review";
 import type { BoardTicketPatch, BoardTicketStore, NewBoardTicket } from "./board-ticket-store";
 
 export interface BoardTicketServiceOptions {
@@ -42,6 +51,8 @@ export interface BoardTicketServiceOptions {
   taskOwner?: (taskId: string) => string | null;
   /** The worktree path and branch of a work thread, shown on its ticket. */
   worktreeOf?: (taskId: string) => BoardTicketWorktree | null;
+  /** The agents that can review a ticket, with their models (ticket 239). Without it, a review refuses. */
+  reviewers?: () => ReviewCandidate[];
 }
 
 /** Starts one work thread (agent task) of an agent, as the ticket intake does. */
@@ -82,6 +93,9 @@ export class BoardTicketService {
   readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
   readonly #sendToWorkThread: BoardTicketServiceOptions["sendToWorkThread"];
   readonly #taskOwner: BoardTicketServiceOptions["taskOwner"];
+  readonly #reviewers: BoardTicketServiceOptions["reviewers"];
+  /** The reviewer work thread of each requested review, by its task ID (ticket 239). */
+  readonly #reviews = new Map<string, { ticketId: string; reviewerId: string }>();
   /** The tickets whose Start is in flight, so a second click does not start a second run. */
   readonly #starting = new Set<string>();
   readonly #activity = new Set<(activity: BoardTicketActivity) => void>();
@@ -94,6 +108,80 @@ export class BoardTicketService {
     this.#sendToWorkThread = options.sendToWorkThread;
     this.#taskOwner = options.taskOwner;
     this.#evidence = options.evidence;
+    this.#reviewers = options.reviewers;
+  }
+
+  /**
+   * Ticket 239: the author thread asks for an independent review of its pull request. The reviewer is
+   * another agent on another model; its work thread gets the pull request, the issue and the evidence.
+   */
+  async requestReview(
+    ticketId: string,
+    input: { pullRequest: number; notes?: string | undefined },
+  ): Promise<{ reviewerId: string; taskId: string }> {
+    const ticket = this.#require(ticketId);
+    const startWorkThread = this.#startWorkThread;
+    const candidates = this.#reviewers?.() ?? [];
+    if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
+    const authorId = ticket.agentId ?? "";
+    const author = { id: authorId, model: candidates.find((candidate) => candidate.id === authorId)?.model ?? null };
+    const reviewer = pickTicketReviewer(candidates, author);
+    if (!reviewer) throw new Error(sourceText("error.agent.boardTickets.noReviewer"));
+    const brief = ticketReviewBrief(ticket, input, this.#evidence?.list(ticket.id) ?? []);
+    const task = await startWorkThread(reviewer.id, brief, { title: `Review: ${ticket.title}` });
+    this.#reviews.set(task.id, { ticketId: ticket.id, reviewerId: reviewer.id });
+    this.patch(ticket.id, { phase: "review" }, "agent");
+    this.comment(
+      { ticketId: ticket.id, text: `Review of pull request #${input.pullRequest} requested from ${reviewer.name}.` },
+      "agent",
+    );
+    return { reviewerId: reviewer.id, taskId: task.id };
+  }
+
+  /**
+   * Ticket 239: the reviewer's verdict, from its review thread only. It is saved on the ticket with the
+   * head commit it was given on. A FAIL sends the notes to the author thread; the third FAIL pauses the
+   * loop and moves the ticket to Needs review for the person.
+   */
+  async submitVerdict(
+    reviewTaskId: string,
+    callerAgentId: string,
+    input: { verdict: BoardTicketVerdict; headSha: string; notes: string },
+  ): Promise<{ ticketId: string; fails: number; paused: boolean }> {
+    const review = this.#reviews.get(reviewTaskId);
+    if (!review || review.reviewerId !== callerAgentId) {
+      throw new Error(sourceText("error.agent.boardTickets.notReviewThread"));
+    }
+    const ticket = this.#require(review.ticketId);
+    if (ticket.agentId === callerAgentId) throw new Error(sourceText("error.agent.boardTickets.notReviewThread"));
+    this.#store.addEvent(ticket.id, "verdict", "agent", {
+      text: verdictEventText({ ...input, reviewerId: callerAgentId }).slice(0, BOARD_TICKET_COMMENT_LIMIT),
+    });
+    this.#reviews.delete(reviewTaskId);
+    this.#changed([ticket.id]);
+    const fails = boardTicketVerdicts(this.#store.events(ticket.id)).filter((item) => item.verdict === "FAIL").length;
+    if (input.verdict !== "FAIL") return { ticketId: ticket.id, fails, paused: false };
+    if (fails >= TICKET_REVIEW_FAIL_LIMIT) {
+      this.comment(
+        {
+          ticketId: ticket.id,
+          text: `The review failed ${fails} times. The loop is paused: please decide how to go on.`,
+        },
+        "agent",
+      );
+      this.moveIfNeeded(ticket.id, "needs_review", "agent");
+      return { ticketId: ticket.id, fails, paused: true };
+    }
+    const owner = ticket.agentId;
+    if (owner) {
+      await this.#requestChanges(
+        ticket,
+        owner,
+        `The reviewer said FAIL on ${input.headSha}. Fix it, push, and ask for a review again.\n${input.notes}`,
+        "agent",
+      );
+    }
+    return { ticketId: ticket.id, fails, paused: false };
   }
 
   /** The evidence of a ticket, oldest first. Empty when this board keeps none. */

@@ -43,7 +43,7 @@ describe("board ticket phase migration", () => {
     const tickets = rows(db, "board_tickets");
     const events = rows(db, "board_ticket_events");
     migrateOpenBotDatabase(db);
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 55 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 56 });
     expect(rows(db, "board_tickets")).toEqual(tickets.map((row) => Object.assign({}, row, { phase: null })));
     expect(rows(db, "board_ticket_events")).toEqual(events);
     db.prepare("UPDATE board_tickets SET phase = 'verify'").run();
@@ -65,6 +65,6 @@ describe("board ticket phase migration", () => {
     expect(rows(db, "board_ticket_events")).toEqual(events);
     db.exec("DROP TRIGGER stop_at_55");
     migrateOpenBotDatabase(db);
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 55 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 56 });
   });
 });

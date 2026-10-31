@@ -37,6 +37,7 @@ export const BOARD_TICKET_EVENT_KINDS = [
   "progress",
   "type_changed",
   "phase",
+  "verdict",
 ] as const;
 export type BoardTicketEventKind = (typeof BOARD_TICKET_EVENT_KINDS)[number];
 
@@ -59,6 +60,60 @@ export type BoardTicketPhase = (typeof BOARD_TICKET_PHASES)[number];
 /** The phases that the ticket detail shows, in order. Only a bug ticket has Reproduce. */
 export function boardTicketPhaseSteps(type: BoardTicketType | null): BoardTicketPhase[] {
   return BOARD_TICKET_PHASES.filter((phase) => phase !== "reproduce" || type === "bug");
+}
+
+/** A reviewer's verdict on a ticket's pull request (ticket 239). */
+export const BOARD_TICKET_VERDICTS = ["PASS", "PASS+NOTES", "FAIL"] as const;
+export type BoardTicketVerdict = (typeof BOARD_TICKET_VERDICTS)[number];
+
+/** One saved verdict, read from a `verdict` event. */
+export interface BoardTicketReviewVerdict {
+  verdict: BoardTicketVerdict;
+  headSha: string;
+  notes: string;
+  reviewerId: string;
+  at: string;
+}
+
+/** The verdicts of a ticket, oldest first, from its events. An event that does not decode is skipped. */
+export function boardTicketVerdicts(events: readonly BoardTicketEvent[]): BoardTicketReviewVerdict[] {
+  const verdicts: BoardTicketReviewVerdict[] = [];
+  for (const event of events) {
+    if (event.kind !== "verdict" || !event.text) continue;
+    try {
+      const value = JSON.parse(event.text);
+      if (
+        isDynamicRecord(value) &&
+        BOARD_TICKET_VERDICTS.some((verdict) => verdict === value.verdict) &&
+        typeof value.headSha === "string" &&
+        typeof value.notes === "string" &&
+        typeof value.reviewerId === "string"
+      ) {
+        const verdict = BOARD_TICKET_VERDICTS.find((item) => item === value.verdict) ?? "FAIL";
+        verdicts.push({
+          verdict,
+          headSha: value.headSha,
+          notes: value.notes,
+          reviewerId: value.reviewerId,
+          at: event.createdAt,
+        });
+      }
+    } catch {
+      // A broken verdict text never counts.
+    }
+  }
+  return verdicts;
+}
+
+/**
+ * The merge rule of a single ticket thread: the newest verdict on the current head commit is PASS or
+ * PASS+NOTES, and no FAIL was given on that head. A verdict on an older commit never counts.
+ */
+export function boardTicketMayMerge(verdicts: readonly BoardTicketReviewVerdict[], head: string | null): boolean {
+  if (!head) return false;
+  const onHead = verdicts.filter((verdict) => verdict.headSha === head);
+  const last = onHead.at(-1);
+  return last !== undefined && last.verdict !== "FAIL" && onHead.every((verdict) => verdict.verdict !== "FAIL");
 }
 
 export const BOARD_TICKET_ACTORS = ["user", "agent", "sync"] as const;

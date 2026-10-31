@@ -1,4 +1,9 @@
-import type { RavenTeamJob, RavenTeamRoleRun } from "@openbot/contracts/ipc";
+import {
+  type BoardTicketReviewVerdict,
+  boardTicketMayMerge,
+  type RavenTeamJob,
+  type RavenTeamRoleRun,
+} from "@openbot/contracts/ipc";
 
 /**
  * The team half of the Reviewer's merge rules (#198). The other half (CI and the pull request head) is read
@@ -39,4 +44,19 @@ export function autopilotMergeVerdicts(
   const quality = job.roles.find(isQuality);
   if (quality && (quality.commit !== head || quality.score !== 10)) return null;
   return { commit: head, reviewer: reviewer.verdict, qualityScore: quality ? 10 : null };
+}
+
+/**
+ * Ticket 239: the merge rule of a single ticket thread, with no team. Its reviewer's verdicts are saved on
+ * the ticket: the newest one on the current head is PASS or PASS+NOTES, and no FAIL was given on that head.
+ * A verdict on an older commit never counts.
+ */
+export function ticketThreadMergeVerdicts(
+  verdicts: readonly BoardTicketReviewVerdict[],
+  head: string | null,
+): AutopilotMergeVerdicts | null {
+  if (!head || !boardTicketMayMerge(verdicts, head)) return null;
+  const last = verdicts.filter((verdict) => verdict.headSha === head).at(-1);
+  if (!last || last.verdict === "FAIL") return null;
+  return { commit: head, reviewer: last.verdict, qualityScore: null };
 }
