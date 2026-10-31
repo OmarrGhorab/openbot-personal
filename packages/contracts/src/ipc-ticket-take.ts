@@ -59,7 +59,7 @@ export type RavenTicketTakeResult =
     }
   | { outcome: "connect"; key: string; provider: BoardTicketProvider }
   /** A ticket of this board, named by its title: it is now linked to the chat's thread, or already ran. */
-  | { outcome: "linked"; ticketId: string; already: boolean }
+  | { outcome: "linked"; ticketId: string; already: boolean; title?: string }
   | { outcome: "none" }
   | { outcome: "failed"; key: string; reason: string };
 
@@ -273,7 +273,11 @@ export function isRavenTicketTakeResult(value: unknown): value is RavenTicketTak
     case "connect":
       return isBoundedString(value.key, KEY_LIMIT) && PROVIDERS.includes(value.provider);
     case "linked":
-      return isIdentifier(value.ticketId) && typeof value.already === "boolean";
+      return (
+        isIdentifier(value.ticketId) &&
+        typeof value.already === "boolean" &&
+        (value.title === undefined || isBoundedString(value.title, 200))
+      );
     case "none":
       return true;
     case "failed":

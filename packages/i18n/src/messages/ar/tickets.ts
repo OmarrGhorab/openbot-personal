@@ -289,5 +289,7 @@ export const messages = {
   "tickets.taken.connectLinear":
     "OpenBot لسه مش بيتوصّل بـ Linear، علشان كده مش قادر أقرا {key}. ضيف التذكرة للوحة، وبعدين ابعت الرسالة تاني.",
   "tickets.taken.connectAction": "وصّل {provider}",
+  "tickets.taken.started": "بدأت {title} في تريد لوحدها. هي شغالة دلوقتي في صفحة التذاكر.",
+  "tickets.taken.openTicket": "افتح في التذاكر",
   "tickets.taken.failed": "معرفتش أبدأ {key}: {reason}",
 } as const satisfies PartialTranslation<typeof source>;

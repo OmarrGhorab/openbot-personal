@@ -2088,7 +2088,6 @@ export async function createApplicationServices({
       connected: () => boardTicketSync.state().providers,
       importIssueByKey: (provider, key) => boardTicketSync.importIssueByKey(provider, key),
     },
-    take: (ticketId, chat) => autopilot.takeNow(ticketId, chat),
     agentThread: (agentId) => {
       const agent = store.list().find((candidate) => candidate.id === agentId);
       return agent ? (agent.threadId ?? null) : undefined;

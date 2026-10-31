@@ -171,12 +171,14 @@ export function TicketTakenCard(props: TicketTakenCardProps) {
 
 interface TicketTakeNoticeProps {
   /** `connect`: the ticket system is not connected. `failed`: the ticket was found, but no job started. */
-  kind: "connect" | "failed";
+  kind: "connect" | "failed" | "started";
   ticketKey: string;
   provider?: BoardTicketProvider | null;
   reason?: string;
   /** Opens the place where the person connects the system. Absent: the card only says what to do. */
   onConnect?: ((provider: BoardTicketProvider) => void) | undefined;
+  /** `started` (ticket 238): opens the ticket on the Tickets page. */
+  onOpenBoard?: ((trigger: HTMLElement) => void) | undefined;
 }
 
 /** The agent's answer when it cannot take the ticket: connect the ticket system first, or why no job started. */
@@ -186,28 +188,44 @@ export function TicketTakeNotice(props: TicketTakeNoticeProps) {
   return (
     <section class="ticket-taken" aria-label={t("tickets.taken.label")}>
       <div class="ticket-taken-card ticket-taken-notice" data-kind={props.kind}>
-        <Show
-          when={props.kind === "connect"}
-          fallback={
-            <p class="ticket-taken-reason">
-              {t("tickets.taken.failed", { key: props.ticketKey, reason: props.reason ?? "" })}
-            </p>
-          }
-        >
-          <p class="ticket-taken-reason">
-            {props.provider === "linear"
-              ? t("tickets.taken.connectLinear", { key: props.ticketKey })
-              : t("tickets.taken.connect", { key: props.ticketKey, provider: providerName() })}
+        <Show when={props.kind === "started"}>
+          <p class="ticket-taken-reason" dir="auto">
+            {t("tickets.taken.started", { title: props.ticketKey })}
           </p>
-          <Show when={props.onConnect && props.provider && props.provider !== "linear" ? props.provider : null}>
-            {(provider) => (
+          <Show when={props.onOpenBoard}>
+            {(open) => (
               <div class="ticket-taken-footer">
-                <Button variant="secondary" size="sm" onClick={() => props.onConnect?.(provider())}>
-                  <Plug aria-hidden="true" />
-                  {t("tickets.taken.connectAction", { provider: providerName() })}
+                <Button variant="secondary" size="sm" onClick={(event) => open()(event.currentTarget)}>
+                  {t("tickets.taken.openTicket")}
                 </Button>
               </div>
             )}
+          </Show>
+        </Show>
+        <Show when={props.kind !== "started"}>
+          <Show
+            when={props.kind === "connect"}
+            fallback={
+              <p class="ticket-taken-reason">
+                {t("tickets.taken.failed", { key: props.ticketKey, reason: props.reason ?? "" })}
+              </p>
+            }
+          >
+            <p class="ticket-taken-reason">
+              {props.provider === "linear"
+                ? t("tickets.taken.connectLinear", { key: props.ticketKey })
+                : t("tickets.taken.connect", { key: props.ticketKey, provider: providerName() })}
+            </p>
+            <Show when={props.onConnect && props.provider && props.provider !== "linear" ? props.provider : null}>
+              {(provider) => (
+                <div class="ticket-taken-footer">
+                  <Button variant="secondary" size="sm" onClick={() => props.onConnect?.(provider())}>
+                    <Plug aria-hidden="true" />
+                    {t("tickets.taken.connectAction", { provider: providerName() })}
+                  </Button>
+                </div>
+              )}
+            </Show>
           </Show>
         </Show>
       </div>

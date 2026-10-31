@@ -1,15 +1,10 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
-  BOARD_TICKET_BODY_LIMIT,
-  BOARD_TICKET_TITLE_LIMIT,
   type BoardTicket,
   type BoardTicketProvider,
-  detectBoardTicketType,
   detectLocalTicketTake,
   detectTicketTakeRequest,
   matchLocalTicket,
-  type RavenAutopilotChat,
-  type RavenTeamJob,
   type RavenTicketTakeResult,
   type TakeRavenTicketInput,
   type TicketTakeReference,
@@ -18,14 +13,18 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
 import { Effect, Result } from "effect";
+import { ticketFactoryBrief } from "../agent-tickets/ticket-factory-brief";
 import type { BoardTicketService } from "../board-tickets/board-ticket-service";
+
+/** A ticket whose work is under way. */
+function isActive(status: BoardTicket["status"]): boolean {
+  return status === "running" || status === "queued";
+}
 
 const logger = createOpenBotLogger("ticket-take");
 
-const FIX_INTENT = /(?:^|[^\p{L}])(?:fix|repair|resolve|debug|صلح|صلّح|اصلح|أصلح)(?=$|[^\p{L}])/iu;
-
 /** The board operations a take uses. */
-type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create" | "bindChat">;
+type TicketTakeBoard = Pick<BoardTicketService, "list" | "get" | "create" | "bindChat" | "startFromChat">;
 
 /** The sync operations a take uses: which systems are connected, and the import of one issue by key. */
 interface TicketTakeSync {
@@ -36,11 +35,6 @@ interface TicketTakeSync {
 export interface TicketTakeOptions {
   board: TicketTakeBoard;
   sync: TicketTakeSync;
-  /** The Autopilot engine's start of one ticket for a chat (#196 `takeNow`). */
-  take(
-    ticketId: string,
-    chat: RavenAutopilotChat,
-  ): Effect.Effect<{ job: RavenTeamJob; already: boolean } | { reason: string }>;
   /** The conversation thread of an agent of this computer, or null. Undefined: no such agent. */
   agentThread(agentId: string): string | null | undefined;
 }
@@ -49,11 +43,13 @@ export interface TicketTakeOptions {
  * Chat (#200): an agent takes the ticket that a message names. The message is read here, in main or the
  * backend, never trusted from the renderer.
  *
- * 1. The message must name a ticket (a GitHub, Jira or Linear link or key) and ask to take it.
- * 2. A board ticket linked to that issue is used. Otherwise the issue's system must be connected: without
- *    it, the answer asks the person to connect it. With it, the issue is imported from its repository or
- *    project; an issue that is not open there gets a new Backlog ticket linked to it.
- * 3. The Autopilot engine starts the job at once, with the asking agent and thread in its decision.
+ * 1. The message must name a GitHub issue (a link or `owner/repo#N`) and ask to take it. Another system's
+ *    key gets a clear answer: chat takes GitHub issues only (ticket 238).
+ * 2. A board ticket linked to that issue is used. Otherwise GitHub must be connected, and the issue is
+ *    imported from its repository. A closed issue, a Done ticket, or a ticket already running elsewhere is
+ *    refused with a chat answer.
+ * 3. A work thread of the chat's agent starts with a brief that loads the ticket-factory skill. The ticket
+ *    links that thread, moves to Running and is in the take phase. No Raven team job starts.
  */
 export class TicketTakeService {
   readonly #options: TicketTakeOptions;
@@ -72,21 +68,35 @@ export class TicketTakeService {
       }
       // The decision keeps an identifier only, so a job never fails its decoder for an odd thread id.
       const threadId = thread && thread.length <= INPUT_LIMITS.identifier ? thread : null;
-      const found = yield* this.#ticketFor(reference, input.text);
-      if ("outcome" in found) return found;
-      const key = found.ticket.external?.key ?? reference.key;
-      const started = yield* this.#options.take(found.ticket.id, { agentId: input.agentId, threadId, ticketKey: key });
-      if ("reason" in started) {
-        return { outcome: "failed", key: reference.key, reason: redactText(started.reason) } as const;
+      if (threadId === null) {
+        return { outcome: "failed", key: reference.key, reason: sourceText("error.agent.ticketTake.noAgent") } as const;
       }
-      return {
-        outcome: "taken",
-        jobId: started.job.id,
-        ticketId: found.ticket.id,
+      // Ticket 238: GitHub issues only. Another system's link gets a clear answer, not a team job.
+      if (reference.provider !== "github") {
+        return {
+          outcome: "failed",
+          key: reference.key,
+          reason: sourceText("error.agent.ticketTake.githubOnly"),
+        } as const;
+      }
+      const found = yield* this.#ticketFor(reference);
+      if ("outcome" in found) return found;
+      const ticket = found.ticket;
+      const key = ticket.external?.key ?? reference.key;
+      if (ticket.status === "done") {
+        return { outcome: "failed", key, reason: sourceText("error.agent.ticketTake.closed") } as const;
+      }
+      if ((ticket.taskId || ticket.threadId || ticket.teamJobId) && isActive(ticket.status)) {
+        return { outcome: "failed", key, reason: sourceText("error.agent.ticketTake.alreadyRunning") } as const;
+      }
+      const brief = ticketFactoryBrief({
         key,
-        provider: found.ticket.external?.provider ?? reference.provider,
-        already: started.already,
-      } as const;
+        title: ticket.title,
+        url: ticket.external?.url ?? null,
+        body: ticket.body,
+      });
+      const started = yield* Effect.promise(() => this.#options.board.startFromChat(ticket.id, input.agentId, brief));
+      return { outcome: "linked", ticketId: started.id, already: false, title: started.title } as const;
     }).pipe(
       Effect.catchCause((cause) =>
         Effect.sync(() => {
@@ -123,40 +133,29 @@ export class TicketTakeService {
     });
   }
 
-  /** The board ticket of the reference: on the board, imported, or new in Backlog. */
-  #ticketFor(
-    reference: TicketTakeReference,
-    text: string,
-  ): Effect.Effect<{ ticket: BoardTicket } | RavenTicketTakeResult> {
+  /**
+   * The board ticket of a GitHub reference: on the board, or imported from the connected repository. An
+   * issue that is not open there is refused as closed, and no ticket is added.
+   */
+  #ticketFor(reference: TicketTakeReference): Effect.Effect<{ ticket: BoardTicket } | RavenTicketTakeResult> {
     return Effect.gen({ self: this }, function* () {
       const { board, sync } = this.#options;
       const onBoard = () => board.list().find((ticket) => ticketReferenceMatches(reference, ticket.external));
       const existing = onBoard();
       if (existing) return { ticket: existing };
-      const connected = sync.connected();
-      // A bare key with no system named is Jira's when Jira is connected; Linear has no connection yet.
-      const provider: BoardTicketProvider = reference.provider ?? "jira";
-      if (!connected.includes(provider)) return { outcome: "connect", key: reference.key, provider } as const;
-      const imported = yield* Effect.result(sync.importIssueByKey(provider, reference.key));
+      if (!sync.connected().includes("github")) {
+        return { outcome: "connect", key: reference.key, provider: "github" } as const;
+      }
+      const imported = yield* Effect.result(sync.importIssueByKey("github", reference.key));
       if (Result.isSuccess(imported) && imported.success !== null) {
         const ticket = onBoard();
         if (ticket) return { ticket };
       }
       if (Result.isFailure(imported)) {
-        logger.warn("Could not read the issue of a chat ticket take.", { provider });
+        logger.warn("Could not read the issue of a chat ticket take.", { provider: "github" });
+        return { outcome: "failed", key: reference.key, reason: sourceText("error.agent.ticketTake.failed") } as const;
       }
-      // Not open in its project, or the read failed: a Backlog ticket linked to the issue, so a later sync
-      // finds it and does not add a second one.
-      const title = reference.key.slice(0, BOARD_TICKET_TITLE_LIMIT);
-      const body = redactText(text).slice(0, BOARD_TICKET_BODY_LIMIT);
-      // "fix it" asks for a fix: a Bug, when the text says nothing else. The engine needs a type to decide.
-      const type = detectBoardTicketType({ title: body, body }) ?? (FIX_INTENT.test(text) ? "bug" : null);
-      const ticket = board.create(
-        { title, body, ...(type ? { type } : {}) },
-        "agent",
-        reference.url ? { external: { provider, key: reference.key, url: reference.url } } : {},
-      );
-      return { ticket };
+      return { outcome: "failed", key: reference.key, reason: sourceText("error.agent.ticketTake.closed") } as const;
     });
   }
 }

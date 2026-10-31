@@ -2,11 +2,11 @@ import {
   type BoardTicket,
   type BoardTicketProvider,
   detectTicketTakeRequest,
-  type RavenAutopilotChat,
   type RavenTeamJob,
   ticketTakenPhase,
   ticketTakenSteps,
 } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { TicketTakeService } from "./ticket-take";
@@ -111,30 +111,33 @@ function harness(options: {
 }) {
   const tickets = [...(options.tickets ?? [])];
   const created: BoardTicket[] = [];
-  const takes: { ticketId: string; chat: RavenAutopilotChat }[] = [];
+  const starts: { ticketId: string; agentId: string; brief: string }[] = [];
   const binds: { ticketId: string; agentId: string; threadId: string }[] = [];
+  const replace = (next: BoardTicket) => {
+    tickets[tickets.findIndex((candidate) => candidate.id === next.id)] = next;
+    return next;
+  };
   const service = new TicketTakeService({
     board: {
       list: () => tickets,
       get: (id) => tickets.find((candidate) => candidate.id === id) ?? null,
       create: (input, _actor, links) => {
-        const made = ticket({
-          id: `new-${created.length + 1}`,
-          title: input.title,
-          body: input.body ?? "",
-          type: input.type ?? null,
-          external: links?.external ?? null,
-        });
+        const made = ticket({ id: `new-${created.length + 1}`, title: input.title, external: links?.external ?? null });
         created.push(made);
         tickets.push(made);
         return made;
       },
       bindChat: (ticketId, agentId, threadId) => {
-        const index = tickets.findIndex((candidate) => candidate.id === ticketId);
-        const bound = ticket({ ...tickets[index], agentId, threadId, status: "running" });
-        tickets[index] = bound;
         binds.push({ ticketId, agentId, threadId });
-        return bound;
+        const current = tickets.find((candidate) => candidate.id === ticketId);
+        return replace(ticket({ ...current, agentId, threadId, status: "running" }));
+      },
+      startFromChat: async (ticketId, agentId, brief) => {
+        starts.push({ ticketId, agentId, brief });
+        const current = tickets.find((candidate) => candidate.id === ticketId);
+        return replace(
+          ticket({ ...current, agentId, taskId: "task-9", threadId: "thread-9", status: "running", phase: "take" }),
+        );
       },
     },
     sync: {
@@ -146,22 +149,19 @@ function harness(options: {
           return key;
         }),
     },
-    take: (ticketId, chat) =>
-      Effect.sync(() => {
-        takes.push({ ticketId, chat });
-        return { job: job(), already: false };
-      }),
     agentThread: (agentId) => (agentId === "agent-1" ? "thread-1" : undefined),
   });
-  return { service, created, takes, binds, tickets };
+  return { service, created, starts, binds, tickets };
 }
 
 const run = <A>(effect: Effect.Effect<A>) => Effect.runPromise(effect);
 
+const GITHUB_12 = { provider: "github", key: "acme/shop#12", url: "https://github.com/acme/shop/issues/12" } as const;
+
 describe("TicketTakeService", () => {
   // #263: `take ticket "Bug: sub.js…"` named a board ticket by its cut title, and nothing moved.
   it("links a board ticket named by its quoted title to the chat's thread, once", async () => {
-    const { service, binds, takes, tickets } = harness({
+    const { service, binds, starts, tickets } = harness({
       tickets: [
         ticket({ id: "t-sub", title: "Bug: sub.js returns wrong result" }),
         ticket({ id: "t-mul", title: "Bug: mul.js returns wrong result" }),
@@ -176,7 +176,7 @@ describe("TicketTakeService", () => {
     );
     expect(again).toEqual({ outcome: "linked", ticketId: "t-sub", already: true });
     expect(binds).toHaveLength(1);
-    expect(takes).toEqual([]);
+    expect(starts).toEqual([]);
   });
 
   it("does not link a cut title that names two tickets, or a message that does not say ticket", async () => {
@@ -192,64 +192,73 @@ describe("TicketTakeService", () => {
     expect(binds).toEqual([]);
   });
 
-  it("asks to connect a system that is not connected", async () => {
-    const { service, takes } = harness({});
-    const result = await run(service.take({ agentId: "agent-1", text: "take this ticket in jira fix it PROJ-482" }));
-    expect(result).toEqual({ outcome: "connect", key: "PROJ-482", provider: "jira" });
-    expect(takes).toEqual([]);
+  // Ticket 238: the take starts a ticket-factory work thread, not a Raven team job.
+  it("starts a ticket-factory work thread for a GitHub issue on the board, in English and Arabic", async () => {
+    for (const text of ["take ticket acme/shop#12", "خد التذكرة acme/shop#12"]) {
+      const { service, starts } = harness({
+        tickets: [ticket({ id: "t-12", title: "Checkout fails", external: GITHUB_12 })],
+      });
+      const result = await run(service.take({ agentId: "agent-1", text }));
+      expect(result).toEqual({ outcome: "linked", ticketId: "t-12", already: false, title: "Checkout fails" });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]?.brief).toContain("$ticket-factory");
+      expect(starts[0]?.brief).toContain("--- external ticket input ---");
+    }
   });
 
-  it("uses the board ticket of the issue, also without a connection", async () => {
-    const onBoard = ticket({
-      external: { provider: "jira", key: "PROJ-482", url: "https://acme.atlassian.net/browse/PROJ-482" },
-    });
-    const { service, takes } = harness({ tickets: [onBoard] });
-    const result = await run(service.take({ agentId: "agent-1", text: "fix proj-482 in jira" }));
-    expect(result).toMatchObject({ outcome: "none" });
-    const taken = await run(service.take({ agentId: "agent-1", text: "fix PROJ-482 in jira" }));
-    expect(taken).toEqual({
-      outcome: "taken",
-      jobId: "job-1",
-      ticketId: onBoard.id,
-      key: "PROJ-482",
-      provider: "jira",
-      already: false,
-    });
-    expect(takes).toEqual([
-      { ticketId: onBoard.id, chat: { agentId: "agent-1", threadId: "thread-1", ticketKey: "PROJ-482" } },
-    ]);
-  });
-
-  it("imports the issue when its system is connected", async () => {
-    const imported = ticket({
-      id: "synced",
-      external: { provider: "github", key: "acme/shop#12", url: "https://github.com/acme/shop/issues/12" },
-    });
-    const { service, created } = harness({ connected: ["github"], imported });
+  it("imports the issue when GitHub is connected", async () => {
+    const imported = ticket({ id: "synced", external: GITHUB_12 });
+    const { service, created, starts } = harness({ connected: ["github"], imported });
     const result = await run(
       service.take({ agentId: "agent-1", text: "work on https://github.com/acme/shop/issues/12" }),
     );
-    expect(result).toMatchObject({ outcome: "taken", ticketId: "synced" });
+    expect(result).toMatchObject({ outcome: "linked", ticketId: "synced" });
     expect(created).toEqual([]);
+    expect(starts).toHaveLength(1);
   });
 
-  it("creates a linked Backlog ticket when the issue is not open in its project", async () => {
-    const { service, created } = harness({ connected: ["github"], imported: null });
-    const result = await run(service.take({ agentId: "agent-1", text: "fix acme/shop#3" }));
-    expect(result).toMatchObject({ outcome: "taken", ticketId: "new-1", key: "acme/shop#3" });
-    expect(created[0]?.external).toEqual({
-      provider: "github",
+  it("asks to connect GitHub for an unknown issue, and refuses a closed one without adding a ticket", async () => {
+    const notConnected = harness({});
+    expect(await run(notConnected.service.take({ agentId: "agent-1", text: "fix acme/shop#3" }))).toEqual({
+      outcome: "connect",
       key: "acme/shop#3",
-      url: "https://github.com/acme/shop/issues/3",
+      provider: "github",
     });
-    expect(created[0]?.type).toBe("bug");
+    const closed = harness({ connected: ["github"], imported: null });
+    const result = await run(closed.service.take({ agentId: "agent-1", text: "fix acme/shop#3" }));
+    expect(result).toMatchObject({
+      outcome: "failed",
+      key: "acme/shop#3",
+      reason: sourceText("error.agent.ticketTake.closed"),
+    });
+    expect(closed.created).toEqual([]);
+    expect(closed.starts).toEqual([]);
   });
 
-  it("refuses an agent that is not on this computer", async () => {
-    const { service, takes } = harness({ connected: ["jira"] });
-    const result = await run(service.take({ agentId: "ghost", text: "fix PROJ-1 in jira" }));
-    expect(result).toMatchObject({ outcome: "failed", key: "PROJ-1" });
-    expect(takes).toEqual([]);
+  it("refuses a Done ticket and a ticket already running in a thread, so it never runs twice", async () => {
+    const done = harness({ tickets: [ticket({ id: "t-12", status: "done", external: GITHUB_12 })] });
+    expect(await run(done.service.take({ agentId: "agent-1", text: "take acme/shop#12" }))).toMatchObject({
+      outcome: "failed",
+      reason: sourceText("error.agent.ticketTake.closed"),
+    });
+    const running = harness({
+      tickets: [ticket({ id: "t-12", taskId: "task-1", status: "running", external: GITHUB_12 })],
+    });
+    expect(await run(running.service.take({ agentId: "agent-1", text: "take acme/shop#12" }))).toMatchObject({
+      outcome: "failed",
+      reason: sourceText("error.agent.ticketTake.alreadyRunning"),
+    });
+    expect([...done.starts, ...running.starts]).toEqual([]);
+  });
+
+  it("refuses Jira and an agent that is not on this computer", async () => {
+    const { service, starts } = harness({ connected: ["jira"] });
+    expect(await run(service.take({ agentId: "agent-1", text: "fix PROJ-1 in jira" }))).toMatchObject({
+      outcome: "failed",
+      reason: sourceText("error.agent.ticketTake.githubOnly"),
+    });
+    expect(await run(service.take({ agentId: "ghost", text: "fix acme/shop#1" }))).toMatchObject({ outcome: "failed" });
+    expect(starts).toEqual([]);
   });
 
   it("answers none for a message that asks for no ticket", async () => {

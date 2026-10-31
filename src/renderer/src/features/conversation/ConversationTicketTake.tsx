@@ -16,7 +16,9 @@ const CARD_LIMIT = 3;
 /** The agent's answer when it could not take a ticket. It lives until the chat closes, as a reply does. */
 type TicketTakeNoticeItem =
   | { kind: "connect"; key: string; provider: BoardTicketProvider }
-  | { kind: "failed"; key: string; reason: string };
+  | { kind: "failed"; key: string; reason: string }
+  /** Ticket 238: a GitHub issue started in its own ticket-factory thread. `key` holds the ticket title. */
+  | { kind: "started"; key: string; ticketId: string };
 
 /**
  * Chat (#200): the take requests of this computer's agents and the jobs they started. Make it in the
@@ -72,6 +74,9 @@ export function createChatTicketTake() {
         return;
       case "failed":
         addNotice(agentId, { kind: "failed", key: result.key, reason: result.reason });
+        return;
+      case "linked":
+        if (result.title) addNotice(agentId, { kind: "started", key: result.title, ticketId: result.ticketId });
         return;
       default:
         return;
@@ -140,6 +145,7 @@ export function ConversationTicketTake(props: {
               provider={notice.kind === "connect" ? notice.provider : null}
               reason={notice.kind === "failed" ? notice.reason : ""}
               onConnect={props.onConnect}
+              onOpenBoard={notice.kind === "started" ? props.onOpenBoard : undefined}
             />
           )}
         </For>

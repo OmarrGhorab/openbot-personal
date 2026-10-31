@@ -424,6 +424,20 @@ export class BoardTicketService {
     return this.get(existing.id) ?? this.#require(existing.id);
   }
 
+  /**
+   * "take ticket N" in a chat (ticket 238): starts a work thread for the chat's agent with the brief that
+   * the caller wrote, links it, and marks the ticket in the take phase.
+   */
+  async startFromChat(ticketId: string, agentId: string, brief: string): Promise<BoardTicket> {
+    const startWorkThread = this.#startWorkThread;
+    if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
+    const ticket = this.#require(ticketId);
+    const task = await startWorkThread(agentId, brief, { title: ticket.title });
+    this.patch(ticket.id, { taskId: task.id, threadId: task.threadId, agentId, phase: "take" }, "agent");
+    this.moveIfNeeded(ticket.id, task.state === "running" ? "running" : "queued", "agent");
+    return this.#require(ticket.id);
+  }
+
   delete(ticketId: string): void {
     if (!this.#store.delete(ticketId)) throw new Error(sourceText("error.agent.boardTickets.notFound"));
     void this.#evidence?.removeTicket(ticketId).catch(() => undefined);
