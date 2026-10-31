@@ -66,7 +66,7 @@ export const BOARD_TICKET_SCHEMA_SQL = `
 // CHECK in place, so the migration rebuilds `board_ticket_events` for the new kind and `board_tickets` to
 // keep the type beside the status. Every row keeps its values and its rowid, so the event order stays.
 // Every existing ticket gets a null type.
-function boardTicketsTableSql(name: string): string {
+function boardTicketsTableSql(name: string, extraColumns = ""): string {
   return `
   CREATE TABLE ${name} (
     ticket_id TEXT PRIMARY KEY,
@@ -88,17 +88,19 @@ function boardTicketsTableSql(name: string): string {
     error TEXT CHECK(error IS NULL OR length(error) <= 2000),
     status_changed_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,${extraColumns}
     CHECK((external_provider IS NULL) = (external_key IS NULL) AND (external_key IS NULL) = (external_url IS NULL))
   );`;
 }
 
-function boardTicketEventsTableSql(name: string): string {
+const V52_EVENT_KINDS = "'created', 'moved', 'assigned', 'comment', 'progress', 'type_changed'";
+
+function boardTicketEventsTableSql(name: string, kinds = V52_EVENT_KINDS): string {
   return `
   CREATE TABLE ${name} (
     event_id TEXT PRIMARY KEY,
     ticket_id TEXT NOT NULL REFERENCES board_tickets(ticket_id) ON DELETE CASCADE,
-    kind TEXT NOT NULL CHECK(kind IN ('created', 'moved', 'assigned', 'comment', 'progress', 'type_changed')),
+    kind TEXT NOT NULL CHECK(kind IN (${kinds})),
     actor TEXT NOT NULL CHECK(actor IN ('user', 'agent', 'sync')),
     from_status TEXT,
     to_status TEXT,
@@ -162,10 +164,31 @@ export const BOARD_TICKET_EVIDENCE_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS board_ticket_evidence_ticket ON board_ticket_evidence(ticket_id, created_at);
 `;
 
-/** The board tables of a new database, as migration 52 leaves them. */
+// Migration 55 (ticket 237): the work phase of a ticket. `phase` is take, triage, reproduce, implement,
+// verify, review, merge or done, set by the agent of the ticket, null before it reports one. Each change
+// is a `phase` event. Adding the column rewrites no row; the event kind needs the events table rebuilt,
+// the same way migration 52 did, keeping every row and its rowid so the event order stays.
+const PHASE_CHECK = "phase IN ('take', 'triage', 'reproduce', 'implement', 'verify', 'review', 'merge', 'done')";
+const V55_EVENT_KINDS = `${V52_EVENT_KINDS}, 'phase'`;
+const V55_PHASE_COLUMN = `phase TEXT CHECK(phase IS NULL OR ${PHASE_CHECK})`;
+const BOARD_TICKET_EVENTS_INDEX_SQL =
+  "CREATE INDEX IF NOT EXISTS board_ticket_events_ticket ON board_ticket_events(ticket_id, created_at);";
+
+/** Migration 55. It runs with foreign keys off, inside the migration's transaction. */
+export const V55_BOARD_TICKET_PHASE_MIGRATION_SQL = `
+  ALTER TABLE board_tickets ADD COLUMN ${V55_PHASE_COLUMN};
+  ${boardTicketEventsTableSql("board_ticket_events_v55", V55_EVENT_KINDS)}
+  INSERT INTO board_ticket_events_v55 (rowid, ${V51_EVENT_COLUMNS})
+    SELECT rowid, ${V51_EVENT_COLUMNS} FROM board_ticket_events;
+  DROP TABLE board_ticket_events;
+  ALTER TABLE board_ticket_events_v55 RENAME TO board_ticket_events;
+  ${BOARD_TICKET_EVENTS_INDEX_SQL}
+`;
+
+/** The board tables of a new database, as migration 55 leaves them. */
 export const BOARD_TICKET_LATEST_SCHEMA_SQL = `
-  ${boardTicketsTableSql("IF NOT EXISTS board_tickets")}
-  ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events")}
+  ${boardTicketsTableSql("IF NOT EXISTS board_tickets", `\n    ${V55_PHASE_COLUMN},`)}
+  ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events", V55_EVENT_KINDS)}
   ${V52_BOARD_TICKET_INDEXES_SQL}
 ${V51_BOARD_SETTINGS_SQL}
 ${BOARD_TICKET_EVIDENCE_SCHEMA_SQL}`;

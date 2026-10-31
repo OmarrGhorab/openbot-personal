@@ -15,6 +15,7 @@ import {
   BOARD_TICKET_LATEST_SCHEMA_SQL,
   BOARD_TICKET_SCHEMA_SQL,
   V52_BOARD_TICKET_TYPE_MIGRATION_SQL,
+  V55_BOARD_TICKET_PHASE_MIGRATION_SQL,
 } from "./board-tickets/board-ticket-schema";
 import { BROWSER_PROFILE_SCHEMA_SQL } from "./browser-profiles/browser-profile-schema";
 import { CHANNEL_SCHEMA_SQL, CHANNEL_SETTINGS_SCHEMA_SQL } from "./channel-schema";
@@ -944,6 +945,13 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     // Only creates a table, so no foreign-key pause and no vacuum. Every ticket keeps its data and starts
     // with no evidence (#236).
     up: (db) => db.exec(BOARD_TICKET_EVIDENCE_SCHEMA_SQL),
+  },
+  {
+    version: 55,
+    // Adds the nullable `phase` column and rebuilds the events table for the `phase` event kind (ticket
+    // 237). Evidence references tickets, not events, but foreign keys pause while the events table swaps.
+    disableForeignKeys: true,
+    up: (db) => db.exec(V55_BOARD_TICKET_PHASE_MIGRATION_SQL),
   },
 ];
 

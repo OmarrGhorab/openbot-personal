@@ -13,11 +13,14 @@ import {
   type AgentTasksSnapshot,
   agentTaskLimit,
   BOARD_TICKET_COMMENT_LIMIT,
+  BOARD_TICKET_ERROR_LIMIT,
   BOARD_TICKET_EVIDENCE_CAPTION_LIMIT,
   BOARD_TICKET_EVIDENCE_KINDS,
   BOARD_TICKET_EVIDENCE_PHASES,
   BOARD_TICKET_EVIDENCE_TEXT_LIMIT,
+  BOARD_TICKET_PHASES,
   BOARD_TICKET_PROGRESS_LIMIT,
+  BOARD_TICKET_TYPES,
   type BoardTicketStatus,
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
@@ -74,6 +77,10 @@ export const updateTicketToolSchema = z.strictObject({
   status: z.enum(AGENT_TICKET_STATUSES).optional(),
   progress: z.string().trim().max(BOARD_TICKET_PROGRESS_LIMIT).optional(),
   comment: z.string().trim().min(1).max(BOARD_TICKET_COMMENT_LIMIT).optional(),
+  // Ticket 237: the kind of work (never over the person's choice), the failure line, and the work phase.
+  type: z.enum(BOARD_TICKET_TYPES).optional(),
+  error: z.string().trim().max(BOARD_TICKET_ERROR_LIMIT).optional(),
+  phase: z.enum(BOARD_TICKET_PHASES).optional(),
 });
 
 type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
@@ -583,7 +590,7 @@ export class AgentTasks implements TaskLanes {
   #updateTicket(params: DynamicToolCallParams, agentId: string): OpenBotToolResponse {
     const parsed = updateTicketToolSchema.safeParse(params.arguments);
     const update = parsed.success ? parsed.data : null;
-    if (!update || (update.status === undefined && update.progress === undefined && update.comment === undefined)) {
+    if (!update || Object.values(update).every((value) => value === undefined)) {
       return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
     }
     const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));

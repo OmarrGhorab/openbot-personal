@@ -587,7 +587,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: UPDATE_TICKET_TOOL,
     description:
-      'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
+      'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Give phase for the step you are in: take, triage, reproduce (bugs only), implement, verify, review, merge, done; set it each time you move on, the ticket detail shows it. Give type (feature, bug or chore) when the ticket has the wrong kind; a kind the user chose stays. Give error for a short line when something failed. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
     shape: updateTicketToolSchema.shape,
   },
   {
