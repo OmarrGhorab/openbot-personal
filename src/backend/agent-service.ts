@@ -4640,7 +4640,7 @@ function settleLifecycleTasks<A>(
  * The line that a ticket's first message ends with: the worktree and branch it owns. The session already
  * runs there; the line keeps the agent from changing to the main checkout that the ticket text names.
  */
-export function ticketWorktreeNote(worktree: { path: string; branch: string }): string {
+function ticketWorktreeNote(worktree: { path: string; branch: string }): string {
   return [
     `Your worktree for this ticket: ${worktree.path} (branch ${worktree.branch}).`,
     "Do all edits, git commands and tests there. Never run git checkout, switch, reset or stash in the main checkout; it belongs to the person and to other tickets.",

@@ -6,11 +6,11 @@ import type { BoardTicketService } from "./board-ticket-service";
 const logger = createOpenBotLogger("board-tickets");
 
 /** How long a ticket's running turn may go with no update before it counts as stalled (ticket 266). */
-export const TICKET_STALL_MS = 4 * 60_000;
+const TICKET_STALL_MS = 4 * 60_000;
 /** How long a stalled ticket shows Stalled before the watchdog retries its turn. */
-export const TICKET_STALL_RETRY_DELAY_MS = 30_000;
+const TICKET_STALL_RETRY_DELAY_MS = 30_000;
 /** How many times a stalled turn is retried before its ticket goes to Blocked. */
-export const TICKET_STALL_RETRIES = 2;
+const TICKET_STALL_RETRIES = 2;
 
 export interface BoardTicketStallWatchdogOptions {
   board: Pick<BoardTicketService, "forTask" | "patch" | "comment" | "moveIfNeeded">;

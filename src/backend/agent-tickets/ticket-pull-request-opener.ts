@@ -6,7 +6,7 @@ const GITHUB_API_URL = "https://api.github.com";
 const PUSH_TIMEOUT_MS = 120_000;
 
 /** The fetch that the opener uses, so a check can point it at a local server. */
-export type TicketPullFetch = (url: string, init: RequestInit) => Promise<Response>;
+type TicketPullFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export interface TicketPullRequestOpenerOptions {
   /** The user's GitHub token, or null when GitHub is not connected. Read at each call. */
@@ -30,7 +30,7 @@ export interface OpenTicketPullRequestInput {
 }
 
 /** A step of the open that failed, with no token or response body in it. */
-export class TicketPullRequestFailed extends Error {
+class TicketPullRequestFailed extends Error {
   constructor(readonly step: "token" | "issue" | "push" | "repository" | "create") {
     super(`Opening the pull request failed at the ${step} step.`);
   }

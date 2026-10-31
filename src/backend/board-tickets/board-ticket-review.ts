@@ -1,9 +1,4 @@
-import {
-  BOARD_TICKET_VERDICTS,
-  type BoardTicket,
-  type BoardTicketEvidence,
-  type BoardTicketVerdict,
-} from "@openbot/contracts/ipc";
+import type { BoardTicket, BoardTicketEvidence, BoardTicketVerdict } from "@openbot/contracts/ipc";
 
 // Ticket 239: an independent review of a ticket's pull request. Only a verdict from an agent that did not
 // write the code counts, so the reviewer is never the author's agent, and never the author's model.
@@ -63,8 +58,4 @@ export function verdictEventText(verdict: {
   reviewerId: string;
 }): string {
   return JSON.stringify(verdict);
-}
-
-export function isBoardTicketVerdict(value: unknown): value is BoardTicketVerdict {
-  return BOARD_TICKET_VERDICTS.some((verdict) => verdict === value);
 }

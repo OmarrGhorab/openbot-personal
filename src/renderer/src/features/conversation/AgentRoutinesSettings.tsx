@@ -136,7 +136,7 @@ interface AgentRoutinesSettingsProps {
  * ticket 256: an unsaved routine draft outlives its editor. Leaving the panel keeps it here by owner,
  * and the panel opens it again, still unsaved, so nothing typed is lost without Save.
  */
-export const unsavedRoutineDrafts = new Map<string, RoutineDraft>();
+const unsavedRoutineDrafts = new Map<string, RoutineDraft>();
 
 export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
   const text = useText();

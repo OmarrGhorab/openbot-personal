@@ -50,7 +50,7 @@ export function decodeBoardTicketSyncProjects(value: unknown): string[] {
   return value;
 }
 
-export function decodeBoardTicketEvidence(value: unknown): BoardTicketEvidence {
+function decodeBoardTicketEvidence(value: unknown): BoardTicketEvidence {
   if (!isBoardTicketEvidence(value)) throw new Error("Invalid ticket evidence response.");
   return value;
 }

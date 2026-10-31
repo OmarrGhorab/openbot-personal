@@ -161,7 +161,7 @@ export interface StoppedTasksPage {
  * and only the reader starts it again. The assignment limit stops a whole tree at once, and `resume`
  * starts a task with everything under it, so the entry is the root.
  */
-export function stoppedChannelTasks(page: StoppedTasksPage): ChannelTask[] {
+function stoppedChannelTasks(page: StoppedTasksPage): ChannelTask[] {
   if (page.channel.archived) return [];
   const roots = new Map<string, ChannelTask>();
   for (const task of page.tasks) {
