@@ -1,5 +1,15 @@
 /* The Tickets page in features/tickets: the agent strip, the board or the lanes, the agent panel and the ticket drawer. */
 
+/*
+ * Tickets are monochrome. The accent tokens read as the neutral text tokens inside the page and its
+ * dialogs, so running tags, the Raven pick, links such as Add to backlog and focus edges stay neutral.
+ */
+.tickets-page,
+.tickets-new {
+  --openbot-accent: var(--openbot-text-secondary);
+  --openbot-accent-text: var(--openbot-text-primary);
+}
+
 /* One colour per column. Every part reads `--tickets-status` from its own `data-status`. */
 [data-status="backlog"]:is(.tickets-column-dot, .tickets-card) {
   --tickets-status: var(--openbot-text-dim);
@@ -1752,23 +1762,6 @@
   text-align: center;
 }
 
-.tickets-empty-icon {
-  display: inline-flex;
-  width: calc(var(--openbot-space-8) + var(--openbot-space-6) - var(--openbot-space-1));
-  height: calc(var(--openbot-space-8) + var(--openbot-space-6) - var(--openbot-space-1));
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--openbot-glass-border);
-  border-radius: var(--openbot-radius-card);
-  background: var(--openbot-bg-surface-raised);
-  color: var(--openbot-text-secondary);
-}
-
-.tickets-empty-icon svg {
-  width: var(--openbot-icon-md);
-  height: var(--openbot-icon-md);
-}
-
 .tickets-empty-hero h3 {
   margin: 0;
   color: var(--openbot-text-primary);
@@ -1834,11 +1827,6 @@
   color: var(--openbot-text-secondary);
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
-}
-
-.tickets-empty-example-role svg {
-  width: var(--openbot-icon-md);
-  height: var(--openbot-icon-md);
 }
 
 .tickets-empty-example-title {
