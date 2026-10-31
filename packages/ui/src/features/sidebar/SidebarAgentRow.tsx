@@ -8,6 +8,7 @@
  * and shows when the user hid it in place of the last message.
  */
 
+import { similarAgentNameIds } from "@openbot/contracts/agent-mention-rank";
 import { AppWindow, Badge, buttonVariants, Clock3, ContextMenu, Lock, Tooltip } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { createStore, Show } from "solid-js";
@@ -47,7 +48,11 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
     userHiddenSince,
   } = useSidebarScope();
   const { t, format } = useText();
-  const title = () => rowProps.agent.title.trim();
+  // A row whose name looks like another agent's name and has no title shows its model, so
+  // "Reviewer" and "Code Reviewer" do not look the same (ticket 268). The provider prefix is cut.
+  const title = () =>
+    rowProps.agent.title.trim() ||
+    (similarAgentNameIds(props.agents).has(rowProps.agent.id) ? (rowProps.agent.model.split("/").pop() ?? "") : "");
   const lockLabel = () => agentAccessLockLabel(rowProps.agent, t);
   const accessLabel = () => (lockLabel() ? `. ${lockLabel()}` : "");
   const inWindow = () => props.windowAgentIds?.has(rowProps.agent.id) ?? false;
