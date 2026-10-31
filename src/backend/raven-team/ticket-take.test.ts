@@ -112,6 +112,7 @@ function harness(options: {
   const tickets = [...(options.tickets ?? [])];
   const created: BoardTicket[] = [];
   const takes: { ticketId: string; chat: RavenAutopilotChat }[] = [];
+  const binds: { ticketId: string; agentId: string; threadId: string }[] = [];
   const service = new TicketTakeService({
     board: {
       list: () => tickets,
@@ -127,6 +128,13 @@ function harness(options: {
         created.push(made);
         tickets.push(made);
         return made;
+      },
+      bindChat: (ticketId, agentId, threadId) => {
+        const index = tickets.findIndex((candidate) => candidate.id === ticketId);
+        const bound = ticket({ ...tickets[index], agentId, threadId, status: "running" });
+        tickets[index] = bound;
+        binds.push({ ticketId, agentId, threadId });
+        return bound;
       },
     },
     sync: {
@@ -145,12 +153,45 @@ function harness(options: {
       }),
     agentThread: (agentId) => (agentId === "agent-1" ? "thread-1" : undefined),
   });
-  return { service, created, takes };
+  return { service, created, takes, binds, tickets };
 }
 
 const run = <A>(effect: Effect.Effect<A>) => Effect.runPromise(effect);
 
 describe("TicketTakeService", () => {
+  // #263: `take ticket "Bug: sub.js…"` named a board ticket by its cut title, and nothing moved.
+  it("links a board ticket named by its quoted title to the chat's thread, once", async () => {
+    const { service, binds, takes, tickets } = harness({
+      tickets: [
+        ticket({ id: "t-sub", title: "Bug: sub.js returns wrong result" }),
+        ticket({ id: "t-mul", title: "Bug: mul.js returns wrong result" }),
+      ],
+    });
+    const first = await run(service.take({ agentId: "agent-1", text: 'take ticket "Bug: sub.js…"' }));
+    expect(first).toEqual({ outcome: "linked", ticketId: "t-sub", already: false });
+    expect(binds).toEqual([{ ticketId: "t-sub", agentId: "agent-1", threadId: "thread-1" }]);
+    expect(tickets.find((item) => item.id === "t-sub")?.status).toBe("running");
+    const again = await run(
+      service.take({ agentId: "agent-1", text: 'take ticket "Bug: sub.js returns wrong result"' }),
+    );
+    expect(again).toEqual({ outcome: "linked", ticketId: "t-sub", already: true });
+    expect(binds).toHaveLength(1);
+    expect(takes).toEqual([]);
+  });
+
+  it("does not link a cut title that names two tickets, or a message that does not say ticket", async () => {
+    const { service, binds } = harness({
+      tickets: [ticket({ id: "t-sub", title: "Bug: sub.js" }), ticket({ id: "t-sub2", title: "Bug: sub.js again" })],
+    });
+    expect(await run(service.take({ agentId: "agent-1", text: 'take ticket "Bug: su…"' }))).toEqual({
+      outcome: "none",
+    });
+    expect(await run(service.take({ agentId: "agent-1", text: 'please fix "Bug: sub.js"' }))).toEqual({
+      outcome: "none",
+    });
+    expect(binds).toEqual([]);
+  });
+
   it("asks to connect a system that is not connected", async () => {
     const { service, takes } = harness({});
     const result = await run(service.take({ agentId: "agent-1", text: "take this ticket in jira fix it PROJ-482" }));

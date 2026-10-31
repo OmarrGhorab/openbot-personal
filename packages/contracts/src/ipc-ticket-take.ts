@@ -58,6 +58,8 @@ export type RavenTicketTakeResult =
       already: boolean;
     }
   | { outcome: "connect"; key: string; provider: BoardTicketProvider }
+  /** A ticket of this board, named by its title: it is now linked to the chat's thread, or already ran. */
+  | { outcome: "linked"; ticketId: string; already: boolean }
   | { outcome: "none" }
   | { outcome: "failed"; key: string; reason: string };
 
@@ -107,6 +109,38 @@ export function detectTicketReference(text: string): TicketTakeReference | null 
     return { provider, key: bare[1], url: null };
   }
   return null;
+}
+
+const TICKET_WORD = /(?:^|[^\p{L}])(?:ticket|tickets|تيكت|التيكت|تذكرة|التذكرة)(?=$|[^\p{L}])/iu;
+const QUOTED = /["“”«»]([^"“”«»\n]{2,200}?)["“”«»]/u;
+
+/**
+ * A ticket of this board that a message asks to take by its title, such as `take ticket "Bug: sub.js…"`.
+ * The message must say "ticket" and ask to take it, and quote the title. A trailing "…" or "..." means the
+ * title was cut. Null when the message has none.
+ */
+export function detectLocalTicketTake(text: string): { title: string; prefix: boolean } | null {
+  const source = text.slice(0, TICKET_TAKE_TEXT_LIMIT);
+  if (!TICKET_WORD.test(source) || !hasTicketTakeIntent(source)) return null;
+  const quoted = QUOTED.exec(source)?.[1]?.trim();
+  if (!quoted) return null;
+  const cut = /(?:…|\.\.\.)$/u.test(quoted);
+  const title = quoted.replace(/(?:…|\.\.\.)$/u, "").trim();
+  return title.length >= 2 ? { title, prefix: cut } : null;
+}
+
+/** The board ticket whose title the take names: an exact title first, then a cut title's prefix. */
+export function matchLocalTicket<T extends { title: string }>(
+  tickets: readonly T[],
+  take: { title: string; prefix: boolean },
+): T | null {
+  const wanted = take.title.toLowerCase().replace(/\s+/gu, " ");
+  const norm = (title: string) => title.toLowerCase().replace(/\s+/gu, " ").trim();
+  const exact = tickets.filter((ticket) => norm(ticket.title) === wanted);
+  if (exact.length === 1) return exact[0] ?? null;
+  if (exact.length > 1) return null;
+  const starts = tickets.filter((ticket) => norm(ticket.title).startsWith(wanted));
+  return starts.length === 1 ? (starts[0] ?? null) : null;
 }
 
 /** True when the message asks the agent to take, fix or work on something. */
@@ -238,6 +272,8 @@ export function isRavenTicketTakeResult(value: unknown): value is RavenTicketTak
       );
     case "connect":
       return isBoundedString(value.key, KEY_LIMIT) && PROVIDERS.includes(value.provider);
+    case "linked":
+      return isIdentifier(value.ticketId) && typeof value.already === "boolean";
     case "none":
       return true;
     case "failed":

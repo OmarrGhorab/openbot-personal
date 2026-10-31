@@ -276,7 +276,7 @@ export function TicketDrawer(props: TicketDrawerProps) {
               </Button>
             )}
           </Show>
-          <Show when={!props.ticket.taskId && props.ticket.teamJobId === null}>
+          <Show when={!props.ticket.taskId && !props.ticket.threadId && props.ticket.teamJobId === null}>
             <Button size="sm" class="ticket-drawer-primary" disabled={!props.ticket.agentId} onClick={props.onStart}>
               <Play aria-hidden="true" />
               {t("tickets.new.start")}

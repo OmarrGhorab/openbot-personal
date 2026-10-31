@@ -37,3 +37,39 @@ it("starts a ticket with its title and shows its worktree and branch", async () 
   expect(started.worktree).toEqual({ path: "/repo/.openbot/worktrees/1", branch: "ticket/a-1" });
   expect(board.list()[0]?.worktree?.branch).toBe("ticket/a-1");
 });
+
+// #263: Start now on a ticket that a chat already took, or a double click on Start, made a second run.
+it("keeps one run per ticket: Start on a running ticket opens that run", async () => {
+  const root = mkdtempSync(join(tmpdir(), "board-ticket-once-"));
+  roots.push(root);
+  const database = new OpenBotDatabase(root);
+  await runCauseEffect(database.initialize());
+  let starts = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const board = new BoardTicketService({
+    store: new BoardTicketStore(database),
+    changed: () => undefined,
+    startWorkThread: async () => {
+      starts += 1;
+      await gate;
+      return { id: `task-${starts}`, threadId: `thread-${starts}`, state: "running" };
+    },
+  });
+  const chat = board.create({ title: "Taken in chat", body: "", status: "backlog", agentId: null });
+  board.bindChat(chat.id, "chief", "chief-thread");
+  expect(board.get(chat.id)).toMatchObject({ status: "running", agentId: "chief", threadId: "chief-thread" });
+  const reopened = await board.start({ ticketId: chat.id, agentId: "chief" });
+  expect(reopened.threadId).toBe("chief-thread");
+  expect(starts).toBe(0);
+
+  const fresh = board.create({ title: "Double click", body: "", status: "backlog", agentId: null });
+  const one = board.start({ ticketId: fresh.id, agentId: "chief" });
+  await expect(board.start({ ticketId: fresh.id, agentId: "chief" })).rejects.toThrow();
+  release();
+  expect((await one).taskId).toBe("task-1");
+  expect((await board.start({ ticketId: fresh.id, agentId: "chief" })).taskId).toBe("task-1");
+  expect(starts).toBe(1);
+});

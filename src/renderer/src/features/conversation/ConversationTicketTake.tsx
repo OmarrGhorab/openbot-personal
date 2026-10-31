@@ -1,5 +1,6 @@
 import {
   type BoardTicketProvider,
+  detectLocalTicketTake,
   detectTicketTakeRequest,
   type RavenAutopilotSettings,
   type RavenTeamJob,
@@ -55,7 +56,7 @@ export function createChatTicketTake() {
    * A connect or a failure answer shows as the agent's notice in that chat.
    */
   async function afterSend(agentId: string, text: string): Promise<void> {
-    if (!detectTicketTakeRequest(text)) return;
+    if (!detectTicketTakeRequest(text) && !detectLocalTicketTake(text)) return;
     let result: RavenTicketTakeResult;
     try {
       result = await window.openbot.ravenTeam.takeTicket({ agentId, text });

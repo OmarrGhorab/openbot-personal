@@ -332,9 +332,10 @@ export function TicketsPanel(props: TicketsPanelProps) {
       }}
       onOpenThread={(ticket) => {
         const { agentId, taskId } = ticket;
-        if (!agentId || !taskId) return;
+        if (!agentId) return;
         selectAgent(agentId);
-        agentTasks.requestOpenTask(agentId, taskId);
+        // A ticket taken in an agent's chat (#263) has the chat's thread and no work thread.
+        if (taskId) agentTasks.requestOpenTask(agentId, taskId);
       }}
       onOpenLink={(url) => void appPort().openUrl(url)}
       // The message goes to the work thread first; the activity keeps a copy as a comment.

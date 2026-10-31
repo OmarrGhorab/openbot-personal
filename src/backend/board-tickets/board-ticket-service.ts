@@ -62,6 +62,8 @@ export class BoardTicketService {
   readonly #changed: (ticketIds: string[]) => void;
   readonly #startWorkThread: StartWorkThread | undefined;
   readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
+  /** The tickets whose Start is in flight, so a second click does not start a second run. */
+  readonly #starting = new Set<string>();
   readonly #activity = new Set<(activity: BoardTicketActivity) => void>();
 
   constructor(options: BoardTicketServiceOptions) {
@@ -250,7 +252,38 @@ export class BoardTicketService {
     const startWorkThread = this.#startWorkThread;
     if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
     const existing = input.ticketId === undefined ? null : this.#require(input.ticketId);
-    if (existing?.taskId) throw new Error(sourceText("error.agent.boardTickets.alreadyStarted"));
+    // One run per ticket (#263): a ticket that already has a run, from Start or from a chat, keeps it.
+    if (existing && (existing.taskId || existing.threadId)) return this.get(existing.id) ?? existing;
+    if (existing && this.#starting.has(existing.id)) {
+      throw new Error(sourceText("error.agent.boardTickets.alreadyStarted"));
+    }
+    if (existing) this.#starting.add(existing.id);
+    try {
+      return await this.#startNew(input, existing, actor);
+    } finally {
+      if (existing) this.#starting.delete(existing.id);
+    }
+  }
+
+  /**
+   * Links a ticket to the agent chat that took it (#263): the chat's thread does the work, so no work
+   * thread starts. The ticket moves to Running, and its activity says who took it.
+   */
+  bindChat(ticketId: string, agentId: string, threadId: string): BoardTicket {
+    const ticket = this.#require(ticketId);
+    if (ticket.taskId || ticket.threadId) return ticket;
+    this.patch(ticketId, { agentId, threadId }, "agent");
+    this.moveIfNeeded(ticketId, "running", "agent");
+    return this.#require(ticketId);
+  }
+
+  async #startNew(
+    input: StartBoardTicketInput,
+    existing: BoardTicket | null,
+    actor: BoardTicketActor,
+  ): Promise<BoardTicket> {
+    const startWorkThread = this.#startWorkThread;
+    if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
     const title = cleanTitle(existing?.title ?? input.title ?? "");
     const body = (existing ? existing.body : (input.body ?? "")).slice(0, BOARD_TICKET_BODY_LIMIT);
     const task = await startWorkThread(input.agentId, workThreadText(title, body), { title });
