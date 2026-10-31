@@ -8,6 +8,8 @@ export const messages = {
   "channel.stoppedTask.label": "مهمة {name} اللي اتوقفت",
   "channel.stoppedTask.reassignLabel": "إعادة إسناد المهمة اللي اتوقفت بتاعة {name}",
   "channel.stoppedTask.reassign": "إعادة إسناد",
+  "channel.stoppedTask.retrying": "بنجرّب تاني…",
+  "channel.stoppedTask.commandFailed": "معرفناش نشغّلها تاني. شوف البروفايدر بتاع الإيجنت وجرّب تاني.",
   "channel.conversation.noMembers": "ضيف إيجنتات من إعدادات القناة علشان تبدأ الشغل.",
   "channel.conversation.archivedNotice": "القناة اتحذفت. معاينة بس.",
   "channel.composer.label": "رسالة للقناة",

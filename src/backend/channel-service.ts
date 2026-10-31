@@ -1927,7 +1927,7 @@ export class ChannelService {
         this.#dispatchEvent(this.wake());
         return false;
       }
-      this.#dispatchEvent(this.complete(channelId, event.turnId, event.status));
+      this.#dispatchEvent(this.complete(channelId, event.turnId, event.status, event.error ?? null));
       return true;
     }
     if (event.type === "turn-started") {
@@ -2039,7 +2039,12 @@ export class ChannelService {
     return true;
   }
 
-  private complete(channelId: string, turnId: string, status: string): Effect.Effect<void, ChannelOperationError> {
+  private complete(
+    channelId: string,
+    turnId: string,
+    status: string,
+    reason: string | null = null,
+  ): Effect.Effect<void, ChannelOperationError> {
     return Effect.gen({ self: this }, function* () {
       const assignment = (yield* channelSync(() => this.store.assignments(channelId))).find(
         (item) => item.turnId === turnId,
@@ -2075,7 +2080,7 @@ export class ChannelService {
           ...task,
           state: nextState,
           revision: nextState === "queued" ? task.revision + 1 : task.revision,
-          error: state === "failed" ? "The agent could not complete this task." : null,
+          error: state === "failed" ? failureText(reason) : null,
         });
       }
       if (task.parentTaskId) {
@@ -2881,4 +2886,10 @@ function canonicalWorkspace(path: string): string {
     if (parent === path) return normalize(path);
     return join(canonicalWorkspace(parent), basename(path));
   }
+}
+
+/** The error of a failed channel run (ticket 234): the turn's own reason, or the generic line without one. */
+export function failureText(reason: string | null): string {
+  const clean = reason?.replace(/\s+/gu, " ").trim();
+  return clean ? clean.slice(0, 500) : sourceText("error.backend.channelTaskFailed");
 }
