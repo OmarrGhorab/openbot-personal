@@ -46,9 +46,12 @@ const FIND_WRITE_FLAGS = /(^|\s)(-delete|-exec|-execdir|-ok|-okdir|-fprint\S*|-f
 
 function isReadPart(part: string): boolean {
   const words = part.trim().split(/\s+/u).filter(Boolean);
-  const [command, sub] = words;
+  const [command] = words;
   if (!command) return true;
   if (command === "git") {
+    // `git -C <path> status` reads like `git status`.
+    while (words[1] === "-C" && words.length > 3) words.splice(1, 2);
+    const sub = words[1];
     if (!sub || !READ_GIT.has(sub)) return false;
     return !GIT_WRITE_FLAGS.test(words.slice(2).join(" "));
   }

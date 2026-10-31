@@ -6,6 +6,7 @@ describe("ticket 265: plan-only commands", () => {
   it("lets reads through", () => {
     for (const command of [
       "git status",
+      "git -C /workspace/obp-factory status --short",
       "git diff --stat",
       "git log --oneline -5",
       "git branch --show-current",
@@ -25,6 +26,7 @@ describe("ticket 265: plan-only commands", () => {
       "git checkout -b x",
       "git branch -D main",
       "git push",
+      "git -C /w commit -m x",
       "rm -rf src",
       "node test-div.mjs",
       "sed -i s/a/b/ x.js",
