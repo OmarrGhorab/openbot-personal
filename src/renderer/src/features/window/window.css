@@ -491,7 +491,8 @@
   }
 
   .app-window > .app-frame-edge.app-frame-sidebar-hidden > .app-frame-panes .tasks-page-header {
-    left: var(--left-panel-width);
+    inset-inline-start: var(--left-panel-width);
+    inset-inline-end: 0;
   }
 
   .app-window > .app-frame-edge.app-frame-sidebar-hidden > .app-frame-panes :is(.tasks-page-scroll, .tasks-page-side) {
@@ -501,7 +502,8 @@
   /* The panes let clicks through to the server menu here, so each part of the Tickets page takes them
    * again. The page box itself does not: its top row is over the server menu. */
   .app-window > .app-frame-edge.app-frame-sidebar-hidden > .app-frame-panes .tickets-page-header {
-    left: var(--left-panel-width);
+    inset-inline-start: var(--left-panel-width);
+    inset-inline-end: 0;
   }
 
   .app-window

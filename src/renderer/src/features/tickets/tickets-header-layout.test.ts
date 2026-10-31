@@ -17,5 +17,6 @@ describe("ticket 253: the Tickets title row", () => {
   it("hides the server name in the window title row", () => {
     const windowCss = readFileSync(join(__dirname, "../window/window.css"), "utf8");
     expect(windowCss).toContain(".tickets-page-header h2 > span {");
+    expect(windowCss).toContain("inset-inline-start: var(--left-panel-width);");
   });
 });
