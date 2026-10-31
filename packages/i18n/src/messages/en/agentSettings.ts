@@ -157,6 +157,9 @@ export const messages = defineMessages("agentSettings", {
     "Computer Use and the OpenBot browser are not limited; you can turn Computer Use off below.",
   "agentSettings.computerUse.title": "Computer Use",
   "agentSettings.computerUse.description": "Let this agent control apps on this computer",
+  "agentSettings.planOnly.title": "Plan only",
+  "agentSettings.planOnly.description":
+    "Read and post plans. OpenBot refuses file edits and commands that change files or git",
   "agentSettings.automation.title": "Local scripts",
   "agentSettings.automation.description":
     "Let scripts on the host send messages, run routines, answer questions, and accept or decline approvals",

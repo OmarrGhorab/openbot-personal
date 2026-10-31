@@ -233,6 +233,11 @@ export interface AgentSummary {
    */
   fastMode?: boolean;
   /**
+   * Whether the agent only reads and plans (ticket 265): OpenBot refuses its file edits and its
+   * commands that change files or git. Local-only, like `access`. Absent means off.
+   */
+  planOnly?: boolean;
+  /**
    * What a message sent while the agent is busy does. Local-only, like `access`. Absent means the
    * app default.
    */
@@ -316,6 +321,7 @@ function hasAgentSummaryFields(value: DynamicRecord): boolean {
     (value.ownBrowserSession === undefined || isBoolean(value.ownBrowserSession)) &&
     (value.browserProfileId === undefined || isBrowserProfileId(value.browserProfileId)) &&
     (value.fastMode === undefined || isBoolean(value.fastMode)) &&
+    (value.planOnly === undefined || isBoolean(value.planOnly)) &&
     (value.busyMessageMode === undefined || isBusyMessageMode(value.busyMessageMode)) &&
     (value.taskLimit === undefined || isAgentTaskLimit(value.taskLimit)) &&
     (value.providerAccountId === undefined || isProviderAccountId(value.providerAccountId)) &&
@@ -368,6 +374,7 @@ export interface UpdateAgentInput {
   allowNewChat?: boolean | null;
   quickAcknowledgement?: boolean | null;
   fastMode?: boolean;
+  planOnly?: boolean;
   /** `null` returns the agent to the app default. */
   busyMessageMode?: BusyMessageMode | null;
   /** `null` returns the agent to the default task limit. */

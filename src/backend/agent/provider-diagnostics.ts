@@ -1,3 +1,4 @@
+import { sourceText } from "@openbot/i18n/source";
 /**
  * Whether a provider diagnostic is about an MCP server rather than about the agent's work.
  *
@@ -302,4 +303,16 @@ export function isPlanLimitDiagnostic(message: string): boolean {
 /** Whether a provider's text names money or a quota, which no wait gives back. */
 export function isBalanceDiagnostic(message: string): boolean {
   return /\b(?:credits?|balance|quota|billing)\b/iu.test(message);
+}
+
+/**
+ * ticket 249: harness failures that read as gibberish (`WS close code 1011`, Antigravity's
+ * `Invalid tool discovery arguments`) become a sentence the user can act on. Other text is unchanged.
+ */
+export function readableHarnessError(message: string): string {
+  if (/Harness process exited unexpectedly|WS close code 1011/i.test(message)) {
+    return sourceText("error.agent.harness.exited");
+  }
+  if (/Invalid tool discovery arguments/i.test(message)) return sourceText("error.agent.harness.toolDiscovery");
+  return message;
 }

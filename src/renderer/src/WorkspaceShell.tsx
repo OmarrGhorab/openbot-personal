@@ -120,10 +120,8 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
       selectAgent(agentId);
       agentTasks.requestOpenTask(agentId, taskId);
     },
-    openTeamJob: (jobId) => {
-      const server = activeServer();
-      if (server?.kind === "local") usage.openTeam(server.id, null, jobId);
-    },
+    // ticket 242: the team page is gone, so a team job opens on Tickets.
+    openTeamJob: () => windowPage.openTasks(null),
   };
   /** The Monitor reads the channels of this computer, so it shows on the local server only. */
   const monitorOpen = () => windowPage.page() === "monitor" && activeServer()?.kind === "local";

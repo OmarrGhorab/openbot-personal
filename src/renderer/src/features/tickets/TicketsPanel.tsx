@@ -20,7 +20,6 @@ import { agentTasksPort } from "../agent-tasks/agent-tasks-port";
 import { useAgents } from "../agents/agents-context";
 import { serverCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
-import { useUsage } from "../usage/usage-context";
 import { clearTicketFocus, ticketFocusRequest } from "./ticket-merge-focus";
 
 export interface TicketsPanelProps {
@@ -33,12 +32,6 @@ export interface TicketsPanelProps {
 
 /** How often the page reads the board of a joined server again. A joined server sends no change event here. */
 const REMOTE_REFRESH_MS = 10_000;
-
-/** The text that the team page starts with for a ticket: its title, its text and the link of its issue. */
-function teamBrief(ticket: BoardTicket | null): string | undefined {
-  if (!ticket) return undefined;
-  return [ticket.title, ticket.body, ticket.external?.url].filter((part) => part && part.trim() !== "").join("\n\n");
-}
 
 /** Read on each call: stories replace `window.openbot` per case. */
 function boardTickets() {
@@ -57,7 +50,6 @@ export function TicketsPanel(props: TicketsPanelProps) {
   const { servers } = useServers();
   const agentTasks = useAgentTasks();
   const { selectAgent } = useNavigation();
-  const { openTeam } = useUsage();
   const server = () => servers().find((item) => item.id === props.serverId);
   const local = () => server()?.kind === "local";
   const available = () => {
@@ -275,7 +267,6 @@ export function TicketsPanel(props: TicketsPanelProps) {
 
   return (
     <TicketsPage
-      onOpenTeam={local() ? (ticket) => openTeam(props.serverId, null, undefined, teamBrief(ticket)) : undefined}
       available={available()}
       loaded={loaded()}
       hostName={props.hostName}

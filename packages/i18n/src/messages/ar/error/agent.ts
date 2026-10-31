@@ -16,6 +16,15 @@ export const messages = {
   "error.agent.boardTickets.startUnavailable": "التذاكر مش قادرة تبدأ ثريد على الجهاز ده.",
   "error.agent.boardTickets.threadFailed": "آخر دور في الثريد بتاعها فشل.",
   "error.agent.boardTickets.threadStopped": "الثريد بتاعها اتوقف قبل ما الشغل يخلص.",
+  "error.agent.boardTickets.stalled":
+    "متعطلة: الموديل مبعتش أي تحديث من {minutes} دقيقة. بنعيد المحاولة ({attempt} من {limit}).",
+  "error.agent.boardTickets.stalledBlocked":
+    "متوقفة: الموديل مبعتش أي تحديث من {minutes} دقيقة، و{limit} محاولات ما نفعوش.",
+  "error.agent.boardTickets.teamJobStalled":
+    "متوقفة: دور في الفريق ما بدأش أو ما بعتش أي تحديث في الوقت. أعد تشغيل الشغلانة أو غيّر الموديل.",
+  "error.agent.harness.exited": "أداة تشغيل الموديل اتقفلت فجأة (كود 1011). أعد المحاولة أو غيّر الموديل.",
+  "error.agent.harness.toolDiscovery":
+    "الموديل بعت بيانات غلط لاكتشاف الأدوات، فاستدعاء الأداة فشل. أعد المحاولة أو غيّر الموديل.",
   "error.agent.boardTickets.teamJobStopped": "شغلانة الفريق بتاعتها اتوقفت قبل ما الشغل يخلص.",
   "error.agent.boardTickets.teamJobNotDone": "شغلانة الفريق بتاعتها خلصت من غير ما تتم بعد آخر جولة FAIL.",
   "error.agent.boardTickets.toolInvalid":

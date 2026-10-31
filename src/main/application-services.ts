@@ -13,6 +13,7 @@ import { TicketPullRequestOpener } from "../backend/agent-tickets/ticket-pull-re
 import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
 import { BoardTicketEvidenceStore } from "../backend/board-tickets/board-ticket-evidence";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
+import { BoardTicketStallWatchdog } from "../backend/board-tickets/board-ticket-stall-watchdog";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
 import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
@@ -277,6 +278,7 @@ import {
   ManagedSkillService,
   MCP_SERVER_CREATOR_SKILL_SLUG,
   SKILL_CREATOR_SKILL_SLUG,
+  TICKET_FACTORY_SKILL_SLUG,
 } from "./managed-skill-service";
 import { McpHostSignIns } from "./mcp-host-sign-ins";
 import { McpOAuthProxySettingsFile } from "./mcp-oauth-proxy-store";
@@ -1154,12 +1156,21 @@ export async function createApplicationServices({
     undefined,
     CONFIDENCE_NOTES_SKILL_SLUG,
   );
+  const ticketFactorySkill = new ManagedSkillService(
+    app.isPackaged
+      ? join(process.resourcesPath, "managed-skills", TICKET_FACTORY_SKILL_SLUG, "SKILL.md")
+      : resolve(__dirname, `../../resources/managed-skills/${TICKET_FACTORY_SKILL_SLUG}/SKILL.md`),
+    undefined,
+    undefined,
+    TICKET_FACTORY_SKILL_SLUG,
+  );
   await Effect.runPromise(managedSkills.syncAll(store.list()));
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   await Effect.runPromise(mcpServerCreator.syncAll(store.list()));
   await Effect.runPromise(askWhenBlockedSkill.syncAll(store.list()));
   await Effect.runPromise(confidenceNotesSkill.syncAll(store.list()));
+  await Effect.runPromise(ticketFactorySkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
   const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
     // Read at request time: the team store is created later, and the server can register after launch.
@@ -1844,6 +1855,7 @@ export async function createApplicationServices({
         yield* mcpServerCreator.syncAgent(agent);
         yield* askWhenBlockedSkill.syncAgent(agent);
         yield* confidenceNotesSkill.syncAgent(agent);
+        yield* ticketFactorySkill.syncAgent(agent);
       }),
     hostedSites: {
       list: () => hostedSites.list().pipe(toHostedSiteOperationFailed),
@@ -2023,9 +2035,29 @@ export async function createApplicationServices({
   });
   // Each agent moves the tickets of its work threads as their turns start, wait, end or fail.
   const boardTicketFollower = new BoardTicketWorkFollower(boardTickets);
+  // ticket 266: a ticket turn that sends no update is marked Stalled, retried, then Blocked.
+  const boardTicketStalls = new BoardTicketStallWatchdog({
+    board: boardTickets,
+    retry: (task) =>
+      Effect.runPromise(
+        (task.activeTurnId ? service.interrupt(task.agentId, task.activeTurnId, task.threadId) : Effect.void).pipe(
+          Effect.andThen(
+            service.sendMessage({
+              agentId: task.agentId,
+              taskId: task.id,
+              text: "Your last turn sent no update for several minutes and was stopped. Go on with the ticket from where you were.",
+            }),
+          ),
+          Effect.asVoid,
+        ),
+      ),
+  });
+  const boardTicketStallTimer = setInterval(() => void boardTicketStalls.check(), 15_000);
+  boardTicketStallTimer.unref?.();
   service.on("event", (event) => {
     if (event.type !== "agent-tasks-changed") return;
     boardTicketFollower.follow(event.snapshot);
+    boardTicketStalls.notice(event.snapshot);
     autopilotEngine?.noticeTasks(event.snapshot);
   });
   teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));
@@ -2117,7 +2149,11 @@ export async function createApplicationServices({
     if (event.type === "agents-changed" || event.type === "error") ravenTeamListener(event);
   };
   service.on("event", ravenTeamAgentListener);
+  // ticket 249: a team role that never starts or stops sending updates fails with its reason.
+  const ravenTeamStallTimer = setInterval(() => Effect.runFork(ravenTeam.checkStalls()), 30_000);
+  ravenTeamStallTimer.unref?.();
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    clearInterval(ravenTeamStallTimer);
     autopilot.stop();
     unsubscribeRavenAutopilot();
     service.off("turn", ravenTeamListener);

@@ -69,6 +69,7 @@ import {
 } from "./hosted-site-coordinator";
 import type { HostedSiteMutationTool } from "./hosted-site-events";
 import { ForbiddenAttentionAnswer, InactiveAttentionRequest } from "./inactive-attention-request";
+import { PLAN_ONLY_REFUSAL, planOnlyRefuses } from "./plan-only";
 import {
   API_KEY_FIELD_ID,
   apiKeyPromptResult,
@@ -308,6 +309,8 @@ export interface AttentionRegistryOptions {
    * the limit the user chose, so Full access does not answer it.
    */
   workspaceSandboxed?(agentId: string): boolean;
+  /** Whether the agent is set to Plan only (ticket 265). Its edits and writing commands are refused, never asked. */
+  planOnly?(agentId: string): boolean;
   /**
    * Whether this thread answers a Slack, Discord or Telegram conversation. Nobody there can answer a
    * question card, and the turn would wait for one with no limit while every other conversation of
@@ -369,6 +372,7 @@ export class AttentionRegistry {
   readonly #routines: RoutineAttention;
   readonly #approvalAutomation: ApprovalAutomationPolicy;
   readonly #workspaceSandboxed: (agentId: string) => boolean;
+  readonly #planOnly: (agentId: string) => boolean;
   readonly #autonomy: Pick<AutonomyController, "answersWithoutAsking" | "record"> | undefined;
   readonly #messagingThread: (threadId: string) => boolean;
   readonly #emit: (event: AgentEvent) => void;
@@ -391,6 +395,7 @@ export class AttentionRegistry {
     this.#approvalAutomation = options.approvalAutomation ?? NO_APPROVAL_AUTOMATION;
     this.#autonomy = options.autonomy;
     this.#workspaceSandboxed = options.workspaceSandboxed ?? (() => false);
+    this.#planOnly = options.planOnly ?? (() => false);
     this.#messagingThread = options.messagingThread ?? (() => false);
     this.#emit = options.emit;
     this.#emitError = options.emitError;
@@ -753,6 +758,11 @@ export class AttentionRegistry {
     approval: AgentApproval,
     risk: ActionRisk,
   ): boolean {
+    if (this.#planOnly(approval.agentId) && planOnlyRefuses(approval)) {
+      client.respond(request.id, approvalReply(request.method, request.params, "decline", PLAN_ONLY_REFUSAL));
+      this.#recordApproval("approval.declined", approval, risk, "declined", "plan-only");
+      return true;
+    }
     const fullAccess = this.#answersForAgent(approval.agentId);
     if (!fullAccess && !this.#answersByRule(approval.agentId, risk.level)) return false;
     client.respond(request.id, approvalReply(request.method, request.params, "accept", ""));

@@ -193,13 +193,14 @@ describe("board ticket team follower", () => {
     expect(roleTicket("job-1", "reviewer")).toMatchObject({ status: "backlog", error: null });
   });
 
-  it("moves the job ticket and every role ticket to Done when the job passes", async () => {
+  it("ticket 250: moves the job ticket to Needs review and every role ticket to Done when the job passes", async () => {
     const { team, roleTicket, jobTicket } = await harness();
     team.follow(job());
     team.follow(job({ state: "waiting-user" }));
     expect(jobTicket("job-1")?.status).toBe("needs_review");
     team.follow(job({ state: "done" }));
-    expect(jobTicket("job-1")?.status).toBe("done");
+    // A finished job waits for the person's review and merge.
+    expect(jobTicket("job-1")?.status).toBe("needs_review");
     expect(roleTicket("job-1", "builder")?.status).toBe("done");
     expect(roleTicket("job-1", "reviewer")?.status).toBe("done");
   });
@@ -222,9 +223,10 @@ describe("board ticket team follower", () => {
     if (!parent) throw new Error("The job has no ticket.");
     board.move({ ticketId: parent.id, status: "needs_review" });
 
+    board.move({ ticketId: parent.id, status: "backlog" });
     team.follow(job({ headCommit: "abc1234" }));
-    expect(jobTicket("job-1")?.status).toBe("needs_review");
+    expect(jobTicket("job-1")?.status).toBe("backlog");
     team.follow(job({ state: "done" }));
-    expect(jobTicket("job-1")?.status).toBe("done");
+    expect(jobTicket("job-1")?.status).toBe("needs_review");
   });
 });

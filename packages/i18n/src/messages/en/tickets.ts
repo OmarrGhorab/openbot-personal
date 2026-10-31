@@ -217,8 +217,6 @@ export const messages = defineMessages("tickets", {
   "tickets.search": "Search tickets",
   "tickets.search.none": "No ticket matches",
   "tickets.search.noneBody": "Try another word, or clear the search.",
-  "tickets.team.open": "Raven team",
-  "tickets.drawer.runTeam": "Run with team",
   "tickets.sync.open": "Sync",
   "tickets.sync.title": "Sync tickets",
   "tickets.sync.description":
