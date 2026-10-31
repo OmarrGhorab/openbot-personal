@@ -76,7 +76,9 @@ const issue310Messages: AgentMessage[] = [
       senderAgentId: issue310Self.id,
       recipientAgentIds: [issue310Mate.id],
       replyToMessageId: null,
-      deliveries: [{ id: "issue310-d1", recipientAgentId: issue310Mate.id, status: "running", position: null, error: null }],
+      deliveries: [
+        { id: "issue310-d1", recipientAgentId: issue310Mate.id, status: "running", position: null, error: null },
+      ],
     },
   },
   {
