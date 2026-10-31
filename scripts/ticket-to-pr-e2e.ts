@@ -36,6 +36,7 @@ mkdirSync(home, { recursive: true });
 const { AgentService } = await import("../src/backend/agent-service");
 const { AgentStore } = await import("../src/backend/agent-store");
 const { runCauseEffect } = await import("../src/backend/effect-boundary");
+const { TicketPullPoller } = await import("../src/backend/agent-tickets/ticket-pull-poller");
 const { MailboxStore } = await import("../src/backend/mailbox-store");
 const { OpenBotDatabase } = await import("../src/backend/openbot-database");
 const { AgentTicketStore } = await import("../src/backend/agent-tickets/agent-ticket-store");
@@ -80,6 +81,15 @@ const issues: Issue[] = [];
 const comments: Comment[] = [];
 let githubListRequests = 0;
 const commentFails = new Set<number>();
+// The pull requests of the fake GitHub (ticket 244): the head commit, its checks and the review comments.
+interface FakePull {
+  sha: string;
+  checks: { name: string; status: string; conclusion: string | null }[];
+  statuses: { context: string; state: string; description: string }[];
+  comments: { id: number; login: string; body: string }[];
+}
+const fakePulls = new Map<number, FakePull>();
+const FAKE_GITHUB_LOGIN = "openbot-user";
 const github = createServer((request, response) => {
   void handleGitHub(request, response).catch(() => {
     response.statusCode = 500;
@@ -108,6 +118,38 @@ async function handleGitHub(request: IncomingMessage, response: ServerResponse) 
         ...(issue.pull ? { pull_request: { url: "https://github.example.test/pull" } } : {}),
       }));
     return send(response, 200, matching);
+  }
+  if (request.method === "GET" && url.pathname === "/user") return send(response, 200, { login: FAKE_GITHUB_LOGIN });
+  const pullPath = /^\/repos\/[^/]+\/[^/]+\/pulls\/(\d+)(\/comments)?$/u.exec(url.pathname);
+  const pullData = pullPath ? fakePulls.get(Number(pullPath[1])) : undefined;
+  if (request.method === "GET" && pullPath && pullData) {
+    if (pullPath[2]) {
+      return send(
+        response,
+        200,
+        pullData.comments.map((comment) => ({
+          id: comment.id,
+          body: comment.body,
+          user: { login: comment.login },
+          html_url: `https://github.example.test/pull/${pullPath[1]}#r${comment.id}`,
+        })),
+      );
+    }
+    return send(response, 200, {
+      number: Number(pullPath[1]),
+      state: "open",
+      head: { sha: pullData.sha },
+      html_url: `https://github.example.test/acme/app/pull/${pullPath[1]}`,
+    });
+  }
+  const commitPath = /^\/repos\/[^/]+\/[^/]+\/commits\/([^/]+)\/(check-runs|status)$/u.exec(url.pathname);
+  const commitPull = commitPath
+    ? [...fakePulls.values()].find((candidate) => candidate.sha === commitPath[1])
+    : undefined;
+  if (request.method === "GET" && commitPath && commitPull) {
+    return commitPath[2] === "check-runs"
+      ? send(response, 200, { total_count: commitPull.checks.length, check_runs: commitPull.checks })
+      : send(response, 200, { state: "pending", statuses: commitPull.statuses });
   }
   const post = /^\/repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments$/u.exec(url.pathname);
   if (request.method === "POST" && post) {
@@ -563,6 +605,93 @@ try {
     }),
   );
   pass("a review comment wakes the owning work thread", review === "woke");
+
+  // Ticket 244: the poller reads the pull requests from the fake GitHub on its own and gives each event
+  // to the handler once. Pull request 102 belongs to the work thread of issue 16.
+  const task16 = tasksOf().find((task) => task.title === "acme/app#16: Add export");
+  assert.ok(task16, "The work thread of issue 16 is missing.");
+  tickets.ownPull({
+    agentId,
+    taskId: task16.id,
+    provider: "github",
+    project: "acme/app",
+    pullNumber: 102,
+    ticketKey: "acme/app#16",
+  });
+  const pull102: FakePull = {
+    sha: "sha-1",
+    checks: [{ name: "build", status: "in_progress", conclusion: null }],
+    statuses: [],
+    comments: [],
+  };
+  fakePulls.set(102, pull102);
+  const delivered: TicketPullEvent[] = [];
+  const poller = new TicketPullPoller({
+    store: tickets,
+    accessToken: async () => FAKE_GITHUB_TOKEN,
+    fetch: (url, init) => fetch(url, init),
+    apiUrl,
+    handle: (event) => {
+      if (event.pullNumber === 102) delivered.push(event);
+      return pulls.handle(event);
+    },
+  });
+  const ciOf102 = () => tickets.pullForTask(task16.id)?.ciState ?? null;
+  const task16Of = () => agents.listTasks(agentId).tasks.find((task) => task.id === task16.id);
+
+  await poller.poll();
+  pass("a running check gives no event", delivered.length === 0 && ciOf102() === "pending", String(ciOf102()));
+
+  pull102.checks = [{ name: "build", status: "completed", conclusion: "failure" }];
+  pull102.statuses = [{ context: "lint", state: "success", description: "ok" }];
+  await poller.poll();
+  pass(
+    "a failed check is given to the owning work thread",
+    delivered.length === 1 && delivered[0]?.kind === "check-failed" && ciOf102() === "failed",
+  );
+  await waitFor("the poller fix brief in work thread 16", () =>
+    turnTexts().find((text) => text.includes("acme/app#102 (fix attempt 1 of 3)")),
+  );
+  await poller.poll();
+  pass("a second poll does not give the same failure again", delivered.length === 1);
+
+  pull102.sha = "sha-2";
+  await poller.poll();
+  pull102.sha = "sha-3";
+  await poller.poll();
+  pass(
+    "each new failing push is given once, and the third stops the work thread",
+    delivered.filter((event) => event.kind === "check-failed").length === 3 && task16Of()?.pausedAt != null,
+  );
+  pass(
+    "the stop rule comments on ticket 16",
+    comments.some((comment) => comment.issue === 16 && comment.body.includes("stopped after 3 failed fix attempts")),
+  );
+
+  pull102.comments = [
+    { id: 7, login: "reviewer", body: "Please add a test." },
+    { id: 8, login: FAKE_GITHUB_LOGIN, body: "Done." },
+  ];
+  await poller.poll();
+  await poller.poll();
+  const reviews = delivered.filter((event) => event.kind === "review-comment");
+  pass(
+    "a review comment is given once, and a comment of the connected user is not given",
+    reviews.length === 1 && reviews[0]?.kind === "review-comment" && reviews[0].author === "reviewer",
+    `${reviews.length} review events`,
+  );
+
+  pull102.sha = "sha-4";
+  pull102.checks = [{ name: "build", status: "completed", conclusion: "success" }];
+  await poller.poll();
+  pass(
+    "a passing push is given once and clears the count",
+    delivered.at(-1)?.kind === "check-passed" &&
+      ciOf102() === "passed" &&
+      tickets.pullOwner("github", "acme/app", 102)?.failedFixes === 0,
+  );
+  await poller.poll();
+  pass("a second poll gives nothing new", delivered.length === 5, `${delivered.length} events`);
 
   // The settings screen reads and writes the watch through the same store. Bad input and an unknown
   // agent are refused with a message, and clearing the watch leaves none.

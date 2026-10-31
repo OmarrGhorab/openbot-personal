@@ -48,3 +48,30 @@ export const AGENT_TICKET_SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS agent_ticket_pulls_task ON projection_agent_ticket_pulls(task_id);
 `;
+
+// Migration 58 (ticket 244) adds three nullable columns to `projection_agent_ticket_pulls`. `ci_state` is
+// the last CI state that the poller read: 'pending', 'failed' or 'passed', or null before the first read.
+// `checked_sha` is the head commit whose final CI result was already given to the work thread, and
+// `review_cursor` is the highest review comment ID that was given. With them, each event goes to the
+// work thread once, also after a restart.
+const V58_PULL_COLUMNS = [
+  "ci_state TEXT CHECK(ci_state IS NULL OR ci_state IN ('pending', 'failed', 'passed'))",
+  "checked_sha TEXT",
+  "review_cursor INTEGER",
+] as const;
+
+/**
+ * The migration 58 statements for a database that has the pull request table with the given columns.
+ * A column that is there already is not added again, so a history that runs 49 again stays valid.
+ */
+export function v58AgentTicketPullColumnsSql(existing: ReadonlySet<string>): string {
+  return V58_PULL_COLUMNS.filter((column) => !existing.has(column.split(" ")[0] ?? ""))
+    .map((column) => `ALTER TABLE projection_agent_ticket_pulls ADD COLUMN ${column};`)
+    .join("\n");
+}
+
+/** The ticket tables of a new database: the migration 49 tables with the migration 58 columns. */
+export const AGENT_TICKET_LATEST_SCHEMA_SQL = AGENT_TICKET_SCHEMA_SQL.replace(
+  "    updated_at TEXT NOT NULL,\n    PRIMARY KEY(provider, project, pull_number)",
+  `    updated_at TEXT NOT NULL,\n${V58_PULL_COLUMNS.map((column) => `    ${column},\n`).join("")}    PRIMARY KEY(provider, project, pull_number)`,
+);

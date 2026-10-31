@@ -10,6 +10,7 @@ import {
   type BoardTicketEvent,
   type BoardTicketEvidence,
   type BoardTicketPhase,
+  type BoardTicketPullRequest,
   type BoardTicketStatus,
   type BoardTicketType,
   type BoardTicketTypeSource,
@@ -51,6 +52,8 @@ export interface BoardTicketServiceOptions {
   taskOwner?: (taskId: string) => string | null;
   /** The worktree path and branch of a work thread, shown on its ticket. */
   worktreeOf?: (taskId: string) => BoardTicketWorktree | null;
+  /** The pull request of a work thread and its CI state, shown on its ticket (ticket 244). */
+  pullOf?: (taskId: string) => BoardTicketPullRequest | null;
   /** The agents that can review a ticket, with their models (ticket 239). Without it, a review refuses. */
   reviewers?: () => ReviewCandidate[];
 }
@@ -91,6 +94,7 @@ export class BoardTicketService {
   readonly #startWorkThread: StartWorkThread | undefined;
   readonly #evidence: BoardTicketEvidenceStore | undefined;
   readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
+  readonly #pullOf: ((taskId: string) => BoardTicketPullRequest | null) | undefined;
   readonly #sendToWorkThread: BoardTicketServiceOptions["sendToWorkThread"];
   readonly #taskOwner: BoardTicketServiceOptions["taskOwner"];
   readonly #reviewers: BoardTicketServiceOptions["reviewers"];
@@ -105,6 +109,7 @@ export class BoardTicketService {
     this.#changed = options.changed;
     this.#startWorkThread = options.startWorkThread;
     this.#worktreeOf = options.worktreeOf;
+    this.#pullOf = options.pullOf;
     this.#sendToWorkThread = options.sendToWorkThread;
     this.#taskOwner = options.taskOwner;
     this.#evidence = options.evidence;
@@ -228,11 +233,16 @@ export class BoardTicketService {
     return ticket ? this.#withWorktree(ticket) : null;
   }
 
-  /** The ticket with the worktree of its work thread, when it has one. */
+  /** The ticket with the worktree and the pull request of its work thread, when it has them. */
   #withWorktree(ticket: BoardTicket): BoardTicket {
-    if (!ticket.taskId || !this.#worktreeOf) return ticket;
-    const worktree = this.#worktreeOf(ticket.taskId);
-    return worktree ? { ...ticket, worktree } : ticket;
+    if (!ticket.taskId) return ticket;
+    const worktree = this.#worktreeOf?.(ticket.taskId) ?? null;
+    const pullRequest = this.#pullOf?.(ticket.taskId) ?? null;
+    return {
+      ...ticket,
+      ...(worktree ? { worktree } : {}),
+      ...(pullRequest ? { pullRequest } : {}),
+    };
   }
 
   /** The ticket that a work thread does, or null. */

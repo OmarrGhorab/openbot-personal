@@ -74,7 +74,7 @@ describe("agent ticket migration", () => {
       const after = contents(db);
       expect(Object.fromEntries(Object.keys(before).map((table) => [table, after[table]]))).toEqual(before);
       expect(after).toMatchObject(TICKET_TABLES);
-      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 57 });
+      expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 58 });
       expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -94,7 +94,7 @@ describe("agent ticket migration", () => {
     db.exec("DROP TRIGGER fail_marker");
     migrateOpenBotDatabase(db);
     expect(contents(db)).toMatchObject({ ...before, ...TICKET_TABLES });
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 57 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 58 });
   });
 
   it("refuses a history that is missing a version, and leaves the ticket tables out", () => {

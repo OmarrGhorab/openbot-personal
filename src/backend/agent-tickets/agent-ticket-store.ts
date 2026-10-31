@@ -195,6 +195,88 @@ export class AgentTicketStore {
       )
       .run(failedFixes, new Date().toISOString(), provider, project.toLowerCase(), pullNumber);
   }
+
+  /** The pull requests of a provider that the pull request poller reads (ticket 244). */
+  polledPulls(provider: TicketProvider): TicketPolledPull[] {
+    return databaseRows(
+      this.#database.connection
+        .prepare(
+          "SELECT project, pull_number, ci_state, checked_sha, review_cursor FROM projection_agent_ticket_pulls WHERE provider = ? ORDER BY created_at",
+        )
+        .all(provider),
+    ).map((row) => ({
+      project: requiredStringColumn(row, "project"),
+      pullNumber: Number(row.pull_number),
+      ciState: ciStateColumn(row.ci_state),
+      checkedSha: typeof row.checked_sha === "string" ? row.checked_sha : null,
+      reviewCursor: typeof row.review_cursor === "number" ? row.review_cursor : null,
+    }));
+  }
+
+  /** Stores what the poller read about a pull request. A field that is absent keeps its value. */
+  setPullPoll(
+    provider: TicketProvider,
+    project: string,
+    pullNumber: number,
+    patch: { ciState?: TicketCiState | null; checkedSha?: string; reviewCursor?: number },
+  ): void {
+    const sets: string[] = [];
+    const values: (string | number | null)[] = [];
+    if (patch.ciState !== undefined) {
+      sets.push("ci_state = ?");
+      values.push(patch.ciState);
+    }
+    if (patch.checkedSha !== undefined) {
+      sets.push("checked_sha = ?");
+      values.push(patch.checkedSha);
+    }
+    if (patch.reviewCursor !== undefined) {
+      sets.push("review_cursor = ?");
+      values.push(patch.reviewCursor);
+    }
+    if (sets.length === 0) return;
+    this.#database.connection
+      .prepare(
+        `UPDATE projection_agent_ticket_pulls SET ${sets.join(", ")}, updated_at = ? WHERE provider = ? AND project = ? AND pull_number = ?`,
+      )
+      .run(...values, new Date().toISOString(), provider, project.toLowerCase(), pullNumber);
+  }
+
+  /** The newest pull request of a work thread with its CI state, or null. The ticket detail shows it. */
+  pullForTask(taskId: string): { project: string; pullNumber: number; ciState: TicketCiState | null } | null {
+    const row = databaseRow(
+      this.#database.connection
+        .prepare(
+          "SELECT project, pull_number, ci_state FROM projection_agent_ticket_pulls WHERE task_id = ? ORDER BY created_at DESC LIMIT 1",
+        )
+        .get(taskId),
+    );
+    if (!row) return null;
+    return {
+      project: requiredStringColumn(row, "project"),
+      pullNumber: Number(row.pull_number),
+      ciState: ciStateColumn(row.ci_state),
+    };
+  }
+}
+
+/** The CI state of a pull request, as the poller last read it. */
+export type TicketCiState = "pending" | "failed" | "passed";
+const TICKET_CI_STATES = ["pending", "failed", "passed"] as const;
+
+function ciStateColumn(value: unknown): TicketCiState | null {
+  return typeof value === "string" && isOneOf(TICKET_CI_STATES, value) ? value : null;
+}
+
+/** A pull request that the poller reads, with what it gave to the work thread last time. */
+export interface TicketPolledPull {
+  project: string;
+  pullNumber: number;
+  ciState: TicketCiState | null;
+  /** The head commit whose final CI result the work thread already has. */
+  checkedSha: string | null;
+  /** The highest review comment ID that the work thread already has. */
+  reviewCursor: number | null;
 }
 
 /** The work thread that owns a pull request. `failedFixes` counts CI failures since the last passing check. */
