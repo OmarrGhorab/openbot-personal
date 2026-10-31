@@ -281,7 +281,9 @@ export function TicketDrawer(props: TicketDrawerProps) {
             <X aria-hidden="true" />
           </IconButton>
         </div>
-        <h3 class="ticket-drawer-title">{props.ticket.title}</h3>
+        <h3 class="ticket-drawer-title" dir="auto">
+          {props.ticket.title}
+        </h3>
       </header>
 
       <div class="ticket-drawer-body">
