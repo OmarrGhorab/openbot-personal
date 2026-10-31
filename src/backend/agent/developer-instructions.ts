@@ -14,6 +14,7 @@ import {
 } from "@openbot/contracts/ipc";
 import { redactText } from "@openbot/logging";
 import { automationRunCommand } from "../automation-command";
+import { agentWorkFolder } from "./workspace-sandbox";
 
 export interface VaultContents {
   available: boolean;
@@ -275,7 +276,11 @@ export function developerInstructions(
       : options.sectionTeammates
         ? sectionTeammateInstructions(options.sectionTeammates)
         : []),
-    `Your own working directory is ${agent.workspacePath}.`,
+    ...(agentWorkFolder(agent) === agent.workspacePath
+      ? [`Your own working directory is ${agent.workspacePath}.`]
+      : [
+          `Your work folder is ${agentWorkFolder(agent)}. The user chose it: your turns run there, and you work on that repository or folder. Your own workspace for notes and files is ${agent.workspacePath}.`,
+        ]),
     `The shared directory available to every OpenBot agent is ${sharedRoot}.`,
     workspaceAccessEnforced(agent)
       ? `The user limited you to Workspace only. You can read files anywhere, run local commands, and use the network, but a sandbox lets you write only in your working directory, the shared directory, and the temporary directories. Do not try to get around the sandbox. When a task truly needs a write outside these directories, ${

@@ -36,3 +36,21 @@ export function isAgentDefinitionOfDone(value: unknown): value is string[] {
 export function isAgentReviewerAgentId(value: unknown): value is string {
   return isIdentifier(value);
 }
+
+/** The longest work folder path that an agent or a ticket keeps (#257). */
+export const WORK_FOLDER_LIMIT = 4_096;
+
+/**
+ * A work folder (#257): the repository or folder where the agent's turns and the ticket's work run. An
+ * absolute path, on this computer. `/` and a Windows drive letter both count as absolute.
+ */
+export function isWorkFolder(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= WORK_FOLDER_LIMIT &&
+    value.trim() === value &&
+    !value.includes("\0") &&
+    (value.startsWith("/") || /^[A-Za-z]:[\\/]/u.test(value))
+  );
+}

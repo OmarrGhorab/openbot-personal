@@ -16,6 +16,7 @@ import type { AgentTasks } from "../agent-tasks/agent-tasks";
 import { causeHelpers } from "../effect-boundary";
 import type { DynamicToolCallParams } from "../protocol";
 import { type OpenBotToolResponse, openBotToolFailure, openBotToolResult } from "./routine-tools";
+import { agentWorkFolder } from "./workspace-sandbox";
 
 const logger = createOpenBotLogger("agent-done-checks");
 
@@ -136,7 +137,7 @@ export class AgentDoneChecks {
       const workspace = this.#tasks.workspace(taskId, agent.id);
       if (workspace.mode === "worktree") return workspace.path;
     }
-    return agent.workspacePath;
+    return agentWorkFolder(agent);
   }
 
   /** The reviewer that still exists on this computer, or null when none is set or it was removed. */

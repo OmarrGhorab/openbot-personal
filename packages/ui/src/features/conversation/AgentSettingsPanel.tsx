@@ -45,6 +45,7 @@ import {
   ConfirmDialog,
   Cpu,
   ErrorReference,
+  Folder,
   IconButton,
   Input,
   ListChecks,
@@ -225,12 +226,13 @@ const REVIEWER_NONE = "none";
  * The pages behind the root list. The root edits the agent's face, name, title and instructions
  * in place, as the mobile app does, and shows one row for each page.
  */
-type AgentSettingsPage = "permissions" | "backup-models" | "checks" | "advanced";
+type AgentSettingsPage = "permissions" | "backup-models" | "checks" | "folder" | "advanced";
 
 const PAGE_TITLE: Record<AgentSettingsPage, AppTextKey> = {
   permissions: "agentSettings.permissions.title",
   "backup-models": "agentSettings.backupModels.title",
   checks: "agentSettings.checks.title",
+  folder: "agentSettings.folder.title",
   advanced: "agentSettings.advanced.title",
 };
 
@@ -275,6 +277,8 @@ interface AgentSettingsDraft {
   backupModels: AgentBackupModels | null;
   /** The commands of the definition of done, one on each line, as the text area shows them. */
   checks: string;
+  /** The work folder text (#257). Empty: the agent workspace. */
+  workFolder: string;
   /** The reviewer agent id, or REVIEWER_NONE. */
   reviewerAgentId: string;
   /** A level that gives the agent more freedom waits here for the confirmation. */
@@ -319,6 +323,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
     taskLimit: "default",
     backupModels: null,
     checks: "",
+    workFolder: "",
     reviewerAgentId: REVIEWER_NONE,
     confirmingPermission: null,
     runtime: untrack(() => ({ ...props.runtimeSettings })),
@@ -445,6 +450,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           JSON.stringify(agent.backupModels ?? null),
           JSON.stringify(agent.definitionOfDone ?? []),
           agent.reviewerAgentId ?? "",
+          agent.workFolder ?? "",
           runtimeSettings.provider,
           runtimeSettings.model,
           runtimeSettings.reasoningEffort,
@@ -492,6 +498,7 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
           state.taskLimit = taskLimitChoice(agent.taskLimit);
           state.backupModels = agent.backupModels ?? null;
           state.checks = (agent.definitionOfDone ?? []).join("\n");
+          state.workFolder = agent.workFolder ?? "";
           state.reviewerAgentId = agent.reviewerAgentId ?? REVIEWER_NONE;
           if (agentChanged) state.confirmingPermission = null;
           state.runtime.provider = runtimeSettings.provider;
@@ -835,6 +842,13 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
       .filter((line) => line.length > 0);
     if (JSON.stringify(commands) === JSON.stringify(props.agent.definitionOfDone ?? [])) return;
     await saveAgentPatch({ definitionOfDone: commands.length > 0 ? commands : null });
+  }
+
+  // Saves the work folder when the field loses focus (#257). Empty text returns the agent to its workspace.
+  async function saveWorkFolder(text: string): Promise<void> {
+    const folder = text.trim();
+    if (folder === (props.agent.workFolder ?? "")) return;
+    await saveAgentPatch({ workFolder: folder.length > 0 ? folder : null });
   }
 
   async function saveReviewer(next: string): Promise<void> {
@@ -1372,6 +1386,19 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     value={checksSummary()}
                     onClick={() => openPage("checks")}
                   />
+                  <SettingsLinkRow
+                    ref={pageRowRef("folder")}
+                    icon={<Folder aria-hidden="true" />}
+                    label={t("agentSettings.folder.title")}
+                    value={
+                      draft.workFolder.trim() ? (
+                        <bdi dir="ltr">{draft.workFolder.trim()}</bdi>
+                      ) : (
+                        t("agentSettings.folder.none")
+                      )
+                    }
+                    onClick={() => openPage("folder")}
+                  />
                 </SettingsLinkGroup>
               </Show>
               {props.links}
@@ -1517,6 +1544,29 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                 }}
                 onChange={(next) => void saveBackupModels(next)}
               />
+            </Show>
+            <Show when={page() === "folder"}>
+              <SettingsLinkGroup inset class="agent-settings-checks">
+                <Text as="p" class="agent-settings-runtime-note" variant="caption" tone="muted">
+                  {t("agentSettings.folder.description")}
+                </Text>
+                <SettingsField label={t("agentSettings.folder.label")}>
+                  <Input
+                    dir="ltr"
+                    value={draft.workFolder}
+                    aria-label={t("agentSettings.folder.label")}
+                    placeholder={t("agentSettings.folder.placeholder")}
+                    maxlength={INPUT_LIMITS.path}
+                    spellcheck={false}
+                    onValueChange={(value) =>
+                      setDraft((state) => {
+                        state.workFolder = value;
+                      })
+                    }
+                    onBlur={() => void saveWorkFolder(draft.workFolder)}
+                  />
+                </SettingsField>
+              </SettingsLinkGroup>
             </Show>
             <Show when={page() === "checks"}>
               <SettingsLinkGroup inset class="agent-settings-checks">

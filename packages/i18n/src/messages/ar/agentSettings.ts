@@ -17,6 +17,12 @@ export const messages = {
   "agentSettings.permissions.title": "الأذونات",
   "agentSettings.advanced.title": "متقدّم",
   "agentSettings.backupModels.title": "موديلات احتياطية",
+  "agentSettings.folder.title": "فولدر الشغل",
+  "agentSettings.folder.description":
+    "الريبو أو الفولدر اللي الإيجنت بيشتغل فيه. الأدوار والتذاكر بتاعته بتشتغل هناك. سيبه فاضي عشان يستخدم مساحة شغل الإيجنت. الإيجنت بيحتفظ بملفاته في مساحة شغله.",
+  "agentSettings.folder.label": "مسار الفولدر",
+  "agentSettings.folder.placeholder": "/path/to/repository",
+  "agentSettings.folder.none": "مساحة شغل الإيجنت",
   "agentSettings.checks.title": "شروط الإنجاز",
   "agentSettings.checks.description":
     "أوامر لازم تنجح قبل ما الإيجنت يقول إن شغله خلص. كل أمر بيتشغّل في مساحة شغل الإيجنت.",

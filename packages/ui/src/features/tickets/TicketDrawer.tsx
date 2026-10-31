@@ -563,6 +563,16 @@ export function TicketDrawer(props: TicketDrawerProps) {
               <dt>{t("tickets.drawer.started")}</dt>
               <dd title={time(ticketStartedAt(props.ticket))}>{ago(ticketStartedAt(props.ticket))}</dd>
             </div>
+            <Show when={props.ticket.workFolder}>
+              {(folder) => (
+                <div class="ticket-drawer-row">
+                  <dt>{t("tickets.drawer.folder")}</dt>
+                  <dd class="ticket-drawer-code" dir="ltr" title={folder()}>
+                    {folder()}
+                  </dd>
+                </div>
+              )}
+            </Show>
             <Show when={props.ticket.worktree}>
               {(worktree) => (
                 <>

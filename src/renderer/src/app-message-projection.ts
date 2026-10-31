@@ -56,6 +56,7 @@ export function toAgentProfile(stored: ClientAgentSummary): AgentProfile {
     ...(stored.backupModels === undefined ? {} : { backupModels: stored.backupModels }),
     ...(stored.definitionOfDone === undefined ? {} : { definitionOfDone: stored.definitionOfDone }),
     ...(stored.reviewerAgentId === undefined ? {} : { reviewerAgentId: stored.reviewerAgentId }),
+    ...(stored.workFolder === undefined ? {} : { workFolder: stored.workFolder }),
     ...(stored.usageLimitReturn === undefined ? {} : { usageLimitReturn: stored.usageLimitReturn }),
     threadId: stored.threadId,
     workspacePath: stored.workspacePath,
@@ -235,6 +236,7 @@ export function agentProfilesEqual(left: AgentProfile, right: AgentProfile): boo
     JSON.stringify(left.backupModels) === JSON.stringify(right.backupModels) &&
     JSON.stringify(left.definitionOfDone) === JSON.stringify(right.definitionOfDone) &&
     left.reviewerAgentId === right.reviewerAgentId &&
+    left.workFolder === right.workFolder &&
     JSON.stringify(left.usageLimitReturn) === JSON.stringify(right.usageLimitReturn) &&
     left.access === right.access &&
     left.computerUse === right.computerUse &&

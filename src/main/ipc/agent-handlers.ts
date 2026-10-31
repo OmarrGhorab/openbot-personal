@@ -466,7 +466,11 @@ export function agentIpcHandlers({
             throw new Error(sourceText("error.agent.backupModelsLocalOnly"));
           }
           // Checks and the reviewer are local-only: only the user sets them on the computer that runs the agent.
-          if (input.definitionOfDone !== undefined || input.reviewerAgentId !== undefined) {
+          if (
+            input.definitionOfDone !== undefined ||
+            input.reviewerAgentId !== undefined ||
+            input.workFolder !== undefined
+          ) {
             throw new Error(sourceText("error.agent.settingsLocalOnly"));
           }
           // The released agent route does not carry the account, so it changes on its own route after

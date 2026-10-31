@@ -163,6 +163,7 @@ export function mockBoardTickets(
       external,
       progress: null,
       error: null,
+      ...(input.workFolder ? { workFolder: input.workFolder } : {}),
       statusTimes: { [status]: time },
       statusChangedAt: time,
       createdAt: time,
@@ -273,6 +274,7 @@ export function mockBoardTickets(
           ? await api.create({
               title: input.title ?? "",
               ...(input.body === undefined ? {} : { body: input.body }),
+              ...(input.workFolder === undefined ? {} : { workFolder: input.workFolder }),
               agentId: input.agentId,
             })
           : find(input.ticketId);

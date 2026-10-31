@@ -332,11 +332,12 @@ export class AgentTasks implements TaskLanes {
   readonly prepareTicketWorkspace = Effect.fn("AgentTasks.prepareTicketWorkspace")(function* (
     this: AgentTasks,
     task: AgentTaskRecord,
-    workspacePath: string,
+    folders: readonly string[],
     ticketText: string,
     title: string,
   ): Effect.fn.Return<{ path: string; branch: string } | null> {
-    const candidates = [workspacePath, ...ticketPathCandidates(ticketText)];
+    // #257: the ticket work folder, then the agent work folder, then the agent workspace, then paths in the text.
+    const candidates = [...folders, ...ticketPathCandidates(ticketText)];
     const branch = ticketBranchName(title, task.taskId);
     const seen = new Set<string>();
     for (const candidate of candidates) {

@@ -77,7 +77,7 @@ function columns(db: DatabaseSync, table: string): string[] {
 }
 
 function expectHealthy(db: DatabaseSync): void {
-  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 56 });
+  expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 57 });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
@@ -94,7 +94,7 @@ describe("board ticket type migration", () => {
       migrateOpenBotDatabase(db);
       const after = contents(db);
       const tickets = (before.board_tickets ?? []).map((row) =>
-        Object.assign({}, row, { type: null, type_source: null, phase: null }),
+        Object.assign({}, row, { type: null, type_source: null, phase: null, work_folder: null }),
       );
       expect(Object.fromEntries(Object.keys(before).map((table) => [table, after[table]]))).toEqual({
         ...before,
@@ -185,9 +185,9 @@ describe("board ticket type migration", () => {
     const db = databaseAt(51);
     seed(db, 51);
     const before = contents(db);
-    db.exec("INSERT INTO schema_migrations VALUES(57,'now')");
+    db.exec("INSERT INTO schema_migrations VALUES(58,'now')");
     expect(() => migrateOpenBotDatabase(db)).toThrow("newer than this application supports");
-    db.exec("DELETE FROM schema_migrations WHERE version=57; DELETE FROM schema_migrations WHERE version=20");
+    db.exec("DELETE FROM schema_migrations WHERE version=58; DELETE FROM schema_migrations WHERE version=20");
     expect(() => migrateOpenBotDatabase(db)).toThrow("missing version 20");
     expect(contents(db)).toEqual(before);
     expect(columns(db, "board_tickets")).not.toContain("type");

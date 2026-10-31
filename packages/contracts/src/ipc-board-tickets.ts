@@ -1,3 +1,4 @@
+import { isWorkFolder } from "./ipc-agent-done-checks";
 import type { AgentTask } from "./ipc-agent-tasks";
 import { isBoundedString, isFiniteNumber, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import type { RavenTeamJob, RavenTeamRoleRun } from "./ipc-raven-team";
@@ -166,6 +167,8 @@ export interface BoardTicket {
   error: string | null;
   /** The work phase that the agent last reported. Absent: none reported yet. */
   phase?: BoardTicketPhase;
+  /** The repository or folder that the ticket's work runs in (#257). Absent: the agent's folder. */
+  workFolder?: string;
   /** The git worktree and branch of the ticket's work thread. Absent: it shares the agent workspace. */
   worktree?: BoardTicketWorktree;
   /** When the ticket last entered each column. The stepper shows these. */
@@ -298,6 +301,8 @@ export interface CreateBoardTicketInput {
   agentId?: string | null;
   /** The type that the person chose. Absent: the board detects it from the title and the text. */
   type?: BoardTicketType | null;
+  /** The repository or folder for the ticket's work (#257). Absent: the agent's folder. */
+  workFolder?: string | null;
 }
 
 /** Changes the fields that are present. `null` clears a nullable field. */
@@ -310,6 +315,8 @@ export interface UpdateBoardTicketInput {
   type?: BoardTicketType | null;
   progress?: string | null;
   error?: string | null;
+  /** `null` returns the ticket to the agent's folder (#257). */
+  workFolder?: string | null;
 }
 
 /** Moves a ticket to a column. With `beforeTicketId`, it goes above that ticket; without, to the end. */
@@ -336,6 +343,8 @@ export interface StartBoardTicketInput {
   body?: string;
   /** The person's choice of type for a new ticket (ticket 259). Absent: the board detects it. */
   type?: BoardTicketType;
+  /** The repository or folder for a new ticket's work (#257). */
+  workFolder?: string;
   /**
    * Request changes on a ticket in review (ticket 248): the text goes to the ticket's own run, or starts
    * a new run of its agent when that run is gone, and the ticket goes back to Running.
@@ -592,6 +601,7 @@ export function isBoardTicket(value: unknown): value is BoardTicket {
     (value.type === null || isBoardTicketType(value.type)) &&
     (value.typeSource === null || isOneOf(BOARD_TICKET_TYPE_SOURCES, value.typeSource)) &&
     (value.phase === undefined || isOneOf(BOARD_TICKET_PHASES, value.phase)) &&
+    (value.workFolder === undefined || isWorkFolder(value.workFolder)) &&
     isNullableIdentifier(value.agentId) &&
     isFiniteNumber(value.order) &&
     isNullableIdentifier(value.taskId) &&

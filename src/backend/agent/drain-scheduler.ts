@@ -35,7 +35,7 @@ import {
 import type { ThreadLifecycle } from "./thread-lifecycle";
 import { TurnSlots } from "./turn-slots";
 import type { UsageLimitGate } from "./usage-limit-gate";
-import { codexSandboxPolicy, workspaceWritableRoots } from "./workspace-sandbox";
+import { agentWorkFolder, codexSandboxPolicy, workspaceWritableRoots } from "./workspace-sandbox";
 
 /** Shown to the user when a message names a model of an endpoint that was taken out. */
 export const REMOVED_ENDPOINT_MESSAGE = sourceText("error.agent.endpointRemoved");
@@ -756,7 +756,7 @@ export class DrainScheduler {
       this.#conversation.emitConversation(snapshot);
 
       // A work thread's turn runs in its own git worktree; every other turn in the agent workspace.
-      const turnCwd = taskThreadId ? yield* this.#threads.sessionCwd(agent, taskThreadId) : agent.workspacePath;
+      const turnCwd = taskThreadId ? yield* this.#threads.sessionCwd(agent, taskThreadId) : agentWorkFolder(agent);
       const startTurn = (providerThreadId: string) =>
         Effect.gen({ self: this }, function* () {
           // Read again here, not only above: the provider, the thread and the channel are prepared in

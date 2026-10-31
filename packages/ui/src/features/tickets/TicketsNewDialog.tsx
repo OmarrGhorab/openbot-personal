@@ -25,6 +25,8 @@ export interface TicketNew {
   agentId: string | null;
   /** The person's choice of type. Absent: the board detects it from the title and the text. */
   type?: BoardTicketType;
+  /** The repository or folder for the ticket's work (#257). Absent: the agent's folder. */
+  workFolder?: string;
 }
 
 /**
@@ -78,6 +80,7 @@ export function TicketsNewDialog(props: {
   const autopilotId = createUniqueId();
   const [title, setTitle] = createSignal("");
   const [body, setBody] = createSignal("");
+  const [folder, setFolder] = createSignal("");
   const [type, setType] = createSignal<TypeChoice>("auto");
   const [agentId, setAgentId] = createSignal<string | null>(untrack(() => props.agentId));
   // Autopilot takes the ticket by default, unless an agent panel chose an agent first.
@@ -123,6 +126,8 @@ export function TicketsNewDialog(props: {
     const owner = byAutopilot() ? null : agentId();
     if (!name || busy() || (start && !owner)) return;
     const choice = type();
+    const workFolder = folder().trim();
+    const folderPart = workFolder ? { workFolder } : {};
     setBusy(start ? "start" : "add");
     const done =
       start && owner
@@ -131,12 +136,14 @@ export function TicketsNewDialog(props: {
             title: name,
             body: body().trim(),
             ...(choice === "auto" ? {} : { type: choice }),
+            ...folderPart,
           })
         : await props.onCreate({
             title: name,
             body: body().trim(),
             agentId: owner,
             ...(choice === "auto" ? {} : { type: choice }),
+            ...folderPart,
           });
     setBusy(null);
     if (done) props.onClose();
@@ -178,6 +185,16 @@ export function TicketsNewDialog(props: {
                     disabled={busy() !== null}
                     placeholder={t("tickets.new.detailsPlaceholder")}
                     onValueChange={setBody}
+                  />
+                </Field>
+                <Field label={t("tickets.new.folder")}>
+                  <Input
+                    dir="ltr"
+                    value={folder()}
+                    disabled={busy() !== null}
+                    spellcheck={false}
+                    placeholder={agent()?.workFolder ?? t("tickets.new.folderPlaceholder")}
+                    onValueChange={setFolder}
                   />
                 </Field>
                 <div class="tickets-new-field">

@@ -59,7 +59,7 @@ export interface BoardTicketServiceOptions {
 export type StartWorkThread = (
   agentId: string,
   text: string,
-  ticket?: { title: string },
+  ticket?: { title: string; workFolder?: string | undefined },
 ) => Promise<Pick<AgentTask, "id" | "threadId" | "state">>;
 
 /** The agent's own update of the ticket of its work thread. The `update_ticket` tool checks it first. */
@@ -305,6 +305,7 @@ export class BoardTicketService {
         agentId: input.agentId ?? null,
         type: type ?? null,
         typeSource: chosen ? choiceSource(actor) : type ? "detected" : null,
+        workFolder: input.workFolder ?? null,
       },
       actor,
     );
@@ -324,6 +325,7 @@ export class BoardTicketService {
     }
     if (input.progress !== undefined) patch.progress = nullableLine(input.progress, BOARD_TICKET_PROGRESS_LIMIT);
     if (input.error !== undefined) patch.error = nullableLine(input.error, BOARD_TICKET_ERROR_LIMIT);
+    if (input.workFolder !== undefined) patch.workFolder = input.workFolder;
     const current = this.#require(input.ticketId);
     const reassigned = patch.agentId !== undefined && patch.agentId !== current.agentId;
     // A reassign (ticket 247) ends the old agent's link: its run stays in the activity under its own agent, and
@@ -503,13 +505,18 @@ export class BoardTicketService {
       ? `\n\nThis ticket was reassigned to you. Earlier work is in thread ${previousThreadId}; read it for context.`
       : "";
     const request = changes ? `\n\nThe reviewer asked for changes:\n${changes}` : "";
-    const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}${request}`, { title });
+    const workFolder = existing ? existing.workFolder : input.workFolder;
+    const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}${request}`, {
+      title,
+      ...(workFolder ? { workFolder } : {}),
+    });
     const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
     const links = { taskId: task.id, threadId: task.threadId };
     if (!existing) {
       // The type chosen in the New ticket dialog is kept (ticket 259); without one the board detects it.
       const type = input.type ? { type: input.type } : {};
-      return this.create({ title, body, status, agentId: input.agentId, ...type }, actor, links);
+      const folder = input.workFolder ? { workFolder: input.workFolder } : {};
+      return this.create({ title, body, status, agentId: input.agentId, ...type, ...folder }, actor, links);
     }
     this.patch(existing.id, { ...links, agentId: input.agentId }, actor);
     this.moveIfNeeded(existing.id, status, actor);
@@ -524,7 +531,10 @@ export class BoardTicketService {
     const startWorkThread = this.#startWorkThread;
     if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
     const ticket = this.#require(ticketId);
-    const task = await startWorkThread(agentId, brief, { title: ticket.title });
+    const task = await startWorkThread(agentId, brief, {
+      title: ticket.title,
+      ...(ticket.workFolder ? { workFolder: ticket.workFolder } : {}),
+    });
     this.patch(ticket.id, { taskId: task.id, threadId: task.threadId, agentId, phase: "take" }, "agent");
     this.moveIfNeeded(ticket.id, task.state === "running" ? "running" : "queued", "agent");
     return this.#require(ticket.id);

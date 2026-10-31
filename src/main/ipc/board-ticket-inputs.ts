@@ -18,6 +18,7 @@ import {
   isBoardTicketProvider,
   isBoardTicketStatus,
   isBoardTicketType,
+  isWorkFolder,
   type MoveBoardTicketInput,
   type StartBoardTicketInput,
   type UpdateBoardTicketInput,
@@ -52,6 +53,14 @@ function parseNullableText(value: unknown, field: string, limit: number): string
   return parseOptionalText(value, field, limit);
 }
 
+/** A work folder (#257), or null to clear it. Absent: no change. Empty text also clears it. */
+function parseWorkFolder(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  if (value === "") return null;
+  if (!isWorkFolder(value)) throw new Error("Invalid work folder.");
+  return value;
+}
+
 function parseAgentId(value: unknown): string | null | undefined {
   if (value === undefined || value === null) return value;
   return requireString(value, "agentId", INPUT_LIMITS.identifier);
@@ -62,9 +71,11 @@ export function parseCreateBoardTicket(value: unknown): CreateBoardTicketInput {
   const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
   const agentId = parseAgentId(value.agentId);
   const type = parseType(value.type);
+  const workFolder = parseWorkFolder(value.workFolder);
   return {
     title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
     ...(body === undefined ? {} : { body }),
+    ...(workFolder ? { workFolder } : {}),
     ...(value.status === undefined ? {} : { status: parseStatus(value.status) }),
     ...(agentId === undefined ? {} : { agentId }),
     ...(type === undefined ? {} : { type }),
@@ -79,8 +90,10 @@ export function parseUpdateBoardTicket(value: unknown): UpdateBoardTicketInput {
   const progress = parseNullableText(value.progress, "progress", BOARD_TICKET_PROGRESS_LIMIT);
   const error = parseNullableText(value.error, "error", BOARD_TICKET_ERROR_LIMIT);
   const type = parseType(value.type);
+  const workFolder = parseWorkFolder(value.workFolder);
   return {
     ticketId: parseBoardTicketId(value.ticketId),
+    ...(workFolder === undefined ? {} : { workFolder }),
     ...(title === undefined ? {} : { title }),
     ...(body === undefined ? {} : { body }),
     ...(agentId === undefined ? {} : { agentId }),
@@ -116,8 +129,10 @@ export function parseStartBoardTicket(value: unknown): StartBoardTicketInput {
   }
   const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
   const type = parseType(value.type);
+  const workFolder = parseWorkFolder(value.workFolder);
   return {
     agentId,
+    ...(workFolder ? { workFolder } : {}),
     title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
     ...(body === undefined ? {} : { body }),
     ...(type ? { type } : {}),

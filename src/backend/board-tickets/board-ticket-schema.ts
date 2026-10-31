@@ -199,9 +199,16 @@ export const V56_BOARD_TICKET_VERDICT_MIGRATION_SQL = `
   ${BOARD_TICKET_EVENTS_INDEX_SQL}
 `;
 
-/** The board tables of a new database, as migration 56 leaves them. */
+// Migration 57 (ticket 257): the work folder of a ticket, the repository or folder that its work runs
+// in. Null: the agent's own folder. Adding a nullable column rewrites no row.
+const V57_WORK_FOLDER_COLUMN = "work_folder TEXT CHECK(work_folder IS NULL OR length(work_folder) BETWEEN 1 AND 4096)";
+
+/** Migration 57. Only adds a column, so foreign keys stay on. */
+export const V57_BOARD_TICKET_WORK_FOLDER_MIGRATION_SQL = `ALTER TABLE board_tickets ADD COLUMN ${V57_WORK_FOLDER_COLUMN};`;
+
+/** The board tables of a new database, as migration 57 leaves them. */
 export const BOARD_TICKET_LATEST_SCHEMA_SQL = `
-  ${boardTicketsTableSql("IF NOT EXISTS board_tickets", `\n    ${V55_PHASE_COLUMN},`)}
+  ${boardTicketsTableSql("IF NOT EXISTS board_tickets", `\n    ${V55_PHASE_COLUMN},\n    ${V57_WORK_FOLDER_COLUMN},`)}
   ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events", V56_EVENT_KINDS)}
   ${V52_BOARD_TICKET_INDEXES_SQL}
 ${V51_BOARD_SETTINGS_SQL}

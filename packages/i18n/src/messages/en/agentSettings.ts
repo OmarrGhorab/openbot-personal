@@ -16,6 +16,12 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.permissions.title": "Permissions",
   "agentSettings.advanced.title": "Advanced",
   "agentSettings.backupModels.title": "Backup models",
+  "agentSettings.folder.title": "Work folder",
+  "agentSettings.folder.description":
+    "The repository or folder where this agent works. Its turns and its tickets run there. Leave it empty to use the agent workspace. The agent keeps its own files in its workspace.",
+  "agentSettings.folder.label": "Folder path",
+  "agentSettings.folder.placeholder": "/path/to/repository",
+  "agentSettings.folder.none": "Agent workspace",
   "agentSettings.checks.title": "Definition of done",
   "agentSettings.checks.description":
     "Commands that must pass before this agent reports its work as done. Each command runs in the agent's workspace.",
