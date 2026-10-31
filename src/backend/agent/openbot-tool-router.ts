@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { type AgentNameMatch, matchAgentName } from "@openbot/contracts/agent-mention-rank";
 import { chatVisualItemType } from "@openbot/contracts/chat-visual";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
@@ -53,6 +54,7 @@ import {
   CHAT_VISUAL_PREVIEW_DEFAULT_WIDTH,
   htmlPreviewToolSchema,
   htmlRenderToolSchema,
+  listAgentsToolSchema,
   removeApiKeyToolSchema,
   requestApiKeyToolSchema,
   routineReportFailureToolSchema,
@@ -881,7 +883,9 @@ export class OpenBotToolRouter {
             ...(openWaits.has(agent.id) ? { openWaits: openWaits.get(agent.id) } : {}),
           };
         });
-      return openBotToolResult({ agents });
+      const { name } = listAgentsToolSchema.parse(params.arguments ?? {});
+      if (name === undefined) return openBotToolResult({ agents });
+      return openBotToolResult({ agents, nameMatch: describeAgentNameMatch(matchAgentName(agents, name)) });
     }
 
     if (params.tool === "list_models") {
@@ -1698,4 +1702,18 @@ export class OpenBotToolRouter {
     Effect.catchDefect((cause) => Effect.fail(new ToolOperationFailed({ cause }))),
     Effect.uninterruptible,
   );
+}
+
+function describeAgentNameMatch(match: AgentNameMatch<{ id: string; name: string }>) {
+  if (match.kind === "exact" || match.kind === "single") {
+    return { kind: match.kind, agentId: match.agent.id, name: match.agent.name };
+  }
+  if (match.kind === "ambiguous") {
+    return {
+      kind: "ambiguous",
+      candidates: match.agents.map((agent) => ({ agentId: agent.id, name: agent.name })),
+      note: "Several agents match and none has exactly this name. Ask the user which one they mean.",
+    };
+  }
+  return { kind: "none" };
 }

@@ -93,6 +93,10 @@ const VISUAL_PAGE_ACTIONS = [
   "OpenBot gives each page a full-screen button and opens a clicked image large, so do not build them. The mobile app runs no page scripts.",
 ].join(" ");
 
+export const listAgentsToolSchema = z.object({
+  name: z.string().max(200).optional().describe("A name the user gave, to resolve to one agent."),
+});
+
 export const htmlRenderToolSchema = z.object({
   html: z.string().min(1).max(CHAT_VISUAL_HTML_LIMIT).describe("A complete, self-contained HTML document."),
   title: z.string().trim().min(1).max(CHAT_VISUAL_TITLE_LIMIT).describe("A short name for the page."),
@@ -405,8 +409,8 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "list_agents",
     description:
-      "List local OpenBot agents with their name, title, description, and progress: status (working, queued, or ready), queuedMessages, turnStartedAt while working, lastActivityAt, and openWaits when it has open waits. Call it to find the teammate for work outside your remit: match the work to titles and descriptions. OpenBot does not track which files an agent changed.",
-    shape: {},
+      "List local OpenBot agents with their name, title, description, and progress: status (working, queued, or ready), queuedMessages, turnStartedAt while working, lastActivityAt, and openWaits when it has open waits. Call it to find the teammate for work outside your remit: match the work to titles and descriptions. OpenBot does not track which files an agent changed. When the user names an agent, pass that name: the result's nameMatch says which agent it means. An exact name wins over a longer name that contains it (Reviewer, not Raven Reviewer). When nameMatch is ambiguous, ask the user which of the listed agents they mean before you send anything.",
+    shape: listAgentsToolSchema.shape,
   },
   {
     name: "list_models",
