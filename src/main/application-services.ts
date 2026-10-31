@@ -2149,7 +2149,11 @@ export async function createApplicationServices({
     if (event.type === "agents-changed" || event.type === "error") ravenTeamListener(event);
   };
   service.on("event", ravenTeamAgentListener);
+  // ticket 249: a team role that never starts or stops sending updates fails with its reason.
+  const ravenTeamStallTimer = setInterval(() => Effect.runFork(ravenTeam.checkStalls()), 30_000);
+  ravenTeamStallTimer.unref?.();
   teardown.push(TEARDOWN_ORDER.ravenTeam, "the Raven Stack team", () => {
+    clearInterval(ravenTeamStallTimer);
     autopilot.stop();
     unsubscribeRavenAutopilot();
     service.off("turn", ravenTeamListener);

@@ -57,7 +57,12 @@ import type { ImageGenRuntime } from "./image-gen-runtime";
 import { markIncompleteImageGeneration } from "./image-generation";
 import type { MailboxSync } from "./mailbox-sync";
 import { PLAN_UPDATED_METHOD, planFromNotification } from "./plan-updates";
-import { isBalanceDiagnostic, isPlanLimitDiagnostic, isUsageLimitDiagnostic } from "./provider-diagnostics";
+import {
+  isBalanceDiagnostic,
+  isPlanLimitDiagnostic,
+  isUsageLimitDiagnostic,
+  readableHarnessError,
+} from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
 import { isNoUpdateAnswer, settleQuietRoutineTurn } from "./routine-quiet-runs";
 import {
@@ -745,7 +750,7 @@ export class TurnLifecycle {
         // clients send a flat `message`. Reading only the flat field turned every Codex failure,
         // an exhausted plan included, into the renderer's generic sentence under the usage notice.
         const error = getRecord(params, "error");
-        const message = getString(params, "message") ?? getString(error, "message") ?? "";
+        const message = readableHarnessError(getString(params, "message") ?? getString(error, "message") ?? "");
         if (notification.method === "warning" && isNonActionableCodexWarning(message)) {
           // No banner, but the log keeps the reason, such as a closed WebSocket.
           logger.info("A provider warning needs no action.", {

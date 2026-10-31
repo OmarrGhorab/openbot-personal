@@ -139,6 +139,8 @@ export const RAVEN_TEAM_QUESTIONS = [
   "unknown-model",
   "no-report",
   "workspace-access",
+  // ticket 249: a role whose turn never started, or that sent no update for too long.
+  "stalled",
 ] as const;
 export type RavenTeamQuestionKind = (typeof RAVEN_TEAM_QUESTIONS)[number];
 

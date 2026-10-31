@@ -3,9 +3,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentEvent, AgentModelOption, AgentProviderId } from "@openbot/contracts/ipc";
-import { RAVEN_STACK_LITE_TEMPLATE_ID, RAVEN_STACK_TEAM_TEMPLATE_ID } from "@openbot/contracts/ipc";
+import {
+  boardTicketTeamJobStep,
+  RAVEN_STACK_LITE_TEMPLATE_ID,
+  RAVEN_STACK_TEAM_TEMPLATE_ID,
+} from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
+import { readableHarnessError } from "../agent/provider-diagnostics";
 import { runCauseEffect } from "../effect-boundary";
 import { OpenBotDatabase } from "../openbot-database";
 import { type RavenTeamAgents, RavenTeamService } from "./raven-team-service";
@@ -53,7 +58,7 @@ const MODELS = [
 /** The fake computer: OpenCode cannot run Workspace only, as on Linux. */
 const supported = (provider: AgentProviderId) => provider !== "opencode";
 
-async function harness() {
+async function harness(extra: { now?: () => string } = {}) {
   const root = mkdtempSync(join(tmpdir(), "raven-team-service-"));
   roots.push(root);
   const database = new OpenBotDatabase(root);
@@ -119,6 +124,7 @@ async function harness() {
     changed: () => {},
     platform: "linux",
     workspaceOnlySupported: supported,
+    ...extra,
   });
   const agentOf = (label: string) => agents.find((agent) => agent.name.startsWith(`Raven ${label} `));
   const job = (jobId: string) => {
@@ -314,5 +320,52 @@ describe("RavenTeamService: Autopilot lite", () => {
     expect(sent.at(-1)?.text).toContain(COMMIT);
     await reply(started.id, "reviewer", `Review.\nRAVEN-REPORT: {"verdict":"PASS","commit":"${COMMIT}"}`);
     expect(job(started.id).state).toBe("done");
+  });
+});
+
+describe("ticket 249: a role that never answers", () => {
+  const BRIEF2 = "Ticket 9: rename the helper. Builder: gpt-6-sol. Reviewer: gpt-6-luna. Quality: gpt-6-luna.";
+  it("is stalled after the not-started limit when its message started no turn", async () => {
+    let clock = Date.parse("2026-10-31T00:00:00.000Z");
+    const { team, job } = await harness({ now: () => new Date(clock).toISOString() });
+    const started = await runCauseEffect(team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: BRIEF2 }));
+    // The fake provider never starts a turn.
+    clock += 60_000;
+    await Effect.runPromise(team.checkStalls());
+    expect(job(started.id).state).toBe("running");
+    clock += 3 * 60_000;
+    await Effect.runPromise(team.checkStalls());
+    const stalled = job(started.id);
+    expect(stalled.state).toBe("waiting-user");
+    expect(stalled.question?.kind).toBe("stalled");
+    expect(stalled.roles.find((role) => role.roleId === "architect")?.state).toBe("blocked");
+    expect(boardTicketTeamJobStep(stalled)).toEqual({ status: "needs_review", failure: "stalled" });
+  });
+
+  it("is stalled when a started turn sends nothing for the stall limit", async () => {
+    let clock = Date.parse("2026-10-31T00:00:00.000Z");
+    const { team, job, notice } = await harness({ now: () => new Date(clock).toISOString() });
+    const started = await runCauseEffect(team.start({ templateId: RAVEN_STACK_TEAM_TEMPLATE_ID, brief: BRIEF2 }));
+    const role = job(started.id).roles.find((candidate) => candidate.roleId === "architect");
+    if (!role?.agentId || !role.threadId) throw new Error("no architect task");
+    await notice({ type: "turn-started", agentId: role.agentId, threadId: role.threadId, turnId: "t1" });
+    clock += 10 * 60_000;
+    await Effect.runPromise(team.checkStalls());
+    expect(job(started.id).state).toBe("running");
+    clock += 25 * 60_000;
+    await Effect.runPromise(team.checkStalls());
+    expect(job(started.id).question?.kind).toBe("stalled");
+  });
+});
+
+describe("ticket 249: harness errors", () => {
+  it("reads WS 1011 and tool discovery failures as sentences", () => {
+    expect(readableHarnessError("Harness process exited unexpectedly (WS close code 1011)")).toContain(
+      "closed unexpectedly",
+    );
+    expect(readableHarnessError("CORTEX_STEP_TYPE_MCP_TOOL: Invalid tool discovery arguments")).toContain(
+      "invalid tool discovery arguments",
+    );
+    expect(readableHarnessError("rate limited")).toBe("rate limited");
   });
 });

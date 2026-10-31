@@ -377,7 +377,7 @@ export function boardTicketWorkStep(
 }
 
 /** Why a team job took its tickets out of the work: the person stopped it, or it ended not done. */
-export type BoardTicketTeamFailure = "stopped" | "not-done";
+export type BoardTicketTeamFailure = "stopped" | "not-done" | "stalled";
 
 /** The column that a Raven Stack team job asks for one of its tickets, and the failure line it gives. */
 export interface BoardTicketTeamStep {
@@ -396,7 +396,9 @@ export interface BoardTicketTeamStep {
  * Autopilot does not take it again. Only a job that runs again takes the ticket out of Needs review.
  * When the Reviewer merged the pull request (#198), the ticket moves to Done ("Merged by Reviewer").
  */
-export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued" | "decision">): BoardTicketTeamStep {
+export function boardTicketTeamJobStep(
+  job: Pick<RavenTeamJob, "state" | "queued" | "decision"> & { question?: RavenTeamJob["question"] },
+): BoardTicketTeamStep {
   const autopilot = job.decision !== undefined && job.decision !== null;
   switch (job.state) {
     case "done":
@@ -407,7 +409,8 @@ export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued
     case "stopped":
       return { status: autopilot ? "needs_review" : "backlog", failure: "stopped" };
     case "waiting-user":
-      return { status: "needs_review", failure: null };
+      // ticket 249: a stalled role shows its reason on the ticket, never a silent Working.
+      return { status: "needs_review", failure: job.question?.kind === "stalled" ? "stalled" : null };
     default:
       return { status: job.queued ? "queued" : "running", failure: null };
   }

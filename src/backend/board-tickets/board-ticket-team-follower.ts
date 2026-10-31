@@ -139,6 +139,7 @@ function roleTitle(label: string, title: string): string {
 }
 
 function failureLine(failure: BoardTicketTeamFailure): string {
+  if (failure === "stalled") return sourceText("error.agent.boardTickets.teamJobStalled");
   return failure === "stopped"
     ? sourceText("error.agent.boardTickets.teamJobStopped")
     : sourceText("error.agent.boardTickets.teamJobNotDone");

@@ -137,7 +137,14 @@ export interface RavenTeamServiceOptions {
    * on `platform`. A test sets it to stand for a provider that cannot.
    */
   workspaceOnlySupported?: (provider: AgentProviderId) => boolean;
+  /** ticket 249: a role whose message no turn picked up for this long is stalled. Default 3 min. */
+  notStartedMs?: number;
+  /** ticket 249: a working role with no turn event for this long is stalled. Default 30 min. */
+  stallMs?: number;
 }
+
+export const RAVEN_ROLE_NOT_STARTED_MS = 3 * 60_000;
+export const RAVEN_ROLE_STALL_MS = 30 * 60_000;
 
 function isVerifier(role: RavenTeamRoleRecord): boolean {
   return role.skills.includes("verify") || role.skills.includes("quality");
@@ -169,6 +176,8 @@ export class RavenTeamService {
   readonly #agents: RavenTeamAgents;
   readonly #changed: (jobId: string | null) => void;
   readonly #now: () => string;
+  readonly #notStartedMs: number;
+  readonly #stallMs: number;
   readonly #platform: string;
   readonly #workspaceOnlySupported: (provider: AgentProviderId) => boolean;
   readonly #lock = Semaphore.makeUnsafe(1);
@@ -180,6 +189,8 @@ export class RavenTeamService {
     this.#agents = options.agents;
     this.#changed = options.changed;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#notStartedMs = options.notStartedMs ?? RAVEN_ROLE_NOT_STARTED_MS;
+    this.#stallMs = options.stallMs ?? RAVEN_ROLE_STALL_MS;
     const platform = options.platform ?? process.platform;
     this.#platform = platform;
     this.#workspaceOnlySupported =
@@ -477,6 +488,31 @@ export class RavenTeamService {
    */
   startQueuedJobs(): Effect.Effect<void> {
     return this.#guarded(this.#startQueued());
+  }
+
+  /**
+   * ticket 249: a role left Working with no turn (its message never started one, as after a spent free
+   * limit) or with no turn event for too long is stalled. The job waits for the person with a "stalled"
+   * question, so its ticket shows the reason in Needs review and can be retried, never Working forever.
+   */
+  checkStalls(): Effect.Effect<void> {
+    return this.#guarded(
+      Effect.sync(() => {
+        const now = Date.parse(this.#now());
+        for (const job of this.#store.listJobs(QUEUE_SCAN_LIMIT)) {
+          if (isTerminal(job) || job.state !== "running" || ravenTeamJobQueued(job)) continue;
+          for (const role of job.roles) {
+            if (role.state !== "working") continue;
+            const age = now - Date.parse(role.updatedAt);
+            const limit = role.pendingMessage !== null || role.taskId === null ? this.#notStartedMs : this.#stallMs;
+            if (!(age > limit)) continue;
+            logger.warn("A Raven Stack role stalled.", { jobId: job.id, roleId: role.roleId, minutes: age / 60_000 });
+            this.#blockedAt(job.id, role.roleId, "stalled");
+            break;
+          }
+        }
+      }),
+    );
   }
 
   /** Reacts to an agent event. Only turn events of a team role matter; every other event is ignored. */

@@ -24,6 +24,11 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.stalledBlocked":
     "Blocked: the model sent no update for {minutes} min, and {limit} retries did not help.",
   "error.agent.boardTickets.teamJobStopped": "Its team job was stopped before the work was done.",
+  "error.agent.boardTickets.teamJobStalled":
+    "Stalled: a team role did not start or sent no update in time. Retry the job or change the model.",
+  "error.agent.harness.exited": "The model's harness closed unexpectedly (code 1011). Retry, or change the model.",
+  "error.agent.harness.toolDiscovery":
+    "The model sent invalid tool discovery arguments, so the tool call failed. Retry, or change the model.",
   "error.agent.boardTickets.teamJobNotDone": "Its team job ended not done after the last FAIL round.",
   "error.agent.boardTickets.toolInvalid":
     "Give a status (backlog, running or needs_review), a progress line of at most 500 characters, or a comment.",
