@@ -4,7 +4,7 @@
 // whether to reload or wait.
 
 /** Why a renderer ended, as Electron reports it. `clean-exit` is a normal close. */
-export type RendererGoneReason =
+type RendererGoneReason =
   | "clean-exit"
   | "abnormal-exit"
   | "killed"

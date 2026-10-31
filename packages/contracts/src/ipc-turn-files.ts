@@ -53,8 +53,9 @@ function isCount(value: unknown): value is number {
 export function isTurnChangedFile(value: unknown): value is TurnChangedFile {
   return (
     isDynamicRecord(value) &&
+    typeof value.path === "string" &&
+    value.path.length > 0 &&
     isBoundedString(value.path, INPUT_LIMITS.path) &&
-    (value.path as string).length > 0 &&
     isOneOf(TURN_FILE_STATUSES, value.status) &&
     (value.additions === undefined || isCount(value.additions)) &&
     (value.deletions === undefined || isCount(value.deletions))
@@ -63,9 +64,7 @@ export function isTurnChangedFile(value: unknown): value is TurnChangedFile {
 
 export function isTurnFilesInput(value: unknown): value is TurnFilesInput {
   return (
-    isDynamicRecord(value) &&
-    isIdentifier(value.agentId) &&
-    (value.turnId === undefined || isIdentifier(value.turnId))
+    isDynamicRecord(value) && isIdentifier(value.agentId) && (value.turnId === undefined || isIdentifier(value.turnId))
   );
 }
 
@@ -85,8 +84,9 @@ export function isTurnFileDiffInput(value: unknown): value is TurnFileDiffInput 
   return (
     isDynamicRecord(value) &&
     isIdentifier(value.agentId) &&
-    isBoundedString(value.path, INPUT_LIMITS.path) &&
-    (value.path as string).length > 0
+    typeof value.path === "string" &&
+    value.path.length > 0 &&
+    isBoundedString(value.path, INPUT_LIMITS.path)
   );
 }
 
@@ -108,7 +108,6 @@ export function isTurnFileDiffResult(value: unknown): value is TurnFileDiffResul
     isBoundedString(value.path, INPUT_LIMITS.path) &&
     isString(value.diff) &&
     value.diff.length <= INPUT_LIMITS.messageText &&
-    (value.content === undefined ||
-      (isString(value.content) && value.content.length <= INPUT_LIMITS.messageText))
+    (value.content === undefined || (isString(value.content) && value.content.length <= INPUT_LIMITS.messageText))
   );
 }

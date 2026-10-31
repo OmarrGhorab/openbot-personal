@@ -75,7 +75,7 @@ const QUEUE_SCAN_LIMIT = 200;
  * on one model with two efforts do not share one agent, whose effort applies to every turn.
  */
 /** ticket 251: the one agent of a role, such as "Raven Builder". */
-export function ravenRoleSharedName(label: string): string {
+function ravenRoleSharedName(label: string): string {
   return `Raven ${label}`.slice(0, ROLE_AGENT_NAME_LIMIT);
 }
 
@@ -148,8 +148,8 @@ export interface RavenTeamServiceOptions {
   stallMs?: number;
 }
 
-export const RAVEN_ROLE_NOT_STARTED_MS = 3 * 60_000;
-export const RAVEN_ROLE_STALL_MS = 30 * 60_000;
+const RAVEN_ROLE_NOT_STARTED_MS = 3 * 60_000;
+const RAVEN_ROLE_STALL_MS = 30 * 60_000;
 
 function isVerifier(role: RavenTeamRoleRecord): boolean {
   return role.skills.includes("verify") || role.skills.includes("quality");

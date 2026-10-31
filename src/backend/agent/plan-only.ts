@@ -74,7 +74,7 @@ export function planOnlyRefuses(approval: { kind: "command" | "file-change" | "p
 }
 
 /** The command line of an approval. Antigravity sends its tool input as JSON with a `CommandLine` field. */
-export function commandLine(command: string): string {
+function commandLine(command: string): string {
   if (!command.trimStart().startsWith("{")) return command;
   try {
     const input: Record<string, string | undefined> = JSON.parse(command);

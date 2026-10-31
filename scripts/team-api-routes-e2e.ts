@@ -1621,8 +1621,11 @@ try {
       ticketId: String(field(started.body, "id")),
     });
     check(
-      "a second start of the same ticket gets 409 with its catalog text",
-      errorIs(again, 409, sourceText("error.agent.boardTickets.alreadyStarted")) &&
+      // One run per ticket (#263): a second start returns the ticket with its run and starts no thread.
+      "a second start of the same ticket returns the same run and starts no new thread",
+      again.status === 200 &&
+        field(again.body, "id") === field(started.body, "id") &&
+        field(again.body, "taskId") === "task-board-1" &&
         callsOf("startWorkThread").length === 1,
       summary(again),
     );

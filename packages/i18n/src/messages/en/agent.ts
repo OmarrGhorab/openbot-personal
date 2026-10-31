@@ -103,12 +103,4 @@ export const messages = defineMessages("agent", {
   "agent.team.role.state.failed": "Failed",
   "agent.team.role.state.blocked": "Blocked",
   "agent.team.role.state.stopped": "Stopped",
-  "agent.team.autopilot.type.feature": "Feature",
-  "agent.team.autopilot.type.bug": "Bug",
-  "agent.team.autopilot.type.chore": "Chore",
-  "agent.team.autopilot.pickUp.ravenOrUnassigned": "Raven or unassigned",
-  "agent.team.autopilot.pickUp.raven": "Raven only",
-  "agent.team.autopilot.merge.method.squash": "Squash and merge",
-  "agent.team.autopilot.merge.method.merge": "Create a merge commit",
-  "agent.team.autopilot.merge.method.rebase": "Rebase and merge",
 });

@@ -27,15 +27,7 @@ import { For, flush, onSettled, Show } from "solid-js";
  * from the composer only, and a subagent from its row in the chat, so the launcher and Add do not
  * list them.
  */
-export type SidePanelPane =
-  | "browser"
-  | "files"
-  | "tasks"
-  | "settings"
-  | "question"
-  | "voice"
-  | "subagent"
-  | "changes";
+export type SidePanelPane = "browser" | "files" | "tasks" | "settings" | "question" | "voice" | "subagent" | "changes";
 
 const PANE_LABELS: Record<SidePanelPane, AppTextKey> = {
   browser: "conversation.sidePanel.pane.browser",

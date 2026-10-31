@@ -6,8 +6,9 @@ import type {
   TurnStepKind,
   TurnStepStatus,
 } from "@openbot/contracts/ipc";
+
 /** The live step the chat draws, as the decoder holds it. */
-export type TurnStepEvent = Extract<AgentEvent, { type: "turn-step" }>;
+type TurnStepEvent = Extract<AgentEvent, { type: "turn-step" }>;
 
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { redactText } from "@openbot/logging";
