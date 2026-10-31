@@ -161,6 +161,11 @@ export interface AgentIpcDependencies {
   skills: SkillMarketplaceService;
   messageLinks: MessageLinkRelay;
   openExternal: (url: string) => Promise<void>;
+  /**
+   * Ticket 267: a message the person sends after Stop all means they want the agents back, so it lifts
+   * the stop first. Without it, the message waited behind the stop with Steer turned off.
+   */
+  releaseStopAll?: () => Promise<void>;
 }
 
 export function agentIpcHandlers({
@@ -171,6 +176,7 @@ export function agentIpcHandlers({
   skills,
   messageLinks,
   openExternal,
+  releaseStopAll,
 }: AgentIpcDependencies): Pick<IpcGroupHandlers, "agent"> {
   const remoteTaskRequest = <T>(serverId: string, path: string, decoder: ResponseDecoder<T>, body: RemoteTaskBody) => {
     if (!remoteServers.supportsCapability(serverId, AGENT_TASKS_CAPABILITY)) taskRemoteUnsupported();
@@ -557,7 +563,10 @@ export function agentIpcHandlers({
         remote: (parsed, serverId) => runCauseEffect(remoteServers.markAgentConversationRead(parsed, serverId)),
       }),
       sendMessage: scopedHandler(parseSendMessage, {
-        local: (input) => runCauseEffect(service.sendMessage(input, host.conversationSender())),
+        local: async (input) => {
+          await releaseStopAll?.();
+          return runCauseEffect(service.sendMessage(input, host.conversationSender()));
+        },
         remote: (input, serverId) => {
           if (input.taskId) {
             // `agent-tasks-v1` carries text only.

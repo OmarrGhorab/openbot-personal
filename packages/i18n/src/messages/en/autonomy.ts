@@ -8,6 +8,9 @@ export const messages = defineMessages("autonomy", {
     "Stops every running turn and holds every queue on this computer until you resume.",
   "autonomy.stopAll.resumeDescription": "Starts the queued messages of every agent again.",
   "autonomy.stopAll.failed": "OpenBot could not change the state of the agents.",
+  "autonomy.stopAll.confirmTitle": "Stop all agents?",
+  "autonomy.stopAll.confirmBody":
+    "Every running turn stops and queued work waits. The next message you send starts the agents again.",
 
   // The Safety and limits settings tab.
   "autonomy.tab.title": "Safety and limits",
