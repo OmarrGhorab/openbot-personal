@@ -157,17 +157,30 @@ export function ticketPathCandidates(text: string): string[] {
   return [...new Set([...labelled, ...other])];
 }
 
-/** The branch of a ticket's worktree: `ticket/<title-slug>-<short id>`, a valid git branch name. */
+/**
+ * The branch of a ticket's worktree, a valid git branch name. A GitHub ticket, whose title starts with its
+ * key (`owner/repo#12: Checkout fails`), gets `ticket/12-checkout-fails` (ticket 240); any other ticket gets
+ * `ticket/<title-slug>-<short id>`.
+ */
 export function ticketBranchName(title: string, taskId: string): string {
-  const slug = title
+  const issue = /^[\w.-]+\/[\w.-]+#(\d{1,9}):\s*(.*)$/u.exec(title);
+  if (issue) {
+    const rest = branchSlug(issue[2] ?? "");
+    return `ticket/${issue[1]}${rest ? `-${rest}` : ""}`;
+  }
+  const slug = branchSlug(title);
+  const id = worktreeName(taskId).slice(-6);
+  return `ticket/${slug.length > 0 ? `${slug}-` : ""}${id}`;
+}
+
+function branchSlug(title: string): string {
+  return title
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/^-+|-+$/gu, "")
     .slice(0, 40)
     .replace(/-+$/u, "");
-  const id = worktreeName(taskId).slice(-6);
-  return `ticket/${slug.length > 0 ? `${slug}-` : ""}${id}`;
 }
 
 /** The longest changed-files summary that a side chat reads. */
