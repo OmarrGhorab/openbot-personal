@@ -6,6 +6,14 @@ All notable changes to OpenBot will be documented here. The project follows
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-10-31
+
+### Added
+
+- Show each step of a running turn in the chat: commands keep their redacted command and exit,
+  file changes list their files, and subagent work names itself. After the turn, its files stay in
+  a new Changes pane with a diff and file view per file.
+
 ## [0.52.0] - 2026-10-30
 
 ### Added
