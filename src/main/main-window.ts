@@ -25,6 +25,7 @@ import {
   BrowserWindow,
   clipboard,
   type Display,
+  dialog,
   Menu,
   type Point,
   type Rectangle,
@@ -55,6 +56,7 @@ import {
 import type { RemoteServerManager } from "./remote-server-manager";
 import type { RemoteWorkflowError } from "./remote-service-effects";
 import { sendToRenderer } from "./renderer-ipc";
+import { createRendererRecovery } from "./renderer-recovery";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 import type { UpdateService } from "./update-service";
 import { followAppearance, followWindowGlass, windowBackgroundColor } from "./window-appearance";
@@ -227,6 +229,33 @@ export function createMainWindowController({
       if (interfaceSize) window.webContents.setZoomFactor(interfaceSize.zoomFactor);
     });
     window.webContents.on("render-process-gone", onRendererGone);
+    // A dead or hung page comes back (ticket 246): main reloads it, and asks when it keeps crashing.
+    const recovery = createRendererRecovery({
+      now: () => Date.now(),
+      reload: () => {
+        if (window.isDestroyed()) return;
+        loadRenderer(window).catch((error: unknown) => reportError("Could not reload the window", error));
+      },
+      ask: async (kind) => {
+        if (window.isDestroyed()) return false;
+        const t = getTranslate();
+        const { response } = await dialog.showMessageBox(window, {
+          type: "warning",
+          title: t(kind === "crashed" ? "window.recover.crashedTitle" : "window.recover.hungTitle"),
+          message: t(kind === "crashed" ? "window.recover.crashedTitle" : "window.recover.hungTitle"),
+          detail: t(kind === "crashed" ? "window.recover.crashedDetail" : "window.recover.hungDetail"),
+          buttons: [t("window.recover.reload"), t("window.recover.wait")],
+          defaultId: 0,
+          cancelId: 1,
+        });
+        return response === 0;
+      },
+    });
+    window.webContents.on("render-process-gone", (_event, details) => {
+      reportError(`The window stopped (${details.reason}, exit ${details.exitCode})`, details);
+      void recovery.gone(details.reason);
+    });
+    window.on("unresponsive", () => void recovery.unresponsive());
     window.webContents.once("destroyed", onRendererGone);
     attachAppInput(window, getServices, getTranslate, { closesBrowserTabs: true });
     window.webContents.on("will-navigate", (event, targetUrl) => {
