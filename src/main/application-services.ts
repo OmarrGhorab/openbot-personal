@@ -13,6 +13,7 @@ import { TicketPullRequestOpener } from "../backend/agent-tickets/ticket-pull-re
 import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
 import { BoardTicketEvidenceStore } from "../backend/board-tickets/board-ticket-evidence";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
+import { BoardTicketStallWatchdog } from "../backend/board-tickets/board-ticket-stall-watchdog";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
 import { BoardTicketTeamFollower } from "../backend/board-tickets/board-ticket-team-follower";
@@ -2034,9 +2035,29 @@ export async function createApplicationServices({
   });
   // Each agent moves the tickets of its work threads as their turns start, wait, end or fail.
   const boardTicketFollower = new BoardTicketWorkFollower(boardTickets);
+  // ticket 266: a ticket turn that sends no update is marked Stalled, retried, then Blocked.
+  const boardTicketStalls = new BoardTicketStallWatchdog({
+    board: boardTickets,
+    retry: (task) =>
+      Effect.runPromise(
+        (task.activeTurnId ? service.interrupt(task.agentId, task.activeTurnId, task.threadId) : Effect.void).pipe(
+          Effect.andThen(
+            service.sendMessage({
+              agentId: task.agentId,
+              taskId: task.id,
+              text: "Your last turn sent no update for several minutes and was stopped. Go on with the ticket from where you were.",
+            }),
+          ),
+          Effect.asVoid,
+        ),
+      ),
+  });
+  const boardTicketStallTimer = setInterval(() => void boardTicketStalls.check(), 15_000);
+  boardTicketStallTimer.unref?.();
   service.on("event", (event) => {
     if (event.type !== "agent-tasks-changed") return;
     boardTicketFollower.follow(event.snapshot);
+    boardTicketStalls.notice(event.snapshot);
     autopilotEngine?.noticeTasks(event.snapshot);
   });
   teardown.push(TEARDOWN_ORDER.automation, "the automation server", () => Effect.runPromise(automation.stop()));

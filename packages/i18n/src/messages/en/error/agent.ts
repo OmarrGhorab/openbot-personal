@@ -19,6 +19,10 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.startUnavailable": "Tickets cannot start a thread on this computer.",
   "error.agent.boardTickets.threadFailed": "The last turn of its thread failed.",
   "error.agent.boardTickets.threadStopped": "Its thread was stopped before the work was done.",
+  "error.agent.boardTickets.stalled":
+    "Stalled: the model sent no update for {minutes} min. Retrying ({attempt} of {limit}).",
+  "error.agent.boardTickets.stalledBlocked":
+    "Blocked: the model sent no update for {minutes} min, and {limit} retries did not help.",
   "error.agent.boardTickets.teamJobStopped": "Its team job was stopped before the work was done.",
   "error.agent.boardTickets.teamJobNotDone": "Its team job ended not done after the last FAIL round.",
   "error.agent.boardTickets.toolInvalid":
