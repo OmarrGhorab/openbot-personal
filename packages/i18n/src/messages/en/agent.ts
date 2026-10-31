@@ -17,7 +17,8 @@ export const messages = defineMessages("agent", {
   "agent.avatar.mascotColor": "Mascot color",
   "agent.setup.name": "Name",
   "agent.setup.purpose": "What should this agent help with?",
-  "agent.setup.purposePlaceholder": "Plan trips, compare options, or help with everyday work.",
+  "agent.setup.purposePlaceholder":
+    "Fix bugs in a repo and run the tests, review pull requests, or help with everyday work.",
   "agent.instructions.length": "{length} / {limit}",
   "agent.instructions.tooLong": "Shorten the instructions to {limit} characters. Longer instructions are not saved.",
   "agent.setup.model": "Agent model",

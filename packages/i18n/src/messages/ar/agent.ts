@@ -18,7 +18,7 @@ export const messages = {
   "agent.avatar.mascotColor": "لون الشخصية",
   "agent.setup.name": "الاسم",
   "agent.setup.purpose": "الإيجنت ده يساعد في إيه؟",
-  "agent.setup.purposePlaceholder": "يخطط رحلات، يقارن بين الخيارات، أو يساعد في شغلك اليومي.",
+  "agent.setup.purposePlaceholder": "صلّح أخطاء في ريبو وشغّل التستات، راجع pull requests، أو ساعد في الشغل اليومي.",
   "agent.instructions.length": "{length} / {limit}",
   "agent.instructions.tooLong": "قصّر التعليمات لحد {limit} حرف. التعليمات الأطول مش بتتحفظ.",
   "agent.setup.model": "موديل الإيجنت",
