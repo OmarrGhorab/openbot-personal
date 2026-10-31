@@ -26,6 +26,14 @@ export const messages = defineMessages("agent", {
   "agent.setup.suggestions": "Suggestions",
   // Suggested agents. Selecting one copies its name and purpose into the new agent.
   "agent.setup.suggestion.label": "{name}. {description}",
+  "agent.setup.suggestion.developer.name": "Developer",
+  "agent.setup.suggestion.developer.description": "Changes code in a repo, runs the tests, and reports the diff.",
+  "agent.setup.suggestion.developer.purpose":
+    "Implement code changes in a git repository on a branch, run the tests before and after, and report the diff and the test output.",
+  "agent.setup.suggestion.reviewer.name": "Reviewer",
+  "agent.setup.suggestion.reviewer.description": "Reviews a branch or pull request and gives a verdict.",
+  "agent.setup.suggestion.reviewer.purpose":
+    "Review a branch or pull request: read the diff, run the tests, and reply PASS or FAIL with the reasons. Do not edit files.",
   "agent.setup.suggestion.inboxHelper.name": "Inbox Helper",
   "agent.setup.suggestion.inboxHelper.description": "Drafts replies and keeps follow-ups from slipping.",
   "agent.setup.suggestion.inboxHelper.purpose":

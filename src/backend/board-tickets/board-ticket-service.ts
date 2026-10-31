@@ -506,7 +506,11 @@ export class BoardTicketService {
     const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}${request}`, { title });
     const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
     const links = { taskId: task.id, threadId: task.threadId };
-    if (!existing) return this.create({ title, body, status, agentId: input.agentId }, actor, links);
+    if (!existing) {
+      // The type chosen in the New ticket dialog is kept (ticket 259); without one the board detects it.
+      const type = input.type ? { type: input.type } : {};
+      return this.create({ title, body, status, agentId: input.agentId, ...type }, actor, links);
+    }
     this.patch(existing.id, { ...links, agentId: input.agentId }, actor);
     this.moveIfNeeded(existing.id, status, actor);
     return this.get(existing.id) ?? this.#require(existing.id);

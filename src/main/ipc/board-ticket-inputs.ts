@@ -115,10 +115,12 @@ export function parseStartBoardTicket(value: unknown): StartBoardTicketInput {
     return { agentId, ticketId: parseBoardTicketId(value.ticketId), ...(changes ? { changes } : {}) };
   }
   const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
+  const type = parseType(value.type);
   return {
     agentId,
     title: requireString(value.title, "title", BOARD_TICKET_TITLE_LIMIT),
     ...(body === undefined ? {} : { body }),
+    ...(type ? { type } : {}),
   };
 }
 
