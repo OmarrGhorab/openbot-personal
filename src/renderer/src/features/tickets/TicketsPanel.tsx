@@ -21,6 +21,7 @@ import { useAgents } from "../agents/agents-context";
 import { serverCanAdminister } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { clearTicketFocus, ticketFocusRequest } from "./ticket-merge-focus";
+import { ticketThreadTarget } from "./ticket-thread-target";
 
 export interface TicketsPanelProps {
   serverId: string;
@@ -249,7 +250,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
   const openThread = createMemo(
     () => {
       const ticket = selectedTicket();
-      return ticket?.agentId && ticket.taskId ? { agentId: ticket.agentId, taskId: ticket.taskId } : null;
+      const target = ticket ? ticketThreadTarget(ticket, snapshots()) : null;
+      return target?.taskId ? { agentId: target.agentId, taskId: target.taskId } : null;
     },
     { equals: (left, right) => left?.agentId === right?.agentId && left?.taskId === right?.taskId },
   );
@@ -364,11 +366,12 @@ export function TicketsPanel(props: TicketsPanelProps) {
           .catch((error) => fail(error, "tickets.error.delete"));
       }}
       onOpenThread={(ticket) => {
-        const { agentId, taskId } = ticket;
-        if (!agentId) return;
-        selectAgent(agentId);
+        // ticket 255: open the task thread that did the work, under the agent that owns it.
+        const target = ticketThreadTarget(ticket, snapshots());
+        if (!target) return;
+        selectAgent(target.agentId);
         // A ticket taken in an agent's chat (#263) has the chat's thread and no work thread.
-        if (taskId) agentTasks.requestOpenTask(agentId, taskId);
+        if (target.taskId) agentTasks.requestOpenTask(target.agentId, target.taskId);
       }}
       onOpenLink={(url) => void appPort().openUrl(url)}
       // The message goes to the work thread first; the activity keeps a copy as a comment.
