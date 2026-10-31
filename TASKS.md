@@ -144,3 +144,8 @@
 - Done: migration 58 adds `ci_state`, `checked_sha` and `review_cursor` to `projection_agent_ticket_pulls`.
 - Done: the ticket detail shows the pull request and its CI state (en and ar).
 - Test: `bun scripts/ticket-to-pr-e2e.ts` (47 checks pass).
+## Ticket 268: tell similar agent names apart (2026-10-31)
+- Exact-name match and the ambiguity prompt were done in PR 296.
+- New `similarAgentNameIds` (contracts): agents whose names are the same, or one is whole words inside the other.
+- The sidebar row of such an agent with no title shows its model as the badge, and in the row label.
+- Evidence: /workspace/pr-evidence/268 on the build box.
