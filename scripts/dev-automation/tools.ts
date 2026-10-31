@@ -232,14 +232,57 @@ export async function snapshotPage(page: Page, logger: Logger = dummyLogger): Pr
   return snapshot;
 }
 
+// A locator that matched nothing waits out the whole timeout and then reports
+// only "Timeout exceeded"; one that matched several fails on strict mode. Count
+// first so both say what happened, and let `--nth` pick among duplicates.
+export function pickRoleMatch(count: number, role: string, name: string, nth: number | null): number {
+  if (count === 0) throw new Error(`No match for role=${role} name="${name}".`);
+  if (nth !== null) {
+    if (nth < 1 || nth > count) {
+      throw new Error(`--nth=${nth} is out of range: role=${role} name="${name}" has ${count} matches.`);
+    }
+    return nth - 1;
+  }
+  if (count > 1) {
+    throw new Error(`${count} matches for role=${role} name="${name}". Pass --nth=<1..${count}> or --exact.`);
+  }
+  return 0;
+}
+
+export function parseNth(raw: string | null): number | null {
+  if (raw === null) return null;
+  const nth = Number(raw);
+  if (!Number.isInteger(nth) || nth < 1) throw new Error("--nth must be a whole number from 1.");
+  return nth;
+}
+
+async function resolveRoleControl(
+  page: Page,
+  role: AutomationRole,
+  name: string,
+  timeoutMs: number,
+  exact: boolean,
+  nth: number | null,
+) {
+  const all = page.getByRole(role, { name, exact });
+  try {
+    await all.first().waitFor({ state: "attached", timeout: timeoutMs });
+  } catch {
+    // Fall through: the count below reports "No match" instead of a timeout.
+  }
+  const index = pickRoleMatch(await all.count(), role, name, nth);
+  return all.nth(index);
+}
+
 export async function clickByRole(
   page: Page,
   role: AutomationRole,
   name: string,
   timeoutMs: number,
   exact = false,
+  nth: number | null = null,
 ): Promise<void> {
-  const control = page.getByRole(role, { name, exact });
+  const control = await resolveRoleControl(page, role, name, timeoutMs, exact, nth);
   if (role === "switch") {
     await control.press("Space", { timeout: timeoutMs });
     return;
@@ -255,8 +298,9 @@ export async function typeByRole(
   timeoutMs: number,
   submit: boolean,
   exact = false,
+  nth: number | null = null,
 ): Promise<void> {
-  const control = page.getByRole(role, { name, exact });
+  const control = await resolveRoleControl(page, role, name, timeoutMs, exact, nth);
   await control.fill(text, { timeout: timeoutMs });
   if (submit) await control.press("Enter", { timeout: timeoutMs });
 }
@@ -280,8 +324,21 @@ export function resolveWritablePath(root: string, requested: string, extension: 
   return target;
 }
 
-export function resolveScreenshotPath(root: string, requested: string | null, now: number): string {
+export function resolveScreenshotPath(
+  root: string,
+  requested: string | null,
+  now: number,
+  workspace: string = process.cwd(),
+): string {
   if (requested === null) return resolve(resolve(root), `screenshot-${now}.png`);
+  // `--out=.openbot-build/dev-automation/x.png` names a path from the worktree
+  // that is already inside the root; resolving it against the root again would
+  // nest it (`.openbot-build/dev-automation/.openbot-build/...`).
+  const fromWorkspace = resolve(workspace, requested);
+  const base = resolve(root);
+  if (fromWorkspace.startsWith(`${base}${sep}`)) {
+    return resolveWritablePath(root, relative(base, fromWorkspace), ".png", "Screenshots");
+  }
   return resolveWritablePath(root, requested, ".png", "Screenshots");
 }
 

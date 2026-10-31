@@ -28,6 +28,7 @@ import { profileMemory, writeHeapSnapshot } from "./memory-profile";
 import {
   clickByRole,
   parseAutomationRole,
+  parseNth,
   parseWaitTarget,
   reportableScreenshotPath,
   resolveScreenshotPath,
@@ -61,7 +62,7 @@ const USAGE = [
   "Usage: bun scripts/dev-automation/cli.ts <instances|pages|snapshot|click|type|screenshot|cpu|memory> [flags]",
   "",
   "Target:     --instance=<id> | --port=<port>, --service=<app|test-client>, --page=<target-id|url-substring>",
-  "click/type: --role=<role> --name=<name> [--text=<text>] [--submit] [--exact] --allow-mutations",
+  "click/type: --role=<role> --name=<name> [--text=<text>] [--submit] [--exact] [--nth=<n>] --allow-mutations",
   "Waiting:    --wait-for=<role>,<name>, --timeout=<ms>",
   "screenshot: --out=<path>",
   "cpu:        --duration=<ms> --interval=<ms> --label=<name> --compare=<report.json> --out=<path>",
@@ -82,6 +83,7 @@ const OPTIONS = {
   page: { type: "string" },
   port: { type: "string" },
   role: { type: "string" },
+  nth: { type: "string" },
   service: { type: "string" },
   submit: { type: "boolean" },
   text: { type: "string" },
@@ -393,6 +395,7 @@ async function main(): Promise<void> {
   // "Sign in to OpenCode" reads better than an exact label. `--exact` is for
   // the names that nest: a "Settings" gear beside "View agent settings".
   const exact = flags.exact ?? false;
+  const nth = parseNth(flagValue(flags, "nth"));
   const timeoutMs = readTimeout(flags);
   const waitTarget = readWaitTarget(flags);
   const session = await connectToDevApp(target.port, logger, {
@@ -410,13 +413,13 @@ async function main(): Promise<void> {
       process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
     } else if (command === "click" && role && name) {
       logger.info(`click role=${role} name=${name}`);
-      await clickByRole(session.page, role, name, timeoutMs, exact);
+      await clickByRole(session.page, role, name, timeoutMs, exact, nth);
       await settle();
       const snapshot = await snapshotPage(session.page, logger);
       process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
     } else if (command === "type" && role && name && text !== null) {
       logger.info(`type role=${role} name=${name} chars=${text.length} submit=${flags.submit ?? false}`);
-      await typeByRole(session.page, role, name, text, timeoutMs, flags.submit ?? false, exact);
+      await typeByRole(session.page, role, name, text, timeoutMs, flags.submit ?? false, exact, nth);
       await settle();
       const snapshot = await snapshotPage(session.page, logger);
       process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
