@@ -9,6 +9,7 @@ import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { TicketPullRequestOpener } from "../backend/agent-tickets/ticket-pull-request-opener";
 import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
 import { BoardTicketEvidenceStore } from "../backend/board-tickets/board-ticket-evidence";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
@@ -1794,6 +1795,11 @@ export async function createApplicationServices({
   });
   const service: AgentService = new AgentService({
     ticketPulls: new TicketPullRegistry(ticketStore),
+    // Ticket 240: open_ticket_pull_request pushes with the GitHub connection and opens the pull request.
+    ticketPullOpener: new TicketPullRequestOpener({
+      accessToken: () => runCauseEffect(githubConnector.accessToken()),
+      fetch: (url, init) => fetch(url, init),
+    }),
     boardTickets,
     store,
     mailbox,

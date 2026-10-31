@@ -10,6 +10,8 @@ export const messages = defineMessages("error.agent", {
     "No other agent on another model can review this ticket. Add one, then ask again.",
   "error.agent.boardTickets.notReviewThread":
     "Only the review thread that was asked for this ticket can give its verdict.",
+  "error.agent.boardTickets.pullNeedsWorktree":
+    "open_ticket_pull_request needs a GitHub ticket, its own worktree, and a GitHub connection.",
   "error.agent.boardTickets.notFound": "The ticket was not found. It may have been deleted.",
   "error.agent.boardTickets.emptyTitle": "Write a title for the ticket.",
   "error.agent.boardTickets.emptyComment": "Write a comment before you send it.",

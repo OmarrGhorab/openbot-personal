@@ -97,6 +97,26 @@ export const attachTicketEvidenceToolSchema = z.strictObject({
   caption: z.string().trim().max(BOARD_TICKET_EVIDENCE_CAPTION_LIMIT).optional(),
 });
 
+/** Ticket 240: pushes the ticket's worktree branch and opens its pull request, then registers it. */
+export const OPEN_TICKET_PULL_REQUEST_TOOL = "open_ticket_pull_request";
+
+export const openTicketPullRequestToolSchema = z.strictObject({
+  title: z.string().trim().min(1).max(256),
+  body: z.string().trim().max(BOARD_TICKET_COMMENT_LIMIT).default(""),
+});
+
+/** Opens a ticket's pull request. The composition root gives `TicketPullRequestOpener`. */
+export interface AgentTaskPullOpener {
+  open(input: {
+    worktreePath: string;
+    branch: string;
+    issueKey: string;
+    title: string;
+    body: string;
+    evidence: readonly string[];
+  }): Promise<{ number: number; url: string; project: string }>;
+}
+
 /** Ticket 239: the author thread asks another agent on another model to review its pull request. */
 export const REQUEST_TICKET_REVIEW_TOOL = "request_ticket_review";
 
@@ -126,7 +146,12 @@ export interface AgentTaskBoard {
   /** Updates the ticket of the work thread. Null when the work thread does no ticket. */
   updateForTask(taskId: string, update: AgentTicketUpdate): { id: string; status: BoardTicketStatus } | null;
   /** The ticket of a work thread, or of a chat that took one (#263). */
-  forThread?(taskId: string | null, threadId: string | null): { id: string } | null;
+  forThread?(
+    taskId: string | null,
+    threadId: string | null,
+  ): { id: string; external?: { provider: string; key: string } | null } | null;
+  /** The evidence of a ticket, for the pull request body (ticket 240). */
+  evidence?(ticketId: string): { kind: string; phase: string; caption: string | null }[];
   /** Ticket 239: starts the reviewer thread of a ticket. */
   requestReview?(
     ticketId: string,
@@ -183,6 +208,8 @@ export interface AgentTasksOptions {
   pulls?: AgentTaskPullRegistry | null;
   /** The Tickets board, for the agent's own ticket updates. Null when the composition root has no board. */
   board?: AgentTaskBoard | null;
+  /** Ticket 240: opens a ticket's pull request. Null: the tool refuses. */
+  pullOpener?: AgentTaskPullOpener | null;
 }
 
 /**
@@ -200,6 +227,7 @@ export class AgentTasks implements TaskLanes {
   readonly #conversation: ConversationRuntime;
   readonly #hooks: AgentTasksHooks;
   readonly #pulls: AgentTaskPullRegistry | null;
+  readonly #pullOpener: AgentTaskPullOpener | null;
   readonly #board: AgentTaskBoard | null;
   /** The last progress line of each running task turn, by task id. */
   readonly #progress = new Map<string, string>();
@@ -214,6 +242,7 @@ export class AgentTasks implements TaskLanes {
     this.#conversation = options.conversation;
     this.#hooks = options.hooks;
     this.#pulls = options.pulls ?? null;
+    this.#pullOpener = options.pullOpener ?? null;
     this.#board = options.board ?? null;
   }
 
@@ -492,6 +521,7 @@ export class AgentTasks implements TaskLanes {
     if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
     if (params.tool === UPDATE_TICKET_TOOL) return this.#updateTicket(params, caller.agentId);
     if (params.tool === ATTACH_TICKET_EVIDENCE_TOOL) return yield* this.#attachEvidence(params, caller.agentId);
+    if (params.tool === OPEN_TICKET_PULL_REQUEST_TOOL) return yield* this.#openPullRequest(params, caller.agentId);
     if (params.tool === REQUEST_TICKET_REVIEW_TOOL) return yield* this.#requestReview(params, caller.agentId);
     if (params.tool === SUBMIT_TICKET_VERDICT_TOOL) return yield* this.#submitVerdict(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
@@ -679,6 +709,45 @@ export class AgentTasks implements TaskLanes {
       return openBotToolFailure(cause instanceof Error ? cause.message : String(cause));
     }
     return openBotToolResult({ ticketId: ticket.id, evidenceId: result.success.id, kind: result.success.kind });
+  });
+
+  /**
+   * Answers `open_ticket_pull_request` from a ticket's work thread (ticket 240): pushes its worktree
+   * branch, opens the pull request with `Fixes #N` and the evidence, and registers it. A failure leaves
+   * the ticket with a clear error line.
+   */
+  readonly #openPullRequest = Effect.fn("AgentTasks.openPullRequest")(function* (
+    this: AgentTasks,
+    params: DynamicToolCallParams,
+    agentId: string,
+  ): Effect.fn.Return<OpenBotToolResponse> {
+    const parsed = openTicketPullRequestToolSchema.safeParse(params.arguments);
+    if (!parsed.success) return openBotToolFailure(sourceText("error.agent.boardTickets.toolInvalid"));
+    const task = this.#taskOf(this.#conversation.publicThreadId(agentId, params.threadId));
+    const board = this.#board;
+    const ticket = task && board?.forThread ? board.forThread(task.taskId, null) : null;
+    if (!task || !ticket) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    const worktree = this.worktreeOf(task.taskId);
+    const opener = this.#pullOpener;
+    const issueKey = ticket.external?.provider === "github" ? ticket.external.key : null;
+    if (!worktree || !opener || !issueKey || !this.#pulls) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.pullNeedsWorktree"));
+    }
+    const evidence = (board?.evidence?.(ticket.id) ?? []).map(
+      (item) => `- ${item.phase} ${item.kind}${item.caption ? `: ${item.caption}` : ""}`,
+    );
+    const input = { worktreePath: worktree.path, branch: worktree.branch, issueKey, ...parsed.data, evidence };
+    const result = yield* Effect.tryPromise({ try: () => opener.open(input), catch: (cause) => cause }).pipe(
+      Effect.result,
+    );
+    if (Result.isFailure(result)) {
+      const reason = result.failure instanceof Error ? result.failure.message : String(result.failure);
+      this.#board?.updateForTask(task.taskId, { error: reason });
+      return openBotToolFailure(reason);
+    }
+    this.#pulls.registerForTask(task.taskId, result.success.project, result.success.number);
+    this.#board?.updateForTask(task.taskId, { phase: "review", comment: `Opened ${result.success.url}` });
+    return openBotToolResult(result.success);
   });
 
   /** Answers `request_ticket_review` from the thread that does the ticket (ticket 239). */
