@@ -27,6 +27,7 @@ import {
   Plus,
   Puzzle,
 } from "@openbot/ui";
+import { ProviderModelPicker } from "@openbot/ui/components/ProviderModelPicker";
 import { fileBadge } from "@openbot/ui/features/conversation/AttachmentCards";
 import { attachmentReferenceTone } from "@openbot/ui/features/conversation/AttachmentReference";
 import { AwaitingReplies } from "@openbot/ui/features/conversation/AwaitingReplies";
@@ -51,6 +52,7 @@ import { reportErrorBanner, reportNotification } from "../../error-reports";
 import { deviceSendShortcut, sendShortcutAriaKey, sendShortcutHintKey } from "../../send-shortcut-preference";
 import { speechReading } from "../speech/speech-playback";
 import { stopSpokenReply } from "../speech/speech-replies";
+import { useAgentModelPicker } from "./agent-model-picker";
 import { useConversationViewScope } from "./conversation-scope";
 import { VOICE_SHORTCUT_KEY } from "./voice-shortcut";
 
@@ -122,6 +124,7 @@ export function ConversationComposer() {
     providerSilentMinutes,
     providerOffline,
   } = useConversationViewScope();
+  const agentModelPicker = useAgentModelPicker();
   const { t, format, sourceText: localizeSourceText } = useText();
   const messageLabel = () =>
     channel
@@ -811,6 +814,9 @@ export function ConversationComposer() {
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+            <Show when={props.agent}>
+              <ProviderModelPicker {...agentModelPicker()} />
+            </Show>
             <div class="composer-primary-actions">
               <Show when={context()?.usage}>
                 {(usage) => (

@@ -65,6 +65,8 @@ interface ProviderModelPickerProps {
   modelOptions: ClientAgentModelOption[];
   agentStatus: AgentStatus;
   variant?: "pill" | "field";
+  /** In the message composer: the popover opens upwards from the start edge, and the trigger stays compact. */
+  inComposer?: boolean | undefined;
   ariaLabel?: string;
   label?: string;
   /** A glyph before the field label. The `field` variant only. */
@@ -462,9 +464,18 @@ export function ProviderModelPicker(props: ProviderModelPickerProps) {
   return (
     <div
       ref={(element) => (root = element)}
-      class={["provider-model-picker", { "provider-model-picker-field": field() }]}
+      class={[
+        "provider-model-picker",
+        { "provider-model-picker-field": field(), "provider-model-picker-composer": props.inComposer === true },
+      ]}
     >
-      <Popover.Root open={open()} onOpenChange={setPickerOpen} placement="bottom-end" gutter={8} sameWidth={field()}>
+      <Popover.Root
+        open={open()}
+        onOpenChange={setPickerOpen}
+        placement={props.inComposer ? "top-start" : "bottom-end"}
+        gutter={8}
+        sameWidth={field()}
+      >
         <Popover.Trigger
           ref={trigger}
           type="button"

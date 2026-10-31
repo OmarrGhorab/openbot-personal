@@ -15,7 +15,8 @@ export interface ConversationHeaderProps {
   agent: AgentProfile | null | undefined;
   /** The title of a chat that has no one agent, such as a channel. It shows when `agent` is missing. */
   title?: JSX.Element | undefined;
-  modelPicker: ComponentProps<typeof ProviderModelPicker>;
+  /** The model picker, when the header shows it. The desktop app shows it in the composer instead (#233). */
+  modelPicker?: ComponentProps<typeof ProviderModelPicker> | undefined;
   /** A model or effort chosen during the running turn. It applies from the next turn. */
   pendingModel?: ConversationHeaderPendingModel | undefined;
   onSettingsIntent: () => void;
@@ -95,9 +96,7 @@ export function ConversationHeader(props: ConversationHeaderProps) {
             );
           }}
         </Show>
-        <Show when={props.agent}>
-          <ProviderModelPicker {...props.modelPicker} />
-        </Show>
+        <Show when={props.agent && props.modelPicker}>{(picker) => <ProviderModelPicker {...picker()} />}</Show>
         <Show when={props.remoteControl}>
           {(control) => (
             <Button
