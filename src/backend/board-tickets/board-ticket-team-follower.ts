@@ -130,7 +130,23 @@ function jobTitle(job: RavenTeamJob): string {
     .split("\n")
     .map((part) => part.replace(/\s+/gu, " ").trim())
     .find((part) => part.length > 0);
-  return (line ?? job.id).slice(0, BOARD_TICKET_TITLE_LIMIT);
+  return shortTicketTitle(line ?? job.id);
+}
+
+const SHORT_TITLE_LIMIT = 72;
+
+/**
+ * ticket 251: a card title is the ticket's first sentence, cut at a word to at most 72 characters,
+ * never the whole ticket text.
+ */
+export function shortTicketTitle(text: string): string {
+  const flat = text.replace(/\s+/gu, " ").trim();
+  const sentence = flat.match(/^.+?[.!?](?=\s|$)/u)?.[0] ?? flat;
+  const limit = Math.min(SHORT_TITLE_LIMIT, BOARD_TICKET_TITLE_LIMIT);
+  if (sentence.length <= limit) return sentence.replace(/[.]$/u, "");
+  const cut = sentence.slice(0, limit - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > limit / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
 /** A role ticket's title: the role, then the job's title, such as "Builder: Fix the login timeout". */

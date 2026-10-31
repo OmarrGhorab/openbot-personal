@@ -74,6 +74,11 @@ const QUEUE_SCAN_LIMIT = 200;
  * agent. An effort other than the model's default is in the name too: two jobs that run the same role
  * on one model with two efforts do not share one agent, whose effort applies to every turn.
  */
+/** ticket 251: the one agent of a role, such as "Raven Builder". */
+export function ravenRoleSharedName(label: string): string {
+  return `Raven ${label}`.slice(0, ROLE_AGENT_NAME_LIMIT);
+}
+
 function ravenRoleAgentName(
   label: string,
   model: AgentModelId,
@@ -745,11 +750,33 @@ export class RavenTeamService {
   ) {
     return Effect.gen({ self: this }, function* () {
       const option = this.#agents.listModels().find((candidate) => candidate.id === model);
-      const name = ravenRoleAgentName(label, model, reasoningEffort, option?.defaultReasoningEffort ?? null);
-      const existing = this.#agents
-        .listAgents()
-        .find((agent) => agent.name === name && agent.provider === provider && agent.model === model);
+      // ticket 251: one agent per role ("Raven Builder"), whose model changes with the job. Only when
+      // that agent works on another job on another model does the role get a per-model agent.
+      const shared = ravenRoleSharedName(label);
+      const agents = this.#agents.listAgents();
+      const sharedAgent = agents.find((agent) => agent.name === shared);
+      const busy =
+        sharedAgent !== undefined &&
+        (sharedAgent.model !== model ||
+          sharedAgent.provider !== provider ||
+          (reasoningEffort !== null && sharedAgent.reasoningEffort !== reasoningEffort)) &&
+        this.#store
+          .listJobs(QUEUE_SCAN_LIMIT)
+          .some(
+            (job) =>
+              !isTerminal(job) && job.state !== "stopped" && job.roles.some((role) => role.agentId === sharedAgent.id),
+          );
+      const name = busy
+        ? ravenRoleAgentName(label, model, reasoningEffort, option?.defaultReasoningEffort ?? null)
+        : shared;
+      const existing = busy
+        ? agents.find((agent) => agent.name === name && agent.provider === provider && agent.model === model)
+        : sharedAgent;
       const effort = reasoningEffort === null ? {} : { reasoningEffort };
+      const switchModel =
+        existing !== undefined && (existing.model !== model || existing.provider !== provider)
+          ? { provider, model }
+          : {};
       const agent =
         existing ??
         (yield* this.#call(
@@ -767,9 +794,14 @@ export class RavenTeamService {
         ));
       yield* this.#call(
         "set role access",
-        this.#agents.updateAgent({ agentId: agent.id, access: fullAccess ? "full" : "workspace", ...effort }),
+        this.#agents.updateAgent({
+          agentId: agent.id,
+          access: fullAccess ? "full" : "workspace",
+          ...effort,
+          ...switchModel,
+        }),
       );
-      return { id: agent.id, provider: agent.provider, model: agent.model };
+      return { id: agent.id, provider, model };
     });
   }
 
