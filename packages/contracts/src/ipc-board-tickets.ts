@@ -387,7 +387,8 @@ export interface BoardTicketTeamStep {
 
 /**
  * The column of a team job's own ticket: Queued while the job waits for a slot of its role agents,
- * Running while it runs, Needs review while it waits for the person, Done when it passes, and back to
+ * Running while it runs, Needs review while it waits for the person or after it passes (ticket 250), Done
+ * once its pull request is merged, and back to
  * Backlog with a failure line when it is stopped or ends not done.
  *
  * An Autopilot job (one with a decision) works on a ticket that the person reviews: a pass leaves the pull
@@ -399,7 +400,8 @@ export function boardTicketTeamJobStep(job: Pick<RavenTeamJob, "state" | "queued
   const autopilot = job.decision !== undefined && job.decision !== null;
   switch (job.state) {
     case "done":
-      return { status: autopilot && job.decision?.merge?.state !== "merged" ? "needs_review" : "done", failure: null };
+      // ticket 250: a finished job waits for the person's review and merge; only a merge reaches Done.
+      return { status: job.decision?.merge?.state === "merged" ? "done" : "needs_review", failure: null };
     case "not-done":
       return { status: "backlog", failure: "not-done" };
     case "stopped":

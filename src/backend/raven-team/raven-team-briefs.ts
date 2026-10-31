@@ -38,11 +38,23 @@ export interface RoleBriefInput {
   playbook?: string | null;
 }
 
+/** Whether the ticket keeps the work local (ticket 250): no push and no pull request. */
+export function ticketIsLocalOnly(ticket: string): boolean {
+  return /\b(do not|don't|never|no)\s+push\b|\bno remote\b|\blocal(ly)?\s+only\b|\bnever push\b/iu.test(ticket);
+}
+
+/** The Builder's step when the ticket keeps the work local. */
+const LOCAL_BUILDER_STEP =
+  "You are the only writer of the branch. Use a git worktree and a branch for this job only, named with the job id: other jobs of the team run at the same time and must not share your files. The ticket keeps the work local: commit on the branch, do not push and do not open a pull request. When the Reviewer or Quality sends REVIEW FINDINGS, run the fix round, commit again and report it.";
+
 /** The first message of a role's work thread. It names the role, its skills, its access and the report line. */
 export function roleBrief(input: RoleBriefInput): string {
+  const local = ticketIsLocalOnly(input.ticket);
   const access =
     input.access === "write"
-      ? "write. You are the only role that commits and pushes the branch."
+      ? local
+        ? "write. You are the only role that commits to the branch. Do not push."
+        : "write. You are the only role that commits and pushes the branch."
       : "read-only. Do not edit files, commit or push. Only the Builder writes to the branch.";
   const skills = input.skills.map((skill) => `$raven-stack-${skill}`).join(", ");
   const playbook = input.playbook ? `$${ravenPstackSkill(input.playbook)}` : null;
@@ -56,9 +68,14 @@ export function roleBrief(input: RoleBriefInput): string {
     `You are the ${input.label} of a Raven Stack team. Job ${input.jobId}.`,
     `Access: ${access}`,
     ...skillLines,
-    ROLE_STEPS[input.roleId] ?? "Do your step of the ticket and report.",
+    (local && input.roleId === "builder" ? LOCAL_BUILDER_STEP : ROLE_STEPS[input.roleId]) ??
+      "Do your step of the ticket and report.",
     "Your final message must end with one line, and nothing after it:",
-    `${RAVEN_TEAM_REPORT_PREFIX} ${REPORT_LINES[input.roleId] ?? '{"verdict":"DONE"}'}`,
+    `${RAVEN_TEAM_REPORT_PREFIX} ${
+      local && input.roleId === "builder"
+        ? '{"verdict":"DONE","commit":"<full head commit>","pr":""}'
+        : (REPORT_LINES[input.roleId] ?? '{"verdict":"DONE"}')
+    }`,
     "",
     "Ticket:",
     input.ticket,
