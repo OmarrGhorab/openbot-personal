@@ -2,7 +2,6 @@ import { useText } from "@openbot/ui/text";
 import { Loading, Match, Show, Switch } from "solid-js";
 import { AgentUsagePanel } from "../../lazy-views";
 import { SkillsMarketplace } from "../../WorkspaceOverlays";
-import { RavenTeamPanel } from "../raven-team/RavenTeamPanel";
 import { SchedulePanel } from "../schedule/SchedulePanel";
 import { useServers } from "../servers/servers-context";
 import { useUsage } from "../usage/usage-context";
@@ -49,14 +48,6 @@ export function WindowPageView() {
         >
           <Match when={usage.state.view === "schedule"}>
             <SchedulePanel serverId={serverId()} hostName={hostName(serverId())} onBack={usage.closeUsage} />
-          </Match>
-          <Match when={usage.state.view === "team"}>
-            <RavenTeamPanel
-              serverId={serverId()}
-              jobId={usage.state.teamJobId}
-              brief={usage.state.teamBrief}
-              onBack={usage.closeUsage}
-            />
           </Match>
         </Switch>
       )}

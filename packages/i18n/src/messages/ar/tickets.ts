@@ -233,8 +233,6 @@ export const messages = {
   "tickets.search": "دوّر في التذاكر",
   "tickets.search.none": "مفيش تذكرة مطابقة",
   "tickets.search.noneBody": "جرّب كلمة تانية، أو امسح البحث.",
-  "tickets.team.open": "فريق Raven",
-  "tickets.drawer.runTeam": "شغّله بالفريق",
   "tickets.sync.open": "مزامنة",
   "tickets.sync.title": "مزامنة التذاكر",
   "tickets.sync.description":

@@ -6,7 +6,7 @@ import { useServers } from "../servers/servers-context";
  * The host pane over the middle of the workspace: the usage report, the routine schedule or the
  * tasks. One state holds them, so each path that uncovers the conversation closes any of them.
  */
-type HostPaneView = "usage" | "schedule" | "tasks" | "team";
+type HostPaneView = "usage" | "schedule" | "tasks";
 
 const context = createSimpleContext({
   name: "UsageProvider",
@@ -14,10 +14,6 @@ const context = createSimpleContext({
     const [state, setState] = createStore<{
       serverId: string | null;
       agentId?: string | undefined;
-      /** The team job that the team page shows first, when the Monitor opened the page on it. */
-      teamJobId?: string | undefined;
-      /** The ticket text that the team page starts with, when a ticket of the board opened the page. */
-      teamBrief?: string | undefined;
       view: HostPaneView;
     }>({
       serverId: null,
@@ -26,23 +22,12 @@ const context = createSimpleContext({
     const { activeServerId } = useServers();
     let trigger: HTMLElement | null = null;
 
-    function open(
-      view: HostPaneView,
-      serverId: string,
-      source: HTMLElement | null,
-      agentId?: string,
-      teamJobId?: string,
-      teamBrief?: string,
-    ) {
+    function open(view: HostPaneView, serverId: string, source: HTMLElement | null, agentId?: string) {
       trigger = source;
       setState((draft) => {
         draft.serverId = serverId;
         if (agentId === undefined) delete draft.agentId;
         else draft.agentId = agentId;
-        if (teamJobId === undefined) delete draft.teamJobId;
-        else draft.teamJobId = teamJobId;
-        if (teamBrief === undefined) delete draft.teamBrief;
-        else draft.teamBrief = teamBrief;
         draft.view = view;
       });
     }
@@ -57,11 +42,6 @@ const context = createSimpleContext({
 
     function openTasks(serverId: string, source: HTMLElement | null) {
       open("tasks", serverId, source);
-    }
-
-    /** Opens the team page. With `jobId`, the page shows that team job first. With `brief`, the ticket box starts with it. */
-    function openTeam(serverId: string, source: HTMLElement | null, jobId?: string, brief?: string) {
-      open("team", serverId, source, undefined, jobId, brief);
     }
 
     /**
@@ -92,8 +72,6 @@ const context = createSimpleContext({
       setState((draft) => {
         draft.serverId = null;
         delete draft.agentId;
-        delete draft.teamJobId;
-        delete draft.teamBrief;
       });
     }
 
@@ -102,7 +80,6 @@ const context = createSimpleContext({
       openUsage,
       openSchedule,
       openTasks,
-      openTeam,
       closeUsage() {
         clear();
         queueMicrotask(() => {

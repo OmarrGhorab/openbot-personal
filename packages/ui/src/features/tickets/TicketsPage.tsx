@@ -8,7 +8,7 @@ import type {
   ConversationMessage,
   RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
-import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw, UsersRound } from "@openbot/ui";
+import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
@@ -87,8 +87,6 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
    * work on it". (Named apart from the board's `autopilot` below, which #189 added.)
    */
   newTicketAutopilot?: TicketsNewAutopilot | undefined;
-  /** Opens the Raven Stack team page, with the ticket as its text when there is one. Absent where no team runs. */
-  onOpenTeam?: ((ticket: BoardTicket | null) => void) | undefined;
   /**
    * Raven Autopilot as the board shows it: the header pill, the "Raven picks this next" marker and
    * "Auto-merge on" in Done. Absent: off.
@@ -234,14 +232,6 @@ export function TicketsPage(props: TicketsPageProps) {
                 onValueChange={setQuery}
               />
               <TicketsViewSwitch view={view()} onChange={setView} />
-              <Show when={props.onOpenTeam}>
-                {(openTeam) => (
-                  <Button size="sm" variant="outline" onClick={() => openTeam()(null)}>
-                    <UsersRound aria-hidden="true" />
-                    {t("tickets.team.open")}
-                  </Button>
-                )}
-              </Show>
               <Show when={canSync()}>
                 <Button size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
                   <RefreshCw aria-hidden="true" />
@@ -372,7 +362,6 @@ export function TicketsPage(props: TicketsPageProps) {
                 onSetType={props.onSetType ? (type) => props.onSetType?.(ticket().id, type) : undefined}
                 onDelete={() => props.onDelete(ticket().id)}
                 onOpenThread={props.onOpenThread ? () => props.onOpenThread?.(ticket()) : undefined}
-                onRunTeam={props.onOpenTeam ? () => props.onOpenTeam?.(ticket()) : undefined}
                 onOpenLink={props.onOpenLink}
                 onSteer={(text) => props.onSteer(ticket(), text)}
                 onApprove={() => (props.onApprove ? props.onApprove(ticket()) : props.onMove(ticket().id, "done"))}

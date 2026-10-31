@@ -37,7 +37,7 @@ export function useGlobalSearchSources(open: () => boolean) {
   const { activeServer } = useServers();
   const { openServerSettings } = useServerSettings();
   const { openAppSettings, setSkillsMarketplaceOpen } = useSettings();
-  const { openSchedule, openTeam } = useUsage();
+  const { openSchedule } = useUsage();
   const [routines, setRoutines] = createSignal<GlobalSearchRoutine[]>([]);
   const [routinesLoading, setRoutinesLoading] = createSignal(false);
   let routineRequest = 0;
@@ -146,16 +146,6 @@ export function useGlobalSearchSources(open: () => boolean) {
           group: "actions",
           icon: CalendarClock,
           run: () => openSchedule(server.id, globalSearchOpener()),
-        });
-      }
-      // A team runs on this computer, so its command shows only for the local server.
-      if (server?.kind === "local") {
-        list.push({
-          id: "raven-team",
-          label: t("agent.team.open"),
-          group: "actions",
-          icon: UsersRound,
-          run: () => openTeam(server.id, globalSearchOpener()),
         });
       }
       for (const item of navItems) {

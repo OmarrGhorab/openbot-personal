@@ -31,7 +31,6 @@ import {
   Send,
   Textarea,
   Trash2,
-  UsersRound,
   X,
 } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
@@ -77,8 +76,6 @@ export interface TicketDrawerProps {
   onDelete: () => void;
   /** Opens the ticket's work thread. Without it, the drawer has no button for the thread. */
   onOpenThread?: (() => void) | undefined;
-  /** Opens the Raven Stack team page with this ticket as its text. Absent where no team runs. */
-  onRunTeam?: (() => void) | undefined;
   onOpenLink: (url: string) => void;
   /** Sends the text to the ticket's work thread. True when it went out. */
   onSteer: (text: string) => Promise<boolean>;
@@ -327,14 +324,6 @@ export function TicketDrawer(props: TicketDrawerProps) {
               <Play aria-hidden="true" />
               {t("tickets.new.start")}
             </Button>
-          </Show>
-          <Show when={props.onRunTeam}>
-            {(runTeam) => (
-              <Button variant="outline" size="sm" onClick={() => runTeam()()}>
-                <UsersRound aria-hidden="true" />
-                {t("tickets.drawer.runTeam")}
-              </Button>
-            )}
           </Show>
           <Show when={jobTicket()}>
             {(job) => (
