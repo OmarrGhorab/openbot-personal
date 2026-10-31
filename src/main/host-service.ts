@@ -1118,6 +1118,8 @@ export class HostService extends EventEmitter<HostEvents> {
    */
   readTurnFileDiff(agentId: string, inputPath: string): Effect.Effect<TurnFileDiffResult, RemoteWorkflowError> {
     return this.#options.agents.resolveWorkspaceFile(agentId, inputPath).pipe(
+      // ticket 254: a path the workspace refuses is checked against the turn's own changes below.
+      Effect.orElseSucceed(() => ({ insideWorkspace: false as const, path: inputPath })),
       Effect.flatMap((resolved) =>
         resolved.insideWorkspace
           ? Effect.gen({ self: this }, function* () {
