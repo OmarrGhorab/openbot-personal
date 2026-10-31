@@ -152,6 +152,31 @@
   gap: var(--openbot-space-3);
 }
 
+/*
+ * With the ticket panel open the board is narrower: the columns shrink to a compact width so
+ * Done stays on screen, and the board scrolls sideways only when even that does not fit.
+ */
+.tickets-page[data-ticket-open] .tickets-columns {
+  min-width: calc(5 * 6.5rem + 4 * var(--openbot-space-2));
+  grid-template-columns: repeat(5, minmax(6.5rem, 1fr));
+  gap: var(--openbot-space-2);
+}
+
+/* Narrow cards stack Approve over Changes instead of letting the labels spill out. */
+.tickets-page[data-ticket-open] .tickets-card-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tickets-page[data-ticket-open] .tickets-card-action.ui-button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tickets-page[data-ticket-open] .tickets-page-scroll {
+  padding-inline: var(--openbot-space-3);
+}
+
 .tickets-column {
   display: flex;
   min-width: 0;
@@ -649,8 +674,9 @@
 /* The side region: the agent panel or the ticket drawer. */
 .tickets-side {
   display: flex;
-  width: min(26rem, 42%);
-  min-width: 20rem;
+  width: min(26rem, 40%);
+  min-width: 18rem;
+  flex: 0 0 auto;
   flex-direction: column;
   border-inline-start: 1px solid var(--openbot-glass-border);
   background: var(--openbot-bg-surface);

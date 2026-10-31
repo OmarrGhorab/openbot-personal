@@ -173,7 +173,7 @@ export function TicketsPage(props: TicketsPageProps) {
   });
 
   return (
-    <section class="tickets-page" aria-labelledby={headingId}>
+    <section class="tickets-page" data-ticket-open={selectedTicket() ? "" : undefined} aria-labelledby={headingId}>
       <div class="tickets-page-main">
         <header class="tickets-page-header">
           <Show when={props.onBack}>
