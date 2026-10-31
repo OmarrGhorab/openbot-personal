@@ -64,7 +64,7 @@ import { TeamApiServer } from "./team-api-server";
 import type { RemoteDirectoryMember, TeamIdentity, TeamStore } from "./team-store";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcHostGateway } from "./team-webrtc-host-gateway";
-import { collectTurnFiles, findStoredFileDiff, readWorkspaceFileDiff } from "./turn-file-diff";
+import { changedByTurn, collectTurnFiles, findStoredFileDiff, readWorkspaceFileDiff } from "./turn-file-diff";
 
 export const DEVELOPMENT_REMOTE_CLIENT_USERNAME = "openbot-dev-client";
 
@@ -1130,7 +1130,20 @@ export class HostService extends EventEmitter<HostEvents> {
               );
               return stored ? { ...current, diff: stored } : current;
             })
-          : Effect.fail(new RemoteWorkflowError({ cause: "outside the agent workspace" })),
+          : // ticket 254: a file outside the workspace that a turn of this agent changed (it is in the
+            // Changes list) shows its diff too. Any other outside file stays refused.
+            Effect.gen({ self: this }, function* () {
+              const conversation = yield* remoteDecode(() => this.#currentAgentReaderId()).pipe(
+                Effect.flatMap((readerId) => this.#options.agents.readConversationFor(agentId, readerId)),
+                Effect.orElseSucceed(() => null),
+              );
+              if (!conversation || !changedByTurn(agentId, conversation, inputPath)) {
+                return yield* Effect.fail(new RemoteWorkflowError({ cause: "outside the agent workspace" }));
+              }
+              const current = yield* Effect.promise(() => readWorkspaceFileDiff(inputPath));
+              const stored = findStoredFileDiff(conversation, inputPath);
+              return stored ? { ...current, diff: stored } : current;
+            }),
       ),
       Effect.mapError((failure) =>
         failure instanceof RemoteWorkflowError ? failure : new RemoteWorkflowError({ cause: failure }),

@@ -95,3 +95,8 @@ export async function readWorkspaceFileDiff(
   }
   return { path, diff: diff.slice(0, INPUT_LIMITS.messageText), ...(content === undefined ? {} : { content }) };
 }
+
+/** ticket 254: whether a turn of the agent changed this file, so the Changes panel may show it. */
+export function changedByTurn(agentId: string, snapshot: ConversationSnapshot, path: string): boolean {
+  return collectTurnFiles(agentId, snapshot).files.some((file) => file.path === path);
+}
