@@ -136,3 +136,8 @@
 - The new-agent form shows the effort row in the model picker. The chosen effort goes to a local host on create. A remote host keeps the model default.
 - "N of M threads running" has a hover hint that says what a thread is and that other tickets wait in the queue.
 - Evidence: /workspace/pr-evidence/259 on the build box.
+## Ticket #258 (rest): model picker in RTL
+
+- [x] The model list uses logical padding, so in Arabic the check circle does not cover the name.
+- [x] Model names are isolated with `dir="auto"`.
+- [x] Before/after screenshots in English and Arabic.
