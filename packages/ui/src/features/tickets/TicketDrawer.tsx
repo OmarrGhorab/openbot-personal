@@ -3,6 +3,8 @@ import {
   BOARD_TICKET_TYPES,
   type BoardTicket,
   type BoardTicketEvent,
+  type BoardTicketEvidence,
+  type BoardTicketEvidencePhase,
   type BoardTicketStatus,
   type BoardTicketType,
   type ConversationMessage,
@@ -32,6 +34,7 @@ import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
 import { createSignal, For, onCleanup, Show } from "solid-js";
 import { TicketAutopilotDecision } from "./TicketAutopilotDecision";
+import { TicketCommentBox, TicketEvidence } from "./TicketEvidence";
 import { TICKET_TYPE_LABEL, TicketTypeChip } from "./TicketTypeChip";
 import {
   relativeTime,
@@ -87,6 +90,13 @@ export interface TicketDrawerProps {
   onOpenTicket: (ticketId: string) => void;
   /** Why Autopilot started the ticket's team job the way it did. Absent for work it did not start. */
   decision?: RavenAutopilotDecision | null | undefined;
+  /** The ticket's evidence (#236). Absent where the board keeps none, such as a joined server. */
+  evidence?: readonly BoardTicketEvidence[] | undefined;
+  loadEvidenceImage?: ((evidenceId: string) => Promise<string | null>) | undefined;
+  onOpenEvidence?: ((evidenceId: string) => void) | undefined;
+  onAttachEvidence?: ((phase: BoardTicketEvidencePhase) => Promise<void>) | undefined;
+  /** Adds the person's comment to the ticket's activity. True when it was saved. */
+  onComment?: ((text: string) => Promise<boolean>) | undefined;
 }
 
 const UNASSIGNED = "";
@@ -567,8 +577,20 @@ export function TicketDrawer(props: TicketDrawerProps) {
           </section>
         </Show>
 
+        <Show when={props.evidence}>
+          {(evidence) => (
+            <TicketEvidence
+              evidence={evidence()}
+              loadImage={props.loadEvidenceImage}
+              onOpen={props.onOpenEvidence}
+              onAttach={props.onAttachEvidence}
+            />
+          )}
+        </Show>
+
         <section class="ticket-drawer-section">
           <h4 class="ticket-drawer-heading">{t("tickets.drawer.activity")}</h4>
+          <Show when={props.onComment}>{(comment) => <TicketCommentBox onComment={comment()} />}</Show>
           <Show
             when={newestFirst().length > 0}
             fallback={<p class="tickets-muted">{t("tickets.drawer.activityEmpty")}</p>}

@@ -229,6 +229,10 @@ export function mockBoardTickets(
   };
 
   const api: BoardTicketsApi = {
+    evidence: async () => [],
+    attachEvidence: async () => null,
+    evidenceImage: async () => null,
+    openEvidence: async () => undefined,
     list: async () => [...tickets].sort((left, right) => left.order - right.order),
     events: async (ticketId) => {
       find(ticketId);

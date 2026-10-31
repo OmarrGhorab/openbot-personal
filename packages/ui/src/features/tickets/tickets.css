@@ -2177,3 +2177,128 @@
   flex-direction: column;
   gap: var(--openbot-space-3);
 }
+
+/* The evidence strip of a ticket: monochrome, no tiles. Code and diffs stay left to right. */
+.ticket-evidence-phase {
+  display: grid;
+  gap: var(--openbot-space-2);
+  margin-block-end: var(--openbot-space-3);
+}
+
+.ticket-evidence-phase-title {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-sm);
+  font-weight: 600;
+}
+
+.ticket-evidence-list {
+  display: grid;
+  gap: var(--openbot-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket-evidence-item {
+  display: grid;
+  min-width: 0;
+  gap: var(--openbot-space-1);
+}
+
+.ticket-evidence-meta {
+  display: flex;
+  min-width: 0;
+  gap: var(--openbot-space-2);
+  align-items: baseline;
+  font-size: var(--openbot-text-sm);
+}
+
+.ticket-evidence-kind {
+  flex: none;
+  color: var(--openbot-text-muted);
+}
+
+.ticket-evidence-caption {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--openbot-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-evidence-thumb {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--openbot-border-subtle);
+  border-radius: var(--openbot-radius-sm);
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.ticket-evidence-thumb img {
+  display: block;
+  max-width: 100%;
+  max-height: 10rem;
+  object-fit: contain;
+}
+
+.ticket-evidence-text {
+  max-height: 12rem;
+  margin: 0;
+  padding: var(--openbot-space-2);
+  overflow: auto;
+  border: 1px solid var(--openbot-border-subtle);
+  border-radius: var(--openbot-radius-sm);
+  color: var(--openbot-text-secondary);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-text-xs);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+}
+
+.ticket-evidence-attach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-2);
+  align-items: center;
+}
+
+.ticket-evidence-phases {
+  display: inline-flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--openbot-border-subtle);
+  border-radius: var(--openbot-radius-sm);
+}
+
+.ticket-evidence-phase-option {
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-sm);
+  cursor: pointer;
+}
+
+.ticket-evidence-phase-option[aria-pressed="true"] {
+  background: var(--openbot-text-primary);
+  color: var(--openbot-bg-surface);
+}
+
+.ticket-comment-box {
+  display: grid;
+  gap: var(--openbot-space-2);
+  justify-items: end;
+  margin-block-end: var(--openbot-space-3);
+}
+
+.ticket-comment-box > :first-child {
+  width: 100%;
+}

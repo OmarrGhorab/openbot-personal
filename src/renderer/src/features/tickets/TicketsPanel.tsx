@@ -3,6 +3,7 @@ import type {
   AgentTasksSnapshot,
   BoardTicket,
   BoardTicketEvent,
+  BoardTicketEvidence,
   BoardTicketSyncState,
   RavenAutopilotDecision,
   RavenTeamJob,
@@ -69,6 +70,8 @@ export function TicketsPanel(props: TicketsPanelProps) {
   const [loaded, setLoaded] = createSignal(false);
   const [selectedTicketId, setSelectedTicketId] = createSignal<string | null>(null);
   const [events, setEvents] = createSignal<BoardTicketEvent[] | null>(null);
+  /** The open ticket's evidence (#236). This computer's board only. */
+  const [evidence, setEvidence] = createSignal<BoardTicketEvidence[] | null>(null);
   /** The sync with a connected ticket system. Main sends it again when a connection or the target changes. */
   const [syncState, setSyncState] = createSignal<BoardTicketSyncState | null>(null);
   /** The thread list of each agent that this page read. The task state wins once it has one. */
@@ -110,6 +113,15 @@ export function TicketsPanel(props: TicketsPanelProps) {
       .events(ticketId, props.serverId)
       .then((list) => {
         if (!disposed && request === eventsRequest) setEvents(list);
+      })
+      .catch((error) => {
+        if (request === eventsRequest) fail(error, "tickets.error.activity");
+      });
+    if (!local()) return;
+    window.openbot.boardTickets
+      .evidence(ticketId)
+      .then((list) => {
+        if (!disposed && request === eventsRequest) setEvidence(list);
       })
       .catch((error) => {
         if (request === eventsRequest) fail(error, "tickets.error.activity");
@@ -228,6 +240,7 @@ export function TicketsPanel(props: TicketsPanelProps) {
 
   createEffect(selectedTicketId, (ticketId) => {
     setEvents(null);
+    setEvidence(null);
     if (ticketId) loadEvents(ticketId);
   });
 
@@ -276,6 +289,35 @@ export function TicketsPanel(props: TicketsPanelProps) {
       decisions={decisions()}
       onSelectTicket={setSelectedTicketId}
       events={events()}
+      evidence={local() ? evidence() : undefined}
+      loadEvidenceImage={local() ? (id) => window.openbot.boardTickets.evidenceImage(id) : undefined}
+      onOpenEvidence={
+        local()
+          ? (id) =>
+              void window.openbot.boardTickets.openEvidence(id).catch((error) => fail(error, "tickets.error.evidence"))
+          : undefined
+      }
+      onAttachEvidence={
+        local()
+          ? async (ticketId, phase) => {
+              try {
+                await window.openbot.boardTickets.attachEvidence({ ticketId, phase });
+              } catch (error) {
+                fail(error, "tickets.error.evidence");
+              }
+            }
+          : undefined
+      }
+      onComment={async (ticketId, text) => {
+        try {
+          await boardTickets().comment({ ticketId, text }, props.serverId);
+          changedOnServer(ticketId);
+          return true;
+        } catch (error) {
+          fail(error, "tickets.error.comment");
+          return false;
+        }
+      }}
       messages={messages()}
       onCreate={async (ticket) => {
         try {

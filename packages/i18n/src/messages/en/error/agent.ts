@@ -17,6 +17,16 @@ export const messages = defineMessages("error.agent", {
   "error.agent.boardTickets.teamJobNotDone": "Its team job ended not done after the last FAIL round.",
   "error.agent.boardTickets.toolInvalid":
     "Give a status (backlog, running or needs_review), a progress line of at most 500 characters, or a comment.",
+  "error.agent.boardTickets.evidenceLimit": "A ticket keeps at most {count} pieces of evidence.",
+  "error.agent.boardTickets.evidenceNeedsFile": "A screenshot or a recording needs a file path.",
+  "error.agent.boardTickets.evidenceType":
+    "This file type cannot be evidence. Use PNG, JPEG, WebP or GIF for a screenshot, and MP4, WebM or MOV for a recording.",
+  "error.agent.boardTickets.evidenceTooLarge": "This file is larger than {megabytes} MB.",
+  "error.agent.boardTickets.evidenceTextTooLong":
+    "Test output and diffs can be at most {count} characters. Attach the important part.",
+  "error.agent.boardTickets.evidenceEmpty": "The evidence is empty.",
+  "error.agent.boardTickets.evidenceInvalid": "attach_ticket_evidence needs a phase, and a path or text.",
+  "error.agent.boardTickets.evidenceNotFound": "That evidence is not on this computer.",
   "error.agent.boardTickets.notTicketThread": "Only a task that does a Tickets board ticket can update it.",
   "error.agent.boardTickets.syncNotConnected": "Connect this ticket system on this computer before you sync with it.",
   "error.agent.boardTickets.syncProjectInvalid": "Choose a repository or project to sync with.",

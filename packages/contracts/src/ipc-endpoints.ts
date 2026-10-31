@@ -19,8 +19,10 @@ import type {
   SetAgentBudgetsInput,
 } from "./ipc-autonomy";
 import type {
+  AttachBoardTicketEvidenceInput,
   BoardTicket,
   BoardTicketEvent,
+  BoardTicketEvidence,
   BoardTicketProvider,
   BoardTicketSyncState,
   BoardTicketSyncTarget,
@@ -542,12 +544,7 @@ import type {
 } from "./ipc-team-host";
 import type { TicketMergeNotice, TicketMergeOpenedEvent, TicketMergeOpenRequest } from "./ipc-ticket-merge";
 import type { RavenTicketTakeResult, TakeRavenTicketInput } from "./ipc-ticket-take";
-import type {
-  TurnFileDiffInput,
-  TurnFileDiffResult,
-  TurnFilesInput,
-  TurnFilesResult,
-} from "./ipc-turn-files";
+import type { TurnFileDiffInput, TurnFileDiffResult, TurnFilesInput, TurnFilesResult } from "./ipc-turn-files";
 import type { VaultImportResult, VaultSaveInput, VaultSecretRequest, VaultState } from "./ipc-vault";
 import type {
   SpeechAudio,
@@ -1506,6 +1503,16 @@ export const IPC_ENDPOINTS = {
     // Creates the ticket when it has no ID yet, and starts its work thread.
     start: scopedRequest<StartBoardTicketInput, BoardTicket>()("board-tickets:start"),
     delete: scopedRequest<string, void>()("board-tickets:delete"),
+    // The evidence of a ticket (#236): this computer's board only.
+    evidence: request<string, BoardTicketEvidence[]>()("board-tickets:evidence"),
+    // Main asks the person for the file. Null when the person closed the dialog.
+    attachEvidence: request<AttachBoardTicketEvidenceInput, BoardTicketEvidence | null>()(
+      "board-tickets:attach-evidence",
+    ),
+    // A screenshot as a data URL, for its thumbnail. Null for any other kind.
+    evidenceImage: request<string, string | null>()("board-tickets:evidence-image"),
+    // Opens a screenshot or a recording in the computer's own viewer.
+    openEvidence: request<string, void>()("board-tickets:open-evidence"),
     changed: event<BoardTicketsChanged>()("board-tickets:changed"),
     // The sync with a connected ticket system. The state lists no system when none is connected.
     syncState: request<undefined, BoardTicketSyncState>()("board-tickets:sync-state"),

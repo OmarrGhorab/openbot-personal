@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
@@ -12,13 +13,17 @@ import {
   type AgentTasksSnapshot,
   agentTaskLimit,
   BOARD_TICKET_COMMENT_LIMIT,
+  BOARD_TICKET_EVIDENCE_CAPTION_LIMIT,
+  BOARD_TICKET_EVIDENCE_KINDS,
+  BOARD_TICKET_EVIDENCE_PHASES,
+  BOARD_TICKET_EVIDENCE_TEXT_LIMIT,
   BOARD_TICKET_PROGRESS_LIMIT,
   type BoardTicketStatus,
   type ConversationSnapshot,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { z } from "zod";
 import type { ConversationRuntime } from "../agent/conversation-runtime";
 import type { TaskLanes } from "../agent/drain-scheduler";
@@ -73,10 +78,28 @@ export const updateTicketToolSchema = z.strictObject({
 
 type AgentTicketUpdate = z.infer<typeof updateTicketToolSchema>;
 
+/** The agent attaches before/after/review proof to the ticket of its thread (#236, #264). */
+export const ATTACH_TICKET_EVIDENCE_TOOL = "attach_ticket_evidence";
+
+export const attachTicketEvidenceToolSchema = z.strictObject({
+  kind: z.enum(BOARD_TICKET_EVIDENCE_KINDS).optional(),
+  phase: z.enum(BOARD_TICKET_EVIDENCE_PHASES),
+  path: z.string().trim().min(1).max(4096).optional(),
+  text: z.string().min(1).max(BOARD_TICKET_EVIDENCE_TEXT_LIMIT).optional(),
+  caption: z.string().trim().max(BOARD_TICKET_EVIDENCE_CAPTION_LIMIT).optional(),
+});
+
 /** The Tickets board, for the `update_ticket` tool. The composition root gives `BoardTicketService`. */
 export interface AgentTaskBoard {
   /** Updates the ticket of the work thread. Null when the work thread does no ticket. */
   updateForTask(taskId: string, update: AgentTicketUpdate): { id: string; status: BoardTicketStatus } | null;
+  /** The ticket of a work thread, or of a chat that took one (#263). */
+  forThread?(taskId: string | null, threadId: string | null): { id: string } | null;
+  /** Attaches evidence to a ticket as the agent. */
+  attachEvidence?(
+    input: z.infer<typeof attachTicketEvidenceToolSchema> & { ticketId: string },
+    actor: "agent",
+  ): Promise<{ id: string; kind: string; phase: string }>;
 }
 
 export const startTaskToolSchema = z.strictObject({
@@ -420,6 +443,7 @@ export class AgentTasks implements TaskLanes {
   ): Effect.fn.Return<OpenBotToolResponse | null> {
     if (params.tool === REGISTER_PULL_REQUEST_TOOL) return this.#registerPull(params, caller.agentId);
     if (params.tool === UPDATE_TICKET_TOOL) return this.#updateTicket(params, caller.agentId);
+    if (params.tool === ATTACH_TICKET_EVIDENCE_TOOL) return yield* this.#attachEvidence(params, caller.agentId);
     if (params.tool !== START_TASK_TOOL) return null;
     const parsed = startTaskToolSchema.safeParse(params.arguments);
     if (!parsed.success) return openBotToolFailure(sourceText("error.backend.taskToolInvalid"));
@@ -567,6 +591,45 @@ export class AgentTasks implements TaskLanes {
       return openBotToolFailure(error instanceof Error ? error.message : String(error));
     }
   }
+
+  /**
+   * Answers `attach_ticket_evidence` from the thread that does the ticket: its work thread, or the chat
+   * that took it. A relative path is read from the thread's worktree, else the agent workspace.
+   */
+  readonly #attachEvidence = Effect.fn("AgentTasks.attachEvidence")(function* (
+    this: AgentTasks,
+    params: DynamicToolCallParams,
+    agentId: string,
+  ): Effect.fn.Return<OpenBotToolResponse> {
+    const parsed = attachTicketEvidenceToolSchema.safeParse(params.arguments);
+    if (!parsed.success || (parsed.data.path === undefined && parsed.data.text === undefined)) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.evidenceInvalid"));
+    }
+    const board = this.#board;
+    if (!board?.forThread || !board.attachEvidence) {
+      return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    }
+    const threadId = this.#conversation.publicThreadId(agentId, params.threadId);
+    const task = this.#taskOf(threadId);
+    const ticket = board.forThread(task?.taskId ?? null, threadId);
+    if (!ticket) return openBotToolFailure(sourceText("error.agent.boardTickets.notTicketThread"));
+    const base =
+      (task ? this.worktreeOf(task.taskId)?.path : null) ?? this.#hooks.agent(agentId)?.workspacePath ?? null;
+    const input = { ...parsed.data, ticketId: ticket.id };
+    if (input.path !== undefined && !isAbsolute(input.path)) {
+      if (!base) return openBotToolFailure(sourceText("error.agent.boardTickets.evidenceNeedsFile"));
+      input.path = resolve(base, input.path);
+    }
+    const attach = board.attachEvidence.bind(board);
+    const result = yield* Effect.tryPromise({ try: () => attach(input, "agent"), catch: (cause) => cause }).pipe(
+      Effect.result,
+    );
+    if (Result.isFailure(result)) {
+      const cause = result.failure;
+      return openBotToolFailure(cause instanceof Error ? cause.message : String(cause));
+    }
+    return openBotToolResult({ ticketId: ticket.id, evidenceId: result.success.id, kind: result.success.kind });
+  });
 
   #taskOf(threadId: string | null): AgentTaskRecord | null {
     if (!threadId || !this.#conversation.isTaskThread(threadId)) return null;

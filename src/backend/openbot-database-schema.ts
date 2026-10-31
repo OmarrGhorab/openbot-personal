@@ -11,6 +11,7 @@ import { AGENT_TICKET_SCHEMA_SQL } from "./agent-tickets/agent-ticket-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
 import {
+  BOARD_TICKET_EVIDENCE_SCHEMA_SQL,
   BOARD_TICKET_LATEST_SCHEMA_SQL,
   BOARD_TICKET_SCHEMA_SQL,
   V52_BOARD_TICKET_TYPE_MIGRATION_SQL,
@@ -937,6 +938,12 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
         if (column && !existing.has(column)) db.exec(statement);
       }
     },
+  },
+  {
+    version: 54,
+    // Only creates a table, so no foreign-key pause and no vacuum. Every ticket keeps its data and starts
+    // with no evidence (#236).
+    up: (db) => db.exec(BOARD_TICKET_EVIDENCE_SCHEMA_SQL),
   },
 ];
 

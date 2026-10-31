@@ -10,6 +10,7 @@ import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-su
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
 import { atlassianConnected, createAtlassianTools } from "../backend/atlassian-mcp-tools";
+import { BoardTicketEvidenceStore } from "../backend/board-tickets/board-ticket-evidence";
 import { BoardTicketService } from "../backend/board-tickets/board-ticket-service";
 import { BoardTicketStore } from "../backend/board-tickets/board-ticket-store";
 import { BoardTicketSync } from "../backend/board-tickets/board-ticket-sync";
@@ -1780,6 +1781,7 @@ export async function createApplicationServices({
     startWorkThread: (agentId, text, ticket) =>
       runCauseEffect(service.startTask({ agentId, text }, undefined, undefined, ticket)),
     worktreeOf: (taskId) => service.taskWorktree(taskId),
+    evidence: new BoardTicketEvidenceStore(boardTicketStore, join(app.getPath("userData"), "ticket-evidence")),
   });
   const service: AgentService = new AgentService({
     ticketPulls: new TicketPullRegistry(ticketStore),

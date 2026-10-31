@@ -35,6 +35,8 @@ import { LOCAL_SKILL_TOOL_DEFINITIONS } from "./agent/skill-tools";
 import { CREATE_WEBHOOK_ROUTINE_TOOL, UPDATE_WEBHOOK_ROUTINE_TOOL } from "./agent/webhook-routine-tool";
 import { API_KEY_NAME_PATTERN } from "./agent-api-keys";
 import {
+  ATTACH_TICKET_EVIDENCE_TOOL,
+  attachTicketEvidenceToolSchema,
   REGISTER_PULL_REQUEST_TOOL,
   registerPullRequestToolSchema,
   START_TASK_TOOL,
@@ -587,6 +589,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       'Update the Tickets board ticket that this task does. OpenBot already moves it for you: Running while you work, Needs review when your turn ends or asks a question, and back to Backlog when a turn fails. Give progress for a short line that the card shows, such as "Checked 41 of 112 links"; comment to add a note to the ticket\'s activity; status to move it yourself: needs_review when your result is ready for the user before the turn ends, backlog when you cannot go on without the user, running when you take it up again. Only the user moves a ticket to Done. Only a task that does a ticket can update one.',
     shape: updateTicketToolSchema.shape,
+  },
+  {
+    name: ATTACH_TICKET_EVIDENCE_TOOL,
+    description:
+      "Attach proof to the Tickets board ticket that this thread does, so the user sees it in the ticket detail: a screenshot (PNG, JPEG, WebP, GIF, up to 10 MB), a screen recording (MP4, WebM, MOV, up to 50 MB), test output or a diff (up to 64,000 characters). phase is before (the failing state, before your change), after (the passing state) or review. Give path for a file (relative paths are read from your worktree), or text for test output or a diff you have in hand. For a bug, attach the failing test output as before and the passing output as after, plus the diff, before you move the ticket to needs_review. Only a thread that does a ticket can attach.",
+    shape: attachTicketEvidenceToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
   ...PROJECT_MEMORY_TOOL_DEFINITIONS,

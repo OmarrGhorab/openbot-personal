@@ -22,6 +22,8 @@ import { acceptEmpty, type ResponseDecoder } from "../remote-host-decoding";
 import type { RemoteRequestInit } from "../remote-server-client";
 import type { RemoteWorkflowError } from "../remote-service-effects";
 import {
+  parseAttachBoardTicketEvidence,
+  parseBoardTicketEvidenceId,
   parseBoardTicketId,
   parseBoardTicketProvider,
   parseBoardTicketSyncTarget,
@@ -45,6 +47,10 @@ interface BoardTicketRemoteServers {
 }
 
 interface BoardTicketIpcDependencies {
+  /** Asks the person for one evidence file; null when they close the dialog. */
+  chooseEvidenceFile?: () => Promise<string | null>;
+  /** Opens a stored screenshot or recording in the computer's own viewer. */
+  openPath?: (path: string) => Promise<void>;
   boardTickets: BoardTicketService;
   boardTicketSync: BoardTicketSync;
   remoteServers: BoardTicketRemoteServers;
@@ -83,6 +89,8 @@ const decodeEvents: ResponseDecoder<BoardTicketEvent[]> = (value) => {
 };
 
 export function boardTicketIpcHandlers({
+  chooseEvidenceFile,
+  openPath,
   boardTickets,
   boardTicketSync,
   remoteServers,
@@ -127,6 +135,18 @@ export function boardTicketIpcHandlers({
       delete: scopedHandler(parseBoardTicketId, {
         local: (ticketId) => boardTickets.delete(ticketId),
         remote: (ticketId, serverId) => remote(serverId, BOARD_TICKETS_ROUTES.delete, { ticketId }, acceptEmpty),
+      }),
+      evidence: payloadHandler(parseBoardTicketId, (ticketId) => boardTickets.evidence(ticketId)),
+      attachEvidence: payloadHandler(parseAttachBoardTicketEvidence, async (input) => {
+        const path = chooseEvidenceFile ? await chooseEvidenceFile() : null;
+        if (!path) return null;
+        return boardTickets.attachEvidence({ ...input, path }, "user");
+      }),
+      evidenceImage: payloadHandler(parseBoardTicketEvidenceId, (evidenceId) => boardTickets.evidenceImage(evidenceId)),
+      openEvidence: payloadHandler(parseBoardTicketEvidenceId, async (evidenceId) => {
+        const path = boardTickets.evidenceFile(evidenceId);
+        if (!path) throw new Error(sourceText("error.agent.boardTickets.evidenceNotFound"));
+        await openPath?.(path);
       }),
       syncState: handler(() => boardTicketSync.state()),
       syncProjects: payloadHandler(parseBoardTicketProvider, (provider) =>

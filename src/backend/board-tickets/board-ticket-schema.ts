@@ -139,9 +139,33 @@ const V51_BOARD_SETTINGS_SQL = BOARD_TICKET_SCHEMA_SQL.slice(
   BOARD_TICKET_SCHEMA_SQL.indexOf("  CREATE TABLE IF NOT EXISTS board_settings"),
 );
 
+// Migration 54 (#236): `board_ticket_evidence`, the before/after/review proof of a ticket. A screenshot or a
+// recording is a file in the app data folder `ticket-evidence/<ticket_id>/`, named by `file_name`; test
+// output and a diff are kept in `text_content`. Deleting a ticket deletes its evidence rows. It only creates
+// a table, so every ticket keeps its data and starts with no evidence.
+export const BOARD_TICKET_EVIDENCE_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS board_ticket_evidence (
+    evidence_id TEXT PRIMARY KEY,
+    ticket_id TEXT NOT NULL REFERENCES board_tickets(ticket_id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK(kind IN ('screenshot', 'recording', 'test_output', 'diff')),
+    phase TEXT NOT NULL CHECK(phase IN ('before', 'after', 'review')),
+    actor TEXT NOT NULL CHECK(actor IN ('user', 'agent', 'sync')),
+    caption TEXT CHECK(caption IS NULL OR length(caption) <= 500),
+    file_name TEXT CHECK(file_name IS NULL OR length(file_name) BETWEEN 1 AND 300),
+    stored_name TEXT CHECK(stored_name IS NULL OR length(stored_name) BETWEEN 1 AND 300),
+    mime TEXT CHECK(mime IS NULL OR length(mime) <= 100),
+    size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(size_bytes >= 0),
+    text_content TEXT CHECK(text_content IS NULL OR length(text_content) <= 65536),
+    created_at TEXT NOT NULL,
+    CHECK((kind IN ('screenshot', 'recording')) = (stored_name IS NOT NULL))
+  );
+  CREATE INDEX IF NOT EXISTS board_ticket_evidence_ticket ON board_ticket_evidence(ticket_id, created_at);
+`;
+
 /** The board tables of a new database, as migration 52 leaves them. */
 export const BOARD_TICKET_LATEST_SCHEMA_SQL = `
   ${boardTicketsTableSql("IF NOT EXISTS board_tickets")}
   ${boardTicketEventsTableSql("IF NOT EXISTS board_ticket_events")}
   ${V52_BOARD_TICKET_INDEXES_SQL}
-${V51_BOARD_SETTINGS_SQL}`;
+${V51_BOARD_SETTINGS_SQL}
+${BOARD_TICKET_EVIDENCE_SCHEMA_SQL}`;
