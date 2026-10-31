@@ -7,6 +7,7 @@ import {
   BOARD_TICKET_EVIDENCE_LIMIT,
   BOARD_TICKET_EVIDENCE_PHASES,
   BOARD_TICKET_LIST_LIMIT,
+  BOARD_TICKET_PHASES,
   BOARD_TICKET_PROVIDERS,
   BOARD_TICKET_TYPE_SOURCES,
   type BoardTicket,
@@ -15,6 +16,7 @@ import {
   type BoardTicketEventKind,
   type BoardTicketEvidence,
   type BoardTicketExternal,
+  type BoardTicketPhase,
   type BoardTicketProvider,
   type BoardTicketStatus,
   type BoardTicketType,
@@ -62,6 +64,8 @@ export interface BoardTicketPatch {
   external?: BoardTicketExternal | null;
   progress?: string | null;
   error?: string | null;
+  /** The work phase that the agent reports (ticket 237). */
+  phase?: BoardTicketPhase | null;
 }
 
 /** The sync target of the board. Null provider: the board does not sync. */
@@ -194,6 +198,7 @@ export class BoardTicketStore {
       ["team_job_id", patch.teamJobId, "teamJobId" in patch],
       ["progress", patch.progress, "progress" in patch],
       ["error", patch.error, "error" in patch],
+      ["phase", patch.phase, "phase" in patch],
     ];
     const sets: string[] = [];
     const values: (string | null)[] = [];
@@ -448,6 +453,8 @@ function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicke
   if (typeSource !== null && !isOneOf(BOARD_TICKET_TYPE_SOURCES, typeSource)) {
     throw new Error(`Unknown board ticket type source: ${typeSource}`);
   }
+  const phase = optionalStringColumn(row, "phase");
+  if (phase !== null && !isOneOf(BOARD_TICKET_PHASES, phase)) throw new Error(`Unknown board ticket phase: ${phase}`);
   const provider = optionalStringColumn(row, "external_provider");
   const key = optionalStringColumn(row, "external_key");
   const url = optionalStringColumn(row, "external_url");
@@ -472,6 +479,7 @@ function decodeTicket(row: DynamicRecord, statusTimes: Partial<Record<BoardTicke
     external,
     progress: optionalStringColumn(row, "progress"),
     error: optionalStringColumn(row, "error"),
+    ...(phase === null ? {} : { phase }),
     statusTimes,
     statusChangedAt: requiredStringColumn(row, "status_changed_at"),
     createdAt: requiredStringColumn(row, "created_at"),

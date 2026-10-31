@@ -964,6 +964,13 @@
   list-style: none;
 }
 
+/* The work phases of ticket 237: the same bars, seven or eight to a row. */
+.ticket-drawer-phases {
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
 .ticket-drawer-step {
   display: flex;
   min-width: 0;

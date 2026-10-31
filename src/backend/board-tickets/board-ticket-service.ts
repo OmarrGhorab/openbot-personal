@@ -9,7 +9,9 @@ import {
   type BoardTicketActor,
   type BoardTicketEvent,
   type BoardTicketEvidence,
+  type BoardTicketPhase,
   type BoardTicketStatus,
+  type BoardTicketType,
   type BoardTicketTypeSource,
   type BoardTicketWorktree,
   type CommentBoardTicketInput,
@@ -54,6 +56,10 @@ export interface BoardTicketAgentUpdate {
   status?: BoardTicketStatus | undefined;
   progress?: string | undefined;
   comment?: string | undefined;
+  /** Ticket 237: the agent's type, never over a person's choice; its failure line; its work phase. */
+  type?: BoardTicketType | undefined;
+  error?: string | undefined;
+  phase?: BoardTicketPhase | undefined;
 }
 
 /** The links that a ticket created by the work-thread module, a team job or the sync starts with. */
@@ -162,6 +168,14 @@ export class BoardTicketService {
     if (update.progress !== undefined) {
       this.patch(ticket.id, { progress: nullableLine(update.progress, BOARD_TICKET_PROGRESS_LIMIT) }, "agent");
     }
+    const patch: BoardTicketPatch = {};
+    if (update.type !== undefined && ticket.typeSource !== "user" && update.type !== ticket.type) {
+      patch.type = update.type;
+      patch.typeSource = "agent";
+    }
+    if (update.error !== undefined) patch.error = nullableLine(update.error, BOARD_TICKET_ERROR_LIMIT);
+    if (update.phase !== undefined && update.phase !== ticket.phase) patch.phase = update.phase;
+    if (Object.keys(patch).length > 0) this.patch(ticket.id, patch, "agent");
     if (update.comment !== undefined) this.comment({ ticketId: ticket.id, text: update.comment }, "agent");
     if (update.status !== undefined) this.moveIfNeeded(ticket.id, update.status, "agent");
     return this.#require(ticket.id);
@@ -251,6 +265,9 @@ export class BoardTicketService {
     }
     if (patch.type !== undefined && patch.type !== current.type) {
       this.#store.addEvent(ticketId, "type_changed", actor, { text: patch.type });
+    }
+    if (patch.phase && patch.phase !== current.phase) {
+      this.#store.addEvent(ticketId, "phase", actor, { text: patch.phase });
     }
     if (patch.progress && patch.progress !== current.progress) {
       this.#store.addEvent(ticketId, "progress", actor, { text: patch.progress });

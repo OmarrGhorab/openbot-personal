@@ -36,8 +36,30 @@ export const BOARD_TICKET_EVENT_KINDS = [
   "comment",
   "progress",
   "type_changed",
+  "phase",
 ] as const;
 export type BoardTicketEventKind = (typeof BOARD_TICKET_EVENT_KINDS)[number];
+
+/**
+ * The step of the work that the ticket's agent reports (ticket 237). Reproduce is only for bugs. Done here
+ * is the agent's own end of the work; the Done column stays the person's approval.
+ */
+export const BOARD_TICKET_PHASES = [
+  "take",
+  "triage",
+  "reproduce",
+  "implement",
+  "verify",
+  "review",
+  "merge",
+  "done",
+] as const;
+export type BoardTicketPhase = (typeof BOARD_TICKET_PHASES)[number];
+
+/** The phases that the ticket detail shows, in order. Only a bug ticket has Reproduce. */
+export function boardTicketPhaseSteps(type: BoardTicketType | null): BoardTicketPhase[] {
+  return BOARD_TICKET_PHASES.filter((phase) => phase !== "reproduce" || type === "bug");
+}
 
 export const BOARD_TICKET_ACTORS = ["user", "agent", "sync"] as const;
 export type BoardTicketActor = (typeof BOARD_TICKET_ACTORS)[number];
@@ -87,6 +109,8 @@ export interface BoardTicket {
   progress: string | null;
   /** The last failure line, such as "The last turn failed". */
   error: string | null;
+  /** The work phase that the agent last reported. Absent: none reported yet. */
+  phase?: BoardTicketPhase;
   /** The git worktree and branch of the ticket's work thread. Absent: it shares the agent workspace. */
   worktree?: BoardTicketWorktree;
   /** When the ticket last entered each column. The stepper shows these. */
@@ -505,6 +529,7 @@ export function isBoardTicket(value: unknown): value is BoardTicket {
     isBoardTicketStatus(value.status) &&
     (value.type === null || isBoardTicketType(value.type)) &&
     (value.typeSource === null || isOneOf(BOARD_TICKET_TYPE_SOURCES, value.typeSource)) &&
+    (value.phase === undefined || isOneOf(BOARD_TICKET_PHASES, value.phase)) &&
     isNullableIdentifier(value.agentId) &&
     isFiniteNumber(value.order) &&
     isNullableIdentifier(value.taskId) &&

@@ -1,13 +1,16 @@
 import {
   type AgentTasksSnapshot,
+  BOARD_TICKET_PHASES,
   BOARD_TICKET_TYPES,
   type BoardTicket,
   type BoardTicketEvent,
   type BoardTicketEvidence,
   type BoardTicketEvidencePhase,
+  type BoardTicketPhase,
   type BoardTicketStatus,
   type BoardTicketType,
   boardTicketEventAgents,
+  boardTicketPhaseSteps,
   type ConversationMessage,
   isBoardTicketType,
   type RavenAutopilotDecision,
@@ -105,6 +108,22 @@ const NO_TYPE = "";
 /** The relative times of the drawer read the clock again this often. */
 const CLOCK_MS = 30_000;
 
+/** The names of the work phases (ticket 237). */
+const PHASE_LABEL = {
+  take: "tickets.phase.take",
+  triage: "tickets.phase.triage",
+  reproduce: "tickets.phase.reproduce",
+  implement: "tickets.phase.implement",
+  verify: "tickets.phase.verify",
+  review: "tickets.phase.review",
+  merge: "tickets.phase.merge",
+  done: "tickets.phase.done",
+} as const satisfies Record<BoardTicketPhase, string>;
+
+function isPhase(value: string | null): value is BoardTicketPhase {
+  return BOARD_TICKET_PHASES.some((phase) => phase === value);
+}
+
 /**
  * The detail of one ticket. The next action comes first: Open thread (or Start now) with Move to and
  * Delete, or the review banner with Approve and Request changes. Then the five status steps, the
@@ -182,6 +201,8 @@ export function TicketDrawer(props: TicketDrawerProps) {
         return event.text
           ? t("tickets.event.assigned", { name: agentName(event.text) })
           : t("tickets.event.unassigned");
+      case "phase":
+        return isPhase(event.text) ? t("tickets.event.phase", { phase: t(PHASE_LABEL[event.text]) }) : "";
       case "type_changed":
         return isBoardTicketType(event.text)
           ? t("tickets.event.typeChanged", { type: t(TICKET_TYPE_LABEL[event.text]) })
@@ -347,6 +368,32 @@ export function TicketDrawer(props: TicketDrawerProps) {
             }}
           </For>
         </ol>
+
+        <Show when={props.ticket.phase}>
+          {(phase) => {
+            const steps = () => boardTicketPhaseSteps(props.ticket.type);
+            const at = () => steps().indexOf(phase());
+            return (
+              <ol class="ticket-drawer-steps ticket-drawer-phases" aria-label={t("tickets.drawer.phases")}>
+                <For each={steps()}>
+                  {(step) => {
+                    const index = () => steps().indexOf(step);
+                    return (
+                      <li
+                        class="ticket-drawer-step"
+                        data-reached={index() < at() ? "" : undefined}
+                        data-current={index() === at() ? "" : undefined}
+                        aria-current={index() === at() ? "step" : undefined}
+                      >
+                        {t(PHASE_LABEL[step])}
+                      </li>
+                    );
+                  }}
+                </For>
+              </ol>
+            );
+          }}
+        </Show>
 
         <Show when={roleTickets().length > 0}>
           <section class="ticket-drawer-section">
