@@ -171,11 +171,24 @@ export interface BoardTicket {
   workFolder?: string;
   /** The git worktree and branch of the ticket's work thread. Absent: it shares the agent workspace. */
   worktree?: BoardTicketWorktree;
+  /** The pull request of the ticket's work thread and its CI state (ticket 244). Absent: none registered. */
+  pullRequest?: BoardTicketPullRequest;
   /** When the ticket last entered each column. The stepper shows these. */
   statusTimes: Partial<Record<BoardTicketStatus, string>>;
   statusChangedAt: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** The CI state of a pull request: no result yet, a failed check, or all checks passed. Null: not read yet. */
+export const BOARD_TICKET_CI_STATES = ["pending", "failed", "passed"] as const;
+export type BoardTicketCiState = (typeof BOARD_TICKET_CI_STATES)[number];
+
+/** The pull request that a ticket's work thread registered, such as `acme/app` #101. */
+export interface BoardTicketPullRequest {
+  project: string;
+  pullNumber: number;
+  ciState: BoardTicketCiState | null;
 }
 
 /** The worktree that a ticket's work thread owns: its folder and its branch. */
@@ -587,6 +600,17 @@ function isBoardTicketWorktree(value: unknown): value is BoardTicketWorktree {
   return isDynamicRecord(value) && isBoundedString(value.path, 4096) && isBoundedString(value.branch, 300);
 }
 
+function isBoardTicketPullRequest(value: unknown): value is BoardTicketPullRequest {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedString(value.project, 300) &&
+    typeof value.pullNumber === "number" &&
+    Number.isInteger(value.pullNumber) &&
+    value.pullNumber > 0 &&
+    (value.ciState === null || isOneOf(BOARD_TICKET_CI_STATES, value.ciState))
+  );
+}
+
 function isNullableIdentifier(value: unknown): value is string | null {
   return value === null || isIdentifier(value);
 }
@@ -612,6 +636,7 @@ export function isBoardTicket(value: unknown): value is BoardTicket {
     isNullableBoundedString(value.progress, BOARD_TICKET_PROGRESS_LIMIT) &&
     isNullableBoundedString(value.error, BOARD_TICKET_ERROR_LIMIT) &&
     (value.worktree === undefined || isBoardTicketWorktree(value.worktree)) &&
+    (value.pullRequest === undefined || isBoardTicketPullRequest(value.pullRequest)) &&
     isStatusTimes(value.statusTimes) &&
     isBoundedString(value.statusChangedAt, 160) &&
     isBoundedString(value.createdAt, 160) &&

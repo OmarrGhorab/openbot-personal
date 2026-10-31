@@ -7,7 +7,11 @@ import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { AGENT_MEMORY_SELECTION_SCHEMA_SQL, migrateAgentMemorySelection } from "./agent-memory-selection";
 import { AGENT_TASK_SCHEMA_SQL } from "./agent-tasks/agent-task-schema";
 import { AGENT_WORK_THREAD_SCHEMA_SQL } from "./agent-tasks/agent-work-thread-schema";
-import { AGENT_TICKET_SCHEMA_SQL } from "./agent-tickets/agent-ticket-schema";
+import {
+  AGENT_TICKET_LATEST_SCHEMA_SQL,
+  AGENT_TICKET_SCHEMA_SQL,
+  v58AgentTicketPullColumnsSql,
+} from "./agent-tickets/agent-ticket-schema";
 import { AGENT_WAIT_SCHEMA_SQL } from "./agent-waits/agent-wait-schema";
 import { AUTONOMY_SCHEMA_SQL } from "./autonomy/autonomy-schema";
 import {
@@ -619,7 +623,7 @@ const LATEST_SCHEMA_SQL =
   PROJECT_MEMORY_SCHEMA_SQL +
   RAVEN_TEAM_SCHEMA_SQL +
   AUTONOMY_SCHEMA_SQL +
-  AGENT_TICKET_SCHEMA_SQL +
+  AGENT_TICKET_LATEST_SCHEMA_SQL +
   BOARD_TICKET_LATEST_SCHEMA_SQL +
   RAVEN_TEAM_AUTOPILOT_SQL;
 
@@ -965,6 +969,17 @@ const MIGRATIONS: readonly OpenBotMigration[] = [
     version: 57,
     // Adds the nullable `work_folder` column (ticket 257). Every ticket keeps its row and the agent's folder.
     up: (db) => db.exec(V57_BOARD_TICKET_WORK_FOLDER_MIGRATION_SQL),
+  },
+  {
+    version: 58,
+    // Adds the nullable `ci_state` column and the delivered pull request events table (ticket 244).
+    // Every pull request keeps its row and its count of failed fixes.
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(projection_agent_ticket_pulls)").all();
+      const names = new Set(columns.map((column) => String(column.name)));
+      const sql = v58AgentTicketPullColumnsSql(names);
+      if (sql) db.exec(sql);
+    },
   },
 ];
 

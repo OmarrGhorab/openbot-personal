@@ -137,3 +137,10 @@
 - [x] The model list uses logical padding, so in Arabic the check circle does not cover the name.
 - [x] Model names are isolated with `dir="auto"`.
 - [x] Before/after screenshots in English and Arabic.
+
+## Ticket 244: pull request events (Grok Bot)
+
+- Done: a 2-minute poll reads each open pull request of a ticket. A failed or passed check is given to the work thread once per head commit. A new review comment is given once (comments of the connected user are skipped). Three failed pushes stop the work thread.
+- Done: migration 58 adds `ci_state`, `checked_sha` and `review_cursor` to `projection_agent_ticket_pulls`.
+- Done: the ticket detail shows the pull request and its CI state (en and ar).
+- Test: `bun scripts/ticket-to-pr-e2e.ts` (47 checks pass).

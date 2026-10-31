@@ -93,7 +93,7 @@ describe("migration guards", () => {
 
       db.exec("DELETE FROM projection_thread_messages; DELETE FROM projection_turns");
       migrateOpenBotDatabase(db);
-      expect(versions(db)).toEqual(range(8, 57));
+      expect(versions(db)).toEqual(range(8, 58));
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
       expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     },
@@ -107,7 +107,7 @@ describe("migration guards", () => {
     expect(() => migrateOpenBotDatabase(db)).toThrow(
       `OpenBot database migration history is missing version ${missing}.`,
     );
-    expect(versions(db)).toEqual(range(8, 57).filter((version) => version !== missing));
+    expect(versions(db)).toEqual(range(8, 58).filter((version) => version !== missing));
     expect(db.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").all()).toEqual(schemaBefore);
   });
 });

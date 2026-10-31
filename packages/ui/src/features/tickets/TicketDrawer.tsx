@@ -58,6 +58,14 @@ import {
   ticketThread,
 } from "./tickets-model";
 
+/** The text of each CI state on the ticket detail (ticket 244). */
+const CI_STATE_KEYS = {
+  pending: "tickets.drawer.ci.pending",
+  failed: "tickets.drawer.ci.failed",
+  passed: "tickets.drawer.ci.passed",
+  unknown: "tickets.drawer.ci.unknown",
+} as const;
+
 export interface TicketDrawerProps {
   ticket: BoardTicket;
   agents: readonly AgentProfile[];
@@ -587,6 +595,22 @@ export function TicketDrawer(props: TicketDrawerProps) {
                     <dd class="ticket-drawer-code" dir="ltr">
                       {worktree().branch}
                     </dd>
+                  </div>
+                </>
+              )}
+            </Show>
+            <Show when={props.ticket.pullRequest}>
+              {(pull) => (
+                <>
+                  <div class="ticket-drawer-row">
+                    <dt>{t("tickets.drawer.pullRequest")}</dt>
+                    <dd class="ticket-drawer-code">
+                      <bdi dir="ltr">{`${pull().project}#${pull().pullNumber}`}</bdi>
+                    </dd>
+                  </div>
+                  <div class="ticket-drawer-row">
+                    <dt>{t("tickets.drawer.ci")}</dt>
+                    <dd data-ci-state={pull().ciState ?? "unknown"}>{t(CI_STATE_KEYS[pull().ciState ?? "unknown"])}</dd>
                   </div>
                 </>
               )}

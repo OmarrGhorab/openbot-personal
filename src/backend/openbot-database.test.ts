@@ -180,7 +180,7 @@ describe("OpenBotDatabase", () => {
       { version: 54 },
       { version: 55 },
       { version: 56 },
-      { version: 57 },
+      { version: 58 },
     ]);
     database.close();
   });
@@ -1586,7 +1586,7 @@ describe("OpenBotDatabase", () => {
       { version: 54 },
       { version: 55 },
       { version: 56 },
-      { version: 57 },
+      { version: 58 },
     ]);
     expect(migrated.connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     migrated.close();
@@ -2027,7 +2027,7 @@ describe("OpenBotDatabase", () => {
       { version: 54 },
       { version: 55 },
       { version: 56 },
-      { version: 57 },
+      { version: 58 },
     ]);
     migrated.close();
   });
@@ -2142,7 +2142,7 @@ describe("OpenBotDatabase", () => {
       { version: 54 },
       { version: 55 },
       { version: 56 },
-      { version: 57 },
+      { version: 58 },
     ]);
     retried.close();
   });

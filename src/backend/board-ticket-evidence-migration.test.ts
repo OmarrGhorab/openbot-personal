@@ -44,7 +44,7 @@ describe("board ticket evidence migration", () => {
     const tickets = rows(db, "board_tickets");
     const events = rows(db, "board_ticket_events");
     migrateOpenBotDatabase(db);
-    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 57 });
+    expect(db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 58 });
     // Migration 55 (ticket 237) adds a null phase after the evidence table.
     expect(rows(db, "board_tickets")).toEqual(
       tickets.map((row) => Object.assign({}, row, { phase: null, work_folder: null })),

@@ -131,6 +131,8 @@ import { AgentTicketIntake, TicketIntakeFailed } from "../backend/agent-tickets/
 import { AgentTicketSettings } from "../backend/agent-tickets/agent-ticket-settings";
 import { AgentTicketStore } from "../backend/agent-tickets/agent-ticket-store";
 import { GitHubTicketSource } from "../backend/agent-tickets/github-ticket-source";
+import { TicketPullEvents } from "../backend/agent-tickets/ticket-pull-events";
+import { TicketPullPoller } from "../backend/agent-tickets/ticket-pull-poller";
 import { TicketPullRegistry } from "../backend/agent-tickets/ticket-pull-registry";
 import { TicketSourceFailed } from "../backend/agent-tickets/ticket-source";
 import { AutonomyAuditStore } from "../backend/autonomy/autonomy-audit-store";
@@ -351,6 +353,7 @@ import { TeamWebRtcClientTransport } from "./team-webrtc-client-transport";
 import type { TeardownRegistry } from "./teardown-registry";
 import { createDesktopTicketMergeNotifier } from "./ticket-merge-desktop";
 import type { TicketMergeNotifier } from "./ticket-merge-notifier";
+import { TicketPullWatcher } from "./ticket-pull-watcher";
 import { TraceFile } from "./trace-file";
 import { appBundlePath, needsManualInstall, readCodeSignature, releasePageUrl } from "./update-manual-install";
 import { readUpdatePreference, writeUpdatePreference } from "./update-preference-store";
@@ -1793,6 +1796,7 @@ export async function createApplicationServices({
     startWorkThread: (agentId, text, ticket) =>
       runCauseEffect(service.startTask({ agentId, text }, undefined, undefined, ticket)),
     worktreeOf: (taskId) => service.taskWorktree(taskId),
+    pullOf: (taskId) => ticketStore.pullForTask(taskId),
     // Request changes (ticket 248) writes to the ticket's run, or to the chat that took it, as the person.
     sendToWorkThread: async (agentId, taskId, text) => {
       await runCauseEffect(
@@ -1956,6 +1960,33 @@ export async function createApplicationServices({
   });
   ticketWatcher.start();
   teardown.push(TEARDOWN_ORDER.agentTickets, "the ticket intake", () => ticketWatcher.stop());
+  // Ticket 244: a timer reads the CI and the review comments of each registered pull request and gives
+  // each new event once to the work thread that owns it. It makes no model call.
+  const pullGitHub = new GitHubTicketSource({
+    accessToken: () => githubConnector.accessToken(),
+    fetch: (url, init) => fetch(url, init),
+  });
+  const pullEvents = new TicketPullEvents({
+    store: ticketStore,
+    sources: { github: pullGitHub },
+    sendToTask: (agentId, taskId, text) =>
+      service.sendMessage({ agentId, taskId, text, attachmentDraftIds: [] }).pipe(
+        Effect.map(() => undefined),
+        Effect.mapError((cause) => new TicketIntakeFailed({ cause })),
+      ),
+    pauseTask: (agentId, taskId) =>
+      service.pauseTask({ agentId, taskId }).pipe(Effect.mapError((cause) => new TicketIntakeFailed({ cause }))),
+  });
+  const pullWatcher = new TicketPullWatcher({
+    poller: new TicketPullPoller({
+      store: ticketStore,
+      accessToken: () => runCauseEffect(githubConnector.accessToken()),
+      fetch: (url, init) => fetch(url, init),
+      handle: (event) => pullEvents.handle(event),
+    }),
+  });
+  pullWatcher.start();
+  teardown.push(TEARDOWN_ORDER.agentTickets, "the pull request poll", () => pullWatcher.stop());
   // The sync of the Tickets board. It works for GitHub while GitHub is connected on this computer, and for
   // Jira while the Marketplace holds a sign-in to the Atlassian MCP server. Linear has no connection in
   // OpenBot yet. It reads each token at each call, and it stops before the GitHub connection does (see
