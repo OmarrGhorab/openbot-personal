@@ -133,7 +133,8 @@
 }
 
 .composer[data-compact] {
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  /* +, the model picker (ticket 233), the input, the send actions. */
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
   min-height: 48px;
   align-items: center;
   gap: 8px;
@@ -505,7 +506,7 @@
 }
 
 .composer[data-compact] .composer-input-label {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   min-height: 28px;
 }
@@ -520,8 +521,38 @@
 }
 
 .composer[data-compact] .composer-toolbar > .composer-primary-actions {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
+}
+
+.composer[data-compact] .composer-toolbar > .provider-model-picker-composer {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/*
+ * The model and effort picker next to + (ticket 233): type only, no border, the model name shortens
+ * first and the trigger title holds the full name. In RTL it follows + on the right.
+ */
+.composer-toolbar > .provider-model-picker-composer {
+  min-width: 0;
+  margin-inline-end: auto;
+}
+
+.provider-model-picker-composer .provider-model-trigger {
+  max-width: 224px;
+  height: 26px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.provider-model-picker-composer .provider-model-trigger:hover:not(:disabled),
+.provider-model-picker-composer .provider-model-trigger[data-expanded] {
+  background: var(--openbot-hover);
+  color: var(--openbot-text-primary);
 }
 
 .composer[data-compact] .composer-editor-root,
