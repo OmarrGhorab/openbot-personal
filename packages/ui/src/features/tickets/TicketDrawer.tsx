@@ -131,7 +131,7 @@ export function TicketDrawer(props: TicketDrawerProps) {
   const tokens = () => threadTokens(props.messages);
   const reviewing = () => props.ticket.status === "needs_review";
   /** Request changes needs a work thread to send the text to. */
-  const canRequestChanges = () => reviewing() && props.onRequestChanges !== undefined && props.ticket.taskId !== null;
+  const canRequestChanges = () => reviewing() && props.onRequestChanges !== undefined;
   const currentIndex = () => TICKET_COLUMNS.indexOf(props.ticket.status);
   const time = (iso: string) => format.date(new Date(iso), { dateStyle: "medium", timeStyle: "short" });
   const ago = (iso: string) => relativeTime(format.locale, iso, now());

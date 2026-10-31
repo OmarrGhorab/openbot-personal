@@ -110,7 +110,10 @@ export function parseCommentBoardTicket(value: unknown): CommentBoardTicketInput
 export function parseStartBoardTicket(value: unknown): StartBoardTicketInput {
   if (!isObject(value)) throw new Error("Invalid ticket request.");
   const agentId = requireString(value.agentId, "agentId", INPUT_LIMITS.identifier);
-  if (value.ticketId !== undefined) return { agentId, ticketId: parseBoardTicketId(value.ticketId) };
+  if (value.ticketId !== undefined) {
+    const changes = parseOptionalText(value.changes, "changes", BOARD_TICKET_COMMENT_LIMIT);
+    return { agentId, ticketId: parseBoardTicketId(value.ticketId), ...(changes ? { changes } : {}) };
+  }
   const body = parseOptionalText(value.body, "body", BOARD_TICKET_BODY_LIMIT);
   return {
     agentId,

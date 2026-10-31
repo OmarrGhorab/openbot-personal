@@ -924,9 +924,9 @@
   flex-direction: column;
   gap: var(--openbot-space-2);
   padding: var(--openbot-space-3);
-  border: 1px solid color-mix(in srgb, var(--openbot-danger) 40%, var(--openbot-transparent));
+  border: 1px solid color-mix(in srgb, var(--openbot-text-primary) 24%, var(--openbot-transparent));
   border-radius: var(--openbot-radius-lg);
-  background: color-mix(in srgb, var(--openbot-danger) 10%, var(--openbot-transparent));
+  background: color-mix(in srgb, var(--openbot-text-primary) 5%, var(--openbot-transparent));
 }
 
 .ticket-drawer-review-title {

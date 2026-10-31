@@ -3750,6 +3750,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return this.#tasks.worktreeOf(taskId);
   }
 
+  /** The agent that owns a task, for a ticket reassigned after its run (ticket 248). */
+  taskOwner(taskId: string): string | null {
+    return this.#tasks.ownerOf(taskId);
+  }
+
   /** The conversation of one task, for its panel. */
   readTask(agentId: string, taskId: string): ConversationSnapshot {
     return structuredClone(this.#tasks.read(agentId, taskId));

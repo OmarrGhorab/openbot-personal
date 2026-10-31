@@ -31,6 +31,13 @@ export interface BoardTicketServiceOptions {
   startWorkThread?: StartWorkThread;
   /** The evidence of the tickets (#236). Without it, evidence requests refuse. */
   evidence?: BoardTicketEvidenceStore;
+  /**
+   * Sends a message to a work thread (taskId) or to the agent's chat (null), as the person. It throws
+   * when the thread cannot take it, such as a closed or missing task. Without it, Request changes refuses.
+   */
+  sendToWorkThread?: (agentId: string, taskId: string | null, text: string) => Promise<void>;
+  /** The agent that owns a work thread, which can differ from the ticket's agent after a reassign. */
+  taskOwner?: (taskId: string) => string | null;
   /** The worktree path and branch of a work thread, shown on its ticket. */
   worktreeOf?: (taskId: string) => BoardTicketWorktree | null;
 }
@@ -67,6 +74,8 @@ export class BoardTicketService {
   readonly #startWorkThread: StartWorkThread | undefined;
   readonly #evidence: BoardTicketEvidenceStore | undefined;
   readonly #worktreeOf: ((taskId: string) => BoardTicketWorktree | null) | undefined;
+  readonly #sendToWorkThread: BoardTicketServiceOptions["sendToWorkThread"];
+  readonly #taskOwner: BoardTicketServiceOptions["taskOwner"];
   /** The tickets whose Start is in flight, so a second click does not start a second run. */
   readonly #starting = new Set<string>();
   readonly #activity = new Set<(activity: BoardTicketActivity) => void>();
@@ -76,6 +85,8 @@ export class BoardTicketService {
     this.#changed = options.changed;
     this.#startWorkThread = options.startWorkThread;
     this.#worktreeOf = options.worktreeOf;
+    this.#sendToWorkThread = options.sendToWorkThread;
+    this.#taskOwner = options.taskOwner;
     this.#evidence = options.evidence;
   }
 
@@ -310,6 +321,7 @@ export class BoardTicketService {
     const startWorkThread = this.#startWorkThread;
     if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
     const existing = input.ticketId === undefined ? null : this.#require(input.ticketId);
+    if (existing && input.changes) return await this.#requestChanges(existing, input.agentId, input.changes, actor);
     // One run per ticket (#263): a ticket that already has a run, from Start or from a chat, keeps it.
     if (existing && (existing.taskId || existing.threadId)) return this.get(existing.id) ?? existing;
     if (existing && this.#starting.has(existing.id)) {
@@ -335,11 +347,48 @@ export class BoardTicketService {
     return this.#require(ticketId);
   }
 
+  /**
+   * Request changes (ticket 248): the text goes to the run that did the work, under the agent that owns it.
+   * When that run cannot take it (closed, deleted or never linked), a new run of the ticket's agent
+   * starts with the request and the old thread as context. Any failure throws, so the view keeps the text.
+   */
+  async #requestChanges(
+    ticket: BoardTicket,
+    agentId: string,
+    text: string,
+    actor: BoardTicketActor,
+  ): Promise<BoardTicket> {
+    const send = this.#sendToWorkThread;
+    if (!send) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
+    const owner = ticket.agentId ?? agentId;
+    let sent = false;
+    if (ticket.taskId) {
+      const taskOwner = this.#taskOwner?.(ticket.taskId) ?? owner;
+      sent = await send(taskOwner, ticket.taskId, text).then(
+        () => true,
+        () => false,
+      );
+    } else if (ticket.threadId) {
+      // A ticket taken in a chat (ticket 263): its chat thread did the work.
+      await send(owner, null, text);
+      sent = true;
+    }
+    if (!sent) {
+      const previous = ticket.threadId;
+      this.patch(ticket.id, { taskId: null, threadId: null }, actor);
+      await this.#startNew({ ticketId: ticket.id, agentId: owner }, this.#require(ticket.id), actor, previous, text);
+    }
+    this.comment({ ticketId: ticket.id, text }, actor);
+    this.moveIfNeeded(ticket.id, "running", actor);
+    return this.#require(ticket.id);
+  }
+
   async #startNew(
     input: StartBoardTicketInput,
     existing: BoardTicket | null,
     actor: BoardTicketActor,
     previousThreadId: string | null = null,
+    changes: string | null = null,
   ): Promise<BoardTicket> {
     const startWorkThread = this.#startWorkThread;
     if (!startWorkThread) throw new Error(sourceText("error.agent.boardTickets.startUnavailable"));
@@ -348,7 +397,8 @@ export class BoardTicketService {
     const note = previousThreadId
       ? `\n\nThis ticket was reassigned to you. Earlier work is in thread ${previousThreadId}; read it for context.`
       : "";
-    const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}`, { title });
+    const request = changes ? `\n\nThe reviewer asked for changes:\n${changes}` : "";
+    const task = await startWorkThread(input.agentId, `${workThreadText(title, body)}${note}${request}`, { title });
     const status: BoardTicketStatus = task.state === "running" ? "running" : "queued";
     const links = { taskId: task.id, threadId: task.threadId };
     if (!existing) return this.create({ title, body, status, agentId: input.agentId }, actor, links);
