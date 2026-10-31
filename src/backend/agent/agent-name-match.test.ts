@@ -1,4 +1,4 @@
-import { matchAgentName } from "@openbot/contracts/agent-mention-rank";
+import { matchAgentName, similarAgentNameIds } from "@openbot/contracts/agent-mention-rank";
 import { describe, expect, it } from "vitest";
 
 const agents = [
@@ -23,5 +23,20 @@ describe("matchAgentName", () => {
   it("takes a single partial match and reports none for no match", () => {
     expect(matchAgentName(agents, "builder")).toEqual({ kind: "single", agent: agents[2] });
     expect(matchAgentName(agents, "planner")).toEqual({ kind: "none" });
+  });
+});
+
+describe("similarAgentNameIds", () => {
+  it("marks names that are whole words inside another name", () => {
+    expect([...similarAgentNameIds(agents)].sort()).toEqual(["a", "b", "d"]);
+  });
+
+  it("marks the same name and skips a part of a word", () => {
+    const list = [
+      { id: "x", name: "Builder" },
+      { id: "y", name: "builder" },
+      { id: "z", name: "Rebuilder" },
+    ];
+    expect([...similarAgentNameIds(list)].sort()).toEqual(["x", "y"]);
   });
 });

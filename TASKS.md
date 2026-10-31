@@ -141,3 +141,9 @@
 - [x] The model list uses logical padding, so in Arabic the check circle does not cover the name.
 - [x] Model names are isolated with `dir="auto"`.
 - [x] Before/after screenshots in English and Arabic.
+
+## Ticket 268: tell similar agent names apart (2026-10-31)
+- Exact-name match and the ambiguity prompt were done in PR 296.
+- New `similarAgentNameIds` (contracts): agents whose names are the same, or one is whole words inside the other.
+- The sidebar row of such an agent with no title shows its model as the badge, and in the row label.
+- Evidence: /workspace/pr-evidence/268 on the build box.

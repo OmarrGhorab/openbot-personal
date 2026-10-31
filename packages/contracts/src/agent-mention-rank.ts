@@ -64,3 +64,35 @@ export function matchAgentName<T extends { name: string }>(agents: readonly T[],
   if (partial.length === 1 && partial[0]) return { kind: "single", agent: partial[0] };
   return partial.length > 1 ? { kind: "ambiguous", agents: partial } : { kind: "none" };
 }
+
+/** The words of a name, folded, so "Raven-Reviewer" and "raven reviewer" are the same. */
+function nameWords(name: string): string[] {
+  return foldMentionText(name)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+}
+
+/** Whether `inner` is a run of whole words inside `outer`. */
+function containsWords(outer: readonly string[], inner: readonly string[]): boolean {
+  if (!inner.length || inner.length > outer.length) return false;
+  for (let start = 0; start + inner.length <= outer.length; start += 1)
+    if (inner.every((word, index) => outer[start + index] === word)) return true;
+  return false;
+}
+
+/**
+ * The ids of the agents whose name looks like the name of another agent: the same name, or one
+ * name is whole words inside the other ("Reviewer" and "Raven Reviewer"). The sidebar shows one
+ * more detail on these rows so the person can tell them apart (ticket 268).
+ */
+export function similarAgentNameIds(agents: readonly { id: string; name: string }[]): Set<string> {
+  const words = agents.map((agent) => ({ id: agent.id, words: nameWords(agent.name) }));
+  const similar = new Set<string>();
+  for (const [index, left] of words.entries())
+    for (const right of words.slice(index + 1))
+      if (containsWords(left.words, right.words) || containsWords(right.words, left.words)) {
+        similar.add(left.id);
+        similar.add(right.id);
+      }
+  return similar;
+}
