@@ -281,6 +281,11 @@ export class AgentTasks implements TaskLanes {
   });
 
   /** The worktree path and branch of a task, or null when it shares the agent workspace. */
+  /** The agent that owns a task, or null when the task is gone. */
+  ownerOf(taskId: string): string | null {
+    return this.#store.task(taskId)?.agentId ?? null;
+  }
+
   worktreeOf(taskId: string): { path: string; branch: string } | null {
     const workspace = this.#workThreads.find(taskId)?.workspace;
     return workspace?.mode === "worktree" ? { path: workspace.path, branch: workspace.branch } : null;

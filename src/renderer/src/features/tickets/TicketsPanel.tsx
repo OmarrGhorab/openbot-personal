@@ -401,19 +401,19 @@ export function TicketsPanel(props: TicketsPanelProps) {
           .then(() => changedOnServer(ticket.id))
           .catch((error) => fail(error, "tickets.error.move"));
       }}
-      // Request changes sends the comment to the work thread, keeps a copy in the activity and moves the
-      // ticket back to Running. The thread's next turn then moves it on as usual.
+      // Request changes (ticket 248): main sends the comment to the run that did the work, or starts a new run
+      // of the ticket's agent when that run is gone, keeps a copy in the activity and moves the ticket back
+      // to Running. A failure shows its reason and keeps the text in the box.
       onRequestChanges={async (ticket, text) => {
-        if (!ticket.agentId || !ticket.taskId) return false;
-        if (!(await agentTasks.sendToTask(ticket.agentId, ticket.taskId, text))) return false;
         try {
-          await boardTickets().comment({ ticketId: ticket.id, text }, props.serverId);
-          await boardTickets().move({ ticketId: ticket.id, status: "running" }, props.serverId);
+          if (!ticket.agentId) throw new Error(currentText().t("tickets.error.noAgent"));
+          await boardTickets().start({ ticketId: ticket.id, agentId: ticket.agentId, changes: text }, props.serverId);
           changedOnServer(ticket.id);
+          return true;
         } catch (error) {
           fail(error, "tickets.error.requestChanges");
+          return false;
         }
-        return true;
       }}
       // The sync with a ticket system uses the connections of this computer, so a joined server has none.
       sync={

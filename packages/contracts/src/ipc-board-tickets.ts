@@ -255,6 +255,11 @@ export interface StartBoardTicketInput {
   ticketId?: string;
   title?: string;
   body?: string;
+  /**
+   * Request changes on a ticket in review (ticket 248): the text goes to the ticket's own run, or starts
+   * a new run of its agent when that run is gone, and the ticket goes back to Running.
+   */
+  changes?: string;
 }
 
 /** Why the work of a ticket went back to Backlog: its last turn failed, or the person stopped it. */

@@ -1781,6 +1781,13 @@ export async function createApplicationServices({
     startWorkThread: (agentId, text, ticket) =>
       runCauseEffect(service.startTask({ agentId, text }, undefined, undefined, ticket)),
     worktreeOf: (taskId) => service.taskWorktree(taskId),
+    // Request changes (ticket 248) writes to the ticket's run, or to the chat that took it, as the person.
+    sendToWorkThread: async (agentId, taskId, text) => {
+      await runCauseEffect(
+        service.sendMessage({ agentId, text, attachmentDraftIds: [], ...(taskId ? { taskId } : {}) }),
+      );
+    },
+    taskOwner: (taskId) => service.taskOwner(taskId),
     evidence: new BoardTicketEvidenceStore(boardTicketStore, join(app.getPath("userData"), "ticket-evidence")),
   });
   const service: AgentService = new AgentService({
