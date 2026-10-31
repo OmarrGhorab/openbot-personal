@@ -67,7 +67,18 @@ export function isReadOnlyCommand(command: string): boolean {
 /** Whether a plan-only agent's approval request is refused: every edit, grant, and any command that is not a read. */
 export function planOnlyRefuses(approval: { kind: "command" | "file-change" | "permissions"; command: string | null }) {
   if (approval.kind !== "command") return true;
-  return approval.command === null || !isReadOnlyCommand(approval.command);
+  return approval.command === null || !isReadOnlyCommand(commandLine(approval.command));
+}
+
+/** The command line of an approval. Antigravity sends its tool input as JSON with a `CommandLine` field. */
+export function commandLine(command: string): string {
+  if (!command.trimStart().startsWith("{")) return command;
+  try {
+    const input: Record<string, string | undefined> = JSON.parse(command);
+    return input.CommandLine ?? input.command ?? command;
+  } catch {
+    return command;
+  }
 }
 
 /** The reason that a refused agent reads. */

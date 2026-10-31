@@ -40,6 +40,16 @@ describe("ticket 265: plan-only commands", () => {
     expect(planOnlyRefuses({ kind: "file-change", command: null })).toBe(true);
     expect(planOnlyRefuses({ kind: "permissions", command: null })).toBe(true);
     expect(planOnlyRefuses({ kind: "command", command: "git status" })).toBe(false);
+    // Antigravity's tool input, as the live Planner sent it.
+    expect(
+      planOnlyRefuses({ kind: "command", command: JSON.stringify({ CommandLine: "git status", Cwd: "/w" }) }),
+    ).toBe(false);
+    expect(
+      planOnlyRefuses({
+        kind: "command",
+        command: JSON.stringify({ CommandLine: "echo probe > plan-only-probe.txt", Cwd: "/w" }),
+      }),
+    ).toBe(true);
   });
 });
 
