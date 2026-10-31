@@ -1,5 +1,5 @@
 import type { AppTextKey } from "@openbot/i18n";
-import { Bot, Button, Plus, RefreshCw, SquareCheck } from "@openbot/ui";
+import { Button, Plus, RefreshCw } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 import type { TicketNew } from "./TicketsNewDialog";
@@ -64,9 +64,6 @@ export function TicketsEmptyState(props: {
   return (
     <section class="tickets-empty" aria-labelledby={headingId}>
       <div class="tickets-empty-hero">
-        <span class="tickets-empty-icon" aria-hidden="true">
-          <SquareCheck />
-        </span>
         <h3 id={headingId}>{t("tickets.emptyState.title")}</h3>
         <p class="tickets-empty-body">
           {t("tickets.empty.body")}
@@ -92,10 +89,7 @@ export function TicketsEmptyState(props: {
           <For each={TICKET_EXAMPLES}>
             {(example) => (
               <li class="tickets-empty-example">
-                <span class="tickets-empty-example-role">
-                  <Bot aria-hidden="true" />
-                  {t(example.role)}
-                </span>
+                <span class="tickets-empty-example-role">{t(example.role)}</span>
                 <span class="tickets-empty-example-title">{t(example.title)}</span>
                 <span class="tickets-empty-example-body">{t(example.body)}</span>
                 <Button
