@@ -7,6 +7,7 @@ import {
   type BoardTicketEvidencePhase,
   type BoardTicketStatus,
   type BoardTicketType,
+  boardTicketEventAgents,
   type ConversationMessage,
   isBoardTicketType,
   type RavenAutopilotDecision,
@@ -32,7 +33,7 @@ import {
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
-import { createSignal, For, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import { TicketAutopilotDecision } from "./TicketAutopilotDecision";
 import { TicketCommentBox, TicketEvidence } from "./TicketEvidence";
 import { TICKET_TYPE_LABEL, TicketTypeChip } from "./TicketTypeChip";
@@ -111,7 +112,7 @@ const CLOCK_MS = 30_000;
  * scrolls; the steer box stays at the bottom. In review, its button is Request changes.
  */
 export function TicketDrawer(props: TicketDrawerProps) {
-  const { t, format } = useText();
+  const { t, format, sourceText } = useText();
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
@@ -137,6 +138,7 @@ export function TicketDrawer(props: TicketDrawerProps) {
   const agoShort = (iso: string) => relativeTime(format.locale, iso, now(), "narrow");
   const statusName = (status: BoardTicketStatus | null) => (status ? t(TICKET_STATUS_LABEL[status]) : "");
   const agentName = (agentId: string) => props.agents.find((candidate) => candidate.id === agentId)?.name ?? agentId;
+  const eventAgents = createMemo(() => boardTicketEventAgents(props.events ?? []));
   const newestFirst = () => [...(props.events ?? [])].reverse();
   const agentOf = (agentId: string | null) => props.agents.find((candidate) => candidate.id === agentId);
   /** The role tickets of a team job's ticket, one for each role. Empty for any other ticket. */
@@ -191,7 +193,11 @@ export function TicketDrawer(props: TicketDrawerProps) {
 
   function actorName(event: BoardTicketEvent): string {
     if (event.actor === "user") return t("tickets.actor.user");
-    if (event.actor === "agent") return agent()?.name ?? t("tickets.actor.agent");
+    if (event.actor === "agent") {
+      const atTheTime = eventAgents().get(event.id);
+      const owner = atTheTime === undefined ? agent() : agentOf(atTheTime);
+      return owner?.name ?? t("tickets.actor.agent");
+    }
     return t("tickets.actor.sync");
   }
 
@@ -532,7 +538,7 @@ export function TicketDrawer(props: TicketDrawerProps) {
               )}
             </Show>
             <Show when={error() !== null}>
-              <p class="ticket-drawer-error">{error() || t("tickets.card.turnFailed")}</p>
+              <p class="ticket-drawer-error">{sourceText(error() ?? "") || t("tickets.card.turnFailed")}</p>
             </Show>
           </section>
         </Show>

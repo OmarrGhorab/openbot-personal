@@ -210,7 +210,7 @@ export interface TicketCardProps extends TicketsBoardData {
  * drawer. The review buttons sit outside it, so they never open the drawer.
  */
 export function TicketCard(props: TicketCardProps) {
-  const { t } = useText();
+  const { t, sourceText } = useText();
   const agent = () => props.agents.find((candidate) => candidate.id === props.ticket.agentId);
   const snapshot = () => (props.ticket.agentId ? props.snapshots[props.ticket.agentId] : undefined);
   const thread = () => ticketThread(props.ticket, snapshot());
@@ -311,7 +311,7 @@ export function TicketCard(props: TicketCardProps) {
           </span>
         </Show>
         <Show when={error() !== null}>
-          <span class="tickets-card-error">{error() || t("tickets.card.turnFailed")}</span>
+          <span class="tickets-card-error">{sourceText(error() ?? "") || t("tickets.card.turnFailed")}</span>
         </Show>
         <span class="tickets-card-footer">
           <Show
