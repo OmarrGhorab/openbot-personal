@@ -56,6 +56,21 @@ describe("ticket phase, type and error from the agent", () => {
     expect(board.get(ticket.id)).toMatchObject({ type: "feature", typeSource: "user" });
   });
 
+  it("starts a chat take in its own work thread, Running, in the take phase (ticket 238)", async () => {
+    const board = await harness();
+    const created = board.create({ title: "Checkout fails" });
+
+    const started = await board.startFromChat(created.id, "chief", "brief");
+
+    expect(started).toMatchObject({
+      taskId: "task-1",
+      threadId: "thread-1",
+      agentId: "chief",
+      status: "running",
+      phase: "take",
+    });
+  });
+
   it("checks the tool input and shows Reproduce only for bugs", () => {
     expect(updateTicketToolSchema.safeParse({ phase: "implement", type: "bug" }).success).toBe(true);
     expect(updateTicketToolSchema.safeParse({ phase: "ship-it" }).success).toBe(false);

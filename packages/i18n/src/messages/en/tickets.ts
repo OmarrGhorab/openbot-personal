@@ -274,5 +274,7 @@ export const messages = defineMessages("tickets", {
   "tickets.taken.connectLinear":
     "OpenBot cannot connect to Linear yet, so I cannot read {key}. Add the ticket to the board, then send the message again.",
   "tickets.taken.connectAction": "Connect {provider}",
+  "tickets.taken.started": "Started {title} in its own thread. It is Running on the Tickets page.",
+  "tickets.taken.openTicket": "Open on Tickets",
   "tickets.taken.failed": "I could not start {key}: {reason}",
 });

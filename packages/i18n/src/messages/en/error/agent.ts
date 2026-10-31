@@ -228,6 +228,9 @@ export const messages = defineMessages("error.agent", {
     "The {skill} skill is not installed, so Autopilot lite runs this ticket instead of pstack. Install pstack from Skills, and the next ticket can use it.",
   // Chat (#200): why a ticket from a chat message did not start.
   "error.agent.ticketTake.notFound": "The ticket is not on the board.",
+  "error.agent.ticketTake.githubOnly": "Only GitHub issues can be taken from a chat. Paste the issue link.",
+  "error.agent.ticketTake.closed": "That issue is closed or not open in the connected repository.",
+  "error.agent.ticketTake.alreadyRunning": "That ticket is already running in another thread.",
   "error.agent.ticketTake.noAgent": "The agent of this chat is not on this computer.",
   "error.agent.ticketTake.failed": "The ticket could not be taken. Send the message again.",
 });

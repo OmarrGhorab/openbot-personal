@@ -1,3 +1,5 @@
+// Ticket 238: a chat take no longer starts a Raven team job; it starts a ticket-factory work thread. The
+// checks below that expect a job (2 to 6, 8) describe the old path and need a rewrite.
 // Checks Chat: an agent takes a ticket from a message (#200). The person writes "take this ticket in jira fix
 // it" with a link or a key to an agent. Main reads the message again, finds or creates the board ticket, and
 // the Autopilot engine starts its job at once, with the asking agent and thread in the decision.
@@ -330,7 +332,6 @@ async function startRuntime() {
       connected: () => sync.state().providers,
       importIssueByKey: (provider, key) => sync.importIssueByKey(provider, key),
     },
-    take: (ticketId, chat) => started.takeNow(ticketId, chat),
     agentThread: (agentId) => {
       const agent = store.list().find((candidate) => candidate.id === agentId);
       return agent ? (agent.threadId ?? null) : undefined;
