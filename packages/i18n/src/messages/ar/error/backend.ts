@@ -71,6 +71,7 @@ export const messages = {
   "error.backend.channelLeadTimedOut": "قائد القناة ماردّش في الوقت المناسب. اختار عضو أو جرّب تاني.",
   "error.backend.channelLeadFailed": "قائد القناة معرفش يوجّه الرسالة دي. اختار عضو أو جرّب تاني.",
   "error.backend.channelRequestMemberRequired": "اختار عضو للطلب ده.",
+  "error.backend.channelTaskFailed": "الإيجنت معرفش يخلّص المهمة دي.",
   "error.backend.channelMemberNameAmbiguous": "فيه أكتر من عضو اسمه {name}. تقصد مين فيهم؟ اعمل منشن للعضو اللي تقصده.",
   "error.backend.channelDeliveryNotCreated": "تسليم القناة ماتعملش.",
   "error.backend.channelAssignmentStopped": "تكليف القناة ده اتوقف أو اتبدّل.",

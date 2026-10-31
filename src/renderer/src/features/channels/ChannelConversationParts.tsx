@@ -18,7 +18,7 @@ import { channelMemoriesPort } from "../conversation/memories-port";
 import { desktopEventRoutinesApi } from "../conversation/routine-webhooks-api";
 import { channelRoutinesPort, eventRoutinesPort } from "../conversation/routines-port";
 import { ChannelEditor } from "./ChannelEditor";
-import { stoppedChannelTasks } from "./channel-conversation-rows";
+import { stoppedChannelRequests } from "./channel-conversation-rows";
 import { useChannels } from "./channels-context";
 
 /** Where the routines of a channel are kept, as for an agent. */
@@ -128,7 +128,7 @@ export function ChannelAboveComposer(props: { channelId: string }) {
       {(current) => (
         <>
           <ChannelStoppedTasks
-            tasks={stoppedChannelTasks(current())}
+            requests={stoppedChannelRequests(current())}
             members={current().channel.members}
             name={name}
             onResume={resumeTask}

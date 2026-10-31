@@ -147,6 +147,12 @@ export function channelWorkers(
   });
 }
 
+/** What the stopped-run lists read of a channel page. */
+export interface StoppedTasksPage {
+  channel: { archived: boolean };
+  tasks: readonly ChannelTask[];
+}
+
 /**
  * The work that waits for the reader: one entry for each stopped run, not for each stopped task.
  *
@@ -155,7 +161,7 @@ export function channelWorkers(
  * and only the reader starts it again. The assignment limit stops a whole tree at once, and `resume`
  * starts a task with everything under it, so the entry is the root.
  */
-export function stoppedChannelTasks(page: ChannelPage): ChannelTask[] {
+export function stoppedChannelTasks(page: StoppedTasksPage): ChannelTask[] {
   if (page.channel.archived) return [];
   const roots = new Map<string, ChannelTask>();
   for (const task of page.tasks) {
@@ -164,6 +170,20 @@ export function stoppedChannelTasks(page: ChannelPage): ChannelTask[] {
     if (!known || task.id === task.rootTaskId) roots.set(task.rootTaskId, task);
   }
   return [...roots.values()];
+}
+
+/**
+ * The stopped runs grouped by the message that asked for them (ticket 234): one entry for each request,
+ * with the run of each member it addressed, so a message to three members that all failed is one row.
+ */
+export function stoppedChannelRequests(page: StoppedTasksPage): ChannelTask[][] {
+  const groups = new Map<string, ChannelTask[]>();
+  for (const task of stoppedChannelTasks(page)) {
+    const group = groups.get(task.requestMessageId);
+    if (group) group.push(task);
+    else groups.set(task.requestMessageId, [task]);
+  }
+  return [...groups.values()];
 }
 
 /**

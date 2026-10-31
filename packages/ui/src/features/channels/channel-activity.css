@@ -44,12 +44,12 @@
   overflow-y: auto;
   margin: calc(-1 * var(--openbot-space-6)) var(--openbot-space-3) calc(-1 * var(--openbot-radius-lg));
   border-radius: var(--openbot-radius-lg) var(--openbot-radius-lg) var(--openbot-radius-md) var(--openbot-radius-md);
-  background: var(--openbot-accent-strong);
-  box-shadow: 0 0 0 1px var(--openbot-accent-soft);
+  background: var(--openbot-glass-surface);
+  box-shadow: 0 0 0 1px var(--openbot-glass-border);
   -webkit-backdrop-filter: blur(var(--openbot-space-3));
   backdrop-filter: blur(var(--openbot-space-3));
   padding-bottom: var(--openbot-radius-lg);
-  color: var(--openbot-accent-text);
+  color: var(--openbot-text-primary);
 }
 
 /* Under the waiting block, the panel covers that block's lower edge, as the queue does, instead of
@@ -68,7 +68,32 @@
   padding: var(--openbot-space-2) var(--openbot-space-3);
 }
 .channel-paused-task + .channel-paused-task {
-  border-top: 1px solid var(--openbot-accent-soft);
+  border-top: 1px solid var(--openbot-glass-border);
+}
+.channel-paused-task-runs {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 24ch;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.channel-paused-task-runs .channel-paused-task-reason {
+  display: flex;
+  flex: none;
+  gap: var(--openbot-space-1-5);
+}
+.channel-paused-task-name {
+  flex: none;
+  font-weight: var(--openbot-weight-semibold);
+}
+.channel-paused-task-error {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--openbot-danger);
+  font-size: var(--openbot-text-xs);
 }
 .channel-paused-task-reason {
   min-width: 0;

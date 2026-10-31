@@ -1108,6 +1108,8 @@ export class TurnLifecycle {
         turnId,
         status: outcome,
         origin: deliveries[0]?.delivery.sender.kind ?? "unknown",
+        // Ticket 234: a channel run shows why it failed instead of a generic line.
+        ...(outcome === "failed" && reportedError ? { error: this.#hooks.redactMcp(reportedError).slice(0, 500) } : {}),
         ...(quiet ? { quiet: true as const } : {}),
       });
       if (shouldCompact) yield* this.#compaction.request(agentId, threadId);

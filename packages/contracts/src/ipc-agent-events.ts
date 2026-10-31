@@ -140,6 +140,8 @@ export type AgentEvent =
       threadId: string;
       turnId: string;
       status: string;
+      /** Why a failed turn failed, redacted and short. Absent when the provider gave no reason. */
+      error?: string;
       origin?: AgentTurnOrigin;
       /**
        * A routine run that had nothing to report and posted no message. It is not news, so it shows
@@ -335,6 +337,7 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         isString(value.threadId) &&
         isString(value.turnId) &&
         (value.origin === undefined || isAgentTurnOrigin(value.origin)) &&
+        (value.error === undefined || isString(value.error)) &&
         (value.quiet === undefined || value.quiet === true)
       );
     case "prompt":
