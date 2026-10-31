@@ -213,10 +213,7 @@ function stepsSummary(steps: readonly AgentStep[], text: TextValue): string {
       step.kind === "file-change" ||
       step.kind === "subagent",
   ).length;
-  const fileCount = steps.reduce(
-    (total, step) => total + (step.kind === "file-change" ? step.files.length : 0),
-    0,
-  );
+  const fileCount = steps.reduce((total, step) => total + (step.kind === "file-change" ? step.files.length : 0), 0);
   const changes = steps.flatMap((step) => (step.kind === "memory" ? [step.change] : []));
   const counts = countConversationMemoryChanges(changes);
   const memory = text.format.list(

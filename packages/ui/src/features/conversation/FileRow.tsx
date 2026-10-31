@@ -18,11 +18,7 @@ export interface ChangesFile {
 }
 
 /** One row of the Changes panel. A Button, so the whole row is one tab stop. */
-export function FileRow(props: {
-  file: ChangesFile;
-  selected: boolean;
-  onOpen: (path: string) => void;
-}) {
+export function FileRow(props: { file: ChangesFile; selected: boolean; onOpen: (path: string) => void }) {
   const { t } = useText();
   return (
     <Button

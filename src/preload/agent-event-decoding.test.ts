@@ -163,7 +163,10 @@ describe("decodeScopedAgentEvent", () => {
     ],
     ["a turn step of an unknown kind", { ...turnStep, event: { ...turnStep.event, kind: "read" } }],
     ["a turn step with no text", { ...turnStep, event: { ...turnStep.event, text: "" } }],
-    ["a turn step with a text longer than a step", { ...turnStep, event: { ...turnStep.event, text: "x".repeat(2001) } }],
+    [
+      "a turn step with a text longer than a step",
+      { ...turnStep, event: { ...turnStep.event, text: "x".repeat(2001) } },
+    ],
     [
       "a turn step with a file that has no path",
       { ...turnStep, event: { ...turnStep.event, files: [{ path: "", status: "modified" }] } },

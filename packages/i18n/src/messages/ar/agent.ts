@@ -86,12 +86,4 @@ export const messages = {
   "agent.color.indigo": "نيلي",
   "agent.color.violet": "بنفسجي",
   "agent.color.magenta": "أرجواني",
-  "agent.team.autopilot.type.feature": "ميزة",
-  "agent.team.autopilot.type.bug": "باج",
-  "agent.team.autopilot.type.chore": "مهمة",
-  "agent.team.autopilot.pickUp.ravenOrUnassigned": "Raven أو من غير حد",
-  "agent.team.autopilot.pickUp.raven": "Raven بس",
-  "agent.team.autopilot.merge.method.squash": "Squash and merge",
-  "agent.team.autopilot.merge.method.merge": "Merge commit",
-  "agent.team.autopilot.merge.method.rebase": "Rebase and merge",
 } as const satisfies PartialTranslation<typeof source>;

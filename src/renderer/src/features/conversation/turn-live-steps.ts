@@ -29,11 +29,7 @@ const TURN_LIMIT = 50;
 const STEP_LIMIT = 200;
 
 /** `steps` with `step` added or replaced in the turn, capped like the progress lines. */
-export function upsertTurnLiveSteps(
-  steps: TurnLiveSteps,
-  turnId: string,
-  step: TurnLiveStep,
-): TurnLiveSteps {
+export function upsertTurnLiveSteps(steps: TurnLiveSteps, turnId: string, step: TurnLiveStep): TurnLiveSteps {
   const turn = (steps[turnId] ?? []).filter((candidate) => candidate.id !== step.id);
   // The turn moves to the end, so the limit drops the turns that got no step for the longest time,
   // and not a long turn that started first.

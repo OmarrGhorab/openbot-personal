@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import type { ConversationSnapshot, TurnFileDiffResult, TurnFilesResult } from "@openbot/contracts/ipc";
+import type { ConversationSnapshot, TurnFilesResult } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { HostService } from "../host-service";
@@ -93,21 +93,20 @@ function register() {
 describe("turn files handlers", () => {
   it("lists the files of a turn from the main window", async () => {
     const { call } = register();
-    const result = (await call("agent:listTurnFiles", MAIN_ID, {
+    const result = await call("agent:listTurnFiles", MAIN_ID, {
       agentId: "agent-1",
       turnId: "turn-1",
-    })) as TurnFilesResult;
-    expect(result.files).toHaveLength(1);
-    expect(result.files[0]).toMatchObject({ path: "/workspace/notes.md", status: "modified" });
+    });
+    expect(result).toMatchObject({ files: [{ path: "/workspace/notes.md", status: "modified" }] });
   });
 
   it("reads the diff of a workspace file from the main window", async () => {
     const { call } = register();
-    const result = (await call("agent:readTurnFileDiff", MAIN_ID, {
+    const result = await call("agent:readTurnFileDiff", MAIN_ID, {
       agentId: "agent-1",
       path: "/workspace/notes.md",
-    })) as TurnFileDiffResult;
-    expect(result.diff).toContain("+++ b/notes.md");
+    });
+    expect(result).toMatchObject({ diff: expect.stringContaining("+++ b/notes.md") });
   });
 
   it("rejects a chat window sender", () => {
@@ -134,9 +133,9 @@ describe("turn files handlers", () => {
 
   it("refuses a file outside the workspace", async () => {
     const { call } = register();
-    await expect(
-      call("agent:readTurnFileDiff", MAIN_ID, { agentId: "agent-1", path: "/etc/passwd" }),
-    ).rejects.toThrow(/outside the agent workspace/);
+    await expect(call("agent:readTurnFileDiff", MAIN_ID, { agentId: "agent-1", path: "/etc/passwd" })).rejects.toThrow(
+      /outside the agent workspace/,
+    );
   });
 
   it("keeps the stored trace shape the list endpoint reads", () => {

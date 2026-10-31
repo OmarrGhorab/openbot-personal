@@ -1,14 +1,9 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { describe, expect, it } from "vitest";
 import type { ThreadItem } from "../protocol";
-import {
-  buildTurnStepEvent,
-  classifyTurnStepKind,
-  TurnStepFileBudget,
-  turnStepFiles,
-} from "./turn-step-event";
+import { buildTurnStepEvent, classifyTurnStepKind, TurnStepFileBudget, turnStepFiles } from "./turn-step-event";
 
-function item(overrides: Record<string, unknown>): ThreadItem {
+function item(overrides: Partial<ThreadItem>): ThreadItem {
   return { type: "toolCall", id: "item-1", ...overrides };
 }
 
