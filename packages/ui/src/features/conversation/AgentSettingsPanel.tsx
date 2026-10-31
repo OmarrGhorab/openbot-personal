@@ -1390,7 +1390,13 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
                     ref={pageRowRef("folder")}
                     icon={<Folder aria-hidden="true" />}
                     label={t("agentSettings.folder.title")}
-                    value={draft.workFolder.trim() || t("agentSettings.folder.none")}
+                    value={
+                      draft.workFolder.trim() ? (
+                        <bdi dir="ltr">{draft.workFolder.trim()}</bdi>
+                      ) : (
+                        t("agentSettings.folder.none")
+                      )
+                    }
                     onClick={() => openPage("folder")}
                   />
                 </SettingsLinkGroup>
