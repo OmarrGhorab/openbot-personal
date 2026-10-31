@@ -19,6 +19,8 @@ export const MCP_SERVER_CREATOR_SKILL_SLUG = "openbot-mcp-server-creator";
 export const ASK_WHEN_BLOCKED_SKILL_SLUG = "ask-when-blocked";
 /** Tells an agent to end a finished task with the parts it is not sure about, and why. */
 export const CONFIDENCE_NOTES_SKILL_SLUG = "confidence-notes";
+/** Walks a ticket agent through the phases of one GitHub ticket, from take to merge (ticket 243). */
+export const TICKET_FACTORY_SKILL_SLUG = "ticket-factory";
 /** The skills OpenBot writes into every agent workspace. Add a new managed skill here too. */
 export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
   MANAGED_SKILL_SLUG,
@@ -27,6 +29,7 @@ export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
   MCP_SERVER_CREATOR_SKILL_SLUG,
   ASK_WHEN_BLOCKED_SKILL_SLUG,
   CONFIDENCE_NOTES_SKILL_SLUG,
+  TICKET_FACTORY_SKILL_SLUG,
 ]);
 export const OWNERSHIP_MARKER = ".openbot-managed.json";
 /** The workspace skill folders OpenBot writes. Each provider reads at least one of them. */
