@@ -128,6 +128,7 @@ import { sendToRenderer } from "./renderer-ipc";
 import { RoutineWake } from "./routine-wake";
 import { takeServerModeEnvironment } from "./server-mode";
 import { configureContentSecurityPolicy, configureRendererPermissions } from "./session-configuration";
+import { releaseStopAllForMessage } from "./stop-all-release";
 import { trustSystemCertificates } from "./system-certificates";
 import { TeardownRegistry } from "./teardown-registry";
 import type { TraceFile } from "./trace-file";
@@ -858,6 +859,14 @@ function registerIpcHandlers({
         openUrl: (url) => openHttpLink(url, openChosenLink),
       }),
       openExternal: openChosenLink,
+      releaseStopAll: async () => {
+        await releaseStopAllForMessage({
+          stoppedAll: async () => (await runCauseEffect(autonomy.snapshot())).stoppedAll,
+          resumeAll: async () => {
+            await runCauseEffect(autonomy.resumeAll());
+          },
+        });
+      },
     }),
     ...browserIpcHandlers({ browserPictureInPicture, browser, remoteServers, browserView, localSignIn }),
   });

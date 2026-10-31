@@ -6,6 +6,9 @@ export const messages = defineMessages("autonomy", {
   "autonomy.stopAll.stopDescription": "يوقف كل مهمة تعمل ويحجز كل قائمة انتظار على هذا الجهاز حتى تستأنف.",
   "autonomy.stopAll.resumeDescription": "يبدأ من جديد الرسائل المنتظرة عند كل وكيل.",
   "autonomy.stopAll.failed": "تعذّر على OpenBot تغيير حالة الوكلاء.",
+  "autonomy.stopAll.confirmTitle": "نوقف كل الإيجنتس؟",
+  "autonomy.stopAll.confirmBody":
+    "كل اللي شغال هيقف والشغل اللي مستني هيفضل مستني. أول رسالة تبعتها هتشغّل الإيجنتس تاني.",
 
   "autonomy.tab.title": "الأمان والحدود",
   "autonomy.tab.description": "الموافقات والميزانيات والاستخدام وسجل التدقيق للوكلاء على هذا الجهاز.",
