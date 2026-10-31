@@ -319,7 +319,7 @@ export function AgentTaskList(props: AgentTaskListProps) {
  * a message waits in it, or steers it as the busy-message mode says; after that, a message continues it.
  */
 export function AgentTaskPanel(props: AgentTaskPanelProps) {
-  const { t } = useText();
+  const { t, sourceText } = useText();
   const [draft, setDraft] = createSignal("");
   const [sending, setSending] = createSignal(false);
   const sentMessages = () =>
@@ -591,7 +591,7 @@ export function AgentTaskPanel(props: AgentTaskPanelProps) {
               <ComposerNotice
                 tone="danger"
                 title={t("conversation.tasks.panel.failed")}
-                body={task().error || t("conversation.tasks.panel.failedBody")}
+                body={task().error ? sourceText(task().error ?? "") : t("conversation.tasks.panel.failedBody")}
               />
             )}
           </Show>

@@ -78,7 +78,7 @@ export function SidebarChannelRow(rowProps: { channel: ChannelSummary }) {
           <span class="agent-row-copy">
             <span class="agent-row-heading">
               <span class="agent-row-title">
-                <strong>{rowProps.channel.name}</strong>
+                <strong dir="auto">{rowProps.channel.name}</strong>
                 <Show when={title()}>
                   {(label) => (
                     <Badge class="agent-role-badge" title={label()}>

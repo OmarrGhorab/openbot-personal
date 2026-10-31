@@ -118,7 +118,7 @@ export function SidebarAgentRow(rowProps: { agent: AgentProfile; waiting?: boole
           <span class="agent-row-heading">
             <span class="agent-row-title">
               <span class="agent-row-name">
-                <strong>{rowProps.agent.name}</strong>
+                <strong dir="auto">{rowProps.agent.name}</strong>
                 <Show when={lockLabel()}>
                   <span class="agent-row-access" title={lockLabel()}>
                     <Lock aria-hidden="true" />

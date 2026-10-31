@@ -127,7 +127,9 @@ function TicketsChip(props: {
   return (
     <TicketsPressable class="tickets-chip" pressed={props.pressed} onPress={props.onPress}>
       {props.children}
-      <span class="tickets-chip-name">{props.label}</span>
+      <span class="tickets-chip-name" dir="auto">
+        {props.label}
+      </span>
       <span class="tickets-chip-count">{props.count}</span>
     </TicketsPressable>
   );
@@ -280,7 +282,9 @@ export function TicketCard(props: TicketCardProps) {
           </Show>
           <span class="tickets-card-meta">{meta()}</span>
         </span>
-        <span class="tickets-card-title">{props.ticket.title}</span>
+        <span class="tickets-card-title" dir="auto">
+          {props.ticket.title}
+        </span>
         <Show when={steps()}>
           {(view) => (
             <span class="tickets-card-steps" data-state={view().state}>
@@ -332,7 +336,9 @@ export function TicketCard(props: TicketCardProps) {
                   mood={thread()?.state === "running" ? "working" : "idle"}
                   class="tickets-card-avatar"
                 />
-                <span class="tickets-card-agent-name">{owner().name}</span>
+                <span class="tickets-card-agent-name" dir="auto">
+                  {owner().name}
+                </span>
               </span>
             )}
           </Show>
@@ -481,7 +487,9 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
               <TicketsPressable class="tickets-lane-header" onPress={() => props.onSelectAgent(agent().id)}>
                 <span class="tickets-lane-who">
                   <AgentAvatar agent={agent()} mood={agentMood(snapshot())} class="tickets-lane-avatar" />
-                  <span class="tickets-lane-name">{agent().name}</span>
+                  <span class="tickets-lane-name" dir="auto">
+                    {agent().name}
+                  </span>
                 </span>
                 <span class="tickets-lane-count" data-busy={running() > 0 ? "" : undefined}>
                   <span class="tickets-lane-dot" aria-hidden="true" />

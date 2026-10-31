@@ -269,7 +269,9 @@ export function TicketsNewDialog(props: {
                               {(option) => (
                                 <DropdownMenu.RadioItem value={option().id} closeOnSelect class="tickets-drawer-agent">
                                   <AgentAvatar agent={option()} class="tickets-drawer-avatar" />
-                                  <span class="tickets-new-agent-name">{option().name}</span>
+                                  <span class="tickets-new-agent-name" dir="auto">
+                                    {option().name}
+                                  </span>
                                   <Show when={freeThreads(option().id) !== null}>
                                     <span class="tickets-new-agent-free">
                                       {t("tickets.new.freeThreads", { count: freeThreads(option().id) ?? 0 })}
