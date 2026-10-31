@@ -228,6 +228,8 @@ import {
   decodeReadStates,
   decodeReceipt,
   decodeTaskConversation,
+  decodeTurnFileDiffResult,
+  decodeTurnFilesResult,
   decodeWaits,
 } from "./conversation-decoding";
 import {
@@ -1126,6 +1128,10 @@ const openbotApi: OpenBotDesktopApi = {
       updateProjectMemory: decodeProjectMemoryState,
       deleteProjectMemory: decodeProjectMemoryState,
       undoProjectMemory: decodeProjectMemoryState,
+    }),
+    ...bridgeGroup(IPC_ENDPOINTS.agentTurnFiles, {
+      listTurnFiles: decodeTurnFilesResult,
+      readTurnFileDiff: decodeTurnFileDiffResult,
     }),
     ...bridgeGroup(IPC_ENDPOINTS.sharedTables, {
       listTables: decodeTables,

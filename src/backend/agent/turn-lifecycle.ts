@@ -21,6 +21,7 @@ import {
   countConversationMemoryChanges,
   isAgentContextCategories,
   latestTurnAnswer,
+  type TurnStepFile,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
@@ -77,6 +78,7 @@ import {
   toolUsage,
   toThreadItem,
 } from "./thread-items";
+import { buildTurnStepEvent, classifyTurnStepKind, TurnStepFileBudget, turnStepFiles } from "./turn-step-event";
 import { TurnTraces, traceMessage } from "./turn-traces";
 import { collectProviderUsage } from "./usage-collection";
 import { USAGE_LIMIT_METHOD, type UsageLimitGate } from "./usage-limit-gate";
@@ -229,6 +231,10 @@ export class TurnLifecycle {
   readonly #itemTurns = new Map<string, string>();
   /** The real start and end of each step of a running turn, for the trace of the finished turn. */
   readonly #traces = new TurnTraces();
+  /** The files each running turn has reported, so one runaway turn cannot flood the panel. */
+  readonly #turnStepFiles = new TurnStepFileBudget();
+  /** When each live step started, by turn and item, so its end event keeps the start. */
+  readonly #turnStepStarted = new Map<string, string>();
   #scope = Scope.makeUnsafe();
   readonly #turnAssociations = new Map<string, Deferred.Deferred<void, TurnOperationFailed>>();
   /**
@@ -362,6 +368,8 @@ export class TurnLifecycle {
     this.#lastEventAt.clear();
     this.#itemTurns.clear();
     this.#traces.clear();
+    this.#turnStepStarted.clear();
+    this.#turnStepFiles.clear();
     this.#observedCompactions.clear();
   }).bind(this);
 
@@ -395,6 +403,7 @@ export class TurnLifecycle {
       ) {
         // The turn does not end here, so it keeps no trace.
         this.#traces.drop(turnId);
+        this.#dropTurnStepState(turnId);
         // The client is gone, so no browser tool of this turn can run. Other agents keep their controls.
         this.#browser.endControl(this.#conversation.publicThreadId(turn.agentId, turn.threadId), turnId);
         // The turn does not end here, so a provider error held for a failover shows now.
@@ -569,7 +578,14 @@ export class TurnLifecycle {
         if (item.type === "collabAgentToolCall") this.#applyCodexSubagents(agentId, threadId, turnId, item);
         const threadItem = toThreadItem(item);
         if (!threadItem) return;
-        yield* this.#applyItem(agentId, threadId, turnId, threadItem, notification.method === "item/completed");
+        yield* this.#applyItem(
+          agentId,
+          threadId,
+          turnId,
+          threadItem,
+          notification.method === "item/completed",
+          getArray(params, "filePaths"),
+        );
         return;
       }
       case "item/reasoning/summaryTextDelta":
@@ -861,6 +877,7 @@ export class TurnLifecycle {
       this.#completingTurns.add(turnId);
       // A turn that runs again below starts a new trace, so each path takes this one.
       const trace = this.#traces.take(turnId, new Date().toISOString());
+      this.#dropTurnStepState(turnId);
       const noUpdateCalled = this.#noUpdateTurns.delete(turnId);
       const reportedFailure = this.#reportedFailures.get(turnId);
       this.#reportedFailures.delete(turnId);
@@ -1137,6 +1154,7 @@ export class TurnLifecycle {
     this.#reportedFailures.delete(turnId);
     this.#markEnded(turnId);
     const trace = this.#traces.take(turnId, new Date().toISOString());
+    this.#dropTurnStepState(turnId);
     const deliveries = yield* turnStep(() => this.#mailbox.findDeliveriesByTurn(agentId, turnId)).pipe(
       Effect.catchCause((cause) => report(cause).pipe(Effect.as([]))),
     );
@@ -1364,12 +1382,19 @@ export class TurnLifecycle {
     turnId: string,
     item: ThreadItem,
     completed: boolean,
+    locations: readonly unknown[] = [],
   ) {
     const usage = completed ? toolUsage(item) : null;
     if (usage) this.#hooks.emitToolUsage({ ...usage, agentId, turnId });
     if (yield* this.#images.handleItem(agentId, threadId, turnId, item, completed)) return;
     const toolProgress = toolProgressText(item, completed);
-    this.#observeTraceStep(turnId, item, completed, toolProgress);
+    // Only a file-change step names changed files: a read or a search reports locations too.
+    const files =
+      classifyTurnStepKind(item) === "file-change"
+        ? this.#turnStepFiles.take(turnId, turnStepFiles(item, locations))
+        : [];
+    this.#observeTraceStep(turnId, item, completed, toolProgress, files);
+    this.#emitTurnStep(agentId, threadId, turnId, item, completed, toolProgress, files);
     if (toolProgress) {
       this.#emitTurnProgress(agentId, this.#conversation.publicThreadId(agentId, threadId), turnId, toolProgress);
       return;
@@ -1459,7 +1484,13 @@ export class TurnLifecycle {
   }
 
   /** Records a step for the trace: a tool step, a thought or an answer. Other items have no step. */
-  #observeTraceStep(turnId: string, item: ThreadItem, completed: boolean, toolProgress: string | null): void {
+  #observeTraceStep(
+    turnId: string,
+    item: ThreadItem,
+    completed: boolean,
+    toolProgress: string | null,
+    files: TurnStepFile[],
+  ): void {
     if (!isString(item.id)) return;
     if (isToolItem(item)) {
       const failed = completed && toolFailed(item);
@@ -1468,6 +1499,7 @@ export class TurnLifecycle {
         failed,
         text: toolProgress,
         ...toolTraceDetail(item),
+        files,
       });
     } else if (item.type === "agentMessage")
       this.#traces.observe(turnId, item.id, item.phase === "commentary" ? "reasoning" : "message", { completed });
@@ -1505,6 +1537,46 @@ export class TurnLifecycle {
       turnId,
       detail: text,
     });
+  }
+
+  /**
+   * Sends the live step of an item, at its start and at its end. A step the model does not draw
+   * keeps no event. The start keeps its time for the end, so a restart of the run cannot move it.
+   */
+  #emitTurnStep(
+    agentId: string,
+    threadId: string,
+    turnId: string,
+    item: ThreadItem,
+    completed: boolean,
+    text: string | null,
+    files: TurnStepFile[],
+  ): void {
+    if (!isString(item.id) || item.id.length === 0 || !classifyTurnStepKind(item)) return;
+    const key = `${turnId}:${item.id}`;
+    const now = new Date().toISOString();
+    if (!completed) this.#turnStepStarted.set(key, now);
+    const startedAt = this.#turnStepStarted.get(key) ?? now;
+    const event = buildTurnStepEvent({
+      agentId,
+      threadId: this.#conversation.publicThreadId(agentId, threadId),
+      turnId,
+      item,
+      text,
+      completed,
+      startedAt,
+      endedAt: completed ? now : null,
+      files,
+    });
+    if (event) this.#hooks.emit(event);
+  }
+
+  /** Frees the live-step state of a turn that ended, was dropped or never ran. */
+  #dropTurnStepState(turnId: string): void {
+    for (const key of this.#turnStepStarted.keys()) {
+      if (key.startsWith(`${turnId}:`)) this.#turnStepStarted.delete(key);
+    }
+    this.#turnStepFiles.drop(turnId);
   }
 }
 

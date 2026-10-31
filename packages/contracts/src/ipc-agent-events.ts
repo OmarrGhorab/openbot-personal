@@ -15,7 +15,7 @@ import {
   isAgentApproval,
   isBrowserTakeoverRequest,
 } from "./ipc-approvals";
-import { isIdentifier } from "./ipc-bounded-values";
+import { integerInRange, isBoundedString, isIdentifier } from "./ipc-bounded-values";
 import type { BrowserControlState, BrowserTab } from "./ipc-browser";
 import { type AgentPromptQuestion, isAgentPromptQuestion, isConversationMessage } from "./ipc-conversation-messages";
 import {
@@ -27,12 +27,34 @@ import {
 import { type HiddenAgent, isHiddenAgentsSnapshot } from "./ipc-hidden-agents";
 import { isQueueSnapshot, type QueueSnapshot } from "./ipc-queue";
 import { isSidebarLayoutSnapshot, type SidebarLayoutSnapshot } from "./ipc-sidebar-layout";
-import { isBoolean, isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
 
 export type AgentTurnOrigin = "user" | "routine" | "agent" | "unknown";
 
 function isAgentTurnOrigin(value: unknown): value is AgentTurnOrigin {
   return value === "user" || value === "routine" || value === "agent" || value === "unknown";
+}
+
+/** What a live turn step did: ran a command, changed files, worked with a subagent, or thought. */
+export const TURN_STEP_KINDS = ["command", "file-change", "subagent", "thought"] as const;
+export type TurnStepKind = (typeof TURN_STEP_KINDS)[number];
+
+/** Whether the step still runs, or how it ended. */
+export const TURN_STEP_STATUSES = ["running", "done", "failed"] as const;
+export type TurnStepStatus = (typeof TURN_STEP_STATUSES)[number];
+
+/** How one file changed: added, changed in place, or deleted. */
+export const TURN_STEP_FILE_STATUSES = ["added", "modified", "deleted"] as const;
+export type TurnStepFileStatus = (typeof TURN_STEP_FILE_STATUSES)[number];
+
+/** One file that a step changed, with its added and removed line counts when known. */
+export interface TurnStepFile {
+  path: string;
+  status: TurnStepFileStatus;
+  additions?: number | undefined;
+  deletions?: number | undefined;
+  /** The unified diff of this step's change, built from the tool input. Local only, and redacted. */
+  diff?: string | undefined;
 }
 
 export type AgentEvent =
@@ -86,6 +108,31 @@ export type AgentEvent =
       revision: number;
     }
   | { type: "turn-progress"; agentId: string; threadId: string; turnId: string; detail: string }
+  /**
+   * One step of a running turn, as it starts and as it ends. The chat shows each step live and
+   * keeps the files for the Changes panel. Local only: the Team API event projection drops it,
+   * and no adapter carries it.
+   */
+  | {
+      type: "turn-step";
+      agentId: string;
+      threadId: string;
+      turnId: string;
+      stepId: string;
+      kind: TurnStepKind;
+      status: TurnStepStatus;
+      /** The row text, in the host's English source words. */
+      text: string;
+      /** On a command step: the command, with known secrets removed. */
+      command?: string | undefined;
+      /** On a command step that ended: its exit code when known. */
+      exitCode?: number | undefined;
+      /** On a file-change step: the files it changed, up to the per-step limit. */
+      files?: TurnStepFile[] | undefined;
+      startedAt: string;
+      /** Absent while the step runs. */
+      endedAt?: string | undefined;
+    }
   | { type: "turn-started"; agentId: string; threadId: string; turnId: string; origin?: AgentTurnOrigin }
   | {
       type: "turn-completed";
@@ -144,6 +191,20 @@ export type AgentEvent =
       resetsAt: number | null;
       agentCount: number;
     };
+
+const TURN_STEP_TIME_LIMIT = 160;
+
+function isTurnStepFile(value: unknown): value is TurnStepFile {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedString(value.path, INPUT_LIMITS.path) &&
+    value.path.length > 0 &&
+    isOneOf(TURN_STEP_FILE_STATUSES, value.status) &&
+    (value.additions === undefined || integerInRange(value.additions, 0, Number.MAX_SAFE_INTEGER)) &&
+    (value.deletions === undefined || integerInRange(value.deletions, 0, Number.MAX_SAFE_INTEGER)) &&
+    (value.diff === undefined || isBoundedString(value.diff, INPUT_LIMITS.turnStepDiff))
+  );
+}
 
 export function isAgentEvent(value: unknown): value is AgentEvent {
   if (!isDynamicRecord(value) || !isString(value.type)) return false;
@@ -247,6 +308,25 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
         isString(value.detail) &&
         value.detail.length > 0 &&
         value.detail.length <= INPUT_LIMITS.promptQuestion
+      );
+    case "turn-step":
+      return (
+        isIdentifier(value.agentId) &&
+        isIdentifier(value.threadId) &&
+        isIdentifier(value.turnId) &&
+        isIdentifier(value.stepId) &&
+        isOneOf(TURN_STEP_KINDS, value.kind) &&
+        isOneOf(TURN_STEP_STATUSES, value.status) &&
+        isBoundedString(value.text, INPUT_LIMITS.turnStepText) &&
+        value.text.length > 0 &&
+        (value.command === undefined || isBoundedString(value.command, INPUT_LIMITS.turnStepCommand)) &&
+        (value.exitCode === undefined || (isNumber(value.exitCode) && Number.isSafeInteger(value.exitCode))) &&
+        (value.files === undefined ||
+          (Array.isArray(value.files) &&
+            value.files.length <= INPUT_LIMITS.turnStepFiles &&
+            value.files.every(isTurnStepFile))) &&
+        isBoundedString(value.startedAt, TURN_STEP_TIME_LIMIT) &&
+        (value.endedAt === undefined || isBoundedString(value.endedAt, TURN_STEP_TIME_LIMIT))
       );
     case "turn-started":
     case "turn-completed":

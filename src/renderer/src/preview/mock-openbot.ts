@@ -140,6 +140,7 @@ import {
   type SteerQueuedMessageInput,
   sameCustomProviderOrigin,
   type TeamPresenceSnapshot,
+  type TurnChangedFile,
   type UpdateAgentInput,
   type UpdatePreference,
   type UpdateQueuedMessageInput,
@@ -317,6 +318,7 @@ function mockTurnTrace(turnId: string, endedAt: Date): ConversationTurnTrace {
         text: "Making the requested changes…",
         startedAt: at(4_020),
         endedAt: at(5_480),
+        files: [{ path: "/workspace/notes.md", status: "modified", additions: 2, deletions: 1 }],
       },
       { id: `${turnId}:answer`, kind: "message", startedAt: at(5_560), endedAt: at(6_400) },
     ],
@@ -2539,6 +2541,43 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         const end = offset + (input.limit ?? 50);
         return { results: results.slice(offset, end), nextCursor: end < results.length ? String(end) : null };
       },
+      listTurnFiles: async (input) => {
+        const messages = getSnapshot(input.agentId).messages.filter(
+          (message) => input.turnId === undefined || message.turnId === input.turnId,
+        );
+        const files: TurnChangedFile[] = [];
+        const seen = new Set<string>();
+        for (const message of messages) {
+          for (const step of message.trace?.steps ?? []) {
+            if (step.kind !== "tool") continue;
+            for (const file of step.files ?? []) {
+              if (seen.has(file.path)) continue;
+              seen.add(file.path);
+              files.push({
+                path: file.path,
+                status: file.status,
+                ...(file.additions === undefined ? {} : { additions: file.additions }),
+                ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
+              });
+            }
+          }
+        }
+        const snapshot = getSnapshot(input.agentId);
+        return { agentId: input.agentId, threadId: snapshot.threadId, turnId: input.turnId ?? null, files };
+      },
+      readTurnFileDiff: async (input) => ({
+        path: input.path,
+        diff: [
+          `--- a${input.path}`,
+          `+++ b${input.path}`,
+          "@@ -1,2 +1,3 @@",
+          " context",
+          "-old line",
+          "+new line",
+          "+added line",
+        ].join("\n"),
+        content: "context\nnew line\nadded line\n",
+      }),
       listConversationReads: async () =>
         Object.fromEntries([...conversationReads.keys()].map((agentId) => [agentId, conversationReadState(agentId)])),
       markConversationRead: async (input) => {
@@ -2638,6 +2677,18 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           turnId,
           detail: "Searched its memories: 1 found",
         });
+        const mockStepAt = new Date().toISOString();
+        emitAgentEvent({
+          type: "turn-step",
+          agentId: input.agentId,
+          threadId: getSnapshot(input.agentId).threadId ?? `thread-${input.agentId}`,
+          turnId,
+          stepId: `${turnId}:edit`,
+          kind: "file-change",
+          status: "running",
+          text: "Making the requested changes…",
+          startedAt: mockStepAt,
+        });
 
         schedule(() => {
           const repliedAt = new Date();
@@ -2678,6 +2729,19 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
           emitAgentEvent({
             type: "queue-changed",
             snapshot: queues.get(input.agentId) ?? emptyQueue(input.agentId),
+          });
+          emitAgentEvent({
+            type: "turn-step",
+            agentId: input.agentId,
+            threadId: getSnapshot(input.agentId).threadId ?? `thread-${input.agentId}`,
+            turnId,
+            stepId: `${turnId}:edit`,
+            kind: "file-change",
+            status: "done",
+            text: "Making the requested changes…",
+            files: [{ path: "/workspace/notes.md", status: "modified", additions: 2, deletions: 1 }],
+            startedAt: mockStepAt,
+            endedAt: new Date().toISOString(),
           });
           emitAgentEvent({
             type: "turn-completed",

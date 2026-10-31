@@ -33,6 +33,10 @@ import {
   type OpenQuestionsSnapshot,
   type QueuedMessageReceipt,
   type QueueSnapshot,
+  isTurnFileDiffResult,
+  isTurnFilesResult,
+  type TurnFileDiffResult,
+  type TurnFilesResult,
 } from "@openbot/contracts/ipc";
 import {
   decodeRecord,
@@ -109,6 +113,16 @@ export function decodeConversationFileSearchPage(value: unknown): ConversationFi
     }),
     nextCursor: nullableString(item, "nextCursor"),
   };
+}
+
+export function decodeTurnFilesResult(value: unknown): TurnFilesResult {
+  if (!isTurnFilesResult(value)) throw new Error("Invalid turn files response.");
+  return value;
+}
+
+export function decodeTurnFileDiffResult(value: unknown): TurnFileDiffResult {
+  if (!isTurnFileDiffResult(value)) throw new Error("Invalid turn file diff response.");
+  return value;
 }
 
 export function decodeConversationSearchPageFromMain(value: unknown): ConversationSearchPage {

@@ -197,6 +197,66 @@
   color: var(--openbot-text-muted);
 }
 
+/* A command step keeps its redacted command in a terminal block, with the exit when it failed. */
+.agent-step-command,
+.agent-step-file-change,
+.agent-step-subagent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  min-width: 0;
+}
+
+.agent-step-terminal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-text-xs);
+  color: var(--openbot-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.agent-step-exit {
+  color: var(--openbot-text-danger);
+  flex: 0 0 auto;
+}
+
+.agent-step-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+}
+
+.agent-step-file {
+  display: flex;
+  align-items: baseline;
+  gap: var(--openbot-space-2);
+  min-width: 0;
+}
+
+.agent-step-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-step-file-counts {
+  display: flex;
+  gap: var(--openbot-space-1);
+  font-family: var(--openbot-font-mono);
+  font-size: var(--openbot-text-xs);
+  flex: 0 0 auto;
+}
+
+.agent-step-file-additions {
+  color: var(--openbot-text-success);
+}
+
+.agent-step-file-deletions {
+  color: var(--openbot-text-danger);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .agent-steps-chevron,
   .agent-steps-panel,

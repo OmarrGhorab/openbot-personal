@@ -87,11 +87,19 @@ export interface BoardTicket {
   progress: string | null;
   /** The last failure line, such as "The last turn failed". */
   error: string | null;
+  /** The git worktree and branch of the ticket's work thread. Absent: it shares the agent workspace. */
+  worktree?: BoardTicketWorktree;
   /** When the ticket last entered each column. The stepper shows these. */
   statusTimes: Partial<Record<BoardTicketStatus, string>>;
   statusChangedAt: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** The worktree that a ticket's work thread owns: its folder and its branch. */
+export interface BoardTicketWorktree {
+  path: string;
+  branch: string;
 }
 
 /** One entry of a ticket's activity. */
@@ -409,6 +417,10 @@ function isStatusTimes(value: unknown): value is Partial<Record<BoardTicketStatu
   );
 }
 
+function isBoardTicketWorktree(value: unknown): value is BoardTicketWorktree {
+  return isDynamicRecord(value) && isBoundedString(value.path, 4096) && isBoundedString(value.branch, 300);
+}
+
 function isNullableIdentifier(value: unknown): value is string | null {
   return value === null || isIdentifier(value);
 }
@@ -431,6 +443,7 @@ export function isBoardTicket(value: unknown): value is BoardTicket {
     (value.external === null || isBoardTicketExternal(value.external)) &&
     isNullableBoundedString(value.progress, BOARD_TICKET_PROGRESS_LIMIT) &&
     isNullableBoundedString(value.error, BOARD_TICKET_ERROR_LIMIT) &&
+    (value.worktree === undefined || isBoardTicketWorktree(value.worktree)) &&
     isStatusTimes(value.statusTimes) &&
     isBoundedString(value.statusChangedAt, 160) &&
     isBoundedString(value.createdAt, 160) &&

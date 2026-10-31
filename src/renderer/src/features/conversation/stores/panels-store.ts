@@ -60,6 +60,7 @@ export const SIDE_PANEL_MODES = {
   question: "question",
   voice: "voice",
   subagent: "subagent",
+  changes: "changes",
 } as const satisfies Record<SidePanelPane, RightPanelMode>;
 
 function isSidePanelPane(value: string): value is SidePanelPane {
@@ -157,6 +158,13 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     const agentId = conversationOwnerId(deps.props);
     return agentId ? (panels.subagents[agentId] ?? null) : null;
   };
+  const changesOpen = () => activeRightPanel() === "changes";
+  /** Opens the files of the newest turn with changes in the side panel. */
+  function openChangesPanel(): void {
+    const agentId = conversationOwnerId(deps.props);
+    if (!agentId) return;
+    setActiveRightPanel("changes", agentId);
+  }
   const filePreviewOpen = () =>
     activeRightPanel() === "file-preview" &&
     deps.sidebarFilePreview()?.ownerAgentId === conversationOwnerId(deps.props);
@@ -492,6 +500,8 @@ export function createPanelsStore(deps: PanelsStoreDeps) {
     showTaskList,
     panelSubagentId,
     openSubagentPanel,
+    changesOpen,
+    openChangesPanel,
     sidePanel,
     sidePanelOpen,
     setSidePanelMaximized,

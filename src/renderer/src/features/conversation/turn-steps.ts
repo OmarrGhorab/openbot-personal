@@ -4,6 +4,7 @@ import type { AgentStep, AgentStepsFacts } from "@openbot/ui/features/conversati
 import { silentAgentAnswer } from "@openbot/ui/features/conversation/new-message-tally";
 import type { TraceSpan } from "@openbot/ui/features/conversation/TraceWaterfall";
 import { createMemo } from "solid-js";
+import type { TurnLiveStep, TurnLiveSteps } from "./turn-live-steps";
 import type { TurnStepLines } from "./turn-step-lines";
 
 const NO_STEPS: AgentStep[] = [];
@@ -20,13 +21,22 @@ function sameSteps(left: readonly AgentStep[], right: readonly AgentStep[]): boo
       const other = right[index];
       if (other?.id !== step.id || other.kind !== step.kind) return false;
       if (step.kind === "memory" && other.kind === "memory" && other.change.action !== step.change.action) return false;
-      return stepText(other) === stepText(step);
+      return stepFingerprint(other) === stepFingerprint(step);
     })
   );
 }
 
 function stepText(step: AgentStep): string {
   return step.kind === "memory" ? step.change.text : step.text;
+}
+
+/** What a list compares: the text, and for a live step its state and payload, so an ended step redraws. */
+function stepFingerprint(step: AgentStep): string {
+  if (step.kind === "command") return `${step.text}\n${step.command ?? ""}\n${step.exitCode ?? ""}\n${step.status}`;
+  if (step.kind === "file-change")
+    return `${step.text}\n${step.files.map((file) => `${file.status}\n${file.path}`).join("\n")}\n${step.status}`;
+  if (step.kind === "subagent") return `${step.text}\n${step.status}`;
+  return stepText(step);
 }
 
 /** The first line of a thought, without Markdown emphasis, as the name of its row in a trace. */
@@ -48,6 +58,8 @@ export interface TraceLabels {
   message: (names: string) => string;
   /** The row of the call that starts a subagent, from the subagent's title. */
   subagent: (title: string) => string;
+  /** The row of a file change, from the names of its files. */
+  edited: (names: string) => string;
   /** The detail of the row of another agent's reply. */
   reply: string;
   /** The names of agents, from their ids. */
@@ -116,6 +128,13 @@ function storedSpans(
       } else if (command) {
         span.icon = "command";
         span.name = command;
+      } else if (step.files?.length) {
+        const names = step.files.map((file) => file.path.split(/[\\/]/u).pop() || file.path);
+        const shown = names.slice(0, 3).join(", ");
+        span.name = labels.edited(names.length > 3 ? `${shown}, …` : shown);
+        const additions = step.files.reduce((total, file) => total + (file.additions ?? 0), 0);
+        const deletions = step.files.reduce((total, file) => total + (file.deletions ?? 0), 0);
+        if (additions > 0 || deletions > 0) span.detail = `+${additions} −${deletions}`;
       }
       spans.push(span);
     } else {
@@ -166,9 +185,70 @@ export function isTurnAnswer(message: AgentMessage): boolean {
  * The thoughts and the memory changes are stored messages; the progress lines are in memory only.
  * After a restart, the tool steps of the stored trace take the place of the progress lines.
  */
+/**
+ * A stored trace step rebuilt as the live row it was: a command keeps its redacted command, a
+ * file change keeps its files, and a message to another agent keeps its subagent row.
+ */
+function storedLiveStep(turnId: string, step: ConversationTurnTrace["steps"][number]): AgentStep | null {
+  if (step.kind !== "tool" || !step.text?.trim()) return null;
+  const id = `${turnId}:trace:${step.id}`;
+  if (step.files?.length)
+    return {
+      id,
+      kind: "file-change",
+      text: step.text,
+      files: step.files.map((file) => ({
+        path: file.path,
+        status: file.status,
+        ...(file.additions === undefined ? {} : { additions: file.additions }),
+        ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
+      })),
+      status: step.failed === true ? "failed" : "done",
+    };
+  if (step.command)
+    return {
+      id,
+      kind: "command",
+      text: step.text,
+      command: step.command,
+      status: step.failed === true ? "failed" : "done",
+    };
+  if (step.recipientAgentIds?.length) return { id, kind: "subagent", text: step.text, status: "done" };
+  return { id, kind: "progress", text: step.text };
+}
+
+/** A live step as the chat draws it. */
+function liveAgentStep(step: TurnLiveStep): AgentStep {
+  if (step.kind === "command")
+    return {
+      id: step.id,
+      kind: "command",
+      text: step.text,
+      ...(step.command === undefined ? {} : { command: step.command }),
+      ...(step.exitCode === undefined ? {} : { exitCode: step.exitCode }),
+      status: step.status,
+    };
+  if (step.kind === "file-change")
+    return {
+      id: step.id,
+      kind: "file-change",
+      text: step.text,
+      files: (step.files ?? []).map((file) => ({
+        path: file.path,
+        status: file.status,
+        ...(file.additions === undefined ? {} : { additions: file.additions }),
+        ...(file.deletions === undefined ? {} : { deletions: file.deletions }),
+      })),
+      status: step.status,
+    };
+  if (step.kind === "subagent") return { id: step.id, kind: "subagent", text: step.text, status: step.status };
+  return { id: step.id, kind: "thinking", text: step.text };
+}
+
 export function createTurnSteps(deps: {
   messages: () => readonly AgentMessage[];
   lines: () => TurnStepLines | undefined;
+  live: () => TurnLiveSteps | undefined;
   activeTurnId: () => string | null | undefined;
 }) {
   // A thought is ordered by when the host wrote it, and a progress line by when this window got it,
@@ -226,17 +306,25 @@ export function createTurnSteps(deps: {
       seenAt.set(id, at);
       timed.push({ step: { id, kind: "thinking", text }, at });
     }
-    const lines = deps.lines()?.[turnId] ?? [];
+    const live = deps.live()?.[turnId] ?? [];
+    // A live step and the progress line of the same tool call carry the same text, so a line the
+    // live steps already name is not drawn twice.
+    const liveTexts = new Set(live.map((step) => step.text));
+    const lines = (deps.lines()?.[turnId] ?? []).filter((line) => !liveTexts.has(line.text));
     for (const line of lines) {
       timed.push({ step: { id: line.id, kind: "progress", text: line.text }, at: line.at });
     }
-    // After a restart the progress lines are gone. The stored trace keeps the text and start of each
-    // tool step, so the turn keeps its steps.
-    if (lines.length === 0) {
+    for (const step of live) {
+      timed.push({ step: liveAgentStep(step), at: step.at });
+    }
+    // After a restart the live steps and the progress lines are gone. The stored trace keeps the
+    // text and start of each tool step, so the turn keeps its steps.
+    if (lines.length === 0 && live.length === 0) {
       for (const step of sources().traces.get(turnId)?.steps ?? []) {
         const at = Date.parse(step.startedAt);
-        if (step.kind !== "tool" || !step.text?.trim() || !Number.isFinite(at)) continue;
-        timed.push({ step: { id: `${turnId}:trace:${step.id}`, kind: "progress", text: step.text }, at });
+        if (!Number.isFinite(at)) continue;
+        const rebuilt = storedLiveStep(turnId, step);
+        if (rebuilt) timed.push({ step: rebuilt, at });
       }
     }
     // A stable sort keeps the thoughts in their order when they share a time.

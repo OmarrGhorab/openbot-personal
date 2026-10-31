@@ -91,6 +91,8 @@ export const messages = defineMessages("tickets", {
   "tickets.drawer.sourceLocal": "Created in OpenBot",
   "tickets.drawer.sourceExternal": "{provider} · {key}",
   "tickets.drawer.started": "Started",
+  "tickets.drawer.worktree": "Worktree",
+  "tickets.drawer.branch": "Branch",
   "tickets.drawer.usage": "Usage",
   "tickets.drawer.liveActivity": "Live activity",
   "tickets.drawer.whatChanged": "What changed",

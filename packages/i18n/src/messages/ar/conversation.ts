@@ -74,6 +74,7 @@ export const messages = {
   "conversation.sidePanel.pane.question": "سؤال جانبي",
   "conversation.sidePanel.pane.voice": "الصوت",
   "conversation.sidePanel.pane.subagent": "إيجنت فرعي",
+  "conversation.sidePanel.pane.changes": "التغييرات",
   "conversation.sideQuestion.emptyTitle": "اسأل عن الشات ده",
   "conversation.sideQuestion.emptyBody": "{name} بيقرا الشات ده علشان يجاوب. ومفيش حاجة من هنا بترجع فيه.",
   "conversation.sideQuestion.messages": "رسائل السؤال الجانبي",

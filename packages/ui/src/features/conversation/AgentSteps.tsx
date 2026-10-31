@@ -4,7 +4,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
 import { Badge } from "../../badge";
 import { Button } from "../../button";
-import { Brain, ChevronRight, Puzzle, Sparkles } from "../../icons";
+import { Brain, ChevronRight, FilePen, Puzzle, Sparkles, Terminal, UsersRound } from "../../icons";
 import { type TextValue, useText } from "../../text";
 import { prefersReducedMotion } from "../../utils";
 import { useDuration } from "./Subagents";
@@ -15,9 +15,30 @@ import { type TraceKeyboard, type TraceSpan, TraceWaterfallDialog } from "./Trac
  * turn committed. `memory-summary` is the count that a host without the changes sends instead.
  * The text of `progress` and `memory-summary` is the host's English source text.
  */
+/** One file that a step changed, as the traces and the live steps both carry it. */
+export interface AgentStepFile {
+  path: string;
+  status: "added" | "modified" | "deleted";
+  additions?: number | undefined;
+  deletions?: number | undefined;
+}
+
+/** Whether a live step still runs, or how it ended. */
+export type AgentStepStatus = "running" | "done" | "failed";
+
 export type AgentStep =
   | { id: string; kind: "thinking"; text: string }
   | { id: string; kind: "progress"; text: string }
+  | {
+      id: string;
+      kind: "command";
+      text: string;
+      command?: string | undefined;
+      exitCode?: number | undefined;
+      status: AgentStepStatus;
+    }
+  | { id: string; kind: "file-change"; text: string; files: readonly AgentStepFile[]; status: AgentStepStatus }
+  | { id: string; kind: "subagent"; text: string; status: AgentStepStatus }
   | { id: string; kind: "memory"; change: ConversationMemoryChange }
   | { id: string; kind: "memory-summary"; text: string };
 
@@ -107,6 +128,54 @@ function stepBody(step: AgentStep, newest: boolean, text: TextValue): JSX.Elemen
       </span>
     );
   }
+  if (step.kind === "command") {
+    return (
+      <span class="agent-step-command">
+        <span class={["agent-step-text", { "agent-activity-label": newest }]}>{text.sourceText(step.text)}</span>
+        <Show when={step.command}>
+          {(command) => (
+            <span class="agent-step-terminal">
+              <span class="agent-step-terminal-command">{command()}</span>
+              <Show when={step.status === "failed" || (step.exitCode !== undefined && step.exitCode !== 0)}>
+                <span class="agent-step-exit">{text.t("chat.steps.exitCode", { code: step.exitCode ?? 1 })}</span>
+              </Show>
+            </span>
+          )}
+        </Show>
+      </span>
+    );
+  }
+  if (step.kind === "file-change") {
+    return (
+      <span class="agent-step-file-change">
+        <span class={["agent-step-text", { "agent-activity-label": newest }]}>{text.sourceText(step.text)}</span>
+        <span class="agent-step-files">
+          <For each={step.files}>
+            {(file) => (
+              <span class="agent-step-file" data-status={file.status}>
+                <span class="agent-step-file-name">{file.path}</span>
+                <span class="agent-step-file-counts">
+                  <Show when={file.additions !== undefined && file.additions > 0}>
+                    <span class="agent-step-file-additions">+{file.additions}</span>
+                  </Show>
+                  <Show when={file.deletions !== undefined && file.deletions > 0}>
+                    <span class="agent-step-file-deletions">-{file.deletions}</span>
+                  </Show>
+                </span>
+              </span>
+            )}
+          </For>
+        </span>
+      </span>
+    );
+  }
+  if (step.kind === "subagent") {
+    return (
+      <span class="agent-step-subagent">
+        <span class={["agent-step-text", { "agent-activity-label": newest }]}>{text.sourceText(step.text)}</span>
+      </span>
+    );
+  }
   const shown = step.kind === "thinking" ? step.text : text.sourceText(step.text);
   return <span class={["agent-step-text", { "agent-activity-label": newest }]}>{shown}</span>;
 }
@@ -116,6 +185,12 @@ function StepIcon(props: { kind: AgentStep["kind"] }) {
     <>
       {props.kind === "thinking" ? (
         <Sparkles class="agent-step-icon" aria-hidden="true" />
+      ) : props.kind === "command" ? (
+        <Terminal class="agent-step-icon" aria-hidden="true" />
+      ) : props.kind === "file-change" ? (
+        <FilePen class="agent-step-icon" aria-hidden="true" />
+      ) : props.kind === "subagent" ? (
+        <UsersRound class="agent-step-icon" aria-hidden="true" />
       ) : props.kind === "progress" ? (
         <Puzzle class="agent-step-icon" aria-hidden="true" />
       ) : (
@@ -125,9 +200,23 @@ function StepIcon(props: { kind: AgentStep["kind"] }) {
   );
 }
 
-/** The one-line summary of a finished turn's steps: "9 steps · Memory: 2 saved and 1 forgotten". */
+/**
+ * The one-line summary of a finished turn's steps: "9 steps · 2 files · Memory: 2 saved and
+ * 1 forgotten". The minimized line shows the same text, so a closed row still names its count.
+ */
 function stepsSummary(steps: readonly AgentStep[], text: TextValue): string {
-  const work = steps.filter((step) => step.kind === "thinking" || step.kind === "progress").length;
+  const work = steps.filter(
+    (step) =>
+      step.kind === "thinking" ||
+      step.kind === "progress" ||
+      step.kind === "command" ||
+      step.kind === "file-change" ||
+      step.kind === "subagent",
+  ).length;
+  const fileCount = steps.reduce(
+    (total, step) => total + (step.kind === "file-change" ? step.files.length : 0),
+    0,
+  );
   const changes = steps.flatMap((step) => (step.kind === "memory" ? [step.change] : []));
   const counts = countConversationMemoryChanges(changes);
   const memory = text.format.list(
@@ -140,6 +229,7 @@ function stepsSummary(steps: readonly AgentStep[], text: TextValue): string {
   const fallback = steps.find((step) => step.kind === "memory-summary");
   return [
     work > 0 ? text.t("chat.steps.count", { count: work }) : null,
+    fileCount > 0 ? text.t("chat.steps.files", { count: fileCount }) : null,
     changes.length > 0 ? text.t("chat.steps.memory", { changes: memory }) : null,
     fallback?.kind === "memory-summary" ? text.sourceText(fallback.text) : null,
   ]

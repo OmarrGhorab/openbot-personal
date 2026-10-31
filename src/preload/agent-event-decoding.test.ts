@@ -44,6 +44,23 @@ const hiddenAgents = {
   event: { type: "hidden-agents-changed", agents: [{ agentId: "agent-1", hiddenAt: "2026-10-16T09:00:00.000Z" }] },
 } satisfies ScopedAgentEvent;
 
+const turnStep = {
+  serverId: "local",
+  event: {
+    type: "turn-step",
+    agentId: "agent-1",
+    threadId: "thread-1",
+    turnId: "turn-1",
+    stepId: "item-1",
+    kind: "file-change",
+    status: "done",
+    text: "Making the requested changes…",
+    files: [{ path: "/workspace/notes.md", status: "modified", additions: 3, deletions: 1 }],
+    startedAt: "2026-10-30T10:00:00.000Z",
+    endedAt: "2026-10-30T10:00:01.000Z",
+  },
+} satisfies ScopedAgentEvent;
+
 const memoryChanges = {
   serverId: "local",
   event: {
@@ -95,6 +112,22 @@ describe("decodeScopedAgentEvent", () => {
     ["a hidden agents change", hiddenAgents],
     ["an empty hidden agents change", { serverId: "local", event: { type: "hidden-agents-changed", agents: [] } }],
     ["the memory changes of a turn", memoryChanges],
+    ["a live turn step", turnStep],
+    [
+      "a running command step without an end",
+      {
+        ...turnStep,
+        event: {
+          ...turnStep.event,
+          stepId: "item-2",
+          kind: "command",
+          status: "running",
+          command: "bun test",
+          files: undefined,
+          endedAt: undefined,
+        },
+      },
+    ],
   ] satisfies [string, ScopedAgentEvent][])("keeps %s", (_name, value) => {
     expect(decodeScopedAgentEvent(value)).toEqual(value);
   });
@@ -127,6 +160,13 @@ describe("decodeScopedAgentEvent", () => {
     [
       "a memory change with a text longer than a memory",
       withMemoryChange({ memoryId: "memory-1", action: "saved", text: "x".repeat(501) }),
+    ],
+    ["a turn step of an unknown kind", { ...turnStep, event: { ...turnStep.event, kind: "read" } }],
+    ["a turn step with no text", { ...turnStep, event: { ...turnStep.event, text: "" } }],
+    ["a turn step with a text longer than a step", { ...turnStep, event: { ...turnStep.event, text: "x".repeat(2001) } }],
+    [
+      "a turn step with a file that has no path",
+      { ...turnStep, event: { ...turnStep.event, files: [{ path: "", status: "modified" }] } },
     ],
     ["a value that is not a record", "event"],
   ])("rejects %s", (_name, value) => {

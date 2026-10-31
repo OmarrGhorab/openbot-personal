@@ -32,6 +32,8 @@ import type {
   TeamPresenceSnapshot,
   TeamRole,
   TeamSessionSummary,
+  TurnFileDiffResult,
+  TurnFilesResult,
   UpdateHostIdentityInput,
   UpdateTeamMemberInput,
 } from "@openbot/contracts/ipc";
@@ -62,6 +64,7 @@ import { TeamApiServer } from "./team-api-server";
 import type { RemoteDirectoryMember, TeamIdentity, TeamStore } from "./team-store";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";
 import { TeamWebRtcHostGateway } from "./team-webrtc-host-gateway";
+import { collectTurnFiles, findStoredFileDiff, readWorkspaceFileDiff } from "./turn-file-diff";
 
 export const DEVELOPMENT_REMOTE_CLIENT_USERNAME = "openbot-dev-client";
 
@@ -1098,6 +1101,41 @@ export class HostService extends EventEmitter<HostEvents> {
 
   searchAgentConversationFiles(query: string, cursor?: string, limit = 50) {
     return this.#options.agents.searchConversationFiles(query, cursor, limit);
+  }
+
+  /** The files of one turn (or the whole thread) from the host's stored trace steps. */
+  listTurnFiles(agentId: string, turnId?: string): Effect.Effect<TurnFilesResult, RemoteWorkflowError> {
+    return remoteDecode(() => this.#currentAgentReaderId()).pipe(
+      Effect.flatMap((readerId) => this.#options.agents.readConversationFor(agentId, readerId)),
+      Effect.map((conversation) => collectTurnFiles(agentId, conversation, turnId)),
+      Effect.mapError((failure) => new RemoteWorkflowError({ cause: failure })),
+    );
+  }
+
+  /**
+   * The working-tree diff and the text of one workspace file. A file outside the workspace is
+   * refused, even when the agent may read it: the panel shows only the agent's own changes.
+   */
+  readTurnFileDiff(agentId: string, inputPath: string): Effect.Effect<TurnFileDiffResult, RemoteWorkflowError> {
+    return this.#options.agents.resolveWorkspaceFile(agentId, inputPath).pipe(
+      Effect.flatMap((resolved) =>
+        resolved.insideWorkspace
+          ? Effect.gen({ self: this }, function* () {
+              const current = yield* Effect.promise(() => readWorkspaceFileDiff(resolved.path));
+              // The diff of the turn comes first: the tool wrote it, so it needs no git checkout.
+              const stored = yield* remoteDecode(() => this.#currentAgentReaderId()).pipe(
+                Effect.flatMap((readerId) => this.#options.agents.readConversationFor(agentId, readerId)),
+                Effect.map((conversation) => findStoredFileDiff(conversation, inputPath)),
+                Effect.orElseSucceed(() => null),
+              );
+              return stored ? { ...current, diff: stored } : current;
+            })
+          : Effect.fail(new RemoteWorkflowError({ cause: "outside the agent workspace" })),
+      ),
+      Effect.mapError((failure) =>
+        failure instanceof RemoteWorkflowError ? failure : new RemoteWorkflowError({ cause: failure }),
+      ),
+    );
   }
 
   listAgentConversationReads() {

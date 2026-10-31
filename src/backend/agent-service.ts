@@ -3745,6 +3745,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     );
   }
 
+  /** The worktree path and branch of a task, for its ticket. Null when it shares the agent workspace. */
+  taskWorktree(taskId: string): { path: string; branch: string } | null {
+    return this.#tasks.worktreeOf(taskId);
+  }
+
   /** The conversation of one task, for its panel. */
   readTask(agentId: string, taskId: string): ConversationSnapshot {
     return structuredClone(this.#tasks.read(agentId, taskId));
@@ -3756,6 +3761,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     input: StartAgentTaskInput,
     sender?: ConversationMessageSender,
     timezone?: string,
+    ticket?: { title: string },
   ): Effect.fn.Return<AgentTask, AgentLifecycleFailed> {
     const task = yield* lifecycleStep("start task", () => {
       if (!this.listAgents().some((agent) => agent.id === input.agentId))
@@ -3763,12 +3769,21 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       this.#requireNotHidden(input.agentId);
       return this.#tasks.create(input.agentId, input.text, "user");
     });
+    let text = input.text;
+    if (ticket) {
+      // A ticket always runs in its own worktree and branch, so parallel tickets never share a checkout.
+      const workspacePath = this.#store.list().find((agent) => agent.id === task.agentId)?.workspacePath;
+      const worktree = workspacePath
+        ? yield* this.#tasks.prepareTicketWorkspace(task, workspacePath, input.text, ticket.title)
+        : null;
+      if (worktree) text = `${input.text}\n\n${ticketWorktreeNote(worktree)}`;
+    }
     this.#tasks.changed(task.agentId);
     yield* this.sendMessage(
       {
         agentId: task.agentId,
         taskId: task.taskId,
-        text: input.text,
+        text,
         ...(input.attachmentDraftIds ? { attachmentDraftIds: input.attachmentDraftIds } : {}),
         ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
       },
@@ -4601,4 +4616,15 @@ function settleLifecycleTasks<A>(
       discard: true,
     },
   );
+}
+
+/**
+ * The line that a ticket's first message ends with: the worktree and branch it owns. The session already
+ * runs there; the line keeps the agent from changing to the main checkout that the ticket text names.
+ */
+export function ticketWorktreeNote(worktree: { path: string; branch: string }): string {
+  return [
+    `Your worktree for this ticket: ${worktree.path} (branch ${worktree.branch}).`,
+    "Do all edits, git commands and tests there. Never run git checkout, switch, reset or stash in the main checkout; it belongs to the person and to other tickets.",
+  ].join("\n");
 }

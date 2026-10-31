@@ -55,6 +55,7 @@ import { agentIpcHandlers } from "./ipc/agent-handlers";
 import { agentImportIpcHandlers } from "./ipc/agent-import-handlers";
 import { agentQuestionIpcHandlers } from "./ipc/agent-question-handlers";
 import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
+import { agentTurnFilesIpcHandlers } from "./ipc/agent-turn-files-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
 import { autonomyIpcHandlers } from "./ipc/autonomy-handlers";
@@ -688,6 +689,13 @@ function registerIpcHandlers({
     ...routineFeedIpcHandlers({ routineFeed }),
     ...monitorIpcHandlers({
       monitor,
+      mainRendererIds: () => {
+        const window = windowHolder.current;
+        return new Set(window && !window.isDestroyed() ? [window.webContents.id] : []);
+      },
+    }),
+    ...agentTurnFilesIpcHandlers({
+      host,
       mainRendererIds: () => {
         const window = windowHolder.current;
         return new Set(window && !window.isDestroyed() ? [window.webContents.id] : []);

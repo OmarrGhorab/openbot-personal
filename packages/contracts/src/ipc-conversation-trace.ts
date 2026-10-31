@@ -11,6 +11,16 @@ import { isDynamicRecord, isNumber, isOneOf } from "./runtime-values";
 export const CONVERSATION_TRACE_STEP_KINDS = ["reasoning", "tool", "message"] as const;
 export type ConversationTraceStepKind = (typeof CONVERSATION_TRACE_STEP_KINDS)[number];
 
+/** One file a tool step changed, kept so a finished turn keeps its Changes panel after a restart. */
+export interface ConversationTraceStepFile {
+  path: string;
+  status: "added" | "modified" | "deleted";
+  additions?: number | undefined;
+  deletions?: number | undefined;
+  /** The unified diff of the change, so a finished turn shows it without git. Redacted. */
+  diff?: string | undefined;
+}
+
 export interface ConversationTraceStep {
   /** The provider's item id. */
   id: string;
@@ -21,6 +31,8 @@ export interface ConversationTraceStep {
   command?: string | undefined;
   /** On a `send_message` step: the agents that the message went to. */
   recipientAgentIds?: string[] | undefined;
+  /** On a file-change step: the files it changed, up to the per-trace limit. */
+  files?: ConversationTraceStepFile[] | undefined;
   startedAt: string;
   /** Null when the turn ended before the provider completed the item. */
   endedAt: string | null;
@@ -41,6 +53,8 @@ export interface ConversationTurnTrace {
 
 export const CONVERSATION_TRACE_STEP_LIMIT = 500;
 export const CONVERSATION_TRACE_TEXT_LIMIT = 500;
+/** The files of one trace step. The live budget is tighter; the trace keeps what it can hold. */
+export const CONVERSATION_TRACE_FILE_LIMIT = 32;
 const TIME_LIMIT = 160;
 
 export function isConversationTurnTrace(value: unknown): value is ConversationTurnTrace {
@@ -56,6 +70,19 @@ export function isConversationTurnTrace(value: unknown): value is ConversationTu
   );
 }
 
+const TRACE_FILE_STATUSES = ["added", "modified", "deleted"] as const;
+
+function isConversationTraceStepFile(value: unknown): value is ConversationTraceStepFile {
+  return (
+    isDynamicRecord(value) &&
+    isBoundedString(value.path, INPUT_LIMITS.path) &&
+    isOneOf(TRACE_FILE_STATUSES, value.status) &&
+    (value.additions === undefined || isCount(value.additions)) &&
+    (value.deletions === undefined || isCount(value.deletions)) &&
+    (value.diff === undefined || isBoundedString(value.diff, INPUT_LIMITS.turnStepDiff))
+  );
+}
+
 function isConversationTraceStep(value: unknown): value is ConversationTraceStep {
   return (
     isDynamicRecord(value) &&
@@ -67,6 +94,10 @@ function isConversationTraceStep(value: unknown): value is ConversationTraceStep
       (Array.isArray(value.recipientAgentIds) &&
         value.recipientAgentIds.length <= INPUT_LIMITS.messageRecipients &&
         value.recipientAgentIds.every(isIdentifier))) &&
+    (value.files === undefined ||
+      (Array.isArray(value.files) &&
+        value.files.length <= CONVERSATION_TRACE_FILE_LIMIT &&
+        value.files.every(isConversationTraceStepFile))) &&
     isBoundedString(value.startedAt, TIME_LIMIT) &&
     isNullableBoundedString(value.endedAt, TIME_LIMIT) &&
     (value.failed === undefined || value.failed === true)

@@ -107,6 +107,8 @@ export const messages = {
   "tickets.drawer.sourceLocal": "اتعملت في OpenBot",
   "tickets.drawer.sourceExternal": "{provider} · {key}",
   "tickets.drawer.started": "بدأت",
+  "tickets.drawer.worktree": "مجلد الشغل",
+  "tickets.drawer.branch": "الفرع",
   "tickets.drawer.usage": "الاستخدام",
   "tickets.drawer.liveActivity": "النشاط دلوقتي",
   "tickets.drawer.whatChanged": "إيه اللي اتغيّر",
