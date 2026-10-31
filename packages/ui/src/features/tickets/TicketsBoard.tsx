@@ -75,11 +75,11 @@ export function TicketsViewSwitch(props: { view: TicketsView; onChange: (view: T
   );
 }
 
-/** "N of M threads running" for one agent. */
+/** "N of M threads running" for one agent, with a hover hint that says what a thread is (ticket 259). */
 export function ThreadCount(props: { snapshot: AgentTasksSnapshot | undefined; class: string }) {
   const { t } = useText();
   return (
-    <span class={props.class}>
+    <span class={props.class} title={t("tickets.agent.threadsHint", { limit: props.snapshot?.limit ?? 1 })}>
       {t("tickets.agent.threads", { running: runningThreads(props.snapshot), limit: props.snapshot?.limit ?? 1 })}
     </span>
   );
@@ -181,7 +181,11 @@ export function TicketsFilterChips(
           onPress={() => toggle(unassigned)}
         />
       </fieldset>
-      <span class="tickets-threads" data-busy={threads().running > 0 ? "" : undefined}>
+      <span
+        class="tickets-threads"
+        data-busy={threads().running > 0 ? "" : undefined}
+        title={t("tickets.agent.threadsHint", { limit: threads().limit })}
+      >
         <span class="tickets-threads-dot" aria-hidden="true" />
         {t("tickets.agent.threads", threads())}
       </span>

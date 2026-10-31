@@ -3,6 +3,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentModelId,
   AgentProviderId,
+  AgentReasoningEffort,
   AgentStatus,
   AvatarHue,
   ClientAgentModelOption,
@@ -30,6 +31,8 @@ export interface FirstAgentDraft {
   suggestionId: string | null;
   provider: AgentProviderId;
   model: AgentModelId;
+  /** The effort the user picked (ticket 259). Absent, the model's default effort applies. */
+  reasoningEffort?: AgentReasoningEffort | undefined;
 }
 
 /**
@@ -312,6 +315,13 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
     }, 0);
   }
 
+  /** The effort the form shows: the user's pick, else the default effort of the chosen model. */
+  function shownEffort(options: ClientAgentModelOption[]): AgentReasoningEffort {
+    if (props.value.reasoningEffort) return props.value.reasoningEffort;
+    const model = options.find((option) => option.id === props.value.model);
+    return model?.defaultReasoningEffort ?? "medium";
+  }
+
   function updateDraft(updates: Partial<FirstAgentDraft>): void {
     if (props.submitting) return;
     const next = { ...props.value, ...updates };
@@ -332,6 +342,7 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
       suggestionId: suggestion.id,
       provider: props.value.provider,
       model: props.value.model,
+      reasoningEffort: props.value.reasoningEffort,
     });
   }
 
@@ -500,7 +511,9 @@ export function FirstAgentSetup(props: FirstAgentSetupProps) {
                       onAddCustomProvider={props.onAddCustomProvider}
                       onManageProviders={props.onManageProviders}
                       disabled={props.submitting}
-                      onChange={(model, provider) => updateDraft({ model, provider })}
+                      reasoningEffort={shownEffort(options())}
+                      onReasoningEffortChange={(reasoningEffort) => updateDraft({ reasoningEffort })}
+                      onChange={(model, provider) => updateDraft({ model, provider, reasoningEffort: undefined })}
                     />
                   )}
                 </Show>
