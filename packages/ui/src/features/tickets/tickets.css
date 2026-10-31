@@ -2315,3 +2315,27 @@
 .ticket-comment-box > :first-child {
   width: 100%;
 }
+
+/* ticket 253: the heading shrinks with an ellipsis and never runs under the tools, in LTR and RTL. */
+.tickets-page-header .tickets-heading,
+.tickets-page-header .tickets-heading-title {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.tickets-page-header .tickets-heading-title {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  overflow: hidden;
+}
+.tickets-page-header h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tickets-page-header .tickets-page-tools {
+  flex: 0 0 auto;
+}
+.tickets-page-stats {
+  padding: 0 var(--openbot-space-6) var(--openbot-space-2);
+}

@@ -215,12 +215,6 @@ export function TicketsPage(props: TicketsPageProps) {
                 <TicketsAutopilotPill tickets={props.tickets} autopilot={autopilot()} />
               </Show>
             </div>
-            <Show when={props.available && props.loaded}>
-              <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
-            </Show>
-            <Show when={props.available && empty()}>
-              <p class="tickets-page-subtitle tickets-muted">{t("tickets.empty.title")}</p>
-            </Show>
           </div>
           <Show when={props.available}>
             <div class="tickets-page-tools">
@@ -249,6 +243,15 @@ export function TicketsPage(props: TicketsPageProps) {
           when={props.available}
           fallback={<TicketsNotice title={t("tickets.unavailable.title")} body={t("tickets.unavailable.body")} />}
         >
+          {/* ticket 253: the stats live in the page body, never in the 32 px title row. */}
+          <div class="tickets-page-stats">
+            <Show when={props.loaded}>
+              <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
+            </Show>
+            <Show when={empty()}>
+              <p class="tickets-page-subtitle tickets-muted">{t("tickets.empty.title")}</p>
+            </Show>
+          </div>
           <TicketsFilterChips
             agents={props.agents}
             tickets={props.tickets}
