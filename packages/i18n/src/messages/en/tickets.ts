@@ -8,6 +8,8 @@ export const messages = defineMessages("tickets", {
   "tickets.view.agents": "By agent",
   "tickets.new": "New ticket",
   "tickets.agent.threads": "{running} of {limit} threads running",
+  "tickets.agent.threadsHint":
+    "Each running ticket uses one thread. At most {limit} tickets can run at the same time. Other tickets wait in the queue.",
   "tickets.status.backlog": "Backlog",
   "tickets.status.queued": "Queued",
   "tickets.status.running": "Running",

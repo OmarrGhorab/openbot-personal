@@ -8,6 +8,8 @@ export const messages = {
   "tickets.view.agents": "حسب الإيجنت",
   "tickets.new": "تذكرة جديدة",
   "tickets.agent.threads": "{running} من {limit} ثريد شغالين",
+  "tickets.agent.threadsHint":
+    "كل تذكرة شغالة بتاخد ثريد واحد. بحد أقصى {limit} تذاكر ممكن تشتغل في نفس الوقت، والباقي بيستنى في الطابور.",
   "tickets.status.backlog": "المتأجل",
   "tickets.status.queued": "في الطابور",
   "tickets.status.running": "شغالة",
