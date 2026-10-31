@@ -478,6 +478,13 @@
   white-space: nowrap;
 }
 
+/* ticket 256: a failure reason wraps and is read in full, never cut with an ellipsis. */
+.agent-routine-run-note.agent-routine-run-reason {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .agent-routine-history-error {
   margin-bottom: var(--openbot-space-2);
 }
