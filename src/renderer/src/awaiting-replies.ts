@@ -43,6 +43,17 @@ export function agentAwaitingReplies(input: AgentAwaitingInput): AwaitingReplyIt
   const lastUserIndex = input.messages.findLastIndex((message) => message.author === "you");
   const rows: AwaitingReplyItem[] = [];
   const shownReplies = new Set<string>();
+  // An answer the transcript already shows: its reply left the queue when it was read, so only
+  // the transcript still links it to the question. Without this a delivery whose status lags
+  // behind keeps the teammate at "Working" after they answered.
+  const transcriptAnswers = new Map<string, AgentMessage>();
+  for (const message of input.messages) {
+    const replyTo = message.replyToMessageId;
+    const sender = message.senderAgentId;
+    if (message.author !== "agent" || message.exchange?.direction === "outgoing") continue;
+    if (typeof replyTo !== "string" || !sender || transcriptAnswers.has(`${replyTo}:${sender}`)) continue;
+    transcriptAnswers.set(`${replyTo}:${sender}`, message);
+  }
   input.messages.forEach((message, index) => {
     const exchange = message.exchange;
     if (exchange?.direction !== "outgoing" || exchange.expectsReply === false) return;
@@ -58,6 +69,14 @@ export function agentAwaitingReplies(input: AgentAwaitingInput): AwaitingReplyIt
       if (reply) {
         shownReplies.add(reply.id);
         rows.push(rowFor(delivery.recipientAgentId, "replied", id, reply));
+        continue;
+      }
+      const transcriptAnswer = transcriptAnswers.get(`${exchange.messageId}:${delivery.recipientAgentId}`);
+      if (transcriptAnswer) {
+        rows.push({
+          ...rowFor(delivery.recipientAgentId, "replied", id),
+          preview: previewText(replyResult(transcriptAnswer.body)),
+        });
         continue;
       }
       const state = deliveryState(delivery.status);

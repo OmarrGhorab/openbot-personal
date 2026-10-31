@@ -226,10 +226,10 @@ export function attachmentIpcHandlers({
       openWorkspaceFile: scopedHandler(parseOpenWorkspaceFile, {
         local: async (parsed) => {
           const workspaceFile = await runCauseEffect(service.resolveLocalWorkspaceFile(parsed.agentId, parsed.path));
-          // A file outside the workspace can be anything on the computer, including a program, so it is
-          // shown in the file manager rather than run.
+          // A file outside every agent workspace can be anything on the computer, including a
+          // program, so it is shown in the file manager rather than run.
           await deliverLocalFile(workspaceFile.path, workspaceFile.name, parsed.action, async () => {
-            if (workspaceFile.insideWorkspace) await openPath(workspaceFile.path);
+            if (workspaceFile.safeToOpen) await openPath(workspaceFile.path);
             else shell.showItemInFolder(workspaceFile.path);
           });
         },

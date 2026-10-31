@@ -22,6 +22,13 @@ export interface ResolvedSharedFile {
 
 export interface ResolvedWorkspaceFile extends ResolvedSharedFile {
   insideWorkspace: boolean;
+  /**
+   * Whether the app may open the file directly. Inside the workspace it always may; outside it
+   * only when the file sits under the managed Agents (or pre-rename Bots) tree, which holds
+   * nothing but the user's own agents, and only for a caller that may go outside at all.
+   * Anything else outside only reveals in the file manager, never runs.
+   */
+  safeToOpen: boolean;
 }
 
 /** A line or column reference that agents write after a path: `:12`, `:12:3`, `#L12`, `#L12-L20`, `#L12C3`. */
@@ -80,6 +87,19 @@ export function rebaseLegacyWorkspacePath(workspacePath: string, agentId: string
  * agent's messages to where it *would* have gone, so the fallback has to run in both directions or those
  * links stay broken for exactly the users whose move failed.
  */
+/**
+ * The managed tree this workspace sits in: the Agents (or pre-rename Bots) folder holding every
+ * agent's workspace, or null for a workspace path with another layout. Derived from the real path
+ * so it compares soundly with resolved candidates.
+ */
+function managedAgentsRoot(workspaceRoot: string, agentId: string): string | null {
+  const parent = dirname(workspaceRoot);
+  const name = basename(workspaceRoot);
+  if (name !== agentId && name !== legacyAgentId(agentId)) return null;
+  if (basename(parent) !== "Agents" && basename(parent) !== "Bots") return null;
+  return parent;
+}
+
 function counterpartWorkspaceRoot(workspacePath: string, agentId: string): string | null {
   const parent = dirname(workspacePath);
   const legacyId = legacyAgentId(agentId);
@@ -195,8 +215,11 @@ const resolveWorkspacePath = Effect.fn("Workspace.resolveWorkspacePath")(functio
   if (!insideWorkspace && !options.allowOutside) {
     return yield* refuse("outside", sourceText("error.backend.workspaceFileOutside"), memberMessage);
   }
+  const managedRoot = managedAgentsRoot(workspaceRoot, agent.id);
+  const safeToOpen =
+    insideWorkspace || (options.allowOutside === true && managedRoot !== null && isWithin(managedRoot, resolvedPath));
   const metadata = yield* attachmentCall(() => stat(resolvedPath));
-  return { workspaceRoot, resolvedPath, insideWorkspace, metadata };
+  return { workspaceRoot, resolvedPath, insideWorkspace, safeToOpen, metadata };
 });
 
 /**
@@ -218,9 +241,13 @@ export const resolveWorkspaceFile = Effect.fn("Workspace.resolveWorkspaceFile")(
   inputPath: string,
   options: { allowOutside?: boolean; fileHistory?: readonly string[] } = {},
 ): Effect.fn.Return<ResolvedWorkspaceFile, AttachmentOperationError> {
-  const { resolvedPath, insideWorkspace, metadata } = yield* resolveWorkspacePath(agent, inputPath, options);
+  const { resolvedPath, insideWorkspace, safeToOpen, metadata } = yield* resolveWorkspacePath(
+    agent,
+    inputPath,
+    options,
+  );
   if (!metadata.isFile()) return yield* refuse("not-file", sourceText("error.backend.workspacePathNotFile"));
-  return { path: resolvedPath, name: basename(resolvedPath), size: metadata.size, insideWorkspace };
+  return { path: resolvedPath, name: basename(resolvedPath), size: metadata.size, insideWorkspace, safeToOpen };
 });
 
 /**

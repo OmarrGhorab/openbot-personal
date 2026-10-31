@@ -330,8 +330,20 @@ const fakeAgents: TeamApiAgents = {
     Effect.sync(() => {
       record("resolveWorkspaceFile", agentId, path);
       return path === "big.bin"
-        ? { path: workspacePath, name: "big.bin", size: ATTACHMENT_LIMITS.fileBytes + 1, insideWorkspace: true }
-        : { path: workspacePath, name: "notes.md", size: readFileSync(workspacePath).length, insideWorkspace: true };
+        ? {
+            path: workspacePath,
+            name: "big.bin",
+            size: ATTACHMENT_LIMITS.fileBytes + 1,
+            insideWorkspace: true,
+            safeToOpen: true,
+          }
+        : {
+            path: workspacePath,
+            name: "notes.md",
+            size: readFileSync(workspacePath).length,
+            insideWorkspace: true,
+            safeToOpen: true,
+          };
     }),
   deleteAgent: (agentId) => Effect.sync(() => record("deleteAgent", agentId)),
   getRuntimeSnapshot: unused("getRuntimeSnapshot"),

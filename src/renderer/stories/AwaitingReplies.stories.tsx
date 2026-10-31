@@ -1,7 +1,8 @@
-import type { AgentProfile } from "@openbot/ui/data";
+import type { AgentMessage, AgentProfile } from "@openbot/ui/data";
 import { AwaitingReplies, type AwaitingReplyItem } from "@openbot/ui/features/conversation/AwaitingReplies";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { agentAwaitingReplies } from "../src/awaiting-replies";
 import { requireFixture, STORY_AGENTS } from "../src/preview/fixtures";
 
 /*
@@ -54,6 +55,66 @@ export const OneFailed: Story = {
       { id: "reply-sales", agent: sales, name: sales.name, state: "working" },
     ],
   },
+};
+
+/*
+ * Issue #310: the teammate's answer is already in the transcript (its reply left the queue when
+ * it was read), but the outgoing delivery still runs. The row must show Replied, not Working.
+ * The items come from the real `agentAwaitingReplies`, so this story goes red on the old code.
+ */
+const issue310Self: AgentProfile = requireFixture(STORY_AGENTS[0], "Story agent");
+const issue310Mate: AgentProfile = requireFixture(STORY_AGENTS[1], "Research agent");
+const issue310Messages: AgentMessage[] = [
+  {
+    id: "outbox-issue310",
+    author: "agent",
+    body: "Please add the missing acceptance case.",
+    time: "2026-10-31T17:09:55.436Z",
+    exchange: {
+      direction: "outgoing",
+      messageId: "issue310-m1",
+      senderAgentId: issue310Self.id,
+      recipientAgentIds: [issue310Mate.id],
+      replyToMessageId: null,
+      deliveries: [
+        { id: "issue310-d1", recipientAgentId: issue310Mate.id, status: "running", position: null, error: null },
+      ],
+    },
+  },
+  {
+    id: "issue310-reply",
+    author: "agent",
+    body: "Status: done\nResult: Added the story.\nEvidence: typecheck passed.",
+    time: "2026-10-31T17:13:52.593Z",
+    senderAgentId: issue310Mate.id,
+    replyToMessageId: "issue310-m1",
+    exchange: {
+      direction: "incoming",
+      messageId: "issue310-reply",
+      senderAgentId: issue310Mate.id,
+      recipientAgentIds: [issue310Self.id],
+      replyToMessageId: "issue310-m1",
+      expectsReply: false,
+      deliveries: [
+        { id: "issue310-d2", recipientAgentId: issue310Self.id, status: "completed", position: null, error: null },
+      ],
+    },
+  },
+];
+
+const issue310Items = agentAwaitingReplies({
+  messages: issue310Messages,
+  queue: { agentId: issue310Self.id, deliveries: [] },
+  agents: [issue310Self, issue310Mate],
+  self: issue310Self,
+});
+
+export const Issue310AnsweredWhileRunning: Story = {
+  render: () => (
+    <main style={{ width: "min(640px, 100vw)", padding: "var(--openbot-space-4)" }}>
+      <AwaitingReplies items={issue310Items} />
+    </main>
+  ),
 };
 
 /** Every agent is done, so the block has a close button. */
