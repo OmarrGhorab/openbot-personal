@@ -460,7 +460,7 @@
 
   /* The rail and the agent list are the way back, so the title has no Back button and no server name. */
   .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header > .ui-icon-button,
-  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header > h2 > span {
+  .app-window > .app-frame-edge > .app-frame-panes .tickets-page-header h2 > span {
     display: none;
   }
 
