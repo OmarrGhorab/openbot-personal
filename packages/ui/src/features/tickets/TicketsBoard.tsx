@@ -26,7 +26,6 @@ import { TicketStackPill } from "./TicketAutopilotDecision";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
   autopilotRunning,
-  boardThreads,
   columnTickets,
   filterTickets,
   hasQuickAdd,
@@ -149,13 +148,12 @@ function TicketsChip(props: {
 
 /**
  * The filter chips above the board: every agent, one chip for each agent with its ticket count, and the
- * unassigned tickets. A second click on a chip clears the filter. At the end, the running threads of all agents.
+ * unassigned tickets. A second click on a chip clears the filter. The live strip shows the running threads.
  */
 export function TicketsFilterChips(
   props: TicketsBoardData & { filter: TicketsFilter | null; onFilter: (filter: TicketsFilter | null) => void },
 ) {
   const { t } = useText();
-  const threads = () => boardThreads(props.agents, props.snapshots);
   const toggle = (filter: TicketsFilter) => props.onFilter(sameTicketsFilter(props.filter, filter) ? null : filter);
   const unassigned: TicketsFilter = { kind: "unassigned" };
   return (
@@ -193,14 +191,6 @@ export function TicketsFilterChips(
           onPress={() => toggle(unassigned)}
         />
       </fieldset>
-      <span
-        class="tickets-threads"
-        data-busy={threads().running > 0 ? "" : undefined}
-        title={t("tickets.agent.threadsHint", { limit: threads().limit })}
-      >
-        <span class="tickets-threads-dot" aria-hidden="true" />
-        {t("tickets.agent.threads", threads())}
-      </span>
     </div>
   );
 }

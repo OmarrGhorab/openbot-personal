@@ -1,8 +1,9 @@
 import type { AgentTask, AgentTasksSnapshot } from "@openbot/contracts/ipc";
-import { Button, IconButton, PanelRight } from "@openbot/ui";
+import { Activity, Button, IconButton, PanelRight } from "@openbot/ui";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
-import { For, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import { createSignal, For, Show } from "solid-js";
 import type { TicketsThreadControls } from "./TicketsAgentPanel";
 import { agentMood, type TicketsBoardData } from "./TicketsBoard";
 import {
@@ -64,9 +65,15 @@ interface WorkAgentsPanelProps extends TicketsBoardData, TicketsThreadControls {
   onHide: () => void;
   onOpenTicket: (ticketId: string) => void;
   onSelectAgent: (agentId: string) => void;
-  /** Opens the full Monitor page. Absent: no link. */
-  onOpenMonitor?: (() => void) | undefined;
+  /** More content at the end of the panel, such as the channels list. */
+  extra?: JSX.Element | undefined;
+  /** Opens the live details of an agent: its current task, tool calls and thread. */
+  onAgentDetails?: ((agentId: string) => void) | undefined;
+  /** The agents that have live details. Absent: none. */
+  detailAgentIds?: ReadonlySet<string> | undefined;
 }
+
+const STATE_FILTERS: readonly WorkAgentState[] = ["working", "waiting", "error", "idle"];
 
 /**
  * The Agents panel at the side of the Work page. It replaces the Monitor grid: each agent with its live
@@ -74,6 +81,14 @@ interface WorkAgentsPanelProps extends TicketsBoardData, TicketsThreadControls {
  */
 export function WorkAgentsPanel(props: WorkAgentsPanelProps) {
   const { t } = useText();
+  /** The status tab: only the agents in this state. Null shows every agent. */
+  const [stateFilter, setStateFilter] = createSignal<WorkAgentState | null>(null);
+  const shown = () => {
+    const only = stateFilter();
+    return only === null
+      ? props.agents
+      : props.agents.filter((agent) => workAgentState(props.snapshots[agent.id]) === only);
+  };
   return (
     <aside class="work-agents" aria-label={t("tickets.work.agents")}>
       <header class="work-agents-header">
@@ -83,8 +98,34 @@ export function WorkAgentsPanel(props: WorkAgentsPanelProps) {
           {t("tickets.work.hide")}
         </Button>
       </header>
+      <fieldset class="work-agents-tabs" aria-label={t("tickets.work.statusFilter")}>
+        <Button
+          size="sm"
+          variant={stateFilter() === null ? "secondary" : "ghost"}
+          aria-pressed={stateFilter() === null ? "true" : "false"}
+          onClick={() => setStateFilter(null)}
+        >
+          {t("tickets.filter.all")}
+        </Button>
+        <For each={STATE_FILTERS}>
+          {(state) => (
+            <Button
+              size="sm"
+              variant={stateFilter() === state ? "secondary" : "ghost"}
+              aria-pressed={stateFilter() === state ? "true" : "false"}
+              onClick={() => setStateFilter(stateFilter() === state ? null : state)}
+            >
+              <span class="work-live-dot" data-state={state} aria-hidden="true" />
+              {t(STATE_LABEL[state])}
+            </Button>
+          )}
+        </For>
+      </fieldset>
       <div class="work-agents-list">
-        <For each={props.agents} keyed={(agent) => agent.id}>
+        <Show when={shown().length === 0}>
+          <p class="work-agent-line tickets-muted">{t("tickets.work.noAgentsInState")}</p>
+        </Show>
+        <For each={shown()} keyed={(agent) => agent.id}>
           {(agent) => {
             const snapshot = (): AgentTasksSnapshot | undefined => props.snapshots[agent().id];
             const state = (): WorkAgentState => workAgentState(snapshot());
@@ -103,6 +144,22 @@ export function WorkAgentsPanel(props: WorkAgentsPanelProps) {
                     <span class="work-live-dot" data-state={state()} aria-hidden="true" />
                     {t(STATE_LABEL[state()])}
                   </span>
+                  <Show
+                    when={
+                      props.onAgentDetails && props.detailAgentIds?.has(agent().id) ? props.onAgentDetails : undefined
+                    }
+                  >
+                    {(open) => (
+                      <IconButton
+                        variant="ghost"
+                        size="icon-sm"
+                        label={t("tickets.work.details", { name: agent().name })}
+                        onClick={() => open()(agent().id)}
+                      >
+                        <Activity />
+                      </IconButton>
+                    )}
+                  </Show>
                 </div>
                 <Show
                   when={ticket()}
@@ -140,13 +197,7 @@ export function WorkAgentsPanel(props: WorkAgentsPanelProps) {
           }}
         </For>
       </div>
-      <Show when={props.onOpenMonitor}>
-        {(open) => (
-          <Button variant="ghost" size="sm" class="work-agents-monitor" onClick={() => open()()}>
-            {t("tickets.work.openMonitor")}
-          </Button>
-        )}
-      </Show>
+      {props.extra}
     </aside>
   );
 }

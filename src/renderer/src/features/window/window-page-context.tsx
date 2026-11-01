@@ -19,7 +19,7 @@ export type WindowPage =
   | "server-settings";
 
 /**
- * How a page sits in the window. The Monitor and the tasks page show in the middle pane, as the agents do. The agent
+ * How a page sits in the window. The Monitor (web only) and the Work page show in the middle pane, as the agents do. The agent
  * list beside it is hidden until the user shows it. A settings page starts below the top row. The title of a schedule, usage or Marketplace
  * page goes in the top row after the server menu.
  */
@@ -53,14 +53,17 @@ const context = createSimpleContext({
     /** The elements of the settings page that the settings panel shows in. The page sets them. */
     const [settingsMounts, setSettingsMounts] = createSignal<{ nav: HTMLElement; content: HTMLElement } | undefined>();
 
-    /** Whether the Monitor shows in place of the agents. A page over it keeps it, so Back returns to it. */
-    const [monitorOpen, setMonitorOpen] = createSignal(false);
+    /**
+     * Whether the Work page shows the live view of a channel in place of the board. The old Monitor
+     * page and its deep links open the Work page with this view.
+     */
+    const [workLive, setWorkLive] = createSignal(false);
     const page = createMemo<WindowPage>(() => {
       if (serverSettings.serverSettingsOpen()) return "server-settings";
       if (settings.appSettingsOpen()) return "settings";
       if (settings.skillsMarketplaceOpen()) return "marketplace";
       if (usage.state.serverId) return usage.state.view;
-      return monitorOpen() ? "monitor" : "agents";
+      return "agents";
     });
 
     /** Whether the agent list shows beside the Tasks page. Each time the page opens, the list is hidden. */
@@ -104,9 +107,9 @@ const context = createSimpleContext({
       if (untrack(serverSettings.serverSettingsOpen)) serverSettings.setServerSettingsOpen(false);
     });
 
-    // The Monitor reads the channels of this computer. Another server closes it.
+    // The live view reads the channels of this computer. Another server closes it.
     createEffect(activeServerId, (serverId, previous) => {
-      if (previous !== undefined && serverId !== previous) setMonitorOpen(false);
+      if (previous !== undefined && serverId !== previous) setWorkLive(false);
     });
 
     // The server settings page follows the server that the user selects.
@@ -131,21 +134,24 @@ const context = createSimpleContext({
       setTasksAgentsOpen: (open: boolean) => setTasksAgentsOpen(open),
       setSettingsMounts,
       settingsPlacement,
-      /** Shows the agents and closes the other pages, the Monitor too. */
+      workLive,
+      setWorkLive: (open: boolean) => setWorkLive(open),
+      /** Shows the agents and closes the other pages. */
       showAgents() {
-        setMonitorOpen(false);
         settings.setAppSettingsOpen(false);
         serverSettings.setServerSettingsOpen(false);
         settings.setSkillsMarketplaceOpen(false);
         usage.dismissUsage();
       },
-      /** Shows the Monitor and closes the other pages. */
+      /**
+       * The old Monitor page. It now opens the Work page with the live view of the last channel, so
+       * every link to the Monitor still works.
+       */
       openMonitor() {
-        settings.setAppSettingsOpen(false);
-        serverSettings.setServerSettingsOpen(false);
-        settings.setSkillsMarketplaceOpen(false);
-        usage.dismissUsage();
-        setMonitorOpen(true);
+        const serverId = activeServerId();
+        if (!serverId) return;
+        setWorkLive(true);
+        usage.openTasks(serverId, null);
       },
       openTasks(source: HTMLElement | null) {
         const serverId = activeServerId();

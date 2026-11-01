@@ -10,6 +10,7 @@ import type {
 } from "@openbot/contracts/ipc";
 import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
+import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
@@ -97,8 +98,16 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   autopilot?: TicketsAutopilot | undefined;
   /** The Autopilot decision of each team job, by job id. The drawer of the job's own ticket shows it. */
   decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
-  /** Opens the full Monitor page from the Agents panel. Absent: no link. */
-  onOpenMonitor?: (() => void) | undefined;
+  /** The live view of a channel or of all agents. When it is set, it replaces the board. */
+  liveView?: JSX.Element | undefined;
+  /** Goes back from the live view to the board. */
+  onCloseLive?: (() => void) | undefined;
+  /** More content at the end of the Agents panel, such as the channels list. */
+  agentsExtra?: JSX.Element | undefined;
+  /** Opens the live details of an agent: its current task, tool calls and thread. */
+  onAgentDetails?: ((agentId: string) => void) | undefined;
+  /** The agents that have live details. Absent: none. */
+  detailAgentIds?: ReadonlySet<string> | undefined;
 }
 
 /**
@@ -138,6 +147,7 @@ export function TicketsPage(props: TicketsPageProps) {
   /** The Agents panel at the side of the board (it replaces the Monitor grid). Hide keeps it closed. */
   const [liveAgentsOpen, setLiveAgentsOpen] = createSignal(true);
   const [filter, setFilter] = createSignal<TicketsFilter | null>(null);
+  const agentsPanelShown = () => liveAgentsOpen() && !selectedTicket() && !selectedAgent() && props.agents.length > 0;
   const autopilot = () => props.autopilot ?? TICKETS_AUTOPILOT_OFF;
   /** The tickets that match the search in their title, key or text. */
   const found = createMemo(() => {
@@ -183,7 +193,12 @@ export function TicketsPage(props: TicketsPageProps) {
   });
 
   return (
-    <section class="tickets-page" data-ticket-open={selectedTicket() ? "" : undefined} aria-labelledby={headingId}>
+    <section
+      class="tickets-page"
+      data-ticket-open={selectedTicket() ? "" : undefined}
+      data-agents-open={agentsPanelShown() ? "" : undefined}
+      aria-labelledby={headingId}
+    >
       <div class="tickets-page-main">
         <header class="tickets-page-header">
           <Show when={props.onBack}>
@@ -273,7 +288,20 @@ export function TicketsPage(props: TicketsPageProps) {
             onFilter={setFilter}
           />
           <div class="work-body">
-            <div class="tickets-page-scroll">
+            <Show when={props.liveView}>
+              <div class="work-live-view">
+                <Show when={props.onCloseLive}>
+                  {(close) => (
+                    <Button variant="ghost" size="sm" class="work-live-back" onClick={() => close()()}>
+                      <ArrowLeft aria-hidden="true" />
+                      {t("tickets.work.backToBoard")}
+                    </Button>
+                  )}
+                </Show>
+                {props.liveView}
+              </div>
+            </Show>
+            <div class="tickets-page-scroll" hidden={Boolean(props.liveView)}>
               <Show when={!empty() && query().trim() !== "" && found().length === 0}>
                 <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
               </Show>
@@ -325,7 +353,7 @@ export function TicketsPage(props: TicketsPageProps) {
                 </Show>
               </Show>
             </div>
-            <Show when={liveAgentsOpen() && !selectedTicket() && !selectedAgent() && props.agents.length > 0}>
+            <Show when={agentsPanelShown()}>
               <WorkAgentsPanel
                 agents={props.agents}
                 tickets={props.tickets}
@@ -333,7 +361,9 @@ export function TicketsPage(props: TicketsPageProps) {
                 onHide={() => setLiveAgentsOpen(false)}
                 onOpenTicket={props.onSelectTicket}
                 onSelectAgent={selectAgent}
-                onOpenMonitor={props.onOpenMonitor}
+                extra={props.agentsExtra}
+                onAgentDetails={props.onAgentDetails}
+                detailAgentIds={props.detailAgentIds}
                 onStopThread={props.onStopThread}
                 onPauseThread={props.onPauseThread}
                 onResumeThread={props.onResumeThread}

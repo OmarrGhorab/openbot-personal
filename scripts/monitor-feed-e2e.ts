@@ -73,7 +73,10 @@ try {
   report.channelId = channel.id;
   report.otherChannelId = other.id;
 
-  await page.getByRole("button", { name: en["app.rail.monitor"], exact: true }).click();
+  // The Monitor is part of the Work page now: its channels list is in the Agents panel.
+  await page.getByRole("button", { name: en["app.rail.tickets"], exact: true }).click();
+  // The first entry is All agents; the next one is the first channel.
+  await page.locator(".work-channel").nth(1).click();
   await openChannel(name);
   await waitFor(page, "the channel header", title, (text) => text === name);
 

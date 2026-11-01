@@ -78,27 +78,6 @@
   flex: 0 0 auto;
 }
 
-.tickets-threads {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--openbot-space-1-5);
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-sm);
-  white-space: nowrap;
-}
-
-.tickets-threads-dot {
-  width: var(--openbot-space-1-5);
-  height: var(--openbot-space-1-5);
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-text-dim);
-}
-
-.tickets-threads[data-busy] .tickets-threads-dot {
-  background: var(--openbot-accent);
-}
-
 /* The title, the Autopilot pill and the summary line under them. */
 .tickets-heading {
   display: flex;
@@ -163,21 +142,21 @@
 }
 
 /*
- * With the ticket panel open the board is narrower: the columns shrink to a compact width so
+ * With the ticket panel or the Agents panel open the board is narrower: the columns shrink to a compact width so
  * Done stays on screen, and the board scrolls sideways only when even that does not fit.
  */
-.tickets-page[data-ticket-open] .tickets-columns {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-columns {
   min-width: calc(5 * 6.5rem + 4 * var(--openbot-space-2));
   grid-template-columns: repeat(5, minmax(6.5rem, 1fr));
   gap: var(--openbot-space-2);
 }
 
 /* Narrow cards stack Approve over Changes instead of letting the labels spill out. */
-.tickets-page[data-ticket-open] .tickets-card-actions {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-card-actions {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.tickets-page[data-ticket-open] .tickets-card-action.ui-button {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-card-action.ui-button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -449,17 +428,19 @@
 }
 
 /* The footer: the agent, and the live pill at the end. */
+/* A narrow card puts the live pill on its own row, so the agent name keeps its room. */
 .tickets-card-footer {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--openbot-space-2);
+  gap: var(--openbot-space-1) var(--openbot-space-2);
 }
 
 .tickets-card-agent {
   display: inline-flex;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 6rem;
   align-items: center;
   gap: var(--openbot-space-2);
 }
@@ -1374,6 +1355,7 @@
 }
 
 .tickets-page-scroll {
+  min-width: 0;
   min-height: 0;
   flex: 1;
   overflow: auto;
@@ -2434,10 +2416,70 @@
   background: var(--openbot-accent);
 }
 
+/* The board shrinks beside the Agents panel and never goes under it. */
 .work-body {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1;
+}
+
+/* The live view of a channel or of all agents, in place of the board. */
+.work-live-view {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 0 var(--openbot-space-4) var(--openbot-space-4);
+}
+
+.work-live-back.ui-button {
+  align-self: flex-start;
+}
+
+.work-agents-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.work-channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  padding-block-start: var(--openbot-space-2);
+  border-block-start: 1px solid var(--openbot-glass-border);
+}
+
+.work-channels-title {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.work-channel.ui-button {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+}
+
+.work-channel-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-channel-count {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
 }
 
 .work-agents {
