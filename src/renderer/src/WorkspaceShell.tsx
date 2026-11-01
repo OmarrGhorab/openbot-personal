@@ -348,6 +348,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
                   onBack={usage.closeUsage}
                   agentsOpen={!tasksAgentsHidden()}
                   onToggleAgents={() => windowPage.setTasksAgentsOpen(tasksAgentsHidden())}
+                  onOpenMonitor={activeServer()?.kind === "local" ? () => windowPage.openMonitor() : undefined}
                 />
               )}
             </Show>

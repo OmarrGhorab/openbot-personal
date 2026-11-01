@@ -55,7 +55,7 @@ export const messages = {
   "app.rail.agents": "الإيجنتات",
   "app.rail.monitor": "المراقبة",
   "app.rail.schedule": "الجدول",
-  "app.rail.tickets": "التذاكر",
+  "app.rail.tickets": "الشغل",
   "app.rail.usage": "الاستخدام",
   "app.rail.marketplace": "السوق",
   "app.rail.settings": "الإعدادات",

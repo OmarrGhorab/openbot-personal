@@ -7,8 +7,8 @@ const header = page.slice(page.indexOf('<header class="tickets-page-header">'), 
 
 describe("ticket 253: the Tickets title row", () => {
   it("keeps the stats out of the title row", () => {
-    expect(header).not.toContain("TicketsSummaryLine");
-    expect(page.slice(page.indexOf("</header>"))).toContain("TicketsSummaryLine");
+    expect(header).not.toContain("WorkLiveStrip");
+    expect(page.slice(page.indexOf("</header>"))).toContain("WorkLiveStrip");
   });
   it("cuts a long title with an ellipsis", () => {
     const css = readFileSync(join(__dirname, "../../../../../packages/ui/src/features/tickets/tickets.css"), "utf8");

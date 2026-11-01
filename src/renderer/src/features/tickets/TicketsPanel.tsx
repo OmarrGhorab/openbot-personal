@@ -29,6 +29,8 @@ export interface TicketsPanelProps {
   onBack?: (() => void) | undefined;
   agentsOpen?: boolean | undefined;
   onToggleAgents?: (() => void) | undefined;
+  /** Opens the full Monitor page from the Work page's Agents panel. */
+  onOpenMonitor?: (() => void) | undefined;
 }
 
 /** How often the page reads the board of a joined server again. A joined server sends no change event here. */
@@ -275,6 +277,7 @@ export function TicketsPanel(props: TicketsPanelProps) {
       onBack={props.onBack}
       agentsOpen={props.agentsOpen}
       onToggleAgents={props.onToggleAgents}
+      onOpenMonitor={props.onOpenMonitor}
       agents={agentList()}
       tickets={tickets()}
       snapshots={snapshots()}
