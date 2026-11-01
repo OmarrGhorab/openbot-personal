@@ -11,6 +11,7 @@ import type {
 import type { AppTextKey } from "@openbot/i18n";
 import { TicketsPage } from "@openbot/ui/features/tickets/TicketsPage";
 import { currentText } from "@openbot/ui/text";
+import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createStore, onCleanup } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { appPort } from "../../app-port";
@@ -29,6 +30,16 @@ export interface TicketsPanelProps {
   onBack?: (() => void) | undefined;
   agentsOpen?: boolean | undefined;
   onToggleAgents?: (() => void) | undefined;
+  /** The live view of a channel. When it is set, it replaces the board. */
+  liveView?: JSX.Element | undefined;
+  /** Goes back from the live view to the board. */
+  onCloseLive?: (() => void) | undefined;
+  /** More content at the end of the Agents panel: the channels list. */
+  agentsExtra?: JSX.Element | undefined;
+  /** Opens the live details of an agent. */
+  onAgentDetails?: ((agentId: string) => void) | undefined;
+  /** The agents that have live details. */
+  detailAgentIds?: ReadonlySet<string> | undefined;
 }
 
 /** How often the page reads the board of a joined server again. A joined server sends no change event here. */
@@ -275,6 +286,11 @@ export function TicketsPanel(props: TicketsPanelProps) {
       onBack={props.onBack}
       agentsOpen={props.agentsOpen}
       onToggleAgents={props.onToggleAgents}
+      liveView={props.liveView}
+      onCloseLive={props.onCloseLive}
+      agentsExtra={props.agentsExtra}
+      onAgentDetails={props.onAgentDetails}
+      detailAgentIds={props.detailAgentIds}
       agents={agentList()}
       tickets={tickets()}
       snapshots={snapshots()}

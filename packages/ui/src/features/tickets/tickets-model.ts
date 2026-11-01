@@ -316,3 +316,46 @@ export function autopilotNext(tickets: readonly BoardTicket[]): BoardTicket | un
 export function hasQuickAdd(status: BoardTicketStatus): boolean {
   return status === "backlog" || status === "queued";
 }
+
+/** The live state of one agent on the Work page: what its open work threads do now. */
+export type WorkAgentState = "working" | "waiting" | "error" | "idle";
+
+/**
+ * The live state of an agent: `error` when a thread's last turn failed, `waiting` when a thread asks a
+ * question or is paused, `working` when a thread runs, else `idle`.
+ */
+export function workAgentState(snapshot: AgentTasksSnapshot | undefined): WorkAgentState {
+  const threads = openThreads(snapshot);
+  if (threads.some((thread) => thread.outcome === "failed")) return "error";
+  if (threads.some((thread) => thread.question || thread.pausedAt)) return "waiting";
+  if (threads.some((thread) => thread.state === "running")) return "working";
+  return "idle";
+}
+
+/** The counts of the Work page's live strip. */
+export interface WorkLiveCounts {
+  working: number;
+  waiting: number;
+  error: number;
+  review: number;
+}
+
+export function workLiveCounts(
+  agents: readonly { id: string }[],
+  tickets: readonly BoardTicket[],
+  snapshots: Readonly<Record<string, AgentTasksSnapshot>>,
+): WorkLiveCounts {
+  const counts: WorkLiveCounts = { working: 0, waiting: 0, error: 0, review: 0 };
+  for (const agent of agents) {
+    const state = workAgentState(snapshots[agent.id]);
+    if (state !== "idle") counts[state] += 1;
+  }
+  counts.review = tickets.filter((ticket) => ticket.status === "needs_review").length;
+  return counts;
+}
+
+/** The ticket that an agent works on now: its running ticket, else its first queued one. */
+export function workAgentTicket(tickets: readonly BoardTicket[], agentId: string): BoardTicket | undefined {
+  const own = laneTickets(tickets, agentId);
+  return own.find((ticket) => ticket.status === "running") ?? own.find((ticket) => ticket.status === "queued");
+}

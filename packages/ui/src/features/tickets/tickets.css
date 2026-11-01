@@ -78,27 +78,6 @@
   flex: 0 0 auto;
 }
 
-.tickets-threads {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--openbot-space-1-5);
-  color: var(--openbot-text-muted);
-  font-size: var(--openbot-text-sm);
-  white-space: nowrap;
-}
-
-.tickets-threads-dot {
-  width: var(--openbot-space-1-5);
-  height: var(--openbot-space-1-5);
-  border-radius: var(--openbot-radius-pill);
-  background: var(--openbot-text-dim);
-}
-
-.tickets-threads[data-busy] .tickets-threads-dot {
-  background: var(--openbot-accent);
-}
-
 /* The title, the Autopilot pill and the summary line under them. */
 .tickets-heading {
   display: flex;
@@ -163,21 +142,21 @@
 }
 
 /*
- * With the ticket panel open the board is narrower: the columns shrink to a compact width so
+ * With the ticket panel or the Agents panel open the board is narrower: the columns shrink to a compact width so
  * Done stays on screen, and the board scrolls sideways only when even that does not fit.
  */
-.tickets-page[data-ticket-open] .tickets-columns {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-columns {
   min-width: calc(5 * 6.5rem + 4 * var(--openbot-space-2));
   grid-template-columns: repeat(5, minmax(6.5rem, 1fr));
   gap: var(--openbot-space-2);
 }
 
 /* Narrow cards stack Approve over Changes instead of letting the labels spill out. */
-.tickets-page[data-ticket-open] .tickets-card-actions {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-card-actions {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.tickets-page[data-ticket-open] .tickets-card-action.ui-button {
+.tickets-page:is([data-ticket-open], [data-agents-open]) .tickets-card-action.ui-button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -449,17 +428,19 @@
 }
 
 /* The footer: the agent, and the live pill at the end. */
+/* A narrow card puts the live pill on its own row, so the agent name keeps its room. */
 .tickets-card-footer {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--openbot-space-2);
+  gap: var(--openbot-space-1) var(--openbot-space-2);
 }
 
 .tickets-card-agent {
   display: inline-flex;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 6rem;
   align-items: center;
   gap: var(--openbot-space-2);
 }
@@ -1374,6 +1355,7 @@
 }
 
 .tickets-page-scroll {
+  min-width: 0;
   min-height: 0;
   flex: 1;
   overflow: auto;
@@ -2352,4 +2334,261 @@
 }
 .tickets-page-stats {
   padding: 0 var(--openbot-space-6) var(--openbot-space-2);
+}
+
+/* The Work page (Tickets + Monitor): the live strip, the board and the Agents panel beside it. */
+.work-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.work-live-label {
+  color: var(--openbot-text-dim);
+  font-size: var(--openbot-text-xs);
+  text-transform: uppercase;
+}
+
+.work-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-1) var(--openbot-space-2);
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-bg-surface);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.work-live-chip strong {
+  color: var(--openbot-text);
+  font-size: var(--openbot-text-sm);
+}
+
+.work-live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-text-dim);
+}
+
+.work-live-dot[data-state="working"] {
+  background: var(--openbot-success);
+}
+
+.work-live-dot[data-state="waiting"] {
+  background: var(--openbot-warning);
+}
+
+.work-live-dot[data-state="error"] {
+  background: var(--openbot-danger);
+}
+
+.work-live-dot[data-state="review"] {
+  background: var(--openbot-accent);
+}
+
+.work-live-threads {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-2);
+  margin-inline-start: auto;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.work-live-meter {
+  position: relative;
+  width: 5rem;
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: var(--openbot-radius-pill);
+  background: var(--openbot-glass-border);
+}
+
+.work-live-meter-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--openbot-accent);
+}
+
+/* The board shrinks beside the Agents panel and never goes under it. */
+.work-body {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+/* The live view of a channel or of all agents, in place of the board. */
+.work-live-view {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 0 var(--openbot-space-4) var(--openbot-space-4);
+}
+
+.work-live-back.ui-button {
+  align-self: flex-start;
+}
+
+.work-agents-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--openbot-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.work-channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  padding-block-start: var(--openbot-space-2);
+  border-block-start: 1px solid var(--openbot-glass-border);
+}
+
+.work-channels-title {
+  margin: 0;
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.work-channel.ui-button {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: var(--openbot-space-2);
+}
+
+.work-channel-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-channel-count {
+  color: var(--openbot-text-secondary);
+  font-size: var(--openbot-text-xs);
+}
+
+.work-agents {
+  display: flex;
+  width: 16rem;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  margin-block-end: var(--openbot-space-4);
+  margin-inline-end: var(--openbot-space-4);
+  padding: var(--openbot-space-3);
+  border: 1px solid var(--openbot-glass-border);
+  border-radius: var(--openbot-radius-lg);
+  background: var(--openbot-bg-surface);
+  overflow: hidden;
+}
+
+.work-agents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.work-agents-header h3 {
+  margin: 0;
+  font-size: var(--openbot-text-sm);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.work-agents-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--openbot-space-2);
+  overflow: auto;
+}
+
+.work-agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--openbot-space-1);
+  padding: var(--openbot-space-2);
+  border-radius: var(--openbot-radius-md);
+  background: color-mix(in srgb, var(--openbot-text) 4%, transparent);
+}
+
+.work-agent-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbot-space-2);
+}
+
+.work-agent-who.ui-button,
+.work-agent-line.ui-button {
+  min-width: 0;
+  height: auto;
+  justify-content: flex-start;
+  padding: 0;
+}
+
+.work-agent-who.ui-button {
+  gap: var(--openbot-space-2);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.work-agent-avatar {
+  width: var(--openbot-icon-lg);
+  height: var(--openbot-icon-lg);
+}
+
+.work-agent-name,
+.work-agent-line span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-agent-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1);
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.work-agent-line {
+  margin: 0;
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-text-xs);
+}
+
+.work-agent-actions {
+  display: flex;
+  gap: var(--openbot-space-1);
+}
+
+.tickets-card-noagent {
+  color: var(--openbot-text-dim);
+  white-space: normal;
+}
+
+.tickets-card-auto[data-idle] {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--openbot-text-dim);
+}
+
+.ticket-drawer-start.ui-button {
+  flex: 1 1 100%;
 }

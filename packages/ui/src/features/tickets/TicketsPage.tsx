@@ -10,17 +10,18 @@ import type {
 } from "@openbot/contracts/ipc";
 import { ArrowLeft, Button, IconButton, Input, PanelLeft, Plus, RefreshCw } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
+import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, createUniqueId, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { TicketDrawer } from "./TicketDrawer";
 import { TicketsAgentPanel, type TicketsThreadControls } from "./TicketsAgentPanel";
 import {
   type TicketReviewActions,
+  type TicketStartActions,
   TicketsAutopilotPill,
   type TicketsBoardData,
   TicketsColumns,
   TicketsFilterChips,
   TicketsLanes,
-  TicketsSummaryLine,
   TicketsViewSwitch,
 } from "./TicketsBoard";
 import { TicketsChangesDialog } from "./TicketsChangesDialog";
@@ -36,6 +37,7 @@ import {
   type TicketsFilter,
   type TicketsView,
 } from "./tickets-model";
+import { WorkAgentsPanel, WorkAgentsShow, WorkLiveStrip } from "./WorkLive";
 
 export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControls {
   /** The board lives on this computer. False on a joined server: the page then shows a notice. */
@@ -96,6 +98,16 @@ export interface TicketsPageProps extends TicketsBoardData, TicketsThreadControl
   autopilot?: TicketsAutopilot | undefined;
   /** The Autopilot decision of each team job, by job id. The drawer of the job's own ticket shows it. */
   decisions?: Readonly<Record<string, RavenAutopilotDecision>> | undefined;
+  /** The live view of a channel or of all agents. When it is set, it replaces the board. */
+  liveView?: JSX.Element | undefined;
+  /** Goes back from the live view to the board. */
+  onCloseLive?: (() => void) | undefined;
+  /** More content at the end of the Agents panel, such as the channels list. */
+  agentsExtra?: JSX.Element | undefined;
+  /** Opens the live details of an agent: its current task, tool calls and thread. */
+  onAgentDetails?: ((agentId: string) => void) | undefined;
+  /** The agents that have live details. Absent: none. */
+  detailAgentIds?: ReadonlySet<string> | undefined;
 }
 
 /**
@@ -127,7 +139,15 @@ export function TicketsPage(props: TicketsPageProps) {
     const id = changesId();
     return id ? props.tickets.find((ticket) => ticket.id === id && ticket.taskId !== null) : undefined;
   };
+  /** Assign and Start on the card of a ticket with no work yet. */
+  const start: TicketStartActions = {
+    onAssign: (ticketId, owner) => props.onAssign(ticketId, owner),
+    onStart: (ticketId, owner) => void props.onStart({ agentId: owner, ticketId }),
+  };
+  /** The Agents panel at the side of the board (it replaces the Monitor grid). Hide keeps it closed. */
+  const [liveAgentsOpen, setLiveAgentsOpen] = createSignal(true);
   const [filter, setFilter] = createSignal<TicketsFilter | null>(null);
+  const agentsPanelShown = () => liveAgentsOpen() && !selectedTicket() && !selectedAgent() && props.agents.length > 0;
   const autopilot = () => props.autopilot ?? TICKETS_AUTOPILOT_OFF;
   /** The tickets that match the search in their title, key or text. */
   const found = createMemo(() => {
@@ -173,7 +193,12 @@ export function TicketsPage(props: TicketsPageProps) {
   });
 
   return (
-    <section class="tickets-page" data-ticket-open={selectedTicket() ? "" : undefined} aria-labelledby={headingId}>
+    <section
+      class="tickets-page"
+      data-ticket-open={selectedTicket() ? "" : undefined}
+      data-agents-open={agentsPanelShown() ? "" : undefined}
+      aria-labelledby={headingId}
+    >
       <div class="tickets-page-main">
         <header class="tickets-page-header">
           <Show when={props.onBack}>
@@ -226,6 +251,9 @@ export function TicketsPage(props: TicketsPageProps) {
                 onValueChange={setQuery}
               />
               <TicketsViewSwitch view={view()} onChange={setView} />
+              <Show when={!liveAgentsOpen()}>
+                <WorkAgentsShow onShow={() => setLiveAgentsOpen(true)} />
+              </Show>
               <Show when={canSync()}>
                 <Button size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
                   <RefreshCw aria-hidden="true" />
@@ -246,7 +274,7 @@ export function TicketsPage(props: TicketsPageProps) {
           {/* ticket 253: the stats live in the page body, never in the 32 px title row. */}
           <div class="tickets-page-stats">
             <Show when={props.loaded}>
-              <TicketsSummaryLine tickets={props.tickets} autopilot={autopilot()} />
+              <WorkLiveStrip agents={props.agents} tickets={props.tickets} snapshots={props.snapshots} />
             </Show>
             <Show when={empty()}>
               <p class="tickets-page-subtitle tickets-muted">{t("tickets.empty.title")}</p>
@@ -259,54 +287,87 @@ export function TicketsPage(props: TicketsPageProps) {
             filter={filter()}
             onFilter={setFilter}
           />
-          <div class="tickets-page-scroll">
-            <Show when={!empty() && query().trim() !== "" && found().length === 0}>
-              <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
+          <div class="work-body">
+            <Show when={props.liveView}>
+              <div class="work-live-view">
+                <Show when={props.onCloseLive}>
+                  {(close) => (
+                    <Button variant="ghost" size="sm" class="work-live-back" onClick={() => close()()}>
+                      <ArrowLeft aria-hidden="true" />
+                      {t("tickets.work.backToBoard")}
+                    </Button>
+                  )}
+                </Show>
+                {props.liveView}
+              </div>
             </Show>
-            {/* While the first list loads the board shows its empty columns, never the empty state. */}
-            <Show
-              when={!empty()}
-              fallback={
-                <TicketsEmptyState
-                  syncLabel={emptySyncLabel()}
-                  onSync={() => setSyncOpen(true)}
-                  onCreate={props.onCreate}
-                />
-              }
-            >
+            <div class="tickets-page-scroll" hidden={Boolean(props.liveView)}>
+              <Show when={!empty() && query().trim() !== "" && found().length === 0}>
+                <TicketsNotice title={t("tickets.search.none")} body={t("tickets.search.noneBody")} />
+              </Show>
+              {/* While the first list loads the board shows its empty columns, never the empty state. */}
               <Show
-                when={view() === "agents"}
+                when={!empty()}
                 fallback={
-                  <TicketsColumns
+                  <TicketsEmptyState
+                    syncLabel={emptySyncLabel()}
+                    onSync={() => setSyncOpen(true)}
+                    onCreate={props.onCreate}
+                  />
+                }
+              >
+                <Show
+                  when={view() === "agents"}
+                  fallback={
+                    <TicketsColumns
+                      agents={props.agents}
+                      tickets={shown()}
+                      snapshots={props.snapshots}
+                      selectedTicketId={props.selectedTicketId}
+                      onSelectTicket={props.onSelectTicket}
+                      now={now()}
+                      decisions={props.decisions}
+                      review={review}
+                      start={start}
+                      autopilot={autopilot()}
+                      nextTicketId={nextTicketId()}
+                      onQuickAdd={() => setCreating(true)}
+                    />
+                  }
+                >
+                  <TicketsLanes
                     agents={props.agents}
                     tickets={shown()}
                     snapshots={props.snapshots}
                     selectedTicketId={props.selectedTicketId}
                     onSelectTicket={props.onSelectTicket}
+                    onSelectAgent={selectAgent}
                     now={now()}
                     decisions={props.decisions}
                     review={review}
+                    start={start}
                     autopilot={autopilot()}
                     nextTicketId={nextTicketId()}
                     onQuickAdd={() => setCreating(true)}
                   />
-                }
-              >
-                <TicketsLanes
-                  agents={props.agents}
-                  tickets={shown()}
-                  snapshots={props.snapshots}
-                  selectedTicketId={props.selectedTicketId}
-                  onSelectTicket={props.onSelectTicket}
-                  onSelectAgent={selectAgent}
-                  now={now()}
-                  decisions={props.decisions}
-                  review={review}
-                  autopilot={autopilot()}
-                  nextTicketId={nextTicketId()}
-                  onQuickAdd={() => setCreating(true)}
-                />
+                </Show>
               </Show>
+            </div>
+            <Show when={agentsPanelShown()}>
+              <WorkAgentsPanel
+                agents={props.agents}
+                tickets={props.tickets}
+                snapshots={props.snapshots}
+                onHide={() => setLiveAgentsOpen(false)}
+                onOpenTicket={props.onSelectTicket}
+                onSelectAgent={selectAgent}
+                extra={props.agentsExtra}
+                onAgentDetails={props.onAgentDetails}
+                detailAgentIds={props.detailAgentIds}
+                onStopThread={props.onStopThread}
+                onPauseThread={props.onPauseThread}
+                onResumeThread={props.onResumeThread}
+              />
             </Show>
           </div>
         </Show>

@@ -66,7 +66,6 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
       usageRows={usageRows()}
       customAgentUsage={localAgentUsage()}
       onAgents={() => showSidebarView("agents")}
-      onMonitor={activeServer()?.kind === "local" ? windowPage.openMonitor : undefined}
       onRoutines={() => showSidebarView("routines")}
       onSchedule={windowPage.openSchedule}
       onTasks={tasksAvailable() ? windowPage.openTasks : undefined}

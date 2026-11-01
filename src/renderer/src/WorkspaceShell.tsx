@@ -19,8 +19,6 @@ import { useDirectMessages } from "./features/conversation/direct-messages-conte
 import { WorkspaceConversation } from "./features/conversation/WorkspaceConversation";
 import { WorkspaceDirectConversation } from "./features/conversation/WorkspaceDirectConversation";
 import { useCustomAgentUsagePolling } from "./features/custom-agents/custom-agent-usage-polling";
-import { MonitorPane } from "./features/monitor/MonitorPane";
-import { MonitorSidebarPane } from "./features/monitor/MonitorSidebarPane";
 import { MonitorThreadReturn } from "./features/monitor/MonitorThreadReturn";
 import { MonitorProvider } from "./features/monitor/monitor-context";
 import {
@@ -29,6 +27,7 @@ import {
   desktopMonitorTeamSource,
   type MonitorActions,
 } from "./features/monitor/monitor-port";
+import { WorkTicketsPanel } from "./features/monitor/WorkMonitor";
 import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServerOnboarding";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
@@ -42,7 +41,6 @@ import { WorkspaceServerRail } from "./features/servers/WorkspaceServerRail";
 import { useSettings } from "./features/settings/settings-context";
 import { WorkspaceSidebar } from "./features/sidebar/WorkspaceSidebar";
 import { TicketMergeBridge } from "./features/tickets/TicketMergeBridge";
-import { TicketsPanel } from "./features/tickets/TicketsPanel";
 import { createHostRestartToasts, type HostRestartView } from "./features/updates/host-restart-toast";
 import { useUsage } from "./features/usage/usage-context";
 import { WindowPageView } from "./features/window/WindowPageView";
@@ -102,7 +100,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const { conversations, retryConversation } = useConversation();
   const activeConversation = () => conversations[activeAgent()?.id ?? ""];
   const { activeDirectMember } = useDirectMessages();
-  const { setGlobalSearchVisibility, selectAgent } = useNavigation();
+  const { selectAgent } = useNavigation();
   const agentTasks = useAgentTasks();
   /** The agent popup stops and resumes tasks on this computer, and opens an agent's thread. */
   const monitorActions: MonitorActions = {
@@ -123,8 +121,11 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     // ticket 242: the team page is gone, so a team job opens on Tickets.
     openTeamJob: () => windowPage.openTasks(null),
   };
-  /** The Monitor reads the channels of this computer, so it shows on the local server only. */
-  const monitorOpen = () => windowPage.page() === "monitor" && activeServer()?.kind === "local";
+  /**
+   * The live data of the old Monitor reads the channels of this computer. It now shows in the Work
+   * page, so it reads while that page is open on the local server.
+   */
+  const monitorOpen = () => windowPage.page() === "tasks" && activeServer()?.kind === "local";
   /** The channels the Monitor lists: the channels of the sidebar, without the deleted ones. */
   const monitorChannels = createMemo(() =>
     channels.supported() ? channels.state.channels.filter((channel) => !channel.archived) : [],
@@ -139,7 +140,6 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const middlePane = createMemo(() => {
     if (chatWindow) return "agent";
     if (windowPage.page() === "tasks") return "tasks";
-    if (monitorOpen()) return "monitor";
     if (agentSetupOpen()) return "agent-setup";
     if (channelOpen()) return "channel";
     if (activeDirectMember()) return "direct";
@@ -320,13 +320,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
             left={
               <Show when={!chatWindow}>
                 <WorkspaceServerRail />
-                <Show when={monitorOpen()} fallback={<WorkspaceSidebar peopleEnabled={activePeopleEnabled()} />}>
-                  <MonitorSidebarPane
-                    channels={monitorChannels()}
-                    onCreateChannel={channels.supported() ? channels.create : undefined}
-                    onOpenSearch={() => setGlobalSearchVisibility(true)}
-                  />
-                </Show>
+                <WorkspaceSidebar peopleEnabled={activePeopleEnabled()} />
               </Show>
             }
             page={<WindowPageView />}
@@ -342,19 +336,20 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           >
             <Show when={middlePane() === "tasks" ? usage.state.serverId : null}>
               {(serverId) => (
-                <TicketsPanel
+                <WorkTicketsPanel
                   serverId={serverId()}
                   hostName={servers().find((server) => server.id === serverId())?.name ?? t("app.page.serverFallback")}
                   onBack={usage.closeUsage}
                   agentsOpen={!tasksAgentsHidden()}
                   onToggleAgents={() => windowPage.setTasksAgentsOpen(tasksAgentsHidden())}
+                  live={monitorOpen()}
+                  channels={monitorChannels()}
+                  liveOpen={windowPage.workLive()}
+                  onLiveOpen={windowPage.setWorkLive}
                 />
               )}
             </Show>
-            <Show when={middlePane() === "monitor"}>
-              <MonitorPane />
-            </Show>
-            <Show when={serverOnboardingOpen() && middlePane() !== "tasks" && middlePane() !== "monitor"}>
+            <Show when={serverOnboardingOpen() && middlePane() !== "tasks"}>
               <WorkspaceServerOnboarding />
             </Show>
             <Show when={middlePane() === "agent-setup" && !serverOnboardingOpen()}>

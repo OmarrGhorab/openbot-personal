@@ -4,7 +4,19 @@ import type {
   BoardTicketStatus,
   RavenAutopilotDecision,
 } from "@openbot/contracts/ipc";
-import { Button, GitMerge, IconButton, Plus, SlidingTabs, Sparkles, Zap } from "@openbot/ui";
+import {
+  Button,
+  buttonVariants,
+  ChevronDown,
+  DropdownMenu,
+  GitMerge,
+  IconButton,
+  Play,
+  Plus,
+  SlidingTabs,
+  Sparkles,
+  Zap,
+} from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { AgentAvatar } from "@openbot/ui/features/agents/AgentAvatar";
 import { useText } from "@openbot/ui/text";
@@ -14,7 +26,6 @@ import { TicketStackPill } from "./TicketAutopilotDecision";
 import { TicketTypeChip } from "./TicketTypeChip";
 import {
   autopilotRunning,
-  boardThreads,
   columnTickets,
   filterTickets,
   hasQuickAdd,
@@ -137,13 +148,12 @@ function TicketsChip(props: {
 
 /**
  * The filter chips above the board: every agent, one chip for each agent with its ticket count, and the
- * unassigned tickets. A second click on a chip clears the filter. At the end, the running threads of all agents.
+ * unassigned tickets. A second click on a chip clears the filter. The live strip shows the running threads.
  */
 export function TicketsFilterChips(
   props: TicketsBoardData & { filter: TicketsFilter | null; onFilter: (filter: TicketsFilter | null) => void },
 ) {
   const { t } = useText();
-  const threads = () => boardThreads(props.agents, props.snapshots);
   const toggle = (filter: TicketsFilter) => props.onFilter(sameTicketsFilter(props.filter, filter) ? null : filter);
   const unassigned: TicketsFilter = { kind: "unassigned" };
   return (
@@ -181,14 +191,6 @@ export function TicketsFilterChips(
           onPress={() => toggle(unassigned)}
         />
       </fieldset>
-      <span
-        class="tickets-threads"
-        data-busy={threads().running > 0 ? "" : undefined}
-        title={t("tickets.agent.threadsHint", { limit: threads().limit })}
-      >
-        <span class="tickets-threads-dot" aria-hidden="true" />
-        {t("tickets.agent.threads", threads())}
-      </span>
     </div>
   );
 }
@@ -200,6 +202,25 @@ export interface TicketReviewActions {
   onRequestChanges: (ticketId: string) => void;
 }
 
+/**
+ * What the card of a ticket with no work yet does: Assign picks its agent, Start starts it with that agent.
+ * Absent: the card shows neither.
+ */
+export interface TicketStartActions {
+  onAssign: (ticketId: string, agentId: string) => void;
+  onStart: (ticketId: string, agentId: string) => void;
+}
+
+/** A ticket that the card can start: in Backlog or Queued, with no work thread and no team job. */
+export function canStartFromCard(ticket: BoardTicket): boolean {
+  return (
+    (ticket.status === "backlog" || ticket.status === "queued") &&
+    !ticket.taskId &&
+    !ticket.threadId &&
+    ticket.teamJobId === null
+  );
+}
+
 export interface TicketCardProps extends TicketsBoardData {
   ticket: BoardTicket;
   selected: boolean;
@@ -207,6 +228,7 @@ export interface TicketCardProps extends TicketsBoardData {
   /** The compact card of the lanes: no key in the top row. */
   compact?: boolean | undefined;
   review?: TicketReviewActions | undefined;
+  start?: TicketStartActions | undefined;
 }
 
 /**
@@ -326,10 +348,8 @@ export function TicketCard(props: TicketCardProps) {
             when={agent()}
             fallback={
               <span class="tickets-card-agent">
-                <span class="tickets-card-auto" aria-hidden="true">
-                  <Sparkles />
-                </span>
-                <span class="tickets-card-agent-name">{t("tickets.card.ravenPicks")}</span>
+                <span class="tickets-card-auto" data-idle="" aria-hidden="true" />
+                <span class="tickets-card-agent-name tickets-card-noagent">{t("tickets.card.noAgent")}</span>
               </span>
             }
           >
@@ -356,6 +376,9 @@ export function TicketCard(props: TicketCardProps) {
           </Show>
         </span>
       </TicketsPressable>
+      <Show when={props.start && canStartFromCard(props.ticket) ? props.start : undefined}>
+        {(actions) => <TicketCardStart ticket={props.ticket} agents={props.agents} actions={actions()} />}
+      </Show>
       <Show when={reviewing()}>
         {(actions) => (
           <div class="tickets-card-actions">
@@ -379,10 +402,58 @@ export function TicketCard(props: TicketCardProps) {
   );
 }
 
+/** Assign and Start on the card of a ticket with no work yet. Start needs an agent first. */
+function TicketCardStart(props: {
+  ticket: BoardTicket;
+  agents: TicketsBoardData["agents"];
+  actions: TicketStartActions;
+}) {
+  const { t } = useText();
+  const owner = () => props.ticket.agentId;
+  return (
+    <div class="tickets-card-actions">
+      <DropdownMenu.Root placement="bottom-start" gutter={4}>
+        <DropdownMenu.Trigger class={`${buttonVariants({ variant: "outline", size: "sm" })} tickets-card-action`}>
+          {owner() ? t("tickets.card.reassign") : t("tickets.card.assign")}
+          <ChevronDown aria-hidden="true" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content>
+            <For each={props.agents} keyed={(agent) => agent.id}>
+              {(agent) => (
+                <DropdownMenu.Item
+                  disabled={agent().id === owner()}
+                  onSelect={() => props.actions.onAssign(props.ticket.id, agent().id)}
+                >
+                  {agent().name}
+                </DropdownMenu.Item>
+              )}
+            </For>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+      <Button
+        size="sm"
+        class="tickets-card-action"
+        disabled={!owner()}
+        title={owner() ? undefined : t("tickets.new.needsAgent")}
+        onClick={() => {
+          const agentId = owner();
+          if (agentId) props.actions.onStart(props.ticket.id, agentId);
+        }}
+      >
+        <Play aria-hidden="true" />
+        {t("tickets.card.start")}
+      </Button>
+    </div>
+  );
+}
+
 interface TicketsGridProps extends TicketsBoardData {
   selectedTicketId: string | null;
   onSelectTicket: (ticketId: string) => void;
   review?: TicketReviewActions | undefined;
+  start?: TicketStartActions | undefined;
   /** Raven Autopilot as the board shows it. Absent: off. */
   autopilot?: TicketsAutopilot | undefined;
   /** The ticket that Raven picks next, marked above its card while Autopilot is on. */
@@ -443,6 +514,7 @@ function TicketsColumn(props: TicketsGridProps & { status: BoardTicketStatus }) 
                 selected={props.selectedTicketId === ticket().id}
                 onSelect={props.onSelectTicket}
                 review={props.review}
+                start={props.start}
               />
             </div>
           )}
@@ -515,7 +587,7 @@ export function TicketsLanes(props: TicketsGridProps & { onSelectAgent: (agentId
               </span>
               <span class="tickets-lane-name">{t("tickets.card.unassigned")}</span>
             </span>
-            <span class="tickets-lane-count">{t("tickets.card.ravenPicks")}</span>
+            <span class="tickets-lane-count">{t("tickets.card.noAgentShort")}</span>
           </div>
         </TicketsLane>
       </Show>
@@ -557,6 +629,7 @@ function TicketsLane(props: TicketsGridProps & { label: string; children: JSX.El
                     onSelect={props.onSelectTicket}
                     compact
                     review={props.review}
+                    start={props.start}
                   />
                 </div>
               )}
