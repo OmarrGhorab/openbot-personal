@@ -8,13 +8,16 @@ const page = readFileSync(join(root, "packages/ui/src/features/tickets/TicketsPa
 
 // The board's columns have to fit beside the open ticket panel (#269). A `:has(> .tickets-side)`
 // rule broke the dev CSS build, so the page marks itself instead.
-describe("tickets board with the ticket panel open", () => {
-  it("marks the page while a ticket is open", () => {
-    expect(page).toMatch(/class="tickets-page" data-ticket-open=\{selectedTicket\(\) \? "" : undefined\}/);
+describe("tickets board with the ticket or Agents panel open", () => {
+  it("marks the page while a ticket or the Agents panel is open", () => {
+    expect(page).toMatch(/class="tickets-page"\s+data-ticket-open=\{selectedTicket\(\) \? "" : undefined\}/);
+    expect(page).toMatch(/data-agents-open=\{agentsPanelShown\(\) \? "" : undefined\}/);
   });
 
   it("shrinks the five columns to a compact width and keeps the panel from growing", () => {
-    const rule = css.match(/\.tickets-page\[data-ticket-open\] \.tickets-columns \{([^}]*)\}/)?.[1] ?? "";
+    const rule =
+      css.match(/\.tickets-page:is\(\[data-ticket-open\], \[data-agents-open\]\) \.tickets-columns \{([^}]*)\}/)?.[1] ??
+      "";
     expect(rule).toContain("repeat(5, minmax(6.5rem, 1fr))");
     expect(rule).toContain("min-width: calc(5 * 6.5rem");
     expect(css).toMatch(/\.tickets-side \{[^}]*width: min\(26rem, 40%\);[^}]*min-width: 18rem;/);

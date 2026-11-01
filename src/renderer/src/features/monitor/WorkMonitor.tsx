@@ -10,7 +10,7 @@ import { MonitorToolCallsDialog } from "./MonitorToolCallsDialog";
 import { useMonitor } from "./monitor-context";
 import { countMonitorChannel } from "./monitor-overview";
 
-export interface WorkChannelsProps {
+interface WorkChannelsProps {
   /** The channels that the live view lists, as the channel list of the client has them. */
   channels: readonly ChannelSummary[];
   /** Opens the live view in place of the board. */
@@ -21,7 +21,7 @@ export interface WorkChannelsProps {
  * The channels part of the Work page's Agents panel. It replaces the Monitor sidebar: each channel with
  * its live counts, and All agents. A click opens the live view of the channel in the Work page.
  */
-export function WorkChannels(props: WorkChannelsProps) {
+function WorkChannels(props: WorkChannelsProps) {
   const { t } = useText();
   const monitor = useMonitor();
   const channels = createMemo(() =>
