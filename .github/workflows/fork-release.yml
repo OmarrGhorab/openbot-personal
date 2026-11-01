@@ -223,8 +223,9 @@ jobs:
           bun run install:codex-runtime
           bun run install:claude-runtime
           bun run install:grok-runtime
+      # PowerShell, like the upstream release: under Git Bash, `tar` is GNU tar, which reads the
+      # runtime archive's `C:\...` path as a remote host and fails with "Cannot connect to C".
       - name: Install the Windows remote desktop runtime
-        shell: bash
         run: |
           bun scripts/install-remote-desktop-runtime.ts win32 x64
           bun run verify:remote-desktop-runtime --windows
